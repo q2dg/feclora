@@ -184,6 +184,19 @@ class DeploymentJournalTests(unittest.TestCase):
             with self.assertRaisesRegex(DeploymentJournalError, "permissions or ownership are unsafe"):
                 DeploymentJournal.inspect(path)
 
+    def test_journal_rejects_hard_link_when_reopened(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            alias = os.path.join(directory, "alias.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            journal({
+                "timestamp": "2026-11-08T12:00:00+00:00",
+                "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+            })
+            os.link(path, alias)
+            with self.assertRaisesRegex(DeploymentJournalError, "private regular file"):
+                DeploymentJournal(path, JOB_ID)
+
     def test_journal_rejects_hard_link_before_appending(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
