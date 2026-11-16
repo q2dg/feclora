@@ -108,6 +108,23 @@ class PXEAnswerTests(unittest.TestCase):
         with self.assertRaises(PXEAnswerError):
             parse_pxe_answer(raw)
 
+    def test_rejects_duplicate_nested_json_fields(self):
+        raw = json.dumps(self.valid_answer())
+        raw = raw.replace(
+            '"target": {"wwn": "0x5000abcd1234", "serial": null}',
+            '"target": {"wwn": "0x5000abcd1234", "wwn": "0x5000abcd9999", "serial": null}',
+        )
+        with self.assertRaisesRegex(PXEAnswerError, "duplicate answer field: wwn"):
+            parse_pxe_answer(raw)
+
+    def test_rejects_non_object_json_root(self):
+        with self.assertRaisesRegex(PXEAnswerError, "JSON object"):
+            parse_pxe_answer(b'["not", "an", "answer"]')
+
+    def test_rejects_invalid_utf8_answer(self):
+        with self.assertRaisesRegex(PXEAnswerError, "UTF-8 JSON"):
+            parse_pxe_answer(b'{"schema_version":2}\xff')
+
     def test_rejects_invalid_json_and_oversized_document(self):
         with self.assertRaises(PXEAnswerError):
             parse_pxe_answer("{")
