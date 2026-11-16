@@ -413,7 +413,7 @@ not implementation authorization.
 
 ### New implementation work
 
-- [x] **Proportional whole-disk restore:** the complete local rescue path is implemented for the supported final ext2/3/4 and NTFS partition case: read-only preview, private staged filesystem shrink, GPT rewrite/validation, exact target and identity checks, typed destructive confirmation, bounded destination write and full read-back SHA-256 verification. Remaining: execute and close exact-commit CI/fault-injection coverage; keep all unsupported layouts fail-closed. See [staged proportional shrink](STAGED-PROPORTIONAL-SHRINK.md).
+- [x] **Proportional whole-disk restore:** the complete local rescue path is implemented for the supported final ext2/3/4 and NTFS partition case: read-only preview, private staged filesystem shrink, GPT rewrite/validation, exact target and identity checks, typed destructive confirmation, bounded destination write and full read-back SHA-256 verification. Cockpit now exposes the proportional path through the durable local-operation worker; remaining: execute and close exact-commit CI/fault-injection coverage; keep all unsupported layouts fail-closed. See [staged proportional shrink](STAGED-PROPORTIONAL-SHRINK.md).
 
 - [ ] **Read-error-tolerant capture (4):** evaluate GNU ddrescue as an optional
   capture engine for whole disks and supported partitions. Keep a persistent
