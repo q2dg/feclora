@@ -38,6 +38,7 @@ _OPERATION_DEFAULT_PHASE = {
     "capture_partition": "capturing",
     "capture_logical_volume": "capturing",
     "restore_disk": "restoring",
+    "restore_proportional_disk": "restoring",
     "restore_partition": "restoring",
     "restore_logical_volume": "restoring",
     "clone_disk": "cloning",
