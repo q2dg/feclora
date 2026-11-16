@@ -13,6 +13,15 @@ class LuksInventoryError(RuntimeError):
     """LUKS metadata could not be read or parsed safely."""
 
 
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate LUKS2 metadata field")
+        result[key] = value
+    return result
+
+
 _VERSION = re.compile(r"^Version:\s*(\d+)\s*$", re.MULTILINE)
 _UUID = re.compile(r"^UUID:\s*([0-9a-fA-F-]{36})\s*$", re.MULTILINE)
 _CIPHER = re.compile(r"^Cipher name:\s*(\S+)\s*$", re.MULTILINE)
@@ -33,9 +42,9 @@ def _luks_devices(devices: list[dict[str, Any]]):
 def parse_luks_metadata(payload: str) -> dict[str, Any]:
     """Return a minimal LUKS2 summary without exposing token/keyslot payloads."""
     try:
-        metadata = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise LuksInventoryError("cryptsetup returned invalid LUKS2 JSON metadata") from exc
+        metadata = json.loads(payload, object_pairs_hook=_unique_object)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise LuksInventoryError("cryptsetup returned invalid or duplicate-field LUKS2 JSON metadata") from exc
     if not isinstance(metadata, dict):
         raise LuksInventoryError("LUKS2 metadata must be a JSON object")
     luks_uuid = metadata.get("uuid")
@@ -66,6 +75,8 @@ def parse_luks_metadata(payload: str) -> dict[str, Any]:
         raise LuksInventoryError("LUKS2 metadata contains conflicting encryption segment settings")
     metadata_size = config.get("json_size")
     if metadata_size is not None:
+        if isinstance(metadata_size, bool) or not isinstance(metadata_size, (str, int)):
+            raise LuksInventoryError("LUKS2 metadata contains an invalid JSON metadata size")
         try:
             metadata_size = int(metadata_size)
         except (TypeError, ValueError) as exc:
