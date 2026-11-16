@@ -6,6 +6,11 @@ title: PXE Live and unattended answer files
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
+![Illustrative PXE boot workflow]({{ '/assets/mockups/pxe-workflow.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. Interactive Live boot and unattended answer execution are separate paths.*
+
+
 # PXE Live and unattended answer files
 
 ## Intended operating model
