@@ -1681,6 +1681,56 @@ const APP_UI_TEXT_REPOSITORY_FEEDBACK = {
 };
 for (const [language, values] of Object.entries(APP_UI_TEXT_REPOSITORY_FEEDBACK)) Object.assign(DICTS[language], values);
 
+const APP_UI_TEXT_PXE_DEPLOYMENT_FEEDBACK = {
+  ca: {
+    "Shared DeploymentJob JSON generated. Review it, save it if needed, then publish it.": "S'ha generat el JSON compartit de DeploymentJob. Revisa'l, desa'l si cal i publica'l després.",
+    "Generate or import a shared DeploymentJob JSON document first.": "Primer genera o importa un document JSON compartit de DeploymentJob.",
+    "The editor must contain a valid unattended shared DeploymentJob.": "L'editor ha de contenir un DeploymentJob compartit vàlid per a execució desatesa.",
+    "Select a local JSON DeploymentJob or legacy unattended answer file.": "Selecciona un fitxer local JSON de DeploymentJob o un fitxer de resposta desatesa del format antic.",
+    "The JSON file must be between 1 byte and 64 KiB.": "El fitxer JSON ha de tenir entre 1 byte i 64 KiB.",
+    "Enter an HTTP or HTTPS URL.": "Introdueix una URL HTTP o HTTPS.",
+    "Enter the DeploymentJob UUID contained in the remote JSON file.": "Introdueix l'UUID del DeploymentJob que conté el fitxer JSON remot.",
+    "Select a configured image repository.": "Selecciona un repositori d'imatges configurat.",
+    "Enter the relative path to the JSON answer file.": "Introdueix el camí relatiu del fitxer de resposta JSON.",
+    "Revoke this job's published PXE answer? Clients that have already downloaded it may still possess a copy.": "Vols revocar la resposta PXE publicada d'aquesta tasca? Els clients que ja l'hagin descarregada encara en poden conservar una còpia.",
+    "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving.": "S'ha importat el DeploymentJob PXE. L'inici PXE automàtic i la interfície DHCP s'han convertit en valors segurs per defecte d'ISO/Client; selecciona la interfície del servidor i revisa el transport abans de desar.",
+    "DeploymentJob imported. Review all fields and the destination network interface before saving.": "S'ha importat el DeploymentJob. Revisa tots els camps i la interfície de xarxa de destinació abans de desar.",
+    "DeploymentJob JSON must be between 1 byte and 64 KiB.": "El JSON de DeploymentJob ha de tenir entre 1 byte i 64 KiB.",
+    "PXE boot settings were converted to safe ISO/Client defaults.": "La configuració d'arrencada PXE s'ha convertit en valors segurs per defecte d'ISO/Client.",
+    "Persistent deployment service started. Clients may now connect; no disk operation starts until the Server operator explicitly authorizes and starts it.": "S'ha iniciat el servei persistent de desplegament. Els clients ja es poden connectar; no començarà cap operació de disc fins que l'operador del servidor l'autoritzi i l'iniciï explícitament.",
+    "Deployment service command accepted.": "S'ha acceptat l'ordre del servei de desplegament.",
+    "Select an active Client interface/address before testing connectivity.": "Selecciona una interfície/adreça activa del client abans de provar la connectivitat.",
+    "Server reachability and authenticated TLS identity verified; job inspected. No Client registration or disk operation has started.": "S'ha verificat l'abastabilitat del servidor i la identitat TLS autenticada; s'ha inspeccionat la tasca. No s'ha iniciat cap registre de client ni cap operació de disc.",
+    "Client service started but reported a failure before completion; inspect its status detail.": "El servei del client s'ha iniciat però ha notificat un error abans de completar-se; consulta els detalls del seu estat.",
+    "Client service started. It will report READY only after local target approval, and will write only after the Server operator explicitly authorizes and starts the job.": "S'ha iniciat el servei del client. Només informarà READY després de l'aprovació local del destí i només hi escriurà quan l'operador del servidor autoritzi i iniciï explícitament la tasca.",
+    "Copied the generated shared DeploymentJob into the bundle form. Verify the selected repository and image match.": "S'ha copiat el DeploymentJob compartit generat al formulari del paquet. Verifica que el repositori i la imatge seleccionats coincideixin."
+  },
+  es: {
+    "Shared DeploymentJob JSON generated. Review it, save it if needed, then publish it.": "Se ha generado el JSON compartido de DeploymentJob. Revísalo, guárdalo si es necesario y publícalo después.",
+    "Generate or import a shared DeploymentJob JSON document first.": "Primero genera o importa un documento JSON compartido de DeploymentJob.",
+    "The editor must contain a valid unattended shared DeploymentJob.": "El editor debe contener un DeploymentJob compartido válido para ejecución desatendida.",
+    "Select a local JSON DeploymentJob or legacy unattended answer file.": "Selecciona un archivo local JSON de DeploymentJob o un archivo de respuesta desatendida del formato anterior.",
+    "The JSON file must be between 1 byte and 64 KiB.": "El archivo JSON debe tener entre 1 byte y 64 KiB.",
+    "Enter an HTTP or HTTPS URL.": "Introduce una URL HTTP o HTTPS.",
+    "Enter the DeploymentJob UUID contained in the remote JSON file.": "Introduce el UUID del DeploymentJob que contiene el archivo JSON remoto.",
+    "Select a configured image repository.": "Selecciona un repositorio de imágenes configurado.",
+    "Enter the relative path to the JSON answer file.": "Introduce la ruta relativa del archivo de respuesta JSON.",
+    "Revoke this job's published PXE answer? Clients that have already downloaded it may still possess a copy.": "¿Quieres revocar la respuesta PXE publicada de esta tarea? Los clientes que ya la hayan descargado pueden conservar una copia.",
+    "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving.": "Se ha importado el DeploymentJob PXE. El inicio PXE automático y la interfaz DHCP se han convertido en valores seguros por defecto de ISO/Client; selecciona la interfaz del servidor y revisa el transporte antes de guardar.",
+    "DeploymentJob imported. Review all fields and the destination network interface before saving.": "Se ha importado el DeploymentJob. Revisa todos los campos y la interfaz de red de destino antes de guardar.",
+    "DeploymentJob JSON must be between 1 byte and 64 KiB.": "El JSON de DeploymentJob debe tener entre 1 byte y 64 KiB.",
+    "PXE boot settings were converted to safe ISO/Client defaults.": "La configuración de arranque PXE se ha convertido en valores seguros por defecto de ISO/Client.",
+    "Persistent deployment service started. Clients may now connect; no disk operation starts until the Server operator explicitly authorizes and starts it.": "Se ha iniciado el servicio persistente de despliegue. Los clientes ya pueden conectarse; no comenzará ninguna operación de disco hasta que el operador del servidor la autorice y la inicie explícitamente.",
+    "Deployment service command accepted.": "Se ha aceptado la orden del servicio de despliegue.",
+    "Select an active Client interface/address before testing connectivity.": "Selecciona una interfaz/dirección activa del cliente antes de probar la conectividad.",
+    "Server reachability and authenticated TLS identity verified; job inspected. No Client registration or disk operation has started.": "Se ha verificado la conectividad con el servidor y la identidad TLS autenticada; se ha inspeccionado la tarea. No se ha iniciado ningún registro de cliente ni operación de disco.",
+    "Client service started but reported a failure before completion; inspect its status detail.": "El servicio del cliente se ha iniciado pero ha notificado un error antes de completarse; consulta los detalles de su estado.",
+    "Client service started. It will report READY only after local target approval, and will write only after the Server operator explicitly authorizes and starts the job.": "Se ha iniciado el servicio del cliente. Solo informará READY después de la aprobación local del destino y solo escribirá cuando el operador del servidor autorice e inicie explícitamente la tarea.",
+    "Copied the generated shared DeploymentJob into the bundle form. Verify the selected repository and image match.": "Se ha copiado el DeploymentJob compartido generado al formulario del paquete. Verifica que el repositorio y la imagen seleccionados coincidan."
+  }
+};
+for (const [language, values] of Object.entries(APP_UI_TEXT_PXE_DEPLOYMENT_FEEDBACK)) Object.assign(DICTS[language], values);
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
