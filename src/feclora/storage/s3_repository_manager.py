@@ -62,10 +62,11 @@ class S3RepositoryManager:
     def _lock(self):
         self._root()
         lock_path = self.registry.with_suffix(self.registry.suffix + ".lock")
-        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o600)
         try:
             info = os.fstat(fd)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid or info.st_mode & 0o077:
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid
+                    or info.st_mode & 0o077 or info.st_nlink != 1):
                 raise S3RepositoryManagerError("S3 registry lock is unsafe")
             os.fchmod(fd, 0o600)
             fcntl.flock(fd, fcntl.LOCK_EX)
@@ -217,9 +218,10 @@ class S3RepositoryManager:
         path = lock_dir / (identifier + ".lock")
         fd = -1
         try:
-            fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o600)
             info = os.fstat(fd)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid or info.st_mode & 0o077:
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid
+                    or info.st_mode & 0o077 or info.st_nlink != 1):
                 raise S3RepositoryManagerError("S3 repository usage lock is unsafe")
             fcntl.flock(fd, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
             return fd
