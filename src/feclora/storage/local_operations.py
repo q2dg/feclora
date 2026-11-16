@@ -158,6 +158,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
                     or ".." in device.split("/") or os.path.normpath(device) != device):
                 raise LocalOperationError(f"{key} must be a normalized /dev device path")
     if action == "execute_restore_profile":
+        if "repository_id" not in params:
+            raise LocalOperationError("restore profile execution requires a persistent filesystem repository")
         try:
             profile_id = str(uuid.UUID(params.get("profile_id")))
         except (ValueError, TypeError, AttributeError) as exc:
