@@ -18,7 +18,7 @@ from feclora.storage.restore_profile import RestoreTargetSelector
 from feclora.storage.inventory import collect_inventory
 from feclora.deployment.restore_execution import execute_restore
 from feclora.storage.operation_log import operation_record, record_progress
-from feclora.network.pxe_answer_client import _flatten_devices, _wait_for_age_passphrase
+from feclora.network.pxe_answer_client import _flatten_devices
 
 
 class RecoveryBootError(RuntimeError):
@@ -157,26 +157,33 @@ def _revalidate(selector: RestoreTargetSelector, expected_path: str) -> None:
         raise RecoveryBootError("recovery target identity or device path changed before the first write")
 
 
-def execute_recovery(directory: Path, *, passphrase_provider: Any = _wait_for_age_passphrase) -> str:
+def execute_recovery(directory: Path) -> str:
     """Validate and run one embedded restore through Feclora's shared engine."""
     answer = _load_answer(directory)
     manifest = _load_manifest(directory, answer["image_id"])
     target_path, _initial_device = _resolve(answer["selector"])
     manifest_path = directory / "manifest.json"
-    encrypted = any(item.encryption == "age" for item in manifest.artifacts)
-    passphrase = passphrase_provider() if encrypted else None
-    try:
-        with operation_record("restore_disk", target_path, image_id=manifest.image_id):
-            execute_restore(
-                str(manifest_path), str(directory), target_path,
-                target_type="disk",
-                confirmation=f"ERASE {target_path}",
-                age_passphrase=passphrase,
-                progress_callback=record_progress,
-                pre_write_callback=lambda: _revalidate(answer["selector"], target_path),
-            )
-    finally:
-        passphrase = None
+    age_identity_file = None
+    if any(item.encryption == "age" for item in manifest.artifacts):
+        try:
+            from feclora.deployment.runtime_config import load_client_runtime_config
+            runtime = load_client_runtime_config("/etc/feclora/deployment-client.json")
+            age_identity_file = runtime.age_identity_file
+        except Exception as exc:
+            raise RecoveryBootError(
+                f"age-encrypted recovery requires a provisioned Live client identity: {exc}"
+            ) from exc
+        if not age_identity_file:
+            raise RecoveryBootError("age-encrypted recovery requires a provisioned Live client identity")
+    with operation_record("restore_disk", target_path, image_id=manifest.image_id):
+        execute_restore(
+            str(manifest_path), str(directory), target_path,
+            target_type="disk",
+            confirmation=f"ERASE {target_path}",
+            age_identity_file=age_identity_file,
+            progress_callback=record_progress,
+            pre_write_callback=lambda: _revalidate(answer["selector"], target_path),
+        )
     return target_path
 
 
