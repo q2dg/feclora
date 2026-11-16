@@ -23,9 +23,10 @@ Feclora supports Ext4, XFS, NTFS, FAT32, exFAT and F2FS, plus single-device
 Btrfs partitions, subject to the feature matrix. LVM logical volumes and raw
 LUKS2 containers have documented restrictions. Stratis is inventoried but is
 not a fully supported imaging target. Coordinated multi-device/snapshot Btrfs
-imaging and opened-LUKS-mapping imaging are not implemented. A recovery ISO
-builder exists, but its boot-time embedded-image discovery and restore dispatch
-are unfinished.
+imaging, opened-LUKS-mapping imaging and LUKS2-on-LV restore are not implemented.
+The recovery-ISO builder and guarded Live boot-time restore dispatch are
+implemented; BIOS/UEFI boot and destructive restore acceptance remain operator
+responsibilities.
 
 Source integration and automated tests do not establish release acceptance.
 The repository maintainer owns ISO generation and BIOS/UEFI, physical-hardware,
