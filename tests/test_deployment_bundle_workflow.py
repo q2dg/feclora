@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from feclora.storage.image_manifest import ImageManifest
+from feclora.deployment.job import DeploymentJob
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "build" / "create-deployment-bundle.py"
@@ -99,7 +100,7 @@ class CoordinatedBundleWorkflowTests(unittest.TestCase):
         self.assertTrue(result["iso_built"])
         self.assertFalse(result["image_captured"])
         self.assertEqual(captured["iso"], b"built-live-iso")
-        self.assertEqual(json.loads(captured["answer"]), _job())
+        self.assertEqual(json.loads(captured["answer"]), DeploymentJob.from_dict(_job()).to_dict())
         self.assertEqual(captured["manifest"].image_id, "fleet-image")
         self.assertEqual(captured["output"], str(self.output))
         builder.assert_called_once()
