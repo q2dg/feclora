@@ -27,7 +27,7 @@ The current operator guides use task-specific conceptual screens under
 | `repository-setup.svg` | Repository configuration | Compare mounted filesystem and S3 providers |
 | `pxe-workflow.svg` | PXE boot modes | Separate interactive Live from unattended answer flow |
 | `multicast-workflow.svg` | Multicast restore | Explain READY barrier and shared stream |
-| `recovery-workflow.svg` | Recovery media | Show artifact inputs and incomplete boot dispatch |
+| `recovery-workflow.svg` | Recovery media | Show artifact inputs and guarded Live boot-time restore dispatch |
 
 These SVGs are design illustrations, not captures of the current React UI.
 Sample disk names, capacities, addresses and statuses are fictional. The
