@@ -369,6 +369,7 @@ def execute_unattended_restore_profile(
     restore_function: Any = restore_disk,
     command_runner: Any = subprocess.run,
     progress_callback: Any | None = None,
+    expected_target_path: str | None = None,
 ) -> ImageManifest:
     """Run one root-authorized profile; destructive preflight remains in restore_disk."""
     profile = load_restore_profile(profile_path)
@@ -384,6 +385,8 @@ def execute_unattended_restore_profile(
     _require_persistent_ledger(operation_log_path, runner=command_runner)
     current_inventory = inventory if inventory is not None else collect_inventory()
     target = _matching_target(profile, current_inventory)
+    if expected_target_path is not None and target.get("path") != expected_target_path:
+        raise RestoreProfileError("detected profile target path differs from the explicitly confirmed Cockpit target")
     profile.authorize(target)
     repository_path = Path(repository)
     manifest_path = repository_path / profile.image_manifest
