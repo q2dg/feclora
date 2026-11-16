@@ -3125,6 +3125,7 @@ def _deployment_unit_is_active(job_id: str) -> bool:
 
 
 def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
     if set(params) != {"job_id", "confirmation"}:
         raise WebAPIError("reconcile_deployment_job requires exactly job_id and confirmation")
     job_id = params["job_id"]
