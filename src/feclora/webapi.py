@@ -782,6 +782,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
         verified_layout = _inspect_image_layout_from_repository({"image_id": image_id}, repository)
         if partition_index > len(verified_layout["partitions"]):
             raise WebAPIError("selected partition index is not present in the verified partition table")
+        partition_selector = verified_layout["partitions"][partition_index - 1]["selector"]
         encrypted = any(item.role == "disk-image" and item.encryption == "age" for item in manifest.artifacts)
         identity_paths: list[Path] = []
         pki = Path("/etc/feclora/pki")
@@ -810,6 +811,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
                     manifest_path, repository, partition_index, guest_path,
                     download=download,
                     expected_partition_count=len(verified_layout["partitions"]),
+                    expected_partition_selector=partition_selector,
                     age_identity_file=identity_file,
                     session_id=session_id,
                 )
