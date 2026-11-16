@@ -275,5 +275,24 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         self.assertEqual(calls[2][-3:], ["df", "--raw", "/mnt/data"])
 
 
+    def test_root_tree_rejects_duplicate_subvolume_uuids(self):
+        duplicate = ROOT_TREE.replace(
+            "uuid 22222222-2222-2222-2222-222222222222",
+            "uuid 11111111-1111-1111-1111-111111111111",
+            1,
+        )
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate subvolume UUID"):
+            parse_root_tree_subvolumes(duplicate)
+
+    def test_root_tree_rejects_cycles_in_known_parent_ancestry(self):
+        cyclic = ROOT_TREE.replace(
+            "parent_uuid 00000000-0000-0000-0000-000000000000",
+            "parent_uuid 22222222-2222-2222-2222-222222222222",
+            1,
+        )
+        with self.assertRaisesRegex(BtrfsInventoryError, "parent cycle"):
+            parse_root_tree_subvolumes(cyclic)
+
+
 if __name__ == "__main__":
     unittest.main()
