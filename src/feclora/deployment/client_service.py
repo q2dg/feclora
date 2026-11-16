@@ -224,7 +224,8 @@ class ClientDeploymentService:
         )
         try:
             info = os.fstat(self._lock_fd)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                    or info.st_mode & 0o077 or info.st_nlink != 1):
                 raise ClientJobServiceError("Client job lock file is unsafe")
             fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
