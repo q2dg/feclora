@@ -1,3 +1,11 @@
+---
+layout: default
+title: Recovery ISO procedure
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Recovery ISO: operator build and verification procedure
 
 ![Illustrative recovery media assembly workflow]({{ '/assets/mockups/recovery-workflow.svg' | relative_url }})
