@@ -762,6 +762,12 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
     guest_path = params.get("path")
     if not isinstance(guest_path, str) or len(guest_path) > 4096 or "\x00" in guest_path:
         raise WebAPIError("path must be a string of at most 4096 characters")
+    session_id = params.get("session_id")
+    if session_id is not None and (
+        not isinstance(session_id, str)
+        or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", session_id)
+    ):
+        raise WebAPIError("session_id must be a canonical UUID")
     download = params.get("download", False)
     if not isinstance(download, bool):
         raise WebAPIError("download must be boolean")
@@ -805,7 +811,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
                     download=download,
                     expected_partition_count=len(verified_layout["partitions"]),
                     age_identity_file=identity_file,
-                    session_id=params.get("session_id"),
+                    session_id=session_id,
                 )
             except ImageBrowserError as exc:
                 raise WebAPIError(str(exc)) from exc
