@@ -39,6 +39,7 @@ _OPERATION_DEFAULT_PHASE = {
     "capture_logical_volume": "capturing",
     "restore_disk": "restoring",
     "restore_proportional_disk": "restoring",
+    "execute_restore_profile": "restoring",
     "restore_partition": "restoring",
     "restore_logical_volume": "restoring",
     "clone_disk": "cloning",
@@ -259,7 +260,7 @@ def execute(operation_id: str) -> int:
     except LocalOperationCancelled:
         current = store.status(operation_id)["state"]
         if current not in TERMINAL_STATES:
-            destructive = definition["action"].startswith(("restore_", "clone_"))
+            destructive = definition["action"].startswith(("restore_", "clone_")) or definition["action"] == "execute_restore_profile"
             store.append(operation_id, "cancelled", {
                 "reason": "operator requested cancellation; worker and child processes were stopped",
                 "destination_may_be_partial": bool(destructive and current == "running"),
