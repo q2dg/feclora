@@ -2284,3 +2284,28 @@ class ProportionalRestoreDispatchTests(unittest.TestCase):
             "operation": "restore_proportional_disk", "operation_params": params,
         })
 
+
+
+class RestoreProfileExecutionDispatchTests(unittest.TestCase):
+    def test_execute_restore_profile_is_submitted_to_durable_worker(self):
+        params = {
+            "profile_id": "12f7b67b-44e0-4d0b-a0b2-58b3d02c04e7",
+            "target": "/dev/sdb", "confirmation": "ERASE /dev/sdb",
+            "repository_id": "backup",
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "queued"}) as submit:
+            result = dispatch({"action": "execute_restore_profile", "params": params})
+        self.assertEqual(result, {"operation_id": "queued"})
+        submit.assert_called_once_with({
+            "operation": "execute_restore_profile", "operation_params": params,
+        })
+
+    def test_restore_profile_storage_rejects_live_root_filesystem(self):
+        from feclora.webapi import _persistent_repository
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("feclora.webapi.shutil.which", return_value="/usr/bin/findmnt"), patch(
+                "feclora.webapi.subprocess.run",
+                return_value=SimpleNamespace(stdout="ext4 /\n"),
+            ):
+                with self.assertRaisesRegex(WebAPIError, "dedicated persistent"):
+                    _persistent_repository(Path(directory))
