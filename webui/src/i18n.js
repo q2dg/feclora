@@ -1635,6 +1635,52 @@ for (const [language, values] of Object.entries(APP_UI_TEXT_OPERATION_FEEDBACK))
   Object.assign(DICTS[language], values);
 }
 
+const APP_UI_TEXT_REPOSITORY_FEEDBACK = {
+  ca: {
+    "Loaded images from repository": "S'han carregat imatges del repositori",
+    "Encrypted credential imported. The protected source file was not deleted.": "S'ha importat la credencial xifrada. El fitxer d'origen protegit no s'ha suprimit.",
+    "Removed encrypted credential": "S'ha eliminat la credencial xifrada",
+    "Repository definition updated; no mount was started.": "S'ha actualitzat la definició del repositori; no s'ha iniciat cap muntatge.",
+    "Repository definition saved; no mount was started.": "S'ha desat la definició del repositori; no s'ha iniciat cap muntatge.",
+    "Removed repository": "S'ha eliminat el repositori",
+    "Mounted repository": "S'ha muntat el repositori",
+    "Unmounted repository": "S'ha desmuntat el repositori",
+    "Repository": "Repositori",
+    "mount verified": "muntatge verificat",
+    "mounted but unverified": "muntat però no verificat",
+    "not mounted": "no està muntat",
+    "updated": "actualitzat",
+    "S3 object repository definition saved. No filesystem mount was created.": "S'ha desat la definició del repositori d'objectes S3. No s'ha creat cap muntatge de sistema de fitxers.",
+    "S3 bucket connection verified.": "S'ha verificat la connexió amb el bucket S3.",
+    "S3 bucket is not accessible.": "El bucket S3 no és accessible.",
+    "S3 repository removed.": "S'ha eliminat el repositori S3.",
+    "Partition extraction accepted by the durable worker.": "El treballador persistent ha acceptat l'extracció de la partició.",
+    "Partition image extracted and published.": "S'ha extret i publicat la imatge de la partició."
+  },
+  es: {
+    "Loaded images from repository": "Se han cargado imágenes del repositorio",
+    "Encrypted credential imported. The protected source file was not deleted.": "Se ha importado la credencial cifrada. El archivo de origen protegido no se ha eliminado.",
+    "Removed encrypted credential": "Se ha eliminado la credencial cifrada",
+    "Repository definition updated; no mount was started.": "Se ha actualizado la definición del repositorio; no se ha iniciado ningún montaje.",
+    "Repository definition saved; no mount was started.": "Se ha guardado la definición del repositorio; no se ha iniciado ningún montaje.",
+    "Removed repository": "Se ha eliminado el repositorio",
+    "Mounted repository": "Se ha montado el repositorio",
+    "Unmounted repository": "Se ha desmontado el repositorio",
+    "Repository": "Repositorio",
+    "mount verified": "montaje verificado",
+    "mounted but unverified": "montado pero sin verificar",
+    "not mounted": "no está montado",
+    "updated": "actualizado",
+    "S3 object repository definition saved. No filesystem mount was created.": "Se ha guardado la definición del repositorio de objetos S3. No se ha creado ningún montaje de sistema de archivos.",
+    "S3 bucket connection verified.": "Se ha verificado la conexión con el bucket S3.",
+    "S3 bucket is not accessible.": "El bucket S3 no es accesible.",
+    "S3 repository removed.": "Se ha eliminado el repositorio S3.",
+    "Partition extraction accepted by the durable worker.": "El trabajador persistente ha aceptado la extracción de la partición.",
+    "Partition image extracted and published.": "Se ha extraído y publicado la imagen de la partición."
+  }
+};
+for (const [language, values] of Object.entries(APP_UI_TEXT_REPOSITORY_FEEDBACK)) Object.assign(DICTS[language], values);
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
