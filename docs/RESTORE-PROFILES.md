@@ -48,7 +48,7 @@ workflow exposes this operation. No LV/VG/PV creation, resizing, activation or
 LVM metadata restoration is performed. Deployment-job LV restore remains
 pending.
 
-The profile model and unattended whole-disk executor are implemented in `src/feclora/storage/restore_profile.py` and `src/feclora/storage/profile_executor.py`. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, enforce root-owned local authorization and atomically consume single-use authorization immediately before the first write. Cockpit now exposes creation and inventory of root-authorized, single-use profiles for local whole-disk images. Profiles are not armed or executed by saving them; boot-time execution remains a separate explicit operator action. Automatic service enablement and proportional layout execution remain pending.
+The profile model and unattended whole-disk executor are implemented in `src/feclora/storage/restore_profile.py` and `src/feclora/storage/profile_executor.py`. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, enforce root-owned local authorization and atomically consume single-use authorization immediately before the first write. Cockpit now creates, lists and explicitly executes single-use profiles through the durable local-operation worker. Profile files, the replay ledger and the operation audit are stored on the selected mounted persistent filesystem repository; root-overlay, root-filesystem and S3 storage are rejected. The boot-time systemd service remains disabled by default. Proportional layout execution remains unsupported for profiles.
 
 ## Running an unattended disk restore
 
@@ -98,7 +98,7 @@ streaming write and read-back SHA-256 verification.
 
 The current unattended executor requires root-owned profile and parent-directory permissions and supports whole-disk images with the
 `preserve` layout policy. It rejects `proportional` rather than silently
-pretending to resize partitions. The Cockpit Restore profiles tab creates single-use unattended profiles for uniquely detected local disks. It records WWN/serial identity, requires an expiry, read-back verification and preserve-layout policy. It does not create signatures, arm the boot-time service or execute a restore. Profiles for S3/remote repositories are not yet supported by this Cockpit authoring path; the old dialog-based rescue UI is not part of the Live interface. This standalone local-profile executor is not used by the PXE fleet workflow. The identity-free PXE answer workflow uses a shared JSON answer and WWN/serial target binding; it does not enroll or identify individual Clients. Automatic startup for this standalone profile executor remains disabled by default; an operator must explicitly configure it after mounting persistent profile, image and audit storage.
+pretending to resize partitions. The Cockpit Restore profiles tab requires a mounted, verified, writable filesystem repository. It stores profiles in `.feclora/restore-profiles` and creates the replay ledger and operation journal in `.feclora/restore-audit` on that same persistent mount. It rejects local root-overlay storage and S3. The operator must type the exact `ERASE /dev/...` phrase to submit execution; the durable worker locks the selected target, the profile executor rechecks the WWN/serial binding and expiry, and the profile ID is atomically consumed immediately before the first write. A consumed profile is displayed as consumed and cannot be replayed from that repository ledger. The boot-time systemd service is not enabled by Cockpit and remains disabled by default. This standalone profile executor is not used by the PXE fleet workflow. The identity-free PXE answer workflow uses a shared JSON answer and WWN/serial target binding; it does not enroll or identify individual Clients. Automatic startup for this standalone profile executor remains disabled by default; an operator must explicitly configure it after mounting persistent profile, image and audit storage.
 
 
 ## Optional boot-time execution
@@ -145,19 +145,29 @@ boot attempts are not wanted.
 
 ## Cockpit profile authoring
 
-Open **Restore profiles** in Cockpit. Select a whole-disk image from the local
-image repository, select a detected whole disk that exposes a WWN and/or serial
-number, name the profile and set a future expiry. The API revalidates that the
-stable selector matches exactly one currently detected whole disk and that the
-manifest is a matching whole-disk image before atomically publishing the
-profile under `/var/lib/feclora/restore-profiles` as a root-owned mode-0600
-file in a root-owned mode-0700 directory.
+Open **Restore profiles** in Cockpit and select a mounted, verified,
+writable filesystem repository. The repository must be backed by a dedicated
+persistent mount; the root filesystem, Live overlay and S3 are rejected.
+Select a RAW whole-disk image from that repository, choose a detected whole
+disk exposing a WWN and/or serial number, name the profile and set a future
+expiry. The API revalidates that the stable selector matches exactly one
+currently detected whole disk and that the manifest is a matching whole-disk
+image before atomically publishing a root-owned mode-0600 profile in the
+root-owned mode-0700 `.feclora/restore-profiles` directory.
 
-The generated profile is unattended, single-use, preserve-layout and requires
-read-back verification. Saving it does not enable
-`feclora-restore-profile.service`, configure its environment, or start any
-write operation. The service remains disabled by default and still requires
-operator-managed persistent profile, image and audit storage. This UI path
-currently accepts only the local image repository; remote and S3 profile
-authoring is intentionally not exposed because a boot-time restore must not
-depend on an ephemeral object-store staging directory.
+To execute, locate the profile in the list, verify the detected target path,
+and type exactly `ERASE /dev/...` into its confirmation field. Cockpit submits
+a durable local operation. The worker rechecks the profile, image repository,
+expiry and WWN/serial target binding. The profile executor verifies that the
+replay ledger and operation journal are on the same persistent mount, then
+atomically consumes the profile immediately before the first disk write.
+The existing disk restore engine performs artifact verification, target
+safety checks, streaming write and read-back SHA-256 verification. A failed
+preflight does not consume the profile; a failure after the first write does,
+so the same authorization cannot be replayed against a partially written disk.
+
+Saving or executing a profile does not enable
+`feclora-restore-profile.service`; boot-time execution remains a separate
+operator-managed choice. The Cockpit path supports filesystem-backed
+repositories only, not S3. Proportional restore remains a separate interactive
+operation and is not available through unattended profiles.
