@@ -278,6 +278,29 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertFalse(report["automatic_resume"])
             self.assertEqual(report["progress"][MAC]["completed_bytes"], 1048576)
 
+    def test_recovery_report_keeps_server_multicast_sender_progress_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            journal({
+                "timestamp": "2026-11-08T12:00:02+00:00",
+                "job_id": JOB_ID, "event": "server_progress", "job_state": "running",
+                "progress": {
+                    "phase": "clone", "completed_bytes": 4096,
+                    "total_bytes": 8192, "bytes_per_second": 1024.0,
+                    "updated_at": "2026-11-08T12:00:02+00:00",
+                },
+            })
+            report = DeploymentJournal.inspect(path).recovery_report()
+            self.assertTrue(report["interrupted"])
+            self.assertEqual(report["server_progress"]["completed_bytes"], 4096)
+            self.assertEqual(report["progress"], {})
+
     def test_recovery_report_accepts_durable_remote_clone_progress(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
