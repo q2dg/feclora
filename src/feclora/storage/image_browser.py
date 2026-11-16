@@ -272,6 +272,7 @@ def browse_image(
     *,
     download: bool = False,
     expected_partition_count: int | None = None,
+    expected_partition_selector: str | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
     session_id: str | None = None,
 ) -> dict[str, Any]:
@@ -313,7 +314,12 @@ def browse_image(
             raise ImageBrowserError("guest partition enumeration does not match the verified partition table")
         if partition_index > len(partitions):
             raise ImageBrowserError("selected partition does not exist in the image")
-        device = partitions[partition_index - 1]
+        if expected_partition_selector is not None:
+            if expected_partition_selector not in partitions:
+                raise ImageBrowserError("selected partition device does not match the verified partition table")
+            device = expected_partition_selector
+        else:
+            device = partitions[partition_index - 1]
         filesystems = guestfs.list_filesystems()
         filesystem = filesystems.get(device)
         if not filesystem or filesystem not in _SUPPORTED_FILESYSTEMS:
