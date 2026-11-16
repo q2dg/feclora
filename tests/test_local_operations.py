@@ -442,3 +442,35 @@ class P2VS3ExportOperationSchemaTests(unittest.TestCase):
         }
         with self.assertRaises(LocalOperationError):
             validate_definition(base)
+
+
+class ProportionalRestoreOperationValidationTests(unittest.TestCase):
+    def test_proportional_restore_requires_distinct_stable_disk_identities(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000091",
+            "action": "restore_proportional_disk",
+            "params": {
+                "image_id": "golden", "source": "/dev/sda", "target": "/dev/sdb",
+                "source_major_minor": "8:0", "target_major_minor": "8:16",
+                "confirmation": "ERASE /dev/sdb",
+            },
+        }
+        self.assertEqual(validate_definition(definition)["action"], "restore_proportional_disk")
+        definition["params"]["target_major_minor"] = "8:0"
+        with self.assertRaisesRegex(LocalOperationError, "different paths"):
+            validate_definition(definition)
+
+    def test_proportional_restore_rejects_missing_kernel_identity(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000092",
+            "action": "restore_proportional_disk",
+            "params": {
+                "image_id": "golden", "source": "/dev/sda", "target": "/dev/sdb",
+                "source_major_minor": "8:0", "target_major_minor": "",
+                "confirmation": "ERASE /dev/sdb",
+            },
+        }
+        with self.assertRaisesRegex(LocalOperationError, "major:minor"):
+            validate_definition(definition)
