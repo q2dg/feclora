@@ -1,5 +1,9 @@
 # UDPcast multicast transport
 
+![Illustrative multicast deployment workflow]({{ '/assets/mockups/multicast-workflow.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. All receivers must pass the READY gate before multicast starts.*
+
 Feclora uses UDPcast only as a **data-plane file transport**. TLS authenticates
 the Server to each Client, but the current protocol does not cryptographically
 authenticate Clients. The control plane enforces job scoping, readiness, local
