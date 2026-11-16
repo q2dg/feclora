@@ -1594,6 +1594,47 @@ for (const [language, values] of Object.entries(APP_UI_TEXT_OPERATION_LABELS)) {
   Object.assign(DICTS[language], values);
 }
 
+
+const APP_UI_TEXT_OPERATION_FEEDBACK = {
+  ca: {
+    "Select an active NetworkManager profile with an associated device.": "Selecciona un perfil actiu de NetworkManager associat a un dispositiu.",
+    "Network profile applied and verified. NetworkManager checkpoint committed.": "S'ha aplicat i verificat el perfil de xarxa. S'ha confirmat el punt de control de NetworkManager.",
+    "Select a mounted persistent filesystem repository for restore profiles.": "Selecciona un repositori persistent de sistema de fitxers muntat per als perfils de restauració.",
+    "Choose a detected whole disk with a WWN and/or serial number.": "Tria un disc sencer detectat amb WWN i/o número de sèrie.",
+    "Set an expiry time for this single-use unattended profile.": "Defineix la caducitat d'aquest perfil desatès d'un sol ús.",
+    "Restore profile saved. It is not armed and will not run automatically.": "S'ha desat el perfil de restauració. No està activat i no s'executarà automàticament.",
+    "Loaded persistent restore profiles and RAW images from": "S'han carregat els perfils de restauració persistents i les imatges RAW de",
+    "The detected target must be available and the exact destructive phrase must be entered.": "El destí detectat ha d'estar disponible i cal introduir exactament la frase de confirmació destructiva.",
+    "Restore profile accepted by the durable worker. It will be consumed immediately before the first write.": "El treballador persistent ha acceptat el perfil de restauració. Es consumirà just abans de la primera escriptura.",
+    "Single-use restore profile completed with read-back verification.": "El perfil de restauració d'un sol ús s'ha completat amb verificació mitjançant lectura posterior.",
+    "The most recent local operation history was exported as JSON.": "S'ha exportat en format JSON l'historial més recent d'operacions locals.",
+    "Operation accepted by the durable worker. It will continue if Cockpit disconnects. Use Operation log to request cancellation.": "El treballador persistent ha acceptat l'operació. Continuarà encara que es desconnecti Cockpit. Utilitza el registre d'operacions per sol·licitar-ne la cancel·lació.",
+    "Operation completed successfully.": "L'operació s'ha completat correctament.",
+    "Operation cancelled. The destination may be partially written; inspect it before using it again.": "S'ha cancel·lat l'operació. És possible que el destí s'hagi escrit parcialment; inspecciona'l abans de tornar-lo a utilitzar.",
+    "Operation cancelled before completing.": "L'operació s'ha cancel·lat abans d'acabar."
+  },
+  es: {
+    "Select an active NetworkManager profile with an associated device.": "Selecciona un perfil activo de NetworkManager asociado a un dispositivo.",
+    "Network profile applied and verified. NetworkManager checkpoint committed.": "Se ha aplicado y verificado el perfil de red. Se ha confirmado el punto de control de NetworkManager.",
+    "Select a mounted persistent filesystem repository for restore profiles.": "Selecciona un repositorio persistente de sistema de archivos montado para los perfiles de restauración.",
+    "Choose a detected whole disk with a WWN and/or serial number.": "Elige un disco completo detectado con WWN o número de serie.",
+    "Set an expiry time for this single-use unattended profile.": "Establece la caducidad de este perfil desatendido de un solo uso.",
+    "Restore profile saved. It is not armed and will not run automatically.": "Se ha guardado el perfil de restauración. No está activado y no se ejecutará automáticamente.",
+    "Loaded persistent restore profiles and RAW images from": "Se han cargado los perfiles de restauración persistentes y las imágenes RAW de",
+    "The detected target must be available and the exact destructive phrase must be entered.": "El destino detectado debe estar disponible y debe introducirse exactamente la frase de confirmación destructiva.",
+    "Restore profile accepted by the durable worker. It will be consumed immediately before the first write.": "El trabajador persistente ha aceptado el perfil de restauración. Se consumirá justo antes de la primera escritura.",
+    "Single-use restore profile completed with read-back verification.": "El perfil de restauración de un solo uso se ha completado con verificación mediante lectura posterior.",
+    "The most recent local operation history was exported as JSON.": "Se ha exportado en formato JSON el historial más reciente de operaciones locales.",
+    "Operation accepted by the durable worker. It will continue if Cockpit disconnects. Use Operation log to request cancellation.": "El trabajador persistente ha aceptado la operación. Continuará aunque Cockpit se desconecte. Utiliza el registro de operaciones para solicitar su cancelación.",
+    "Operation completed successfully.": "La operación se ha completado correctamente.",
+    "Operation cancelled. The destination may be partially written; inspect it before using it again.": "La operación se ha cancelado. El destino podría haberse escrito parcialmente; inspecciónalo antes de volver a utilizarlo.",
+    "Operation cancelled before completing.": "La operación se ha cancelado antes de finalizar."
+  }
+};
+for (const [language, values] of Object.entries(APP_UI_TEXT_OPERATION_FEEDBACK)) {
+  Object.assign(DICTS[language], values);
+}
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
