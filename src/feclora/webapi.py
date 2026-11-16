@@ -2146,8 +2146,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("storage inventory changed since source and destination selection")
         if target_disk.get("read_only"):
             raise WebAPIError("proportional restore destination is read-only")
-        if target_disk.get("size_bytes", 0) <= 0 or target_disk["size_bytes"] >= source_disk.get("size_bytes", 0):
-            raise WebAPIError("proportional restore requires a destination disk smaller than the source")
+        source_size = source_disk.get("size_bytes")
+        target_size = target_disk.get("size_bytes")
+        if (isinstance(source_size, bool) or not isinstance(source_size, int) or source_size <= 0
+                or isinstance(target_size, bool) or not isinstance(target_size, int) or target_size <= 0
+                or target_size >= source_size):
+            raise WebAPIError("proportional restore requires valid capacities and a destination smaller than the source")
         if source_disk.get("logical_sector_size") != target_disk.get("logical_sector_size"):
             raise WebAPIError("source and destination logical sector sizes must match")
         check_capture_source_safe(source)
@@ -2159,6 +2163,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
             if manifest.image_id != image_id or manifest.image_type != "disk":
                 raise WebAPIError("proportional restore requires the selected whole-disk image")
+            if not any(item.role == "disk-image" and item.format == "raw" for item in manifest.artifacts):
+                raise WebAPIError("proportional restore requires a RAW whole-disk artifact")
             if manifest.logical_sector_size != source_disk.get("logical_sector_size"):
                 raise WebAPIError("image logical sector size differs from the selected source disk")
             if manifest.source_size_bytes != source_disk.get("size_bytes"):
@@ -2218,10 +2224,11 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             "source_size_bytes": manifest.source_size_bytes,
             "restored_size_bytes": target_disk["size_bytes"],
             "filesystem_plan": [
-                {"partuuid": getattr(item, "partuuid", None),
+                {"node": getattr(item, "node", None),
+                 "partuuid": getattr(item, "partuuid", None),
                  "start_sector": getattr(item, "start_sector", None),
                  "size_sectors": getattr(item, "size_sectors", None),
-                 "filesystem": getattr(item, "filesystem_type", None)}
+                 "minimum_size_bytes": getattr(item, "minimum_size_bytes", None)}
                 for item in plans
             ],
             "sha256": digest, "verified": True,
