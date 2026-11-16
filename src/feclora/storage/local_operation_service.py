@@ -246,7 +246,7 @@ def execute(operation_id: str) -> int:
                 key: value for key, value in result.items()
                 if key in {"image_id", "image_type", "source_image_id", "target",
                            "source", "bytes_copied", "verified", "encrypted",
-                           "artifact_count", "repository_path", "output_path",
+                           "artifact_count", "repository_path", "output_path", "restored_size_bytes", "filesystem_plan", "sha256",
                            "virtual_size_bytes", "file_size_bytes",
                            "artifacts_verified", "published", "manifest_sha256",
                            "sha256", "payload_size_bytes", "boot_catalog_preserved",
