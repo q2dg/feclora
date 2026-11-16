@@ -18,6 +18,7 @@ title: Step-by-step operator guides
 </div></section>
 <section class="section"><h2>Repositories and network boot</h2><div class="guide-grid">
 <article class="guide-card"><img src="{{ '/assets/mockups/repository-setup.svg' | relative_url }}" alt="Illustrative repository setup mockup"><div class="guide-card-body"><h3>Connect an image repository</h3><p>Configure SSHFS, NFS, SMB/CIFS or S3-compatible object storage.</p><a href="./REMOTE-REPOSITORIES.html">Repository setup →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/repository-setup.svg' | relative_url }}" alt="Illustrative S3 repository mockup"><div class="guide-card-body"><h3>Export a legacy P2V bundle</h3><p>Copy a legacy QCOW2 and sidecar from S3 to a filesystem repository.</p><a href="./P2V-S3-EXPORT.html">P2V S3 export →</a></div></article>
 <article class="guide-card"><img src="{{ '/assets/mockups/pxe-workflow.svg' | relative_url }}" alt="Illustrative PXE boot and answer-file mockup"><div class="guide-card-body"><h3>Boot with PXE</h3><p>Distinguish interactive Live boot from the separately configured unattended answer workflow.</p><a href="./PXE-UNATTENDED.html">PXE guide →</a></div></article>
 <article class="guide-card"><img src="{{ '/assets/mockups/recovery-workflow.svg' | relative_url }}" alt="Illustrative recovery media workflow"><div class="guide-card-body"><h3>Prepare recovery media</h3><p>Review the current recovery-ISO builder status and operator procedure.</p><a href="./RECOVERY-ISO.html">Recovery ISO procedure →</a></div></article>
 </div></section>
