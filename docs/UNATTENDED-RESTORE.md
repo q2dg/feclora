@@ -1,5 +1,9 @@
 # Unattended restore from ISO or PXE
 
+![Illustrative PXE and unattended answer workflow]({{ '/assets/mockups/pxe-workflow.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. It distinguishes the normal interactive Live path from the explicitly configured answer-file path.*
+
 ## One Live system, one restore path
 
 Feclora ISO and PXE boot the same Fedora Live image. The Feclora PXE
