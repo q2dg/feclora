@@ -3519,6 +3519,10 @@ def _restore_profile_directory(*, create: bool = False) -> Path:
         RESTORE_PROFILE_DIRECTORY.mkdir(mode=0o700, exist_ok=True)
     try:
         info = os.lstat(RESTORE_PROFILE_DIRECTORY)
+    except FileNotFoundError:
+        if not create:
+            return RESTORE_PROFILE_DIRECTORY
+        raise WebAPIError("restore-profile directory is unavailable")
     except OSError as exc:
         raise WebAPIError("restore-profile directory is unavailable") from exc
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
