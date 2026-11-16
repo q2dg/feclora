@@ -1746,6 +1746,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
+        "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -2113,6 +2114,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 "image_type": extracted.image_type, "manifest": extracted_manifest,
                 "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
             }
+    elif action == "execute_restore_profile":
+        result = _execute_restore_profile_operation(params)
     elif action == "restore_proportional_disk":
         from feclora.storage.inventory import collect_inventory
         from feclora.storage.proportional_restore_workflow import (
@@ -3662,7 +3665,7 @@ def _restore_profile_directory(repository: Path, *, create: bool = False) -> Pat
         try:
             info = os.lstat(path)
         except FileNotFoundError:
-            if not create and path == directory:
+            if not create:
                 return directory
             raise WebAPIError("persistent restore-profile directory is unavailable")
         except OSError as exc:
@@ -4064,7 +4067,7 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action == "local_operations":
         return _local_operations(params)
     if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_p2v", "import_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
-                  "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk"}:
+                  "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "execute_restore_profile"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
     raise WebAPIError("unsupported Cockpit API action")
 
