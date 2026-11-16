@@ -2,6 +2,7 @@ import os
 import stat
 import threading
 import unittest
+from pathlib import Path
 from unittest import mock
 from types import SimpleNamespace
 
@@ -479,9 +480,9 @@ class DeploymentServiceLockTests(unittest.TestCase):
     def test_instance_lock_is_close_on_exec_and_rejects_hardlinks(self):
         service = DeploymentService.__new__(DeploymentService)
         service._lock_fd = None
-        self._exercise_lock(service._acquire_instance_lock, link_count=1,
+        self._exercise_lock(lambda: (service._acquire_instance_lock(), service._lock_fd)[1], link_count=1,
                             expected_flag=getattr(os, "O_CLOEXEC", 0))
-        self._exercise_lock(service._acquire_instance_lock, link_count=2,
+        self._exercise_lock(lambda: (service._acquire_instance_lock(), service._lock_fd)[1], link_count=2,
                             expected_flag=getattr(os, "O_CLOEXEC", 0))
 
     def test_recovery_lock_is_close_on_exec_and_rejects_hardlinks(self):
