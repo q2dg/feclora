@@ -3500,6 +3500,114 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
         raise WebAPIError(f"remote repository operation failed: {exc}") from exc
     raise WebAPIError("unsupported remote repository action")
 
+
+RESTORE_PROFILE_DIRECTORY = Path("/var/lib/feclora/restore-profiles")
+
+
+def _restore_profile_directory(*, create: bool = False) -> Path:
+    state = RESTORE_PROFILE_DIRECTORY.parent
+    if create:
+        state.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        state_info = os.lstat(state)
+    except OSError as exc:
+        raise WebAPIError("Feclora state directory is unavailable for restore profiles") from exc
+    if (not stat.S_ISDIR(state_info.st_mode) or stat.S_ISLNK(state_info.st_mode)
+            or state_info.st_uid != 0 or state_info.st_mode & 0o077):
+        raise WebAPIError("restore-profile state directory must be private, root-owned and non-writable")
+    if create:
+        RESTORE_PROFILE_DIRECTORY.mkdir(mode=0o700, exist_ok=True)
+    try:
+        info = os.lstat(RESTORE_PROFILE_DIRECTORY)
+    except OSError as exc:
+        raise WebAPIError("restore-profile directory is unavailable") from exc
+    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077):
+        raise WebAPIError("restore-profile directory must be private, root-owned and non-writable")
+    return RESTORE_PROFILE_DIRECTORY
+
+
+def _restore_profiles(params: dict[str, Any]) -> dict[str, Any]:
+    if params:
+        raise WebAPIError("restore_profiles does not accept parameters")
+    directory = _restore_profile_directory()
+    profiles = []
+    from feclora.storage.restore_profile import load_restore_profile
+    for path in sorted(directory.glob("*.json")):
+        try:
+            profile = load_restore_profile(path)
+        except Exception as exc:
+            raise WebAPIError(f"restore profile {path.name} is invalid: {exc}") from exc
+        profiles.append({
+            "profile_id": profile.profile_id, "name": profile.name,
+            "image_manifest": profile.image_manifest, "execution_mode": profile.execution_mode,
+            "layout_policy": profile.layout_policy, "target": profile.target.to_dict(),
+            "expires_at": profile.expires_at, "single_use": profile.single_use,
+            "path": str(path),
+        })
+    return {"profiles": profiles}
+
+
+def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
+    required = {"name", "image_id", "target_wwn", "target_serial", "expires_at"}
+    if set(params) != required:
+        raise WebAPIError("create_restore_profile requires exactly name, image_id, target_wwn, target_serial and expires_at")
+    name = _text(params, "name", maximum=80)
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    wwn = params.get("target_wwn")
+    serial = params.get("target_serial")
+    if wwn is not None and (not isinstance(wwn, str) or not wwn or len(wwn) > 256):
+        raise WebAPIError("target_wwn must be a non-empty string or null")
+    if serial is not None and (not isinstance(serial, str) or not serial or len(serial) > 256):
+        raise WebAPIError("target_serial must be a non-empty string or null")
+    if wwn is None and serial is None:
+        raise WebAPIError("restore profile requires a WWN and/or serial-number binding")
+    expires_at = _text(params, "expires_at", maximum=64)
+    from feclora.storage.restore_profile import (
+        RestoreProfile, RestoreTargetSelector, RestoreProfileError, save_unattended_restore_profile,
+    )
+    import uuid
+    try:
+        selector = RestoreTargetSelector(wwn=wwn, serial=serial)
+        profile = RestoreProfile(
+            profile_id=str(uuid.uuid4()), name=name,
+            image_manifest=f"{image_id}.manifest.json", target=selector,
+            execution_mode="unattended", layout_policy="preserve",
+            verify_after_restore=True, on_success="none",
+            expires_at=expires_at, single_use=True,
+        )
+        repository = _repository()
+        manifest_path = _image_manifest(image_id, repository)
+        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        if manifest.image_id != image_id or manifest.image_type != "disk":
+            raise WebAPIError("restore profiles currently require a matching whole-disk image")
+        if any(item.encryption == "age" for item in manifest.artifacts):
+            client = _client_runtime_config()
+            identity = client.age_identity_file if client else None
+            if not identity:
+                raise WebAPIError("age-encrypted image requires a separately provisioned Client age identity")
+        inventory = collect_inventory()
+        matches = [
+            device for device in inventory.get("devices", [])
+            if isinstance(device, dict) and device.get("type") == "disk" and selector.matches(device)
+        ]
+        if len(matches) != 1:
+            raise WebAPIError("stable target selector must match exactly one detected whole disk")
+        path = _restore_profile_directory(create=True) / f"{profile.profile_id}.json"
+        saved = save_unattended_restore_profile(profile, path)
+    except WebAPIError:
+        raise
+    except (RestoreProfileError, ManifestValidationError, OSError, ValueError) as exc:
+        raise WebAPIError(f"could not create restore profile: {exc}") from exc
+    return {
+        "profile_id": profile.profile_id, "name": profile.name,
+        "path": str(saved), "image_id": image_id,
+        "target": selector.to_dict(), "execution_mode": "unattended",
+        "single_use": True, "layout_policy": "preserve",
+        "message": "Profile saved. It is not armed or executed automatically; boot-time execution remains an explicit operator action.",
+    }
+
+
 def dispatch(request: Any) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
         raise WebAPIError("request must contain an action and optional params object")
@@ -3619,6 +3727,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("inventory does not accept parameters")
         return collect_inventory()
+    if action == "restore_profiles":
+        return _restore_profiles(params)
+    if action == "create_restore_profile":
+        return _create_restore_profile(params)
     if action == "images":
         if params:
             raise WebAPIError("images does not accept parameters")
