@@ -2268,3 +2268,19 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "restore_profiles", "params": {"path": "/etc/passwd"}})
 
+
+
+class ProportionalRestoreDispatchTests(unittest.TestCase):
+    def test_proportional_restore_is_submitted_to_durable_worker(self):
+        params = {
+            "image_id": "golden", "source": "/dev/sda", "target": "/dev/sdb",
+            "source_major_minor": "8:0", "target_major_minor": "8:16",
+            "confirmation": "ERASE /dev/sdb",
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "queued"}) as submit:
+            result = dispatch({"action": "restore_proportional_disk", "params": params})
+        self.assertEqual(result, {"operation_id": "queued"})
+        submit.assert_called_once_with({
+            "operation": "restore_proportional_disk", "operation_params": params,
+        })
+
