@@ -9,17 +9,23 @@ from feclora.webapi import WebAPIError, _operation_repository_context
 
 
 class FakeObjectRepository:
-    def __init__(self, read_only=False):
+    def __init__(self, read_only=False, download_error=None, upload_error=None):
         self.config = SimpleNamespace(read_only=read_only)
+        self.download_error = download_error
+        self.upload_error = upload_error
         self.downloaded = []
         self.uploaded = []
 
     def download_image_set(self, image_id, destination):
         self.downloaded.append(image_id)
+        if self.download_error:
+            raise self.download_error
         (Path(destination) / f"{image_id}.manifest.json").write_text("{}")
 
     def upload_image_set(self, repository, image_id):
         self.uploaded.append((Path(repository), image_id))
+        if self.upload_error:
+            raise self.upload_error
 
 
 class FakeManager:
@@ -89,6 +95,46 @@ class S3OperationStagingTests(unittest.TestCase):
                     raise RuntimeError("engine failed")
         with self.assertRaises(OSError):
             os.fstat(manager.lease_fd)
+
+
+    def test_download_failure_releases_s3_lease_and_removes_private_staging(self):
+        remote = FakeObjectRepository(download_error=OSError("object download interrupted"))
+        manager = FakeManager(remote)
+        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
+            with self.assertRaisesRegex(WebAPIError, "download interrupted"):
+                with _operation_repository_context(
+                    {"repository_id": "s3archive"}, write=False, image_id="golden",
+                ) as repository:
+                    self.fail("failed download must not expose a staging directory")
+        with self.assertRaises(OSError):
+            os.fstat(manager.lease_fd)
+        self.assertEqual(remote.uploaded, [])
+
+    def test_upload_failure_is_reported_and_s3_lease_is_released(self):
+        remote = FakeObjectRepository(upload_error=OSError("object upload interrupted"))
+        manager = FakeManager(remote)
+        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
+            with self.assertRaisesRegex(WebAPIError, "upload interrupted"):
+                with _operation_repository_context(
+                    {"repository_id": "s3archive"}, write=True, upload_image_id="captured",
+                ) as repository:
+                    (repository / "captured.manifest.json").write_text("{}")
+        with self.assertRaises(OSError):
+            os.fstat(manager.lease_fd)
+        self.assertEqual(remote.uploaded[0][1], "captured")
+
+    def test_new_image_upload_rejects_empty_publication_and_releases_lease(self):
+        remote = FakeObjectRepository()
+        manager = FakeManager(remote)
+        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
+            with self.assertRaisesRegex(WebAPIError, "no new image manifest"):
+                with _operation_repository_context(
+                    {"repository_id": "s3archive"}, write=True, upload_new_images=True,
+                ):
+                    pass
+        with self.assertRaises(OSError):
+            os.fstat(manager.lease_fd)
+        self.assertEqual(remote.uploaded, [])
 
     def test_read_only_s3_repository_rejects_capture_before_staging(self):
         remote = FakeObjectRepository(read_only=True)
