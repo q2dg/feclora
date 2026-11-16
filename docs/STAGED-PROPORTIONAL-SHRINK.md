@@ -1,3 +1,15 @@
+---
+layout: default
+title: Proportional whole-disk restore
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
+![Illustrative proportional restore staging workflow]({{ '/assets/mockups/proportional-restore.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. Only supported GPT layouts and final ext2/3/4 or NTFS partitions can be reduced.*
+
 # Private staged filesystem shrinking
 
 The proportional-image work now includes an offline ext2/ext3/ext4 shrink
