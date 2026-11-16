@@ -4,6 +4,7 @@ import os
 import stat
 import struct
 import sys
+from types import SimpleNamespace
 import tempfile
 import types
 import unittest
@@ -123,6 +124,26 @@ class ImageBrowserTests(unittest.TestCase):
     def test_rejects_parent_directory_traversal(self):
         with self.assertRaisesRegex(image_browser.ImageBrowserError, "normalized"):
             image_browser._guest_path("/docs/../etc")
+
+    def test_reuses_cached_decoded_raw_image_without_redecoding(self):
+        artifact = SimpleNamespace(
+            role="disk-image", format="raw", compression="gzip",
+            encryption="none", filename="disk.raw.gz", sha256="a" * 64,
+        )
+        manifest = SimpleNamespace(artifacts=[artifact], source_size_bytes=4096)
+        source = self.repository / artifact.filename
+        source.write_bytes(b"compressed")
+        cache = self.repository / "session"
+        cache.mkdir(mode=0o700)
+        staged = cache / "disk.raw"
+        staged.write_bytes(b"x" * 4096)
+        with patch("feclora.storage.disk_restore._verified_artifact_stream") as verified:
+            path, image_format = image_browser._prepare_image(
+                manifest, self.repository, cache, None,
+            )
+        verified.assert_not_called()
+        self.assertEqual(path, staged)
+        self.assertEqual(image_format, "raw")
 
     def test_qcow2_header_rejects_backing_file_before_qemu_inspection(self):
         header = bytearray(104)
