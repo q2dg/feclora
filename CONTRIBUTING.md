@@ -7,7 +7,7 @@ correctness and storage safety take priority over feature count.
 ## Before changing code
 
 - Read the relevant operator documentation and the current
-  [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
+  [roadmap](docs/ROADMAP.md) and [feature matrix](docs/FEATURE-MATRIX.md).
 - Check the relevant architecture and protocol documentation before changing persisted formats, trust boundaries or wire behavior.
 - Keep Cockpit as the primary operator interface. Privileged operations belong
   behind the allowlisted Python API; browser code must not execute privileged
