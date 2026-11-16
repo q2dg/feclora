@@ -56,9 +56,14 @@ def _acquire_recovery_lock() -> int:
     if (not stat.S_ISDIR(runtime_info.st_mode) or stat.S_ISLNK(runtime_info.st_mode)
             or runtime_info.st_uid != 0 or runtime_info.st_mode & 0o022):
         raise DeploymentServiceError("runtime directory is unsafe during recovery")
-    fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    fd = os.open(
+        LOCK_FILE,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+        0o600,
+    )
     info = os.fstat(fd)
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+            or info.st_nlink != 1 or info.st_mode & 0o077):
         os.close(fd)
         raise DeploymentServiceError("deployment service lock file is unsafe during recovery")
     try:
@@ -381,9 +386,14 @@ class DeploymentService:
         if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
                 or info.st_uid != 0 or info.st_mode & 0o022):
             raise DeploymentServiceError("service runtime directory must be root-owned and not group/other-writable")
-        fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        fd = os.open(
+            LOCK_FILE,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+        )
         info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                or info.st_nlink != 1 or info.st_mode & 0o077):
             os.close(fd)
             raise DeploymentServiceError("deployment service lock file is unsafe")
         try:
