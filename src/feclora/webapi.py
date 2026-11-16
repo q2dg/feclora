@@ -3899,6 +3899,7 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
                 repository=repository,
                 age_identity_file=identity_file,
                 progress_callback=_progress,
+                expected_target_path=target_path,
             )
         except Exception as exc:
             raise WebAPIError(f"unattended restore profile execution failed: {exc}") from exc
