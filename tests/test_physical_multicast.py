@@ -278,6 +278,43 @@ class PhysicalMulticastStreamTests(unittest.TestCase):
                 cancel_check=lambda: next(checks),
             )
 
+
+    def test_destination_write_io_error_aborts_without_flush_or_readback(self):
+        flushes = []
+        reads = []
+        def fail_write(_view):
+            raise OSError("destination disconnected")
+        with self.assertRaisesRegex(OSError, "destination disconnected"):
+            write_and_verify_stream(
+                io.BytesIO(b"x" * 8192), fail_write,
+                lambda: flushes.append(True),
+                lambda count: reads.append(count) or b"x" * count,
+                expected_bytes=8192, chunk_size=4096,
+            )
+        self.assertEqual(flushes, [])
+        self.assertEqual(reads, [])
+
+    def test_flush_failure_aborts_before_destination_readback(self):
+        reads = []
+        def fail_flush():
+            raise OSError("destination flush failed")
+        with self.assertRaisesRegex(OSError, "flush failed"):
+            write_and_verify_stream(
+                io.BytesIO(b"x" * 8192), lambda view: len(view),
+                fail_flush, lambda count: reads.append(count) or b"x" * count,
+                expected_bytes=8192, chunk_size=4096,
+            )
+        self.assertEqual(reads, [])
+
+    def test_destination_readback_interruption_is_reported_as_incomplete(self):
+        calls = iter((b"x" * 4096, b""))
+        with self.assertRaisesRegex(PhysicalMulticastError, "read-back ended early"):
+            write_and_verify_stream(
+                io.BytesIO(b"x" * 8192), lambda view: len(view),
+                lambda: None, lambda count: next(calls),
+                expected_bytes=8192, chunk_size=4096,
+            )
+
     def test_rejects_early_stream_eof(self):
         with self.assertRaisesRegex(PhysicalMulticastError, "ended early"):
             write_and_verify_stream(io.BytesIO(b"short"), lambda view: len(view),
