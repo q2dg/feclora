@@ -149,5 +149,25 @@ class LuksInventoryTests(unittest.TestCase):
         self.assertEqual(result["errors"][0]["reason"], "LUKS UUID sources disagree")
 
 
+    def test_rejects_duplicate_json_fields_at_any_depth(self):
+        payload = (
+            '{"uuid":"11111111-2222-3333-4444-555555555555",'
+            '"config":{"json_size":"16384","json_size":"32768"},'
+            '"keyslots":{},"tokens":{},'
+            '"segments":{"0":{"encryption":"aes-xts-plain64"}}}'
+        )
+        with self.assertRaisesRegex(LuksInventoryError, "duplicate-field"):
+            parse_luks_metadata(payload)
+
+    def test_rejects_boolean_json_metadata_size(self):
+        payload = json.dumps({
+            "uuid": "11111111-2222-3333-4444-555555555555",
+            "config": {"json_size": True}, "keyslots": {}, "tokens": {},
+            "segments": {"0": {"encryption": "aes-xts-plain64"}},
+        })
+        with self.assertRaisesRegex(LuksInventoryError, "metadata size"):
+            parse_luks_metadata(payload)
+
+
 if __name__ == "__main__":
     unittest.main()
