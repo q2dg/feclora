@@ -3776,6 +3776,9 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         if manifest.image_id != image_id or manifest.image_type != "disk":
             raise WebAPIError("restore profiles currently require a matching whole-disk image")
+        disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
+        if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
+            raise WebAPIError("restore profiles require exactly one RAW whole-disk artifact")
         if any(item.encryption == "age" for item in manifest.artifacts):
             if not _security_material().get("age_decryption_available"):
                 raise WebAPIError("age-encrypted image requires a separately provisioned Server or Client age identity")
