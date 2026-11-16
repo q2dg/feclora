@@ -1574,6 +1574,26 @@ const APP_UI_TEXT_RESTORE_FLOW = {
 };
 for (const [language, values] of Object.entries(APP_UI_TEXT_RESTORE_FLOW)) Object.assign(DICTS[language], values);
 
+
+const APP_UI_TEXT_OPERATION_LABELS = {
+  es: {"Deployment bundle":"Paquete de despliegue","Proportional whole-disk restore":"Restauración proporcional de disco completo"},
+  ca: {"Deployment bundle":"Paquet de desplegament","Proportional whole-disk restore":"Restauració proporcional de disc sencer"},
+  gl: {"Deployment bundle":"Paquete de despregamento","Proportional whole-disk restore":"Restauración proporcional de disco completo"},
+  eu: {"Deployment bundle":"Inplementazio sorta","Proportional whole-disk restore":"Disko osoaren leheneratze proportzionala"},
+  pt: {"Deployment bundle":"Pacote de implantação","Proportional whole-disk restore":"Restauro proporcional de disco completo"},
+  fr: {"Deployment bundle":"Ensemble de déploiement","Proportional whole-disk restore":"Restauration proportionnelle du disque entier"},
+  de: {"Deployment bundle":"Bereitstellungspaket","Proportional whole-disk restore":"Proportionale Wiederherstellung einer ganzen Festplatte"},
+  it: {"Deployment bundle":"Pacchetto di distribuzione","Proportional whole-disk restore":"Ripristino proporzionale dell'intero disco"},
+  zh: {"Deployment bundle":"部署包","Proportional whole-disk restore":"整盘按比例恢复"},
+  ja: {"Deployment bundle":"デプロイメントバンドル","Proportional whole-disk restore":"ディスク全体の比例復元"},
+  ru: {"Deployment bundle":"Пакет развертывания","Proportional whole-disk restore":"Пропорциональное восстановление всего диска"},
+  ar: {"Deployment bundle":"حزمة النشر","Proportional whole-disk restore":"استعادة متناسبة للقرص بالكامل"},
+  tr: {"Deployment bundle":"Dağıtım paketi","Proportional whole-disk restore":"Orantılı tam disk geri yükleme"}
+};
+for (const [language, values] of Object.entries(APP_UI_TEXT_OPERATION_LABELS)) {
+  Object.assign(DICTS[language], values);
+}
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
