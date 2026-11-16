@@ -276,11 +276,36 @@ def parse_root_tree_subvolumes(payload: str) -> list[dict[str, Any]]:
                 })
                 current_backref_id = None
 
-    uuid_to_id = {
-        root["uuid"]: subvolume_id
+    uuid_to_id: dict[str, int] = {}
+    for subvolume_id, root in roots.items():
+        root_uuid = root["uuid"]
+        if root_uuid is None:
+            continue
+        if root_uuid in uuid_to_id:
+            raise BtrfsInventoryError(
+                f"Btrfs root tree contains duplicate subvolume UUID {root_uuid}"
+            )
+        uuid_to_id[root_uuid] = subvolume_id
+
+    # Parent UUID references may legitimately point to snapshots that have
+    # already been deleted, but references among the currently inventoried
+    # roots must form an acyclic ancestry graph.
+    parent_by_id = {
+        subvolume_id: uuid_to_id.get(root["parent_uuid"])
         for subvolume_id, root in roots.items()
-        if root["uuid"] is not None
+        if root.get("parent_uuid") is not None
     }
+    for start_id in parent_by_id:
+        seen: set[int] = set()
+        current_id: int | None = start_id
+        while current_id is not None and current_id in parent_by_id:
+            if current_id in seen:
+                raise BtrfsInventoryError(
+                    f"Btrfs root tree contains a subvolume parent cycle at ID {current_id}"
+                )
+            seen.add(current_id)
+            current_id = parent_by_id[current_id]
+
     result: list[dict[str, Any]] = []
     for subvolume_id, root in roots.items():
         if root["generation"] is None or root["bytes_used"] is None:
