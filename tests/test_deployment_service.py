@@ -440,5 +440,57 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                 recover_stale_ipc_socket(lock_held=True)
 
 
+class DeploymentServiceLockTests(unittest.TestCase):
+    def _exercise_lock(self, acquire, *, link_count, expected_flag):
+        with tempfile.TemporaryDirectory() as directory:
+            lock_path = os.path.join(directory, "deployment.lock")
+            runtime_info = SimpleNamespace(
+                st_mode=stat.S_IFDIR | 0o700, st_uid=0,
+            )
+            lock_info = SimpleNamespace(
+                st_mode=stat.S_IFREG | 0o600, st_uid=0, st_nlink=link_count,
+            )
+            real_open = os.open
+            opened = {}
+
+            def tracked_open(path, flags, mode=0o777):
+                opened["flags"] = flags
+                fd = real_open(path, flags, mode)
+                opened["fd"] = fd
+                return fd
+
+            with mock.patch("feclora.deployment.service.RUNTIME_DIRECTORY", Path(directory)), \
+                 mock.patch("feclora.deployment.service.LOCK_FILE", Path(lock_path)), \
+                 mock.patch("feclora.deployment.service.os.lstat", return_value=runtime_info), \
+                 mock.patch("feclora.deployment.service.os.open", side_effect=tracked_open), \
+                 mock.patch("feclora.deployment.service.os.fstat", return_value=lock_info), \
+                 mock.patch("feclora.deployment.service.fcntl.flock"):
+                if link_count == 1:
+                    fd = acquire()
+                    self.assertEqual(fd, opened["fd"])
+                    self.assertTrue(opened["flags"] & expected_flag)
+                    os.close(fd)
+                else:
+                    with self.assertRaisesRegex(DeploymentServiceError, "lock file is unsafe"):
+                        acquire()
+                    with self.assertRaises(OSError):
+                        os.fstat(opened["fd"])
+
+    def test_instance_lock_is_close_on_exec_and_rejects_hardlinks(self):
+        service = DeploymentService.__new__(DeploymentService)
+        service._lock_fd = None
+        self._exercise_lock(service._acquire_instance_lock, link_count=1,
+                            expected_flag=getattr(os, "O_CLOEXEC", 0))
+        self._exercise_lock(service._acquire_instance_lock, link_count=2,
+                            expected_flag=getattr(os, "O_CLOEXEC", 0))
+
+    def test_recovery_lock_is_close_on_exec_and_rejects_hardlinks(self):
+        from feclora.deployment.service import _acquire_recovery_lock
+        self._exercise_lock(_acquire_recovery_lock, link_count=1,
+                            expected_flag=getattr(os, "O_CLOEXEC", 0))
+        self._exercise_lock(_acquire_recovery_lock, link_count=2,
+                            expected_flag=getattr(os, "O_CLOEXEC", 0))
+
+
 if __name__ == "__main__":
     unittest.main()
