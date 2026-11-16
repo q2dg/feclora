@@ -1,4 +1,14 @@
-# Restore profiles
+---
+layout: default
+title: Restore profiles
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
+![Illustrative restore-profile authorization workflow]({{ '/assets/mockups/restore-profile.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. The Cockpit profile flow requires a persistent filesystem repository and a single-use authorization.*
 
 A restore profile records repeatable operator choices without embedding private keys or bypassing the storage safety checks in the restore engine.
 
