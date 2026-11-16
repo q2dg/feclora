@@ -212,6 +212,11 @@ export default function App() {
   const [bundleBaseISO, setBundleBaseISO] = useState("");
   const [bundleName, setBundleName] = useState("fleet-deployment-bundle");
   const [bundleJobJSON, setBundleJobJSON] = useState("");
+  const [restoreProfiles, setRestoreProfiles] = useState([]);
+  const [restoreProfileName, setRestoreProfileName] = useState("");
+  const [restoreProfileImage, setRestoreProfileImage] = useState("");
+  const [restoreProfileTarget, setRestoreProfileTarget] = useState("");
+  const [restoreProfileExpiry, setRestoreProfileExpiry] = useState("");
 
   const applyNetworkProfile = async (event) => {
     event.preventDefault();
@@ -247,10 +252,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials, s3repos] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("s3_repositories")
+      const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials, s3repos, restoreProfileData] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("s3_repositories"), callFeclora("restore_profiles")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setS3Repositories(s3repos.repositories || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setS3Repositories(s3repos.repositories || []); setRestoreProfiles(restoreProfileData.profiles || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -269,6 +274,35 @@ export default function App() {
     return () => { active = false; window.clearInterval(timer); };
   }, []);
 
+
+
+  const createRestoreProfile = async (event) => {
+    event.preventDefault();
+    const selected = disks.find((device) => device.path === restoreProfileTarget);
+    if (!selected || (!selected.wwn && !selected.serial)) {
+      setError("Choose a detected whole disk with a WWN and/or serial number.");
+      return;
+    }
+    if (!restoreProfileExpiry) {
+      setError("Set an expiry time for this single-use unattended profile.");
+      return;
+    }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("create_restore_profile", {
+        name: restoreProfileName,
+        image_id: restoreProfileImage,
+        target_wwn: selected.wwn || null,
+        target_serial: selected.serial || null,
+        expires_at: new Date(restoreProfileExpiry).toISOString()
+      });
+      setNotice("Restore profile saved. It is not armed and will not run automatically. " + result.profile_id);
+      setRestoreProfileName("");
+      const listed = await callFeclora("restore_profiles");
+      setRestoreProfiles(listed.profiles || []);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
 
   const exportLocalOperations = () => {
     const payload = {
@@ -1391,6 +1425,52 @@ export default function App() {
                 </CardBody></Card>
               </StackItem>
               <StackItem><Alert variant="info" title={t("safety")} isInline>{t("storageSafety")}</Alert></StackItem>
+            </Stack>
+          </Tab>
+
+          <Tab eventKey="restore-profiles" title="Restore profiles">
+            <Stack hasGutter className="pf-v6-u-pt-lg">
+              <StackItem>
+                <Title headingLevel="h2" size="xl">Unattended restore profiles</Title>
+                <Alert variant="warning" title="Explicit, single-use authorization" isInline>
+                  A profile binds a verified local whole-disk image to one uniquely detected disk by WWN and/or serial. It requires read-back verification and expires at the selected time. Saving a profile does not arm the boot service, start a restore, or make the profile replayable. Proportional layout is not available in this workflow.
+                </Alert>
+              </StackItem>
+              <StackItem>
+                <Card><CardBody>
+                  <form onSubmit={createRestoreProfile}>
+                    <Field label="Profile name">
+                      <input className="pf-v6-c-form-control" value={restoreProfileName} maxLength={80} onChange={(event) => setRestoreProfileName(event.target.value)} required />
+                    </Field>
+                    <Field label="Local whole-disk image">
+                      <select className="pf-v6-c-form-control" value={restoreProfileImage} onChange={(event) => setRestoreProfileImage(event.target.value)} required>
+                        <option value="">Select a local image…</option>
+                        {images.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Target whole disk" help="The profile stores stable WWN/serial identity, never a /dev path. The disk must be uniquely detected.">
+                      <select className="pf-v6-c-form-control" value={restoreProfileTarget} onChange={(event) => setRestoreProfileTarget(event.target.value)} required>
+                        <option value="">Select target disk…</option>
+                        {disks.filter((device) => device.wwn || device.serial).map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || "Disk"} · {device.wwn || "no WWN"} · {device.serial || "no serial"}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Authorization expiry" help="The unattended authorization is single-use and must expire in the future.">
+                      <input className="pf-v6-c-form-control" type="datetime-local" value={restoreProfileExpiry} onChange={(event) => setRestoreProfileExpiry(event.target.value)} required />
+                    </Field>
+                    <Button type="submit" variant="primary" isDisabled={busy || !restoreProfileName.trim() || !restoreProfileImage || !restoreProfileTarget || !restoreProfileExpiry} isLoading={busy}>Save single-use profile</Button>
+                  </form>
+                </CardBody></Card>
+              </StackItem>
+              <StackItem>
+                <Title headingLevel="h3" size="lg">Saved profiles</Title>
+                <Table aria-label="Saved restore profiles" variant="compact">
+                  <Thead><Tr><Th>Name</Th><Th>Image manifest</Th><Th>Target identity</Th><Th>Expires</Th><Th>Mode</Th></Tr></Thead>
+                  <Tbody>
+                    {restoreProfiles.map((profile) => <Tr key={profile.profile_id}><Td>{profile.name}</Td><Td>{profile.image_manifest}</Td><Td>{profile.target.wwn || "—"} / {profile.target.serial || "—"}</Td><Td>{profile.expires_at || "—"}</Td><Td>{profile.execution_mode} · {profile.single_use ? "single-use" : "reusable"}</Td></Tr>)}
+                    {!restoreProfiles.length && <Tr><Td colSpan={5}>No saved restore profiles.</Td></Tr>}
+                  </Tbody>
+                </Table>
+              </StackItem>
             </Stack>
           </Tab>
           <Tab eventKey="inventory" title={t("inventory")}>
