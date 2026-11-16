@@ -90,6 +90,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
+        "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -156,6 +157,15 @@ def validate_definition(value: Any) -> dict[str, Any]:
             if (not isinstance(device, str) or not DEVICE_RE.fullmatch(device)
                     or ".." in device.split("/") or os.path.normpath(device) != device):
                 raise LocalOperationError(f"{key} must be a normalized /dev device path")
+    if action == "execute_restore_profile":
+        try:
+            profile_id = str(uuid.UUID(params.get("profile_id")))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise LocalOperationError("profile_id must be a canonical UUID") from exc
+        if profile_id != params.get("profile_id"):
+            raise LocalOperationError("profile_id must be a canonical UUID")
+        if params.get("confirmation") != f"ERASE {params.get('target')}":
+            raise LocalOperationError("restore profile confirmation does not match its target")
     if action == "restore_proportional_disk":
         for key in ("source_major_minor", "target_major_minor"):
             if not isinstance(params.get(key), str) or not re.fullmatch(r"[0-9]+:[0-9]+", params[key]):
