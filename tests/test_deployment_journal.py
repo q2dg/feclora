@@ -265,6 +265,30 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertFalse(report["automatic_resume"])
             self.assertEqual(report["progress"][MAC]["completed_bytes"], 1048576)
 
+    def test_recovery_report_accepts_durable_remote_clone_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            journal({
+                "timestamp": "2026-11-08T12:00:02+00:00",
+                "job_id": JOB_ID, "event": "client_progress", "job_state": "running",
+                "client_mac": MAC, "client_state": "running",
+                "progress": {
+                    "phase": "clone", "completed_bytes": 4096,
+                    "total_bytes": 8192, "bytes_per_second": 1024.0,
+                    "updated_at": "2026-11-08T12:00:02+00:00",
+                },
+            })
+            report = DeploymentJournal.inspect(path).recovery_report()
+            self.assertTrue(report["interrupted"])
+            self.assertEqual(report["progress"][MAC]["phase"], "clone")
+            self.assertEqual(report["progress"][MAC]["completed_bytes"], 4096)
+
     def test_coordinator_rehydrates_interrupted_state_without_resuming(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
