@@ -3797,8 +3797,9 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
             check_capture_source_safe(target.get("path"))
         except Exception as exc:
             raise WebAPIError(f"restore profile target must be offline and unused: {exc}") from exc
-        if target.get("size_bytes", 0) < manifest.source_size_bytes:
-            raise WebAPIError("restore profile target disk is smaller than the source image; proportional restore is a separate workflow")
+        target_size = target.get("size_bytes")
+        if isinstance(target_size, bool) or not isinstance(target_size, int) or target_size < manifest.source_size_bytes:
+            raise WebAPIError("restore profile target capacity is unknown or smaller than the source image; proportional restore is a separate workflow")
         if target.get("logical_sector_size") != manifest.logical_sector_size:
             raise WebAPIError("restore profile target logical sector size differs from the image")
         pending = [target]
