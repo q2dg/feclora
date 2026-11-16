@@ -4,6 +4,9 @@ import json
 import tempfile
 from pathlib import Path
 import unittest
+from contextlib import nullcontext
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from feclora.storage.recovery_boot import (
     RecoveryBootError, _load_answer, discover_payload,
@@ -29,6 +32,50 @@ class RecoveryBootTests(unittest.TestCase):
         }
         value.update(overrides)
         (self.payload / "answer.json").write_text(json.dumps(value), encoding="utf-8")
+
+
+    def test_restore_engine_interruption_propagates_after_prewrite_revalidation(self):
+        selector = object()
+        manifest = SimpleNamespace(image_id="rescue-01", artifacts=[])
+        observed = {}
+        def interrupted_restore(*args, **kwargs):
+            observed.update(kwargs)
+            kwargs["pre_write_callback"]()
+            raise RuntimeError("simulated power-loss boundary")
+        with patch("feclora.storage.recovery_boot._load_answer",
+                   return_value={"image_id": "rescue-01", "selector": selector}), \\
+             patch("feclora.storage.recovery_boot._load_manifest", return_value=manifest), \\
+             patch("feclora.storage.recovery_boot._resolve", return_value=("/dev/sda", {})), \\
+             patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \\
+             patch("feclora.storage.recovery_boot.execute_restore", side_effect=interrupted_restore):
+            with self.assertRaisesRegex(RuntimeError, "power-loss boundary"):
+                from feclora.storage.recovery_boot import execute_recovery
+                execute_recovery(self.payload)
+        self.assertEqual(observed["target_type"], "disk")
+        self.assertEqual(observed["confirmation"], "ERASE /dev/sda")
+        self.assertTrue(callable(observed["pre_write_callback"]))
+
+    def test_target_identity_drift_blocks_restore_before_engine_write(self):
+        selector = object()
+        manifest = SimpleNamespace(image_id="rescue-01", artifacts=[])
+        writes = []
+        def changed_target(*_args, **_kwargs):
+            return "/dev/sdb", {}
+        def attempted_restore(*args, **kwargs):
+            kwargs["pre_write_callback"]()
+            writes.append("write")
+        with patch("feclora.storage.recovery_boot._load_answer",
+                   return_value={"image_id": "rescue-01", "selector": selector}), \\
+             patch("feclora.storage.recovery_boot._load_manifest", return_value=manifest), \\
+             patch("feclora.storage.recovery_boot._resolve", side_effect=[
+                 ("/dev/sda", {}), changed_target(None, None)
+             ]), \\
+             patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \\
+             patch("feclora.storage.recovery_boot.execute_restore", side_effect=attempted_restore):
+            from feclora.storage.recovery_boot import execute_recovery
+            with self.assertRaisesRegex(Exception, "identity or device path changed"):
+                execute_recovery(self.payload)
+        self.assertEqual(writes, [])
 
     def test_discovery_finds_single_recovery_payload(self):
         self.assertEqual(discover_payload((self.root,)), self.payload)
