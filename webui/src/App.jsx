@@ -321,12 +321,8 @@ export default function App() {
     if (!repositoryId) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const [imageData, profileData] = await Promise.all([
-        callFeclora("repository_images", { repository_id: repositoryId }),
-        callFeclora("restore_profiles", { repository_id: repositoryId })
-      ]);
+      const imageData = await callFeclora("repository_images", { repository_id: repositoryId });
       setRestoreProfileImages((imageData.images || []).filter((item) => item.image_type === "disk" && item.image_format === "raw"));
-      setRestoreProfiles(profileData.profiles || []);
       setNotice("Loaded persistent restore profiles and RAW images from " + repositoryId + ".");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
