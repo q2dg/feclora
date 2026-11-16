@@ -94,8 +94,9 @@ logs and documentation.
 ## Scope and limitations
 
 - Whole-disk restore accepts raw disk-image artifacts only.
-- The destination must be equal to or larger than the source; smaller-disk
-  restore is a separate, incomplete workflow.
+- The standard restore destination must be equal to or larger than the source.
+  Smaller-disk restore is a separate Cockpit proportional workflow, limited to
+  supported GPT layouts whose final partition uses ext2/3/4 or NTFS.
 - Extra capacity is not automatically assigned to a partition or filesystem.
 - A larger GPT target requires `sgdisk` for backup-header relocation and
   verification.
