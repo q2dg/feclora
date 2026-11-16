@@ -138,6 +138,7 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [x] Keep age identity/recipient provisioning optional during Server and Client setup; TLS trust configuration does not depend on age encryption. 
 - [x] Use root-owned mode-0600 standalone restore profiles in a root-owned, non-group/other-writable directory, with expiry, single-use consumption and target identity checks. This local profile mechanism is separate from PXE answer admission.
+- [x] Expose Cockpit profile creation, inventory and explicit execution through the durable local-operation worker; require a mounted persistent filesystem repository for profile files, replay ledger and audit log; consume the profile atomically immediately before writing.
 - [ ] Expose Server certificate preflight, expiry, rotation status and recovery guidance in Cockpit.
 - [ ] Test mixed-version clients, interrupted rotation, expiry, wrong SAN/fingerprint and lost Server state.
 Acceptance: Server certificate renewal and key rotation remain auditable; private material never enters logs/browser state.
