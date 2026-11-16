@@ -56,12 +56,12 @@ class DeploymentJournal:
         """Open and verify an existing journal using its first recorded job UUID."""
         absolute = os.path.abspath(os.fspath(path))
         try:
-            fd = os.open(absolute, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            fd = os.open(absolute, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
             try:
                 fcntl.flock(fd, fcntl.LOCK_SH)
                 info = os.fstat(fd)
                 if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                        or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
+                        or info.st_nlink != 1 or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
                     raise DeploymentJournalError("journal file permissions or ownership are unsafe")
                 first_line = bytearray()
                 while len(first_line) <= _MAX_EVENT_BYTES:
@@ -146,14 +146,14 @@ class DeploymentJournal:
             try:
                 fd = os.open(
                     self.path,
-                    os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+                    os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
                     0o600,
                 )
                 try:
                     fcntl.flock(fd, fcntl.LOCK_EX)
                     info = os.fstat(fd)
                     if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                            or info.st_mode & 0o077):
+                            or info.st_nlink != 1 or info.st_mode & 0o077):
                         raise DeploymentJournalError("journal file permissions or ownership are unsafe")
                     # Another journal instance may have appended since this
                     # instance was opened. Refresh the verified chain while
