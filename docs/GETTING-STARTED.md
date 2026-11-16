@@ -27,6 +27,7 @@ title: Getting started
 
   <section class="section">
     <h2>2. Add an image repository</h2>
+    <div class="guide-card"><img src="{{ '/assets/mockups/repository-setup.svg' | relative_url }}" alt="Illustrative repository configuration workflow"><div class="guide-card-body"><p>Illustrative provider-selection mockup; the actual options and credentials are controlled by the configured repository provider.</p></div></div>
     <ol>
       <li>Open the repository configuration in Cockpit.</li>
       <li>Select a supported provider: local filesystem, SSHFS, NFS, SMB/CIFS or S3-compatible object storage.</li>
