@@ -6,6 +6,11 @@ title: Local disk-to-disk cloning
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
+![Illustrative local disk clone workflow]({{ '/assets/mockups/local-clone.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. The destination is overwritten; verify both device identities.*
+
+
 # Local disk-to-disk cloning
 
 **Status: available in Cockpit**
