@@ -3696,6 +3696,27 @@ def _restore_profiles(params: dict[str, Any]) -> dict[str, Any]:
     profiles = []
     from feclora.storage.restore_profile import load_restore_profile
     inventory = collect_inventory()
+    consumed_ids: set[str] = set()
+    ledger = repository / ".feclora" / "restore-audit" / "consumed-profiles.jsonl"
+    try:
+        ledger_info = os.lstat(ledger)
+    except FileNotFoundError:
+        ledger_info = None
+    except OSError as exc:
+        raise WebAPIError(f"cannot inspect restore profile consumption ledger: {exc}") from exc
+    if ledger_info is not None:
+        if (not stat.S_ISREG(ledger_info.st_mode) or stat.S_ISLNK(ledger_info.st_mode)
+                or ledger_info.st_uid != 0 or ledger_info.st_mode & 0o077
+                or ledger_info.st_size > 8 * 1024 * 1024):
+            raise WebAPIError("restore profile consumption ledger has unsafe type, permissions or size")
+        try:
+            for line_number, line in enumerate(ledger.read_text(encoding="utf-8").splitlines(), 1):
+                event = json.loads(line, object_pairs_hook=_reject_duplicates)
+                if not isinstance(event, dict) or event.get("status") != "consumed" or not isinstance(event.get("profile_id"), str):
+                    raise WebAPIError(f"restore profile consumption ledger is invalid at line {line_number}")
+                consumed_ids.add(event["profile_id"])
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise WebAPIError(f"restore profile consumption ledger is corrupt: {exc}") from exc
     for path in sorted(directory.glob("*.json")):
         try:
             profile = load_restore_profile(path)
@@ -3711,7 +3732,7 @@ def _restore_profiles(params: dict[str, Any]) -> dict[str, Any]:
             "layout_policy": profile.layout_policy, "target": profile.target.to_dict(),
             "target_path": matches[0].get("path") if len(matches) == 1 else None,
             "expires_at": profile.expires_at, "single_use": profile.single_use,
-            "consumed": False,
+            "consumed": profile.profile_id in consumed_ids,
         })
     return {"profiles": profiles, "storage_available": True}
 
