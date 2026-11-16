@@ -146,6 +146,8 @@ class DeploymentControlServer:
         self._progress: dict[str, dict[str, Any]] = {}
         self._progress_event_sink = progress_event_sink
         self._last_persisted_progress: dict[str, dict[str, Any]] = {}
+        self._server_progress: dict[str, Any] | None = None
+        self._last_persisted_server_progress: dict[str, Any] | None = None
         self._pending_sockets: set[Any] = set()
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
@@ -970,10 +972,49 @@ class DeploymentControlServer:
                     raise DeploymentControlError(
                         f"Client {mac} could not prepare its destination; no data was sent: {response['detail'][:256]}"
                     )
+            def report_server_progress(completed: int, total: int) -> None:
+                now = time.monotonic()
+                with self._lock:
+                    previous = getattr(self, "_server_progress", None)
+                    rate = 0.0
+                    if previous is not None and now > previous.get("monotonic", now):
+                        rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
+                    updated_at = datetime.now(timezone.utc).isoformat()
+                    snapshot = {
+                        "phase": "clone", "completed_bytes": completed,
+                        "total_bytes": total, "bytes_per_second": round(rate, 1),
+                        "updated_at": updated_at,
+                    }
+                    previous_saved = getattr(self, "_last_persisted_server_progress", None)
+                    should_persist = (
+                        self._progress_event_sink is not None
+                        and (
+                            previous_saved is None
+                            or completed - previous_saved["completed_bytes"] >= 1024 * 1024
+                            or now - previous_saved["monotonic"] >= 5.0
+                            or (completed == total and previous_saved["completed_bytes"] != completed)
+                        )
+                    )
+                    if should_persist:
+                        try:
+                            self._progress_event_sink({
+                                "timestamp": updated_at, "job_id": job.job_id,
+                                "event": "server_progress",
+                                "job_state": self.coordinator.state.value,
+                                "progress": snapshot,
+                            })
+                        except Exception as exc:
+                            raise DeploymentControlError(
+                                f"could not persist physical multicast sender progress: {exc}"
+                            ) from exc
+                        self._last_persisted_server_progress = {**snapshot, "monotonic": now}
+                    self._server_progress = {**snapshot, "monotonic": now}
+
             with os.fdopen(os.dup(source_fd), "rb", buffering=0) as source_stream:
                 sent = send_physical_multicast_stream(
                     source_stream, expected_bytes=expected_bytes,
                     config=udpcast_config, firewall=self.firewall,
+                    progress_callback=report_server_progress,
                 )
             if sent.get("sha256") != stream_metadata["sha256"]:
                 raise DeploymentControlError("Server source changed between hash scan and multicast send")
