@@ -2215,17 +2215,18 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             profile_dir = Path(root) / "profiles"
             profile_dir.mkdir()
-            with patch("feclora.webapi._repository", return_value=Path(root)), \
+            with patch("feclora.webapi._profile_repository", return_value=Path(root)), \
                  patch("feclora.webapi._image_manifest", return_value=Path(root) / "golden.manifest.json"), \
                  patch("pathlib.Path.read_text", return_value="{}"), \
                  patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
                  patch("feclora.webapi.collect_inventory", return_value=inventory), \
+                 patch("feclora.webapi.check_capture_source_safe", return_value=None), \
                  patch("feclora.webapi._restore_profile_directory", return_value=profile_dir), \
                  patch("feclora.storage.restore_profile.save_unattended_restore_profile", side_effect=lambda profile, path: path) as save:
                 result = _create_restore_profile({
                     "name": "Lab image", "image_id": "golden",
                     "target_wwn": "naa.5000c50012345678", "target_serial": "SERIAL-1",
-                    "expires_at": "2030-01-01T00:00:00Z",
+                    "expires_at": "2030-01-01T00:00:00Z", "repository_id": "backup",
                 })
         profile = save.call_args.args[0]
         self.assertEqual(result["execution_mode"], "unattended")
@@ -2237,8 +2238,8 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
     def test_create_restore_profile_rejects_ambiguous_target(self):
         from feclora.webapi import _create_restore_profile
         manifest = SimpleNamespace(
-            image_id="golden", image_type="disk",
-            artifacts=[SimpleNamespace(encryption="none")],
+            image_id="golden", image_type="disk", source_size_bytes=10_000_000,
+            logical_sector_size=512, artifacts=[SimpleNamespace(encryption="none")],
         )
         inventory = {"devices": [
             {"path": "/dev/sda", "type": "disk", "serial": "DUPLICATE", "size_bytes": 20_000_000, "logical_sector_size": 512, "mountpoints": [], "children": []},
@@ -2262,10 +2263,10 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
     def test_restore_profiles_action_lists_empty_directory(self):
         with patch("feclora.webapi._restore_profile_directory", return_value=Path("/tmp/nonexistent-profiles")):
             with patch("pathlib.Path.glob", return_value=[]):
-                self.assertEqual(dispatch({"action": "restore_profiles"}), {"profiles": []})
+                self.assertEqual(dispatch({"action": "restore_profiles"}), {"profiles": [], "storage_available": False})
 
     def test_restore_profile_actions_reject_unexpected_parameters(self):
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(WebAPIError, "mounted filesystem repository_id"):
             dispatch({"action": "restore_profiles", "params": {"path": "/etc/passwd"}})
 
 
