@@ -73,7 +73,7 @@ class RecoveryBootTests(unittest.TestCase):
              patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \\
              patch("feclora.storage.recovery_boot.execute_restore", side_effect=attempted_restore):
             from feclora.storage.recovery_boot import execute_recovery
-            with self.assertRaisesRegex(Exception, "identity or device path changed"):
+            with self.assertRaisesRegex(RecoveryBootError, "identity or device path changed"):
                 execute_recovery(self.payload)
         self.assertEqual(writes, [])
 
