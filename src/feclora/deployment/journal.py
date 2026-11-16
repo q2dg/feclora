@@ -209,7 +209,22 @@ class DeploymentJournal:
             raise DeploymentJournalError("journal does not begin with a valid job_created event")
         clients: dict[str, dict[str, Any]] = {}
         progress: dict[str, dict[str, Any]] = {}
+        server_progress: dict[str, Any] | None = None
         for event in events:
+            if event.get("event") == "server_progress":
+                snapshot = event.get("progress")
+                if (event.get("client_mac") is not None
+                        or not isinstance(snapshot, dict)
+                        or snapshot.get("phase") != "clone"
+                        or isinstance(snapshot.get("completed_bytes"), bool)
+                        or not isinstance(snapshot.get("completed_bytes"), int)
+                        or snapshot["completed_bytes"] < 0
+                        or isinstance(snapshot.get("total_bytes"), bool)
+                        or not isinstance(snapshot.get("total_bytes"), int)
+                        or snapshot["total_bytes"] < snapshot["completed_bytes"]):
+                    raise DeploymentJournalError("journal contains an invalid Server progress snapshot")
+                server_progress = copy.deepcopy(snapshot)
+                continue
             mac = event.get("client_mac")
             if mac is None:
                 continue
@@ -261,6 +276,7 @@ class DeploymentJournal:
             "job_state": job_state,
             "clients": clients,
             "progress": progress,
+            "server_progress": server_progress,
             "event_count": len(events),
             "last_event": events[-1].get("event"),
             "interrupted": interrupted,
