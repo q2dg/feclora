@@ -28,6 +28,8 @@ The current operator guides use task-specific conceptual screens under
 | `pxe-workflow.svg` | PXE boot modes | Separate interactive Live from unattended answer flow |
 | `multicast-workflow.svg` | Multicast restore | Explain READY barrier and shared stream |
 | `recovery-workflow.svg` | Recovery media | Show artifact inputs and guarded Live boot-time restore dispatch |
+| `restore-profile.svg` | Single-use restore profile | Explain persistent profile storage, WWN/serial binding and one-time execution |
+| `proportional-restore.svg` | Proportional whole-disk restore | Explain private staging, eligible filesystem shrink and exact-size target write |
 
 These SVGs are design illustrations, not captures of the current React UI.
 Sample disk names, capacities, addresses and statuses are fictional. The
