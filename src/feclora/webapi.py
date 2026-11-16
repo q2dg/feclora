@@ -2155,6 +2155,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if source_disk.get("logical_sector_size") != target_disk.get("logical_sector_size"):
             raise WebAPIError("source and destination logical sector sizes must match")
         check_capture_source_safe(source)
+        check_capture_source_safe(target)
         with _operation_repository_context(params, write=False, image_id=image_id) as repository:
             manifest_path = _image_manifest(image_id, repository)
             try:
