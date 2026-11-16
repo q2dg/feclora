@@ -389,6 +389,9 @@ class TransferFailureTests(unittest.TestCase):
         server.coordinator = coordinator
         server._lock = threading.RLock()
         server._sessions = {MAC: FakeSocket(), mac2: FakeSocket()}
+        server._progress_event_sink = Mock()
+        server._server_progress = None
+        server._last_persisted_server_progress = None
         server._target_identities = {
             MAC: {**identity, "path": "/dev/sdb", "major_minor": "8:16",
                   "sysfs_path": "/sys/devices/sdb", "wwn": "wwn-target-1",
@@ -415,12 +418,22 @@ class TransferFailureTests(unittest.TestCase):
              patch.object(server, "arm_and_start", return_value=(MAC, mac2)), \
              patch("feclora.deployment.control.receive_control_message", side_effect=ready_ack), \
              patch("feclora.network.udpcast.send_physical_multicast_stream",
-                   side_effect=lambda *args, **kwargs: events.append("stream-sent") or {"sha256": hashlib.sha256(payload).hexdigest()}), \
+                   side_effect=lambda *args, **kwargs: (
+                       kwargs["progress_callback"](len(payload), len(payload)),
+                       events.append("stream-sent"),
+                       {"sha256": hashlib.sha256(payload).hexdigest()},
+                   )[-1]), \
              patch.object(server, "collect_results", return_value={MAC: "verified", mac2: "verified"}), \
              patch("feclora.deployment.control.os.close"):
             result = server.run_physical_multicast_clone_job(udpcast_config=config)
         self.assertEqual(result, {MAC: "verified", mac2: "verified"})
         self.assertEqual(events, ["all-client-ready", "all-client-ready", "stream-sent"])
+        server._progress_event_sink.assert_called_once()
+        progress_event = server._progress_event_sink.call_args.args[0]
+        self.assertEqual(progress_event["event"], "server_progress")
+        self.assertNotIn("client_mac", progress_event)
+        self.assertEqual(progress_event["progress"]["completed_bytes"], len(payload))
+        self.assertEqual(progress_event["progress"]["total_bytes"], len(payload))
 
     def test_restore_transfer_timeout_is_reported_failed_and_closes_session(self):
         coordinator = DeploymentCoordinator(make_job())
