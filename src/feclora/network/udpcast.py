@@ -541,6 +541,17 @@ def send_physical_multicast_stream(
                     process.kill()
                     process.wait()
             raise UDPcastError(f"physical multicast sender failed: {exc}") from exc
+        except Exception:
+            # Progress callbacks and other caller hooks may fail too. Never
+            # leave udp-sender alive when the producer side aborts the stream.
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+            raise
 
 
 def receive_physical_multicast_stream(
