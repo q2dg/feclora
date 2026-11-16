@@ -552,7 +552,7 @@ export default function App() {
     try {
       const result = await callFeclora("repository_images", { repository_id: id });
       setRepositoryImages(result.images || []);
-      setNotice("Loaded " + (result.images || []).length + " images from repository " + id + ".");
+      setNotice(t("Loaded images from repository") + " " + (result.images || []).length + " · " + id + ".");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -563,7 +563,7 @@ export default function App() {
       await callFeclora("put_systemd_credential", {
         id: credentialId, kind: credentialKind, source_file: credentialSourceFile, replace: credentialReplace
       });
-      setNotice("Encrypted credential imported. The protected source file was not deleted.");
+      setNotice(t("Encrypted credential imported. The protected source file was not deleted."));
       setCredentialId(""); setCredentialSourceFile(""); setCredentialReplace(false);
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
@@ -574,7 +574,7 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     try {
       await callFeclora("remove_systemd_credential", { id: credential.id, kind: credential.kind });
-      setNotice("Removed encrypted credential " + credential.id + " (" + credential.kind + ").");
+      setNotice(t("Removed encrypted credential") + " " + credential.id + " (" + credential.kind + ").");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -593,7 +593,7 @@ export default function App() {
         port: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? (repositoryPort ? Number(repositoryPort) : null) : null,
         read_only: repositoryReadOnly
       });
-      setNotice(repositoryEditing ? "Repository definition updated; no mount was started." : "Repository definition saved; no mount was started.");
+      setNotice(repositoryEditing ? t("Repository definition updated; no mount was started.") : t("Repository definition saved; no mount was started."));
       setRepositoryId(""); setRepositoryEditing(false); await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -620,11 +620,11 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     try {
       const actionResult = await callFeclora(action, { id });
-      setNotice(action === "remove_remote_repository" ? `Removed repository ${id}.`
-        : action === "mount_remote_repository" ? `Mounted repository ${id}.`
-        : action === "unmount_remote_repository" ? `Unmounted repository ${id}.`
-        : action === "check_remote_repository" ? `Repository ${id}: ${actionResult.verified ? "mount verified" : actionResult.mounted ? "mounted but unverified" : "not mounted"}.`
-        : `Repository ${id} updated.`);
+      setNotice(action === "remove_remote_repository" ? `${t("Removed repository")} ${id}.`
+        : action === "mount_remote_repository" ? `${t("Mounted repository")} ${id}.`
+        : action === "unmount_remote_repository" ? `${t("Unmounted repository")} ${id}.`
+        : action === "check_remote_repository" ? `${t("Repository")} ${id}: ${actionResult.verified ? t("mount verified") : actionResult.mounted ? t("mounted but unverified") : t("not mounted")}.`
+        : `${t("Repository")} ${id} ${t("updated")}.`);
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -638,7 +638,7 @@ export default function App() {
         region: s3Region, bucket: s3Bucket, prefix: s3Prefix,
         credential_id: s3CredentialId, read_only: s3ReadOnly
       });
-      setNotice("S3 object repository definition saved. No filesystem mount was created.");
+      setNotice(t("S3 object repository definition saved. No filesystem mount was created."));
       setS3RepositoryId(""); await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -673,8 +673,8 @@ export default function App() {
     try {
       const result = await callFeclora(action, { id });
       setNotice(action === "check_s3_repository"
-        ? (result.bucket_accessible ? "S3 bucket connection verified." : "S3 bucket is not accessible.")
-        : "S3 repository removed.");
+        ? (result.bucket_accessible ? t("S3 bucket connection verified.") : t("S3 bucket is not accessible."))
+        : t("S3 repository removed."));
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -709,12 +709,12 @@ export default function App() {
       const accepted = await callFeclora("extract_partition_image", {
         image_id: extractImageId, selector: extractPartitionSelector, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
       });
-      setNotice("Partition extraction accepted by the durable worker.");
+      setNotice(t("Partition extraction accepted by the durable worker."));
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
       setExtractPartitionResult(result.result);
-      setNotice("Partition image extracted and published.");
+      setNotice(t("Partition image extracted and published."));
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); setProgress(null); }
