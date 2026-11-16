@@ -195,5 +195,48 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
 
 
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": False})
+    def test_inconsistent_staged_gpt_copies_prevent_target_write(self, _gpt):
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "GPT copies are inconsistent"):
+            self._restore()
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_nonzero_destination_writer_exit_reports_partial_modification(self, _gpt):
+        calls = []
+        def factory(command, **kwargs):
+            calls.append(command)
+            process = _Process()
+            process.returncode = 7
+            return process
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "partially modified"):
+            self._restore(popen_factory=factory)
+        self.assertEqual(len(calls), 1)
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_destination_writer_spawn_error_is_reported_without_readback(self, _gpt):
+        def fail_spawn(_command, **_kwargs):
+            raise OSError("simulated exec failure")
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "could not start destination write"):
+            self._restore(popen_factory=fail_spawn)
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_destination_identity_probe_failure_after_write_skips_readback(self, _gpt):
+        calls = []
+        def identity(_path):
+            calls.append(1)
+            if len(calls) <= 2:
+                return (8, 1)
+            raise OSError("device disappeared")
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "cannot establish destination identity"):
+            self._restore(device_identity=identity)
+        self.assertEqual(len(self.processes), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
