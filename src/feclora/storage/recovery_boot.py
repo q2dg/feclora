@@ -125,9 +125,14 @@ def _load_manifest(directory: Path, image_id: str) -> ImageManifest:
     for artifact in manifest.artifacts:
         if artifact.encryption not in {"none", "age"}:
             raise RecoveryBootError("embedded image uses unsupported encryption")
-        artifact_bytes = _read_regular(directory, artifact.filename, artifact.size_bytes)
-        if len(artifact_bytes) != artifact.size_bytes:
-            raise RecoveryBootError(f"embedded artifact size does not match manifest: {artifact.filename}")
+        artifact_path = directory / artifact.filename
+        try:
+            artifact_info = os.lstat(artifact_path)
+        except OSError as exc:
+            raise RecoveryBootError(f"cannot inspect embedded artifact {artifact.filename}: {exc}") from exc
+        if (not stat.S_ISREG(artifact_info.st_mode) or stat.S_ISLNK(artifact_info.st_mode)
+                or artifact_info.st_size != artifact.size_bytes):
+            raise RecoveryBootError(f"embedded artifact type or size does not match manifest: {artifact.filename}")
     return manifest
 
 
