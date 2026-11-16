@@ -449,7 +449,7 @@ class ClientDeploymentService:
                         except ClientJobServiceError as exc:
                             raise DeploymentControlError(str(exc)) from exc
                         igmp_confirmed = True
-                        confirmation = f"ERASE {device_path}"
+                        confirmation = f"ERASE {device_path} FROM {config.server_identity}"
                     else:
                         confirmation = f"ERASE {device_path}"
                 if job.operation != "save" and (image_encrypt or image_sign):
