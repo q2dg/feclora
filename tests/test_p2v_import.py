@@ -30,13 +30,13 @@ class P2VImportTests(unittest.TestCase):
 
     def runner(self, argv, **kwargs):
         if argv[0] == "/usr/bin/losetup" and argv[1:2] == ["--find"]:
-            return SimpleNamespace(returncode=0, stdout="/dev/loop0\\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout="/dev/loop0\n", stderr="")
         if argv[0] == "/usr/bin/losetup" and argv[1:2] == ["--detach"]:
             return SimpleNamespace(returncode=0, stdout="", stderr="")
         if argv[0] == "/usr/sbin/sfdisk" and argv[1:2] == ["--dump"]:
             return SimpleNamespace(
                 returncode=0,
-                stdout="label: gpt\\nunit: sectors\\nsector-size: 4096\\n\\n/dev/loop0p1 : start=0, size=1, type=Linux filesystem\\n",
+                stdout="label: gpt\nunit: sectors\nsector-size: 4096\n\n/dev/loop0p1 : start=0, size=1, type=Linux filesystem\n",
                 stderr="",
             )
         if argv[1] == "check":
@@ -73,7 +73,7 @@ class P2VImportTests(unittest.TestCase):
         self.metadata["qcow2_sha256"] = "0" * 64
         (self.repo / "physical.p2v.json").write_text(json.dumps(self.metadata))
         with self.assertRaisesRegex(P2VImportError, "SHA-256 verification"):
-            import_p2v_qcow2(self.repo, "physical", "imported", runner=self.runner)
+            import_p2v_qcow2(self.repo, "physical", "imported", qemu_img="/usr/bin/qemu-img", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=self.runner)
 
     def test_rejects_virtual_capacity_mismatch(self):
         def wrong_size(argv, **kwargs):
