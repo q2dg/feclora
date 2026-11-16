@@ -121,7 +121,7 @@ have been added but have not been executed.
 
 ## Interactive proportional restore workflow
 
-The local rescue UI now exposes a separate proportional restore choice for
+The Cockpit imaging wizard now exposes a separate proportional restore operation for
 whole-disk GPT images. The operator selects the smaller destination and the
 original source disk. The source must still be present, offline and unused:
 its capacity and logical sector size must match the image, and its partition
