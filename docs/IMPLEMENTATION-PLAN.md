@@ -453,8 +453,9 @@ not implementation authorization.
 - [x] **Initial read-only image browser:** Cockpit can browse partitions
   from manifest-backed RAW/QCOW2 whole-disk images through the isolated
   libguestfs appliance and download individual regular files (16 MiB limit).
-  RAW compression/age encryption is decoded into private temporary storage;
-  QCOW2 external backing/data dependencies are rejected. No host loop/NBD
+  RAW compression/age encryption is decoded into a private root-owned session
+  cache (inactive cache is cleaned after 24 hours); QCOW2 external backing/data
+  dependencies are rejected. No host loop/NBD
   devices or host-namespace mounts are used. LVM, LUKS, multi-device Btrfs,
   directory export and individual-file restore remain out of scope. Real-image
   and shipped-Live acceptance remains operator validation.
