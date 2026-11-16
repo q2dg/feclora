@@ -181,7 +181,7 @@ on a particular machine. The boot-time discovery and guarded restore dispatch
 are implemented in source; BIOS/UEFI and destructive-media acceptance remain
 operator responsibilities.
 
-## BIOS/UEFI acceptance (separate, optional operator activity)
+## Maintainer-run BIOS/UEFI acceptance (outside repository work)
 
 Validate the boot-time discovery and safe restore dispatch in disposable
 virtual machines before any production use:
