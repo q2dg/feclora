@@ -3881,17 +3881,27 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
         if encrypted and not identity_paths:
             raise WebAPIError("age-encrypted profile image requires a separately provisioned age identity")
         from feclora.storage.profile_executor import execute_unattended_restore_profile
+        identity_context = tempfile.TemporaryDirectory(prefix="feclora-profile-identities-") if encrypted and len(identity_paths) > 1 else None
         try:
+            if identity_context:
+                identity_file = Path(identity_context.name) / "identities.txt"
+                identity_file.write_text("\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\n", encoding="ascii")
+                os.chmod(identity_file, 0o600)
+            else:
+                identity_file = identity_paths[0] if identity_paths else None
             restored = execute_unattended_restore_profile(
                 profile_path,
                 consumption_ledger=audit / "consumed-profiles.jsonl",
                 operation_log_path=audit / "operations.jsonl",
                 repository=repository,
-                age_identity_file=identity_paths[0] if identity_paths else None,
+                age_identity_file=identity_file,
                 progress_callback=_progress,
             )
         except Exception as exc:
             raise WebAPIError(f"unattended restore profile execution failed: {exc}") from exc
+        finally:
+            if identity_context:
+                identity_context.cleanup()
     return {
         "profile_id": profile_id, "image_id": restored.image_id,
         "target": target_path, "verified": True,
