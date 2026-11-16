@@ -2054,8 +2054,8 @@ class P2VWebAPITests(unittest.TestCase):
                     "virtual_size_bytes": 8192, "logical_sector_size": 4096,
                     "file_size_bytes": 13, "verified": True,
                 }
-            with patch("feclora.webapi._operation_repository", return_value=repository), \\
-                 patch("feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert), \\
+            with patch("feclora.webapi._operation_repository", return_value=repository), \
+                 patch("feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert), \
                  patch("feclora.storage.image_publication.os.fsync", side_effect=OSError("sync failed")):
                 with self.assertRaises(ImagePublicationError):
                     _execute_operation(
