@@ -62,6 +62,7 @@ def build_shared_answer(
         "target_type": "disk",
         "authorized_clients": macs,
         "network_interface": "auto" if boot_method == "pxe" else network_interface,
+        "boot_method": boot_method,
         "transport": transport,
         "multicast_group": multicast_group if transport == "multicast" else None,
         "multicast_port": multicast_port if transport == "multicast" else None,
