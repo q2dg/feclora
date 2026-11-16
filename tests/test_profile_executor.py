@@ -133,3 +133,27 @@ class ProfileExecutorCliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProfileExecutorConfirmedTargetTests(unittest.TestCase):
+    def test_rejects_target_path_change_before_profile_preflight(self):
+        from types import SimpleNamespace
+        from feclora.storage.profile_executor import execute_unattended_restore_profile
+        from feclora.storage.restore_profile import RestoreProfileError
+        profile = SimpleNamespace(
+            execution_mode="unattended", layout_policy="preserve",
+            single_use=True, verify_after_restore=True, profile_id="12f7b67b-44e0-4d0b-a0b2-58b3d02c04e7",
+            target=SimpleNamespace(), image_manifest="golden.manifest.json",
+        )
+        with patch("feclora.storage.profile_executor.load_restore_profile", return_value=profile), \
+             patch("feclora.storage.profile_executor._require_persistent_ledger"), \
+             patch("feclora.storage.profile_executor.collect_inventory", return_value={}), \
+             patch("feclora.storage.profile_executor._matching_target", return_value={"path": "/dev/sda"}):
+            with self.assertRaisesRegex(RestoreProfileError, "differs from the explicitly confirmed"):
+                execute_unattended_restore_profile(
+                    "/profiles/profile.json",
+                    consumption_ledger="/mnt/audit/consumed.jsonl",
+                    operation_log_path="/mnt/audit/operations.jsonl",
+                    repository="/mnt/images",
+                    expected_target_path="/dev/sdb",
+                )
