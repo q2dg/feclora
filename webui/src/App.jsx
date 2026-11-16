@@ -214,6 +214,9 @@ export default function App() {
   const [bundleName, setBundleName] = useState("fleet-deployment-bundle");
   const [bundleJobJSON, setBundleJobJSON] = useState("");
   const [restoreProfiles, setRestoreProfiles] = useState([]);
+  const [restoreProfileRepositoryId, setRestoreProfileRepositoryId] = useState("");
+  const [restoreProfileImages, setRestoreProfileImages] = useState([]);
+  const [profileConfirmations, setProfileConfirmations] = useState({});
   const [restoreProfileName, setRestoreProfileName] = useState("");
   const [restoreProfileImage, setRestoreProfileImage] = useState("");
   const [restoreProfileTarget, setRestoreProfileTarget] = useState("");
@@ -254,12 +257,14 @@ export default function App() {
     setBusy(true); setError("");
     try {
       const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials, s3repos, restoreProfileData] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("s3_repositories"), callFeclora("restore_profiles")
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("s3_repositories"), restoreProfileRepositoryId
+          ? callFeclora("restore_profiles", { repository_id: restoreProfileRepositoryId })
+          : callFeclora("restore_profiles")
       ]);
       setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setS3Repositories(s3repos.repositories || []); setRestoreProfiles(restoreProfileData.profiles || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
-  }, []);
+  }, [restoreProfileRepositoryId]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -279,8 +284,8 @@ export default function App() {
 
   const createRestoreProfile = async (event) => {
     event.preventDefault();
-    if (selectedRepositoryId) {
-      setError("Restore profiles can currently reference only the local image repository.");
+    if (!restoreProfileRepositoryId) {
+      setError("Select a mounted persistent filesystem repository for restore profiles.");
       return;
     }
     const selected = disks.find((device) => device.path === restoreProfileTarget);
@@ -299,12 +304,56 @@ export default function App() {
         image_id: restoreProfileImage,
         target_wwn: selected.wwn || null,
         target_serial: selected.serial || null,
-        expires_at: new Date(restoreProfileExpiry).toISOString()
+        expires_at: new Date(restoreProfileExpiry).toISOString(),
+        repository_id: restoreProfileRepositoryId
       });
       setNotice("Restore profile saved. It is not armed and will not run automatically. " + result.profile_id);
       setRestoreProfileName("");
-      const listed = await callFeclora("restore_profiles");
+      const listed = await callFeclora("restore_profiles", { repository_id: restoreProfileRepositoryId });
       setRestoreProfiles(listed.profiles || []);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const selectRestoreProfileRepository = async (repositoryId) => {
+    setRestoreProfileRepositoryId(repositoryId);
+    setRestoreProfiles([]); setRestoreProfileImages([]); setProfileConfirmations({});
+    if (!repositoryId) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const [imageData, profileData] = await Promise.all([
+        callFeclora("repository_images", { repository_id: repositoryId }),
+        callFeclora("restore_profiles", { repository_id: repositoryId })
+      ]);
+      setRestoreProfileImages((imageData.images || []).filter((item) => item.image_type === "disk" && item.image_format === "raw"));
+      setRestoreProfiles(profileData.profiles || []);
+      setNotice("Loaded persistent restore profiles and RAW images from " + repositoryId + ".");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const executeRestoreProfile = async (profile) => {
+    const confirmation = profileConfirmations[profile.profile_id] || "";
+    if (!profile.target_path || confirmation !== "ERASE " + profile.target_path) {
+      setError("The detected target must be available and the exact destructive phrase must be entered.");
+      return;
+    }
+    setBusy(true); setError(""); setNotice(""); setProgress(null);
+    try {
+      const accepted = await callFeclora("execute_restore_profile", {
+        profile_id: profile.profile_id, target: profile.target_path,
+        confirmation, repository_id: restoreProfileRepositoryId
+      });
+      setNotice("Restore profile accepted by the durable worker. It will be consumed immediately before the first write.");
+      const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
+        if (eventData.event === "progress") setProgress(eventData);
+      });
+      if (result.state === "completed") setNotice("Single-use restore profile completed with read-back verification.");
+      else setError("Restore profile " + result.state + ": " + (result.details?.error || result.details?.reason || "inspect the operation log."));
+      const listed = await callFeclora("restore_profiles", { repository_id: restoreProfileRepositoryId });
+      setRestoreProfiles(listed.profiles || []);
+      setProfileConfirmations((current) => ({ ...current, [profile.profile_id]: "" }));
+      await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
