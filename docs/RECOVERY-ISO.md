@@ -10,7 +10,7 @@ title: Recovery ISO procedure
 
 ![Illustrative recovery media assembly workflow]({{ '/assets/mockups/recovery-workflow.svg' | relative_url }})
 
-*Illustrative mockup — not a screenshot. Recovery ISO assembly and guarded Live boot dispatch are implemented; firmware boot acceptance still requires operator testing.**
+*Illustrative mockup — not a screenshot. Recovery ISO assembly and guarded Live boot dispatch are implemented; firmware boot acceptance still requires operator testing.*
 
 This document describes how an operator would create and inspect a self-contained
 Feclora recovery ISO. It is a procedure, not evidence that a real ISO has been
@@ -40,11 +40,22 @@ age-encrypted, the corresponding decryption identity must be provisioned
 separately on the recovery Live environment. Never place that identity on the
 ISO.
 
-**Important implementation boundary:** the current code can assemble and
-inspect this ISO, but Live boot-time discovery of the embedded image set and
-dispatch to the safe restore engine are not yet integrated. Do not treat the
-current output as a completed unattended recovery appliance until that
-runtime path exists.
+**Runtime implementation:** the Live image installs and enables
+`feclora-recovery-boot.service`. At boot it looks for exactly one mounted
+recovery payload in the supported Live-media mount locations, validates the
+embedded answer and whole-disk manifest, resolves the destination by WWN
+and/or serial, and calls the shared restore engine. The destination identity
+is resolved again immediately before the first write. Missing media payloads
+are a no-op; ambiguous media, malformed metadata, an unmatched target, or a
+restore error fail closed. Age-encrypted images require a separately
+provisioned Live client identity in the protected client runtime configuration;
+the identity is never embedded in the ISO.
+
+This is software integration, not proof of firmware compatibility. The
+repository must still pass automated tests and an operator must validate BIOS
+and UEFI boot with disposable virtual machines and disposable disks before
+production use. Do not boot an unattended recovery ISO on a machine containing
+valuable writable disks.
 
 ## Prerequisites
 
@@ -70,8 +81,7 @@ space. Do not use a physical disk or block device as the output path.
 
 ## Cockpit procedure
 
-When the recovery ISO workflow is available in the deployed Feclora Live
-version:
+In a deployed Feclora Live version with the recovery workflow installed:
 
 1. Open Cockpit and select **Build a self-contained recovery ISO**.
 2. Enter the absolute path to the trusted Feclora Live base `.iso` file. The
@@ -89,9 +99,9 @@ version:
    Record the resulting path, byte size and SHA-256 digest.
 
 Do not boot the resulting media on a machine with valuable writable disks
-until the embedded-answer runtime and target-identity enforcement have been
-completed and tested. The current embedded answer requests an unattended
-destructive restore when consumed by a compatible runtime.
+until the boot and restore path has been validated with disposable hardware
+or virtual disks. The embedded answer requests an unattended destructive
+restore when its target identity matches.
 
 ## xorriso assembly sequence (manual reference)
 
@@ -171,8 +181,8 @@ currently unfinished embedded-image restore runtime works.
 
 ## BIOS/UEFI acceptance (separate, optional operator activity)
 
-When boot-time discovery and safe restore dispatch have been implemented,
-validate the media in disposable virtual machines before any production use:
+Validate the boot-time discovery and safe restore dispatch in disposable
+virtual machines before any production use:
 
 1. Use a disposable VM with BIOS firmware and a disposable destination disk.
 2. Boot the recovery ISO and confirm that the Feclora Live environment starts.
