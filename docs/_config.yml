@@ -4,3 +4,13 @@ url: https://q2dg.github.io
 baseurl: /feclora
 theme: minima
 markdown: kramdown
+
+# Give every Markdown page the same complete site shell unless it opts out.
+# Several technical references intentionally omit front matter; without this
+# default Jekyll publishes them as unstyled fragments.
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: default
