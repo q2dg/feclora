@@ -17,6 +17,7 @@ const OPERATION_LABELS = {
   capture_partition: "opCapturePartition",
   capture_logical_volume: "opCaptureVolume",
   restore_disk: "opRestoreDisk",
+  restore_proportional_disk: "Proportional whole-disk restore",
   restore_partition: "opRestorePartition",
   restore_logical_volume: "opRestoreVolume",
   clone_disk: "opCloneDisk",
@@ -350,6 +351,7 @@ export default function App() {
   }, [inventory]);
   const disks = devices.filter((d) => d.type === "disk" && d.path);
   const restoreTargetDevice = devices.find((device) => device.path === target);
+  const proportionalSourceDevice = disks.find((device) => device.path === source);
   const partitions = devices.filter((d) => d.type === "part" && d.path);
   const logicalVolumes = useMemo(() => {
     const groups = inventory?.volume_topology?.volume_groups || [];
@@ -381,6 +383,7 @@ export default function App() {
     : "";
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
+  const isProportionalRestore = operation === "restore_proportional_disk";
   const isDisk = operation.endsWith("_disk");
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
@@ -439,6 +442,15 @@ export default function App() {
       };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (isProportionalRestore) {
+        if (!proportionalSourceDevice?.major_minor || !restoreTargetDevice?.major_minor) throw new Error("Refresh inventory and select source and destination disks with stable kernel identities.");
+        params = {
+          image_id: imageId, source, target,
+          source_major_minor: proportionalSourceDevice.major_minor,
+          target_major_minor: restoreTargetDevice.major_minor, confirmation,
+          ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+        };
+      }
       else if (isRestore) {
         params = {
           image_id: imageId, target, confirmation,
@@ -1208,7 +1220,7 @@ export default function App() {
       && (bundleJobDefinition.transport !== "multicast" || bundleJobDefinition.authorized_clients.length >= 2))
     : isCapture
     ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || (partitionId || imageId)))
-    : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
+    : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (isProportionalRestore ? source && source !== target && proportionalSourceDevice?.major_minor && restoreTargetDevice?.major_minor && restoreTargetDevice.size_bytes < proportionalSourceDevice.size_bytes : (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes)))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
 
   return (
@@ -1368,23 +1380,35 @@ export default function App() {
                       </Field>}
                     </>}
                     {isRestore && <>
+                      {isProportionalRestore && <Alert variant="warning" title="Proportional restore to a smaller disk" isInline>
+                        The source disk must remain connected, offline and unused. Feclora probes only the final ext2/3/4 or NTFS partition, shrinks a private verified RAW staging copy, rewrites GPT and performs a full destination read-back SHA-256 check. Unsupported filesystems or layouts fail closed. The original source and repository image are not modified.
+                      </Alert>}
                       <Field t={t} label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
                         <select className="pf-v6-c-form-control" value={imageId} disabled={busy} onChange={(e) => {
                           const value = e.target.value;
                           setImageId(value);
-                          if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
+                          if (isDisk && !isProportionalRestore) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
                         }}>
                           <option value="">{t("Select an image…")}</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}{item.image_format ? ` · ${item.image_format.toUpperCase()}${item.image_format === "qcow2" ? " / V2P" : ""}` : ""}</option>)}
                         </select>
                       </Field>
+                      {isProportionalRestore && <Field t={t} label="Original source disk (must be offline and unused)">
+                        <select className="pf-v6-c-form-control" value={source} onChange={(e) => setSource(e.target.value)} required>
+                          <option value="">Select the original source disk…</option>
+                          {disks.filter((d) => d.path !== target && d.major_minor).map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || "Disk"} · {d.major_minor}</option>)}
+                        </select>
+                      </Field>}
                       <Field t={t} label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
                         <select className="pf-v6-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
                           <option value="">{t("Select a destination…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
-                      {isDisk && restoreLayoutPreview && restoreTargetDevice && <>
+                      {isProportionalRestore && proportionalSourceDevice && restoreTargetDevice && <Alert variant={restoreTargetDevice.size_bytes < proportionalSourceDevice.size_bytes ? "info" : "danger"} title="Proportional capacity check" isInline>
+                        Source: {formatBytes(proportionalSourceDevice.size_bytes)} · Destination: {formatBytes(restoreTargetDevice.size_bytes)}. Destination must be strictly smaller. The image must match the source disk exact size and sector geometry; the backend rechecks these facts immediately before filesystem probing.
+                      </Alert>}
+                      {isDisk && !isProportionalRestore && restoreLayoutPreview && restoreTargetDevice && <>
                         {restoreTargetDevice.size_bytes < restoreLayoutPreview.source_size_bytes
                           ? <Alert variant="danger" title={t("Destination disk is too small")} isInline>Source layout requires {formatBytes(restoreLayoutPreview.source_size_bytes)}; selected disk has {formatBytes(restoreTargetDevice.size_bytes)}. The restore engine will reject this target.</Alert>
                           : <Alert variant="info" title={t("Read-only restore layout preview")} isInline>
