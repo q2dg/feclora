@@ -3795,6 +3795,86 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+
+def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]:
+    required = {"profile_id", "target", "confirmation", "repository_id"}
+    if set(params) != required:
+        raise WebAPIError("execute_restore_profile requires profile_id, target, confirmation and repository_id")
+    import uuid
+    try:
+        profile_id = str(uuid.UUID(params["profile_id"]))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise WebAPIError("profile_id must be a canonical UUID") from exc
+    if profile_id != params["profile_id"]:
+        raise WebAPIError("profile_id must be a canonical UUID")
+    target_path = _device(params["target"], "target")
+    if params["confirmation"] != f"ERASE {target_path}":
+        raise WebAPIError(f"explicit confirmation required: ERASE {target_path}")
+    repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+        raise WebAPIError("unattended restore profiles require persistent mounted filesystem storage; S3 is not supported")
+    with _operation_repository_context({"repository_id": repository_id}, write=True) as repository:
+        _persistent_repository(repository)
+        profile_path = _restore_profile_directory(repository) / f"{profile_id}.json"
+        from feclora.storage.restore_profile import load_restore_profile, RestoreProfileError
+        try:
+            profile = load_restore_profile(profile_path)
+        except RestoreProfileError as exc:
+            raise WebAPIError(f"selected restore profile is unavailable or invalid: {exc}") from exc
+        if profile.profile_id != profile_id:
+            raise WebAPIError("restore profile identifier does not match its filename")
+        inventory = collect_inventory()
+        matches = [
+            item for item in inventory.get("devices", [])
+            if isinstance(item, dict) and item.get("type") == "disk" and profile.target.matches(item)
+        ]
+        if len(matches) != 1 or matches[0].get("path") != target_path:
+            raise WebAPIError("selected target path does not uniquely match the profile WWN/serial authorization")
+        audit = repository / ".feclora" / "restore-audit"
+        try:
+            audit.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        audit_info = os.lstat(audit)
+        if (not stat.S_ISDIR(audit_info.st_mode) or stat.S_ISLNK(audit_info.st_mode)
+                or audit_info.st_uid != 0 or audit_info.st_mode & 0o077):
+            raise WebAPIError("restore profile audit directory must be root-owned and mode 0700")
+        client_config = _client_runtime_config()
+        identity_paths = []
+        server_identity = Path("/etc/feclora/pki/server.age")
+        try:
+            server_info = os.lstat(server_identity)
+            if stat.S_ISREG(server_info.st_mode) and not stat.S_ISLNK(server_info.st_mode) and server_info.st_uid == 0 and not server_info.st_mode & 0o077:
+                identity_paths.append(server_identity)
+        except OSError:
+            pass
+        if client_config and client_config.age_identity_file:
+            identity_paths.append(Path(client_config.age_identity_file))
+        manifest_path = _image_manifest(profile.image_manifest[:-len(".manifest.json")], repository)
+        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+        if encrypted and not identity_paths:
+            raise WebAPIError("age-encrypted profile image requires a separately provisioned age identity")
+        from feclora.storage.profile_executor import execute_unattended_restore_profile
+        try:
+            restored = execute_unattended_restore_profile(
+                profile_path,
+                consumption_ledger=audit / "consumed-profiles.jsonl",
+                operation_log_path=audit / "operations.jsonl",
+                repository=repository,
+                age_identity_file=identity_paths[0] if identity_paths else None,
+                progress_callback=_progress,
+            )
+        except Exception as exc:
+            raise WebAPIError(f"unattended restore profile execution failed: {exc}") from exc
+    return {
+        "profile_id": profile_id, "image_id": restored.image_id,
+        "target": target_path, "verified": True,
+        "message": "Single-use restore profile executed and destination read-back verification completed.",
+    }
+
+
 def dispatch(request: Any) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
         raise WebAPIError("request must contain an action and optional params object")
