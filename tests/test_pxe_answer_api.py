@@ -131,18 +131,18 @@ class PXEAnswerAPITests(unittest.TestCase):
             return real_lstat(candidate, *args, **kwargs)
         manager = MagicMock()
         manager.status.return_value = {"active": True, "interface": "enp1s0"}
-        with tempfile.TemporaryDirectory() as directory, \\
-             patch("feclora.webapi._read_pxe_answer_source", return_value=json.dumps(payload).encode()), \\
-             patch("feclora.webapi._pxe_service_manager", return_value=manager), \\
-             patch("feclora.webapi.Path.read_text", return_value=caddy), \\
-             patch("feclora.webapi.os.lstat", side_effect=fake_lstat), \\
-             patch("feclora.webapi._network_interfaces", return_value=[{"interface": "enp1s0", "address": "192.0.2.10"}]), \\
-             patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=SimpleNamespace(bind_address="192.0.2.10")), \\
-             patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \\
-             patch("feclora.webapi._create_deployment_job") as create_job, \\
-             patch("feclora.webapi._start_deployment_service") as start_service, \\
-             patch.object(DeploymentJournal, "inspect", return_value=SimpleNamespace(recovery_report=lambda: report)), \\
-             patch("feclora.network.pxe_answer_store.publish_pxe_answer", return_value={"answer_url": "http://192.0.2.10:8080/answers/" + self.JOB_ID + "/answer.json"}) as publish, \\
+        with tempfile.TemporaryDirectory() as directory, \
+             patch("feclora.webapi._read_pxe_answer_source", return_value=json.dumps(payload).encode()), \
+             patch("feclora.webapi._pxe_service_manager", return_value=manager), \
+             patch("feclora.webapi.Path.read_text", return_value=caddy), \
+             patch("feclora.webapi.os.lstat", side_effect=fake_lstat), \
+             patch("feclora.webapi._network_interfaces", return_value=[{"interface": "enp1s0", "address": "192.0.2.10"}]), \
+             patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=SimpleNamespace(bind_address="192.0.2.10")), \
+             patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
+             patch("feclora.webapi._create_deployment_job") as create_job, \
+             patch("feclora.webapi._start_deployment_service") as start_service, \
+             patch.object(DeploymentJournal, "inspect", return_value=SimpleNamespace(recovery_report=lambda: report)), \
+             patch("feclora.network.pxe_answer_store.publish_pxe_answer", return_value={"answer_url": "http://192.0.2.10:8080/answers/" + self.JOB_ID + "/answer.json"}) as publish, \
              patch("feclora.network.boot_tree.publish_unattended_answer_ipxe_script") as publish_ipxe:
             result = _publish_pxe_answer({"job_id": self.JOB_ID, "source": "upload"})
         self.assertEqual(result["job_id"], self.JOB_ID)
