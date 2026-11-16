@@ -134,6 +134,7 @@ class WebAPITests(unittest.TestCase):
 
         with patch("feclora.webapi._operation_repository_context", repository_context), \
              patch("feclora.webapi._image_manifest", return_value=manifest_path), \
+             patch("pathlib.Path.read_text", return_value="{}"), \
              patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
              patch("feclora.webapi._inspect_image_layout_from_repository", return_value=layout), \
              patch("feclora.webapi._security_material", return_value={"age_decryption_available": False}), \
@@ -2054,9 +2055,16 @@ class P2VWebAPITests(unittest.TestCase):
                     "virtual_size_bytes": 8192, "logical_sector_size": 4096,
                     "file_size_bytes": 13, "verified": True,
                 }
+            import os
+            import stat
+            real_fsync = os.fsync
+            def fail_directory_sync(fd):
+                if stat.S_ISDIR(os.fstat(fd).st_mode):
+                    raise OSError("sync failed")
+                return real_fsync(fd)
             with patch("feclora.webapi._operation_repository", return_value=repository), \
                  patch("feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert), \
-                 patch("feclora.storage.image_publication.os.fsync", side_effect=OSError("sync failed")):
+                 patch("feclora.storage.image_publication.os.fsync", side_effect=fail_directory_sync):
                 with self.assertRaises(ImagePublicationError):
                     _execute_operation(
                         "capture_p2v", {"source": "/dev/sda", "image_id": "vm-disk"}, "p2v-test"
