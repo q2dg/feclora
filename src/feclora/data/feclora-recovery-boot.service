@@ -1,0 +1,26 @@
+[Unit]
+Description=Feclora self-contained Recovery ISO restore
+Documentation=https://github.com/q2dg/feclora/blob/main/docs/RECOVERY-ISO.md
+After=local-fs.target
+Before=cockpit.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStart=/usr/bin/python3 -m feclora.storage.recovery_boot
+TimeoutStartSec=infinity
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+ReadWritePaths=/var/lib/feclora /run/feclora
+
+[Install]
+WantedBy=multi-user.target
