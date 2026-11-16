@@ -474,8 +474,9 @@ class DeploymentServiceLockTests(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(DeploymentServiceError, "lock file is unsafe"):
                         acquire()
-                    with self.assertRaises(OSError):
-                        os.fstat(opened["fd"])
+            if link_count != 1:
+                with self.assertRaises(OSError):
+                    os.fstat(opened["fd"])
 
     def test_instance_lock_is_close_on_exec_and_rejects_hardlinks(self):
         service = DeploymentService.__new__(DeploymentService)
