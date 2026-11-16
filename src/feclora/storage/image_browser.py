@@ -196,7 +196,7 @@ def _prepare_image(
         info = os.lstat(source)
     except OSError as exc:
         raise ImageBrowserError("disk image artifact is unavailable") from exc
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
         raise ImageBrowserError("disk image artifact must be a root-owned regular file")
     if artifact.format == "qcow2":
         if artifact.compression != "none" or artifact.encryption != "none":
