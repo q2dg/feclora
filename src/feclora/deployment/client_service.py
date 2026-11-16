@@ -218,15 +218,23 @@ class ClientDeploymentService:
         _ensure_directory()
         _ensure_runtime_directory()
         self._lock_fd = os.open(
-            self.lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
+            self.lock_path,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+            0o600,
         )
-        info = os.fstat(self._lock_fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
-            raise ClientJobServiceError("Client job lock file is unsafe")
         try:
+            info = os.fstat(self._lock_fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+                raise ClientJobServiceError("Client job lock file is unsafe")
             fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
+            os.close(self._lock_fd)
+            self._lock_fd = None
             raise ClientJobServiceError("another Client service already owns this job") from exc
+        except Exception:
+            os.close(self._lock_fd)
+            self._lock_fd = None
+            raise
 
     def _set_status(self, phase: str, *, detail: str | None = None,
                     success: bool | None = None, target_description: str | None = None,
