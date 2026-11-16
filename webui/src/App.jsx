@@ -1425,8 +1425,8 @@ export default function App() {
                       </Field>}
                     </>}
                     {isRestore && <>
-                      {isProportionalRestore && <Alert variant="warning" title="Proportional restore to a smaller disk" isInline>
-                        The source disk must remain connected, offline and unused. Feclora probes only the final ext2/3/4 or NTFS partition, shrinks a private verified RAW staging copy, rewrites GPT and performs a full destination read-back SHA-256 check. Unsupported filesystems or layouts fail closed. The original source and repository image are not modified.
+                      {isProportionalRestore && <Alert variant="warning" title={t("Proportional restore to a smaller disk")} isInline>
+                        {t("The source disk must remain connected, offline and unused. Feclora probes only the final ext2/3/4 or NTFS partition, shrinks a private verified RAW staging copy, rewrites GPT and performs a full destination read-back SHA-256 check. Unsupported filesystems or layouts fail closed. The original source and repository image are not modified.")}
                       </Alert>}
                       <Field t={t} label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
                         <select className="pf-v6-c-form-control" value={imageId} disabled={busy} onChange={(e) => {
@@ -1438,9 +1438,9 @@ export default function App() {
                           {matchingImages.filter((item) => !isProportionalRestore || item.image_format === "raw").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}{item.image_format ? ` · ${item.image_format.toUpperCase()}${item.image_format === "qcow2" ? " / V2P" : ""}` : ""}</option>)}
                         </select>
                       </Field>
-                      {isProportionalRestore && <Field t={t} label="Original source disk (must be offline and unused)">
+                      {isProportionalRestore && <Field t={t} label={t("Original source disk (must be offline and unused)")}>
                         <select className="pf-v6-c-form-control" value={source} onChange={(e) => setSource(e.target.value)} required>
-                          <option value="">Select the original source disk…</option>
+                          <option value="">{t("Select the original source disk…")}</option>
                           {disks.filter((d) => d.path !== target && d.major_minor).map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || "Disk"} · {d.major_minor}</option>)}
                         </select>
                       </Field>}
@@ -1450,8 +1450,8 @@ export default function App() {
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
-                      {isProportionalRestore && proportionalSourceDevice && restoreTargetDevice && <Alert variant={restoreTargetDevice.size_bytes < proportionalSourceDevice.size_bytes ? "info" : "danger"} title="Proportional capacity check" isInline>
-                        Source: {formatBytes(proportionalSourceDevice.size_bytes)} · Destination: {formatBytes(restoreTargetDevice.size_bytes)}. Destination must be strictly smaller. The image must match the source disk exact size and sector geometry; the backend rechecks these facts immediately before filesystem probing.
+                      {isProportionalRestore && proportionalSourceDevice && restoreTargetDevice && <Alert variant={restoreTargetDevice.size_bytes < proportionalSourceDevice.size_bytes ? "info" : "danger"} title={t("Proportional capacity check")} isInline>
+                        {t("Source:")} {formatBytes(proportionalSourceDevice.size_bytes)} · {t("Destination:")} {formatBytes(restoreTargetDevice.size_bytes)}. {t("Destination must be strictly smaller. The image must match the source disk exact size and sector geometry; the backend rechecks these facts immediately before filesystem probing.")}
                       </Alert>}
                       {isDisk && !isProportionalRestore && restoreLayoutPreview && restoreTargetDevice && <>
                         {restoreTargetDevice.size_bytes < restoreLayoutPreview.source_size_bytes
@@ -1501,58 +1501,58 @@ export default function App() {
             </Stack>
           </Tab>
 
-          <Tab eventKey="restore-profiles" title="Restore profiles">
+          <Tab eventKey="restore-profiles" title={t("Restore profiles")}>
             <Stack hasGutter className="pf-v6-u-pt-lg">
               <StackItem>
-                <Field label="Persistent filesystem repository" help="Profiles, replay ledger and operation audit must live on a dedicated persistent mounted filesystem. Local root-overlay storage and S3 are rejected.">
+                <Field label={t("Persistent filesystem repository")} help={t("Profiles, replay ledger and operation audit must live on a dedicated persistent mounted filesystem. Local root-overlay storage and S3 are rejected.")}>
                   <select className="pf-v6-c-form-control" value={restoreProfileRepositoryId} disabled={busy} onChange={(event) => selectRestoreProfileRepository(event.target.value)}>
-                    <option value="">Select a mounted persistent repository…</option>
+                    <option value="">{t("Select a mounted persistent repository…")}</option>
                     {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                   </select>
                 </Field>
               </StackItem>
               <StackItem>
-                <Title headingLevel="h2" size="xl">Unattended restore profiles</Title>
-                <Alert variant="warning" title="Explicit, single-use authorization" isInline>
-                  A profile binds a verified RAW whole-disk image in the selected persistent filesystem repository to one uniquely detected disk by WWN and/or serial. It requires read-back verification, expires at the selected time and is atomically consumed immediately before writing. Execution is an explicit operation requiring a typed ERASE phrase. Proportional layout is not available in this workflow.
+                <Title headingLevel="h2" size="xl">{t("Unattended restore profiles")}</Title>
+                <Alert variant="warning" title={t("Explicit, single-use authorization")} isInline>
+                  {t("A profile binds a verified RAW whole-disk image in the selected persistent filesystem repository to one uniquely detected disk by WWN and/or serial. It requires read-back verification, expires at the selected time and is atomically consumed immediately before writing. Execution is an explicit operation requiring a typed ERASE phrase. Proportional layout is not available in this workflow.")}
                 </Alert>
               </StackItem>
               <StackItem>
                 <Card><CardBody>
                   <form onSubmit={createRestoreProfile}>
-                    <Field label="Profile name">
+                    <Field label={t("Profile name")}>
                       <input className="pf-v6-c-form-control" value={restoreProfileName} maxLength={80} onChange={(event) => setRestoreProfileName(event.target.value)} required />
                     </Field>
-                    <Field label="Whole-disk image in selected repository">
+                    <Field label={t("Whole-disk image in selected repository")}>
                       <select className="pf-v6-c-form-control" value={restoreProfileImage} onChange={(event) => setRestoreProfileImage(event.target.value)} required>
-                        <option value="">Select a RAW disk image…</option>
+                        <option value="">{t("Select a RAW disk image…")}</option>
                         {restoreProfileImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                       </select>
                     </Field>
-                    <Field label="Target whole disk" help="The profile stores stable WWN/serial identity, never a /dev path. The disk must be uniquely detected.">
+                    <Field label={t("Target whole disk")} help={t("The profile stores stable WWN/serial identity, never a /dev path. The disk must be uniquely detected.")}>
                       <select className="pf-v6-c-form-control" value={restoreProfileTarget} onChange={(event) => setRestoreProfileTarget(event.target.value)} required>
-                        <option value="">Select target disk…</option>
-                        {disks.filter((device) => device.wwn || device.serial).map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || "Disk"} · {device.wwn || "no WWN"} · {device.serial || "no serial"}</option>)}
+                        <option value="">{t("Select target disk…")}</option>
+                        {disks.filter((device) => device.wwn || device.serial).map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || "Disk"} · {device.wwn || t("no WWN")} · {device.serial || t("no serial")}</option>)}
                       </select>
                     </Field>
-                    <Field label="Authorization expiry" help="The unattended authorization is single-use and must expire in the future.">
+                    <Field label={t("Authorization expiry")} help={t("The unattended authorization is single-use and must expire in the future.")}>
                       <input className="pf-v6-c-form-control" type="datetime-local" value={restoreProfileExpiry} onChange={(event) => setRestoreProfileExpiry(event.target.value)} required />
                     </Field>
-                    <Button type="submit" variant="primary" isDisabled={busy || !restoreProfileRepositoryId || !restoreProfileImages.length || !restoreProfileName.trim() || !restoreProfileImage || !restoreProfileTarget || !restoreProfileExpiry} isLoading={busy}>Save single-use profile</Button>
+                    <Button type="submit" variant="primary" isDisabled={busy || !restoreProfileRepositoryId || !restoreProfileImages.length || !restoreProfileName.trim() || !restoreProfileImage || !restoreProfileTarget || !restoreProfileExpiry} isLoading={busy}>{t("Save single-use profile")}</Button>
                   </form>
                 </CardBody></Card>
               </StackItem>
               <StackItem>
-                <Title headingLevel="h3" size="lg">Saved profiles</Title>
-                <Table aria-label="Saved restore profiles" variant="compact">
-                  <Thead><Tr><Th>Name</Th><Th>Image manifest</Th><Th>Target identity</Th><Th>Target path</Th><Th>Expires</Th><Th>Mode</Th><Th>Execution</Th></Tr></Thead>
+                <Title headingLevel="h3" size="lg">{t("Saved profiles")}</Title>
+                <Table aria-label={t("Saved restore profiles")} variant="compact">
+                  <Thead><Tr><Th>{t("Name")}</Th><Th>{t("Image manifest")}</Th><Th>{t("Target identity")}</Th><Th>{t("Target path")}</Th><Th>{t("Expires")}</Th><Th>{t("Mode")}</Th><Th>{t("Execution")}</Th></Tr></Thead>
                   <Tbody>
-                    {restoreProfiles.map((profile) => <Tr key={profile.profile_id}><Td>{profile.name}</Td><Td>{profile.image_manifest}</Td><Td>{profile.target.wwn || "—"} / {profile.target.serial || "—"}</Td><Td>{profile.target_path || "Target not uniquely detected"}</Td><Td>{profile.expires_at || "—"}</Td><Td>{profile.execution_mode} · {profile.single_use ? "single-use" : "reusable"}</Td><Td>
-                      <input className="pf-v6-c-form-control" aria-label={"Confirmation for " + profile.name} value={profileConfirmations[profile.profile_id] || ""} placeholder={profile.target_path ? "ERASE " + profile.target_path : "Target unavailable"} onChange={(event) => setProfileConfirmations((current) => ({ ...current, [profile.profile_id]: event.target.value }))} disabled={!profile.target_path || profile.consumed} />
-                      <Button size="sm" variant="danger" isDisabled={busy || !profile.target_path || profile.consumed || profileConfirmations[profile.profile_id] !== "ERASE " + profile.target_path || (profile.expires_at && new Date(profile.expires_at).getTime() <= Date.now())} onClick={() => executeRestoreProfile(profile)}>Execute once</Button>
-                      {profile.consumed ? "Consumed" : ""}
+                    {restoreProfiles.map((profile) => <Tr key={profile.profile_id}><Td>{profile.name}</Td><Td>{profile.image_manifest}</Td><Td>{profile.target.wwn || "—"} / {profile.target.serial || "—"}</Td><Td>{profile.target_path || t("Target not uniquely detected")}</Td><Td>{profile.expires_at || "—"}</Td><Td>{profile.execution_mode} · {profile.single_use ? t("single-use") : t("reusable")}</Td><Td>
+                      <input className="pf-v6-c-form-control" aria-label={"Confirmation for " + profile.name} value={profileConfirmations[profile.profile_id] || ""} placeholder={profile.target_path ? "ERASE " + profile.target_path : t("Target unavailable")} onChange={(event) => setProfileConfirmations((current) => ({ ...current, [profile.profile_id]: event.target.value }))} disabled={!profile.target_path || profile.consumed} />
+                      <Button size="sm" variant="danger" isDisabled={busy || !profile.target_path || profile.consumed || profileConfirmations[profile.profile_id] !== "ERASE " + profile.target_path || (profile.expires_at && new Date(profile.expires_at).getTime() <= Date.now())} onClick={() => executeRestoreProfile(profile)}>{t("Execute once")}</Button>
+                      {profile.consumed ? t("Consumed") : ""}
                     </Td></Tr>)}
-                    {!restoreProfiles.length && <Tr><Td colSpan={7}>No saved restore profiles.</Td></Tr>}
+                    {!restoreProfiles.length && <Tr><Td colSpan={7}>{t("No saved restore profiles.")}</Td></Tr>}
                   </Tbody>
                 </Table>
               </StackItem>
