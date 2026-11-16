@@ -130,7 +130,7 @@ class PXEAnswerClientTests(unittest.TestCase):
         encoded = json.dumps(shared_job).encode()
         for mac in shared_job["authorized_clients"]:
             config = SimpleNamespace(mac_address=mac)
-            with tempfile.TemporaryDirectory() as root, \\
+            with tempfile.TemporaryDirectory() as root, \
                  patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config):
                 result = fetch_live_pxe_answer(
                     "quiet ro", destination=Path(root) / "answer.json",
@@ -159,8 +159,8 @@ class PXEAnswerClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             request_dir = Path(root) / "client-jobs"
             config = SimpleNamespace(port=9555)
-            with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \\
-                 patch("feclora.network.pxe_answer_client.os.lstat", return_value=SimpleNamespace(st_mode=stat.S_IFDIR, st_uid=0)), \\
+            with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \
+                 patch("feclora.network.pxe_answer_client.os.lstat", return_value=SimpleNamespace(st_mode=stat.S_IFDIR, st_uid=0)), \
                  patch("feclora.network.pxe_answer_client.subprocess.run", return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as run:
                 unit = _start_shared_deployment_job({
                     **job, "_server_address": "192.0.2.10",
@@ -218,8 +218,8 @@ class PXEAnswerClientTests(unittest.TestCase):
             "schema_version": 1, "start_policy": "automatic",
             "job_id": JOB, "transport": "multicast",
         }
-        with patch("feclora.network.pxe_answer_client._clear_stale_age_passphrase_files"), \\
-             patch("feclora.network.pxe_answer_client.fetch_live_pxe_answer", return_value=answer), \\
+        with patch("feclora.network.pxe_answer_client._clear_stale_age_passphrase_files"), \
+             patch("feclora.network.pxe_answer_client.fetch_live_pxe_answer", return_value=answer), \
              patch("feclora.network.pxe_answer_client._start_shared_deployment_job", return_value=f"feclora-client@{JOB}.service") as start:
             self.assertEqual(pxe_answer_main(), 0)
         start.assert_called_once_with(answer)
