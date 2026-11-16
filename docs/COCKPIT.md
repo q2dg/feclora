@@ -82,6 +82,7 @@ The Operations wizard provides:
 - whole-disk capture with a selectable image format: Feclora RAW (with optional compression and age encryption) or QCOW2. Both formats are stored as ordinary manifest-backed disk images in local, mounted filesystem or S3 repositories. QCOW2 is the P2V format; restore accepts either RAW or QCOW2 directly and converts QCOW2 to private RAW staging before writing the selected physical disk. QCOW2 preserves disk sectors and partition metadata, but does not guarantee guest bootability; OS-specific drivers, initramfs or firmware changes may still be required.
 - whole-disk, partition and existing-LV image restoration;
 - whole-disk and partition-to-partition cloning;
+- legacy P2V bundle export from an S3 object repository to the local repository or a mounted, identity-verified, read/write filesystem repository. In the Repositories tab, select the S3 source, enter the legacy image identifier, choose the destination (or Local repository), and submit the durable export. This compatibility path is for a QCOW2 plus `.p2v.json` sidecar; new manifest-backed QCOW2 captures do not need this export step.
 - device discovery, image selection, compression selection and typed
   destructive confirmation;
 - streamed byte-progress events from the storage engine;
