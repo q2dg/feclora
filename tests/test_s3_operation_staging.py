@@ -97,7 +97,7 @@ class S3OperationStagingTests(unittest.TestCase):
             os.fstat(manager.lease_fd)
 
 
-    def test_download_failure_releases_s3_lease_and_removes_private_staging(self):
+    def test_download_failure_releases_s3_lease_without_yielding_staging(self):
         remote = FakeObjectRepository(download_error=OSError("object download interrupted"))
         manager = FakeManager(remote)
         with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
