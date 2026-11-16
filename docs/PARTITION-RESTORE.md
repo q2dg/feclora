@@ -6,6 +6,11 @@ title: Partition restore
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
+![Illustrative partition restore workflow]({{ '/assets/mockups/partition-workflow.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. The destination partition must already exist.*
+
+
 # Partition restore
 
 `feclora.storage.partition_restore.restore_partition` restores a single
