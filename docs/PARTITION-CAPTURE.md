@@ -6,6 +6,11 @@ title: Partition capture orchestration
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
+![Illustrative partition capture workflow]({{ '/assets/mockups/partition-workflow.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. It summarizes the supported single-partition capture scope.*
+
+
 # Partition capture orchestration
 
 `feclora.storage.partition_image_capture.capture_partition_image` creates a manifest-backed image of one existing partition. It requires a current structured storage inventory; missing or unresolved layer information fails closed. The lower-level `feclora.storage.capture` module provides the read-only source checks and Partclone/raw process runner.
