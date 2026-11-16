@@ -228,7 +228,7 @@ class DeploymentJournal:
             if event.get("event") == "client_progress":
                 snapshot = event.get("progress")
                 if (not isinstance(snapshot, dict)
-                        or snapshot.get("phase") not in {"save", "restore", "transfer"}
+                        or snapshot.get("phase") not in {"save", "restore", "transfer", "clone"}
                         or isinstance(snapshot.get("completed_bytes"), bool)
                         or not isinstance(snapshot.get("completed_bytes"), int)
                         or snapshot["completed_bytes"] < 0
