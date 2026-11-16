@@ -209,25 +209,22 @@ Acceptance: each supported filesystem has a matching capture/restore mapping, a 
 
 ## P1 — Smaller-destination cloning and restore
 
-A smaller destination must not be enabled by weakening the existing raw-copy capacity checks. The current whole-disk clone copies the source byte range verbatim, and whole-disk restore writes a raw disk artifact; neither operation can safely fit a smaller target by truncation.
+The local rescue UI now exposes a separate proportional restore path for whole-disk GPT images. It does not weaken the exact/raw restore path and never silently resizes an image.
 
-Implementation contract for a future proportional-layout mode:
+Implemented software path:
+- Read-only source/target inspection requires two distinct whole-disk block devices, offline/unused source, matching logical-sector geometry, a strictly smaller target and agreement between live `st_rdev` and inventory `MAJ:MIN`.
+- The staged source artifact is verified and copied into a private, mode-0700 workspace. The original repository artifact and source disk are not modified.
+- The planner preserves partition starts, PARTUUIDs, type GUIDs, names and attributes. Only the final ext2/3/4 or NTFS partition may shrink; unsupported filesystems, unknown geometry, dirty/hibernated NTFS, earlier partitions crossing the target boundary and non-final shrink requirements fail closed.
+- Filesystem minimum-size probes run read-only against the selected offline source. Actual ext/NTFS shrink operations run only on the private staged RAW image, with filesystem checks and post-shrink size verification.
+- GPT primary/backup metadata is rewritten and independently validated on the private staging image; the staged image is truncated to the target geometry and re-hashed.
+- The destructive restore writer revalidates the staging inode/digest/GPT, exact target capacity, sector size, captured destination identity and source-safety state. It requires the exact `ERASE /dev/...` confirmation, writes from the already-open staged file, then reads back and SHA-256 verifies the full destination range.
 
-- [ ] Keep the current exact/raw mode unchanged and fail closed when the destination is smaller.
-- [ ] Add a separate, explicit proportional-layout mode; never silently resize.
-- [x] Add read-only whole-disk source discovery using `lsblk`, `blockdev` and `sfdisk`; require an offline/unused whole disk, GPT, matching logical-sector geometry and exact agreement between the discovered partition set. Validate ordered/non-overlapping partition extents, device nodes and GUIDs, and require sfdisk's first/last usable LBAs to fit the actual disk capacity and contain every partition. The source's protective MBR, primary/backup GPT headers, header CRCs, entry-array CRCs, disk GUID, usable-LBA bounds and partition records are independently read from the block device and cross-checked against sfdisk. Destination-side binary inspection remains pending.
-- [x] Add a preview-only GPT layout planner that validates ordered/non-overlapping source partitions, GPT type GUIDs, target capacity and caller-supplied minimum sizes. It preserves every source partition start and identifier; it never relocates or repacks partitions. It may shorten only the final ext2/3/4 or NTFS partition, and only when its filesystem-native probed minimum fits before the target backup GPT metadata. Other filesystems retain exact original size; unknown filesystems/storage layers fail closed. Earlier partitions that cross the target boundary, or a final unsupported partition that crosses it, are rejected. This is intentionally narrower than a general proportional resize, but avoids an unimplemented data-relocation algorithm.
-- [x] Integrate trusted offline filesystem-minimum probes into a read-only source-to-smaller-target preview API; no write authorization is returned. Reject extended/logical MBR layouts or other schemes until their handling is implemented and tested.
-- [x] Add read-only ext2/3/4 and NTFS minimum-size probes: ext verifies the detected type, runs `e2fsck -f -n`, reads the ext block size and `resize2fs -P` estimate; NTFS verifies the detected type and runs `ntfsresize --info` (read-only). Both bound the estimate by block-device capacity and refuse mounted/busy/root-backed sources through the existing source-safety checks. Estimates remain advisory; the staged shrink must independently succeed and be checked.
-- [x] Add a read-only probe-backed planner adapter and connect it to automatic source discovery: ext2/3/4 partitions use the offline `resize2fs -P` probe and NTFS/ntfs3 partitions use the offline `ntfsresize --info` read-only probe; other known filesystems remain fixed at their exact original size; unknown signatures and probe failures abort planning. Never infer fit from free-space percentages or lsblk partition size alone. The preview API is not connected to an end-user clone/restore executor.
-- [ ] Initially support only filesystems with a proven offline shrink-and-grow sequence and verified tool availability. Filesystems without a safe shrink path, encrypted/container layers, RAID, LVM, multi-device Btrfs and unknown signatures must remain blocked.
-- [ ] Build a private working image from the verified source artifact; never shrink or otherwise modify the original source disk or repository artifact. Shrink the staged final ext2/3/4 or NTFS filesystem offline, run a mutating consistency check only on the private copy, and verify the resulting filesystem size before changing its partition boundary. Do not proceed if the staged copy cannot be isolated and bounded.
-- [ ] Write the reduced GPT only into the private working image, regenerate and validate primary/backup GPT metadata and CRCs, then copy the complete transformed image to the destination under a fresh identity/capacity/offline check and exact typed confirmation. Read back and verify the written byte range, GPT geometry and the restored ext/NTFS filesystem. No source or destination mutation is allowed before the complete private image passes validation.
-- [ ] Verify the resulting partition table, filesystem consistency and byte/data integrity before reporting success. An interrupted operation must leave the target explicitly untrusted.
-- [ ] Add disposable loop-device integration tests for exact-fit, insufficient-used-space, unsupported filesystem, GPT relocation, alignment, cancellation and failures at every destructive stage.
-- [ ] Expose the mode in local and Cockpit workflows only after the same engine and validation contract are integrated end to end.
+Remaining software work:
+- Expand fault-injection coverage for cancellation and failures at every destructive stage; ensure exact-commit CI executes all staged shrink, GPT rewrite and restore tests.
+- Review any gaps in progress/result reporting and recovery of interrupted operations. Never automatically resume a partially written destination.
+- Keep unsupported filesystems and storage layers blocked. XFS, FAT, exFAT, F2FS, Btrfs, swap, LVM, LUKS and multi-device layouts are not made shrinkable by this feature.
 
-Until those gates pass, a smaller target is **not supported**. The UI may explain that proportional resizing is a future mode, but must not offer a “continue anyway” action for a raw clone or restore.
+ISO generation, physical media and firmware acceptance are maintainer-owned and excluded from this engineering queue. See [staged proportional shrink](STAGED-PROPORTIONAL-SHRINK.md) for the detailed implementation boundary and operator-facing behavior.
 
 ## P1 — Storage discovery and image fidelity
 Scope clarification: LVM logical volumes, LUKS2 containers/open mappings, Btrfs filesystems and Stratis-backed devices are storage source layers/types to inventory and image, not repository or transport types. Repositories/transports are the separate external destinations and distribution mechanisms (SSHFS, NFS, SMB/CIFS and S3;  remains a separate block transport). This is an image-creation and restore-compatibility requirement, not a request for Feclora to administer storage stacks or provision them. Feclora must discover and describe existing layers accurately, then capture the selected block-level or filesystem-level content without silently flattening or omitting them.
@@ -416,17 +413,7 @@ not implementation authorization.
 
 ### New implementation work
 
-- [x] Add combined read-only source/target proportional-restore preview: reject the same physical block device even when selected through two paths; require independently inspected offline/unused whole disks, matching supported logical-sector sizes and a strictly smaller target; build the preview from source partition metadata and live ext/NTFS minimum-size probes; report existing target partitions and model/serial/WWN; preserve `destructive_confirmation_required=True` and `write_authorized=False`. This remains advisory and does not authorize a destructive operation.
-
-- [ ] **Proportional whole-disk restore layout (3):** implement a separate,
-  preview-first partition-layout planner and executor. Preserve partition
-  starts and required alignment; define explicit handling for EFI, BIOS boot,
-  recovery, swap, LVM, LUKS and unknown filesystems; reject layouts that would
-  move or shrink unsupported partitions. Grow only filesystems with a verified
-  offline grow tool and a matching post-growth checker. Keep preserve-layout as
-  the default and require an exact destructive confirmation. Never edit the
-  source image or mutate the target before the complete plan is validated.
-- [x] Add read-only whole-disk restore-target inspection: require a real block device resolving as exactly one whole disk; verify offline/unused status with the existing fail-closed source-safety checks; cross-check lsblk and blockdev capacity/logical-sector geometry; inventory existing partition children and stable model/serial/WWN metadata; reject unsupported child storage layers. The result explicitly sets `write_authorized=False`. This is an inspection primitive only: no source/target comparison, target wipe, GPT write, filesystem shrink or restore is authorized.
+- [x] **Proportional whole-disk restore:** the complete local rescue path is implemented for the supported final ext2/3/4 and NTFS partition case: read-only preview, private staged filesystem shrink, GPT rewrite/validation, exact target and identity checks, typed destructive confirmation, bounded destination write and full read-back SHA-256 verification. Remaining: execute and close exact-commit CI/fault-injection coverage; keep all unsupported layouts fail-closed. See [staged proportional shrink](STAGED-PROPORTIONAL-SHRINK.md).
 
 - [ ] **Read-error-tolerant capture (4):** evaluate GNU ddrescue as an optional
   capture engine for whole disks and supported partitions. Keep a persistent
@@ -436,13 +423,7 @@ not implementation authorization.
   unreadable ranges remain. Do not silently zero-fill unreadable sectors or
   treat a partial capture as complete. Resume only through an explicitly
   selected, identity-revalidated source and matching mapfile.
-- [ ] **Standalone recovery media (5):** define a supported workflow for
-  producing a recovery USB/ISO from the existing Feclora Live runtime, with
-  architecture/firmware prerequisites, reproducible build inputs, integrity
-  checks and a recovery runbook. The existing Live ISO is already bootable;
-  this item is about a documented, repeatable recovery-media artifact and
-  workflow, not an ISO build performed by the assistant or an implicit
-  persistence target.
+- [ ] **Embedded recovery-image boot dispatch:** the recovery ISO builder and Cockpit durable operation already embed a verified image set and target-bound answer under `/FECLORA/RECOVERY`. Remaining software work is to discover that directory at Live boot, expose it as a read-only image source and dispatch the answer through the existing guarded restore engine after target identity confirmation. Do not add credential embedding, generic PXE answer behavior or a second restore engine. ISO creation and BIOS/UEFI boot acceptance remain explicitly out of scope.
 
 ### Follow-up implementation scope
 
@@ -478,61 +459,15 @@ migration paths must not be conflated with lossless block-level shrinking.
 
 ### Filesystem shrink implementation boundary
 
-- Read-only GPT inspection captures and validates the disk GUID,
-  logical sector size and source usable-LBA bounds from `sfdisk --json`.
-  The proportional planner now derives the smaller target's final usable LBA
-  from the inspected source's trailing GPT-reserved geometry instead of
-  assuming 33 reserved sectors. This handles both 512-byte and 4096-byte
-  logical sectors and non-default GPT entry-array reservation sizes while
-  preserving the source first-usable LBA. A new read-only binary GPT
-  validator now checks the protective MBR, primary and backup headers, header
-  CRCs, entry-array CRCs, disk GUID, usable bounds, unique partition GUIDs,
-  extents, names and array agreement. Source inspection cross-checks those
-  bytes against sfdisk's JSON before producing a preview. Tests cover valid
-  512-byte and 4096-byte images and corruption/disagreement cases. A pure GPT
-  metadata-patch builder now derives a smaller target layout from the validated
-  source: it preserves partition slots, GUIDs, names, type GUIDs, attribute
-  bits and starts; changes only planned end LBAs; and rebuilds the protective
-  MBR, both entry arrays, both headers and their CRCs. It returns aligned byte
-  patches and never writes to either stream. Unknown GPT header extensions,
-  partition relocation/expansion, missing or duplicate PARTUUIDs and target
-  geometry overflow fail closed. Synthetic tests cover rewrite validation and
-  relocation rejection. A private-staging applier now consumes the builder:
-  it accepts only the verified staging-file descriptor, anchors the open to a
-  private owned directory, rejects symlinks/hard links/non-regular files and
-  changed source digests, applies bounded patches, truncates the private RAW
-  file, fsyncs it, and re-runs the independent binary GPT validator before
-  returning its new size and digest. Read-back also compares disk identity,
-  usable geometry, partition GUIDs, starts, planned ends, type GUIDs, names
-  and attribute bits against the source and plan. It has no block-device write path.
-  Synthetic tests cover a smaller-image rewrite and digest-mismatch rejection.
-  This remains a low-level staging primitive: it is not wired to the
-  proportional restore preview/executor, does not shrink filesystems, and
-  does not authorize or perform destination writes.
-- GPT inspection and preview records retain per-partition `attrs` from
-  `sfdisk --json` (including firmware/OS-specific attribute bits), instead of
-  silently dropping them. Source disk identity and header geometry are
-  independently validated; the staging-only writer preserves them deliberately
-  and validates both rewritten copies before returning.
-- A private RAW staging primitive now verifies the stored artifact, checks the
-  decoded byte count, writes a mode-0600 copy under a mode-0700 temporary
-  directory outside the image repository, and removes that workspace on
-  context exit. It does not alter the original artifact and is not yet wired
-  into a restore executor.
-- ext2/3/4 and NTFS: read-only minimum-size probes are available to the
-  preview planner. A staged filesystem-shrink executor, GPT rewrite and
-  end-to-end restore integration are still required before smaller-disk
-  restore can be enabled.
-- XFS: no in-place shrink. A future, separately selected migration may use
-  `xfsdump`/`xfsrestore` into a newly created smaller filesystem.
-- exFAT: no shrink operation is provided by the standard exfatprogs tool set;
-  any future support is a separately verified create-and-copy migration.
-- F2FS: keep fixed-size. Upstream `resize.f2fs` documents `-s`, but its
-  manual explicitly says the current version only supports expansion. Do not
-  infer shrink support from the option flag.
-- Regression tests now explicitly reject proportional shortening of XFS,
-  F2FS and exFAT partitions. See [filesystem shrink research](FILESYSTEM-SHRINK-RESEARCH.md).
+The supported proportional-restore implementation is no longer preview-only. The current path includes:
 
-None of the migration workflows above is implemented or authorized for
-automatic execution. They require a distinct user-visible mode, private
-staging, file-level verification and boot-configuration review.
+- Binary GPT inspection of protective MBR, primary and backup headers, header and entry-array CRCs, disk GUID, usable-LBA bounds, partition GUIDs, extents, names and entry-array agreement. Source inventory is cross-checked against the staged image; 512-byte and 4096-byte logical sectors and non-default GPT entry-array reservation sizes are handled.
+- A GPT patch builder and private-staging applier that preserve partition slots, GUIDs, names, type GUIDs, attribute bits and starts; update only planned end LBAs; rebuild both GPT copies and CRCs; truncate only the private staged RAW file; fsync; and independently revalidate the rewritten image.
+- Private staging that verifies the source artifact and decoded byte count, creates a mode-0700 workspace and mode-0600 staged file outside the repository, and removes the workspace on context exit.
+- Separate ext2/3/4 and NTFS staged shrink executors. They verify exact loop-device backing file, offset and size limit, filesystem signature, filesystem state and minimum size; run the shrink only against the private staging image; run post-shrink consistency/size checks; and detach loop devices in a `finally` path.
+- A coordinator that matches planned partitions by PARTUUID, preserves starts and partition types, permits at most one shortened final partition, invokes the appropriate shrink executor and then rewrites/validates GPT.
+- A guarded restore entry point that locks and hashes the staged file, checks GPT copies and exact target size/sector size, revalidates captured device identity and source-safety immediately before writing, requires typed destructive confirmation, streams from the open staged inode, and reads back the full destination range for SHA-256 verification.
+
+The workflow is deliberately narrow. It does not relocate partitions, shrink filesystems other than ext2/3/4 and NTFS, alter the original source disk or repository artifact, or create/resize LVM/LUKS/Btrfs storage. NTFS dirty or hibernated volumes fail closed. The staged restore is not a generic manifest restore and must not weaken the exact-size checks used by ordinary restore.
+
+Tests exist for GPT corruption and rewrite, loop mapping, filesystem type/state/size checks, digest mismatch, destination identity, confirmation, write/read-back and failure paths. The immediate gate is to obtain clean exact-commit CI for this suite and add any missing fault-injection cases. Physical-media testing and ISO generation remain maintainer-owned and are not part of repository work.
