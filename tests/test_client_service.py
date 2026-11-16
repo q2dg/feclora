@@ -390,7 +390,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             def fake_join(host, port, context, **kwargs):
                 approval = kwargs["prepare_local_target"](job)
                 self.assertEqual(approval.device_path, DEVICE)
-                self.assertEqual(approval.confirmation, "ERASE " + DEVICE)
+                self.assertEqual(approval.confirmation, "ERASE " + DEVICE + " FROM " + SERVER_IDENTITY)
                 success, detail = kwargs["execute_job"](job, object(), approval)
                 return job, success, detail
 
