@@ -2204,11 +2204,12 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
     def test_create_restore_profile_binds_unique_disk_and_saves_single_use_policy(self):
         from feclora.webapi import _create_restore_profile
         manifest = SimpleNamespace(
-            image_id="golden", image_type="disk",
-            artifacts=[SimpleNamespace(encryption="none")],
+            image_id="golden", image_type="disk", source_size_bytes=10_000_000,
+            logical_sector_size=512, artifacts=[SimpleNamespace(encryption="none")],
         )
         inventory = {"devices": [{
-            "path": "/dev/sda", "type": "disk",
+            "path": "/dev/sda", "type": "disk", "size_bytes": 20_000_000,
+            "logical_sector_size": 512, "mountpoints": [], "children": [],
             "wwn": "naa.5000c50012345678", "serial": "SERIAL-1",
         }]}
         with tempfile.TemporaryDirectory() as root:
@@ -2240,8 +2241,8 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
             artifacts=[SimpleNamespace(encryption="none")],
         )
         inventory = {"devices": [
-            {"path": "/dev/sda", "type": "disk", "serial": "DUPLICATE"},
-            {"path": "/dev/sdb", "type": "disk", "serial": "DUPLICATE"},
+            {"path": "/dev/sda", "type": "disk", "serial": "DUPLICATE", "size_bytes": 20_000_000, "logical_sector_size": 512, "mountpoints": [], "children": []},
+            {"path": "/dev/sdb", "type": "disk", "serial": "DUPLICATE", "size_bytes": 20_000_000, "logical_sector_size": 512, "mountpoints": [], "children": []},
         ]}
         with tempfile.TemporaryDirectory() as root:
             with patch("feclora.webapi._repository", return_value=Path(root)), \
