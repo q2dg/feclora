@@ -102,6 +102,9 @@ export default function App() {
   const [s3Prefix, setS3Prefix] = useState("feclora");
   const [s3CredentialId, setS3CredentialId] = useState("");
   const [s3ReadOnly, setS3ReadOnly] = useState(true);
+  const [p2vExportImageId, setP2vExportImageId] = useState("");
+  const [p2vExportSourceId, setP2vExportSourceId] = useState("");
+  const [p2vExportDestinationId, setP2vExportDestinationId] = useState("");
   const [systemdCredentials, setSystemdCredentials] = useState([]);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
@@ -542,6 +545,30 @@ export default function App() {
       });
       setNotice("S3 object repository definition saved. No filesystem mount was created.");
       setS3RepositoryId(""); await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const exportP2VFromS3 = async (event) => {
+    event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null);
+    try {
+      const accepted = await callFeclora("export_p2v_s3", {
+        image_id: p2vExportImageId.trim(),
+        source_repository_id: p2vExportSourceId,
+        ...(p2vExportDestinationId ? { destination_repository_id: p2vExportDestinationId } : {})
+      });
+      setOperations((current) => [{
+        operation_id: accepted.operation_id, action: "export_p2v_s3", state: "queued",
+        events: [{ state: "queued", timestamp: new Date().toISOString(), details: { image_id: p2vExportImageId.trim() } }]
+      }, ...current.filter((item) => item.operation_id !== accepted.operation_id)]);
+      setNotice("P2V export accepted by the durable worker. It verifies the source bundle before publishing to the selected filesystem repository.");
+      const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
+        if (eventData.event === "progress") setProgress(eventData);
+        if (eventData.event === "state") setOperations((current) => current.map((item) => item.operation_id === accepted.operation_id ? { ...item, state: eventData.state } : item));
+      });
+      if (result.state === "completed") setNotice("P2V export completed successfully.");
+      else setError("P2V export " + result.state + ": " + (result.details?.error || result.details?.reason || "inspect the operation log."));
+      await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1672,6 +1699,26 @@ export default function App() {
                   {s3Repositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.endpoint_url || "AWS S3"} · {repo.region}</Td><Td>{repo.bucket}/{repo.prefix}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td><Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runS3RepositoryAction("check_s3_repository", repo.id)}>{t("Test connection")}</Button>{" "}<Button size="sm" variant="danger" isDisabled={busy} onClick={() => runS3RepositoryAction("remove_s3_repository", repo.id)}>{t("Remove")}</Button></Td></Tr>)}
                   {!s3Repositories.length && <Tr><Td colSpan={5}>{t("No S3 object repositories configured.")}</Td></Tr>}
                 </Tbody></Table>
+                <Title headingLevel="h3" size="md" className="pf-v6-u-mt-lg">Legacy P2V bundle export from S3</Title>
+                <p>Export a legacy QCOW2 plus sidecar bundle from an S3 object repository to the local repository or a mounted filesystem repository. This does not export ordinary manifest-backed QCOW2 captures, which already use the normal image workflow.</p>
+                <Card><CardBody><form onSubmit={exportP2VFromS3}>
+                  <Field t={t} label="Source S3 repository">
+                    <select className="pf-v6-c-form-control" value={p2vExportSourceId} onChange={(e) => setP2vExportSourceId(e.target.value)} required>
+                      <option value="">Select an S3 source…</option>
+                      {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.bucket}/{repo.prefix}</option>)}
+                    </select>
+                  </Field>
+                  <Field t={t} label="Legacy P2V image identifier">
+                    <input className="pf-v6-c-form-control" value={p2vExportImageId} onChange={(e) => setP2vExportImageId(e.target.value)} pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,127}" maxLength={128} required />
+                  </Field>
+                  <Field t={t} label="Destination filesystem repository">
+                    <select className="pf-v6-c-form-control" value={p2vExportDestinationId} onChange={(e) => setP2vExportDestinationId(e.target.value)}>
+                      <option value="">Local repository</option>
+                      {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                    </select>
+                  </Field>
+                  <Button type="submit" variant="primary" isDisabled={busy || !p2vExportSourceId || !p2vExportImageId.trim()}>Export legacy P2V bundle</Button>
+                </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">{t("Configured repositories")}</Title>
                 <p>“Identity verified” confirms only that findmnt reports the expected source, filesystem type and access mode. Remote health is always unknown: this inspection does not test network connectivity or perform remote filesystem I/O. An unknown mount state is not treated as unmounted; do not mount, edit or remove the repository until its state is resolved.</p>
