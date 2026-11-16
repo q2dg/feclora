@@ -220,7 +220,7 @@ Implemented software path:
 - The destructive restore writer revalidates the staging inode/digest/GPT, exact target capacity, sector size, captured destination identity and source-safety state. It requires the exact `ERASE /dev/...` confirmation, writes from the already-open staged file, then reads back and SHA-256 verifies the full destination range.
 
 Remaining software work:
-- Expand fault-injection coverage for cancellation and failures at every destructive stage; ensure exact-commit CI executes all staged shrink, GPT rewrite and restore tests.
+- Expand fault-injection coverage for cancellation and failures at every destructive stage. The staged proportional restore suite now explicitly covers inconsistent GPT copies, non-zero destination-writer exit, writer process-start failure, destination identity loss after writing, short/failed/mismatched read-back, and pre-write target/staging revalidation. Remaining: add cancellation/termination coverage across staging shrink, GPT rewrite and the full destination writer; ensure exact-commit CI executes all staged shrink, GPT rewrite and restore tests.
 - Review any gaps in progress/result reporting and recovery of interrupted operations. Never automatically resume a partially written destination.
 - Keep unsupported filesystems and storage layers blocked. XFS, FAT, exFAT, F2FS, Btrfs, swap, LVM, LUKS and multi-device layouts are not made shrinkable by this feature.
 
