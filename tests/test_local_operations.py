@@ -458,7 +458,7 @@ class ProportionalRestoreOperationValidationTests(unittest.TestCase):
         }
         self.assertEqual(validate_definition(definition)["action"], "restore_proportional_disk")
         definition["params"]["target_major_minor"] = "8:0"
-        with self.assertRaisesRegex(LocalOperationError, "different paths"):
+        with self.assertRaisesRegex(LocalOperationError, "different physical disks"):
             validate_definition(definition)
 
     def test_proportional_restore_rejects_missing_kernel_identity(self):
