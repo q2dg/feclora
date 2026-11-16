@@ -1,53 +1,26 @@
 ---
 layout: default
-title: Operator guides
+title: Step-by-step operator guides
 ---
-
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
-
 <main class="guide-page">
-  <header class="guide-intro">
-    <p class="eyebrow">OPERATOR DOCUMENTATION</p>
-    <h1>Step-by-step guides</h1>
-    <p>Choose a task, follow the sequence and review the safety checks before starting. These guides describe the current Cockpit workflows; availability and limitations are called out explicitly.</p>
-    <div class="guide-note"><strong>Before any destructive operation:</strong> identify disks by model, capacity and stable identifiers where available. A restore or clone can overwrite the selected destination and cannot be rolled back automatically.</div>
-  </header>
-
-  <section class="guide-grid" aria-label="Operator workflow guides">
-    <article class="guide-card">
-      <img src="{{ '/assets/mockups/capture-wizard.svg' | relative_url }}" alt="Illustrative mockup of the disk capture wizard">
-      <div class="guide-card-body"><h2>Capture a disk or partition</h2><p>Create a manifest-backed image in a configured repository. Review source safety, compression and optional image encryption.</p><a href="./WHOLE-DISK-CAPTURE.html">Whole-disk capture →</a> · <a href="./PARTITION-CAPTURE.html">Partition capture →</a></div>
-    </article>
-    <article class="guide-card">
-      <img src="{{ '/assets/mockups/restore-wizard.svg' | relative_url }}" alt="Illustrative mockup of the restore destination review">
-      <div class="guide-card-body"><h2>Restore an image</h2><p>Select a verified image, inspect the destination and confirm the exact target before writing.</p><a href="./WHOLE-DISK-RESTORE.html">Whole-disk restore →</a> · <a href="./PARTITION-RESTORE.html">Partition restore →</a></div>
-    </article>
-    <article class="guide-card">
-      <img src="{{ '/assets/mockups/network-deployment.svg' | relative_url }}" alt="Illustrative mockup of Server and Client deployment status">
-      <div class="guide-card-body"><h2>Deploy to other machines</h2><p>Prepare the Server, trust it from each Client, approve local destinations and explicitly arm the job.</p><a href="./DEPLOYMENT-SETUP.html">Server and Client setup →</a> · <a href="./REMOTE-DISK-CLONE.html">Remote cloning →</a></div>
-    </article>
-    <article class="guide-card">
-      <div class="guide-card-body"><h2>Clone a local disk</h2><p>Copy one local block device to another without creating an intermediate image file.</p><a href="./GUIDE-LOCAL-DISK-CLONE.html">Local disk clone procedure →</a></div>
-    </article>
-    <article class="guide-card">
-      <div class="guide-card-body"><h2>Connect image repositories</h2><p>Configure mounted filesystem repositories or S3-compatible object storage and understand credential handling.</p><a href="./REMOTE-REPOSITORIES.html">Repository setup and behavior →</a></div>
-    </article>
-    <article class="guide-card">
-      <div class="guide-card-body"><h2>Boot over the network</h2><p>Understand interactive PXE and the unattended answer-file workflow, including its security boundary.</p><a href="./PXE-UNATTENDED.html">PXE workflow and setup →</a></div>
-    </article>
-  </section>
-
-  <p class="guide-note">The illustrations on this page are <strong>illustrative mockups, not screenshots from a running Feclora system</strong>. They explain the intended operator flow and do not prove runtime acceptance. See the <a href="./assets/screenshots/README.html">image policy</a> for real screenshots and mockups.</p>
-
-  <section class="section">
-    <h2>Reference and operations</h2>
-    <ul>
-      <li><a href="./FEATURE-MATRIX.html">Feature and compatibility matrix</a></li>
-      <li><a href="./CERTIFICATE-MANAGEMENT.html">Server certificate and trust</a></li>
-      <li><a href="./OPERATIONS.html">Backup, upgrade, rollback and distribution</a></li>
-      <li><a href="./BUILD.html">Build instructions</a></li>
-      <li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer-owned release acceptance</a></li>
-    </ul>
-  </section>
+<header class="guide-intro"><p class="eyebrow">OPERATOR DOCUMENTATION</p><h1>Step-by-step guides</h1><p>Choose the operation you need. Each guide explains prerequisites, the Cockpit sequence, verification and failure handling. Read the safety notes before selecting a source or destination.</p><div class="guide-note"><strong>Destructive operations:</strong> restore and clone overwrite the selected destination. Practice with disposable virtual disks. Identify devices using model, capacity and stable identifiers (WWN/serial), never a transient device path alone.</div></header>
+<section class="section"><h2>Capture and restore images</h2><div class="guide-grid">
+<article class="guide-card"><img src="{{ '/assets/mockups/capture-wizard.svg' | relative_url }}" alt="Illustrative whole-disk capture mockup"><div class="guide-card-body"><h3>Capture a whole disk</h3><p>Create a raw or QCOW2 manifest-backed disk image.</p><a href="./WHOLE-DISK-CAPTURE.html">Step-by-step capture →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/restore-wizard.svg' | relative_url }}" alt="Illustrative whole-disk restore mockup"><div class="guide-card-body"><h3>Restore a whole disk</h3><p>Verify the image and review the target before writing.</p><a href="./WHOLE-DISK-RESTORE.html">Step-by-step restore →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/partition-workflow.svg' | relative_url }}" alt="Illustrative partition image workflow"><div class="guide-card-body"><h3>Capture or restore a partition</h3><p>Work with one existing partition; partition-table creation is separate.</p><a href="./PARTITION-CAPTURE.html">Capture →</a> · <a href="./PARTITION-RESTORE.html">Restore →</a></div></article>
+</div></section>
+<section class="section"><h2>Clone and deploy</h2><div class="guide-grid">
+<article class="guide-card"><img src="{{ '/assets/mockups/local-clone.svg' | relative_url }}" alt="Illustrative local disk clone mockup"><div class="guide-card-body"><h3>Clone a local disk</h3><p>Copy one block device directly to another on the same Feclora machine.</p><a href="./GUIDE-LOCAL-DISK-CLONE.html">Local clone procedure →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/network-deployment.svg' | relative_url }}" alt="Illustrative remote Server and Client mockup"><div class="guide-card-body"><h3>Set up Server and Clients</h3><p>Configure trust, select destinations, wait for READY and explicitly arm a job.</p><a href="./DEPLOYMENT-SETUP.html">Server/Client setup →</a> · <a href="./REMOTE-DISK-CLONE.html">Remote cloning →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/multicast-workflow.svg' | relative_url }}" alt="Illustrative multicast deployment mockup"><div class="guide-card-body"><h3>Restore to multiple Clients</h3><p>Understand receiver readiness and the UDPcast data plane.</p><a href="./UDPCAST-MULTICAST.html">Multicast workflow →</a></div></article>
+</div></section>
+<section class="section"><h2>Repositories and network boot</h2><div class="guide-grid">
+<article class="guide-card"><img src="{{ '/assets/mockups/repository-setup.svg' | relative_url }}" alt="Illustrative repository setup mockup"><div class="guide-card-body"><h3>Connect an image repository</h3><p>Configure SSHFS, NFS, SMB/CIFS or S3-compatible object storage.</p><a href="./REMOTE-REPOSITORIES.html">Repository setup →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/pxe-workflow.svg' | relative_url }}" alt="Illustrative PXE boot and answer-file mockup"><div class="guide-card-body"><h3>Boot with PXE</h3><p>Distinguish interactive Live boot from the separately configured unattended answer workflow.</p><a href="./PXE-UNATTENDED.html">PXE guide →</a></div></article>
+<article class="guide-card"><img src="{{ '/assets/mockups/recovery-workflow.svg' | relative_url }}" alt="Illustrative recovery media workflow"><div class="guide-card-body"><h3>Prepare recovery media</h3><p>Review the current recovery-ISO builder status and operator procedure.</p><a href="./RECOVERY-ISO.html">Recovery ISO procedure →</a></div></article>
+</div></section>
+<p class="guide-note">All illustrations are explicitly labeled mockups, not screenshots of a running system. They explain the sequence and safety concepts; they do not prove that a workflow has passed runtime acceptance. Feature status and limitations are authoritative in the <a href="./FEATURE-MATRIX.html">feature matrix</a>.</p>
+<section class="section"><h2>Reference and maintenance</h2><ul><li><a href="./FEATURE-MATRIX.html">Feature and compatibility matrix</a></li><li><a href="./CERTIFICATE-MANAGEMENT.html">Server certificate and trust model</a></li><li><a href="./OPERATIONS.html">Backup, upgrade and rollback</a></li><li><a href="./BUILD.html">Build and software validation</a></li><li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer-owned acceptance checklist</a></li></ul></section>
 </main>
