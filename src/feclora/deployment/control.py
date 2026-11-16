@@ -823,12 +823,45 @@ class DeploymentControlServer:
                                 (completed - previous["completed_bytes"])
                                 / (now - previous["monotonic"]),
                             )
-                        self._progress[client_mac] = {
+                        updated_at = datetime.now(timezone.utc).isoformat()
+                        snapshot = {
                             "phase": "clone", "completed_bytes": completed,
                             "total_bytes": total, "bytes_per_second": round(rate, 1),
-                            "updated_at": datetime.now(timezone.utc).isoformat(),
-                            "monotonic": now,
+                            "updated_at": updated_at,
                         }
+                        progress_sink = getattr(self, "_progress_event_sink", None)
+                        last_persisted = getattr(self, "_last_persisted_progress", {})
+                        previous_saved = last_persisted.get(client_mac)
+                        should_persist = (
+                            progress_sink is not None
+                            and (
+                                previous_saved is None
+                                or previous_saved["phase"] != "clone"
+                                or previous_saved["total_bytes"] != total
+                                or completed - previous_saved["completed_bytes"] >= 1024 * 1024
+                                or now - previous_saved["monotonic"] >= 5.0
+                                or (total is not None and completed == total
+                                    and previous_saved["completed_bytes"] != completed)
+                            )
+                        )
+                        if should_persist:
+                            try:
+                                progress_sink({
+                                    "timestamp": updated_at,
+                                    "job_id": job.job_id,
+                                    "event": "client_progress",
+                                    "job_state": self.coordinator.state.value,
+                                    "client_mac": client_mac,
+                                    "client_state": ClientState.RUNNING.value,
+                                    "progress": snapshot,
+                                })
+                            except Exception as exc:
+                                raise DeploymentControlError(
+                                    f"could not persist physical clone progress: {exc}"
+                                ) from exc
+                            last_persisted[client_mac] = {**snapshot, "monotonic": now}
+                            self._last_persisted_progress = last_persisted
+                        self._progress[client_mac] = {**snapshot, "monotonic": now}
 
                 kwargs: dict[str, Any] = {
                     "source_path": job.source_device,
