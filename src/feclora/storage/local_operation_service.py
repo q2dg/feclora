@@ -245,7 +245,7 @@ def execute(operation_id: str) -> int:
             store.append(operation_id, "verifying", {"message": "Storage engine returned successfully"})
             safe_result = {
                 key: value for key, value in result.items()
-                if key in {"image_id", "image_type", "source_image_id", "target",
+                if key in {"profile_id", "image_id", "image_type", "source_image_id", "target",
                            "source", "bytes_copied", "verified", "encrypted",
                            "artifact_count", "repository_path", "output_path", "restored_size_bytes", "source_size_bytes", "filesystem_plan", "sha256",
                            "virtual_size_bytes", "file_size_bytes",
