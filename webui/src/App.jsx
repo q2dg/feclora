@@ -869,7 +869,7 @@ export default function App() {
       setPxeAnswerJobId(job.job_id);
       setPxeAnswerSource("editor");
       setPxeAnswerPublished(null);
-      setNotice("Shared DeploymentJob JSON generated. Review it, save it if needed, then publish it.");
+      setNotice(t("Shared DeploymentJob JSON generated. Review it, save it if needed, then publish it."));
       setError("");
     } catch (err) { setError(err?.message || String(err)); }
   };
@@ -896,27 +896,27 @@ export default function App() {
         return window.btoa(binary);
       };
       if (pxeAnswerSource === "editor") {
-        if (!pxeJobJson.trim()) throw new Error("Generate or import a shared DeploymentJob JSON document first.");
+        if (!pxeJobJson.trim()) throw new Error(t("Generate or import a shared DeploymentJob JSON document first."));
         const parsed = JSON.parse(pxeJobJson);
-        if (parsed.schema_version !== 1 || parsed.start_policy !== "automatic" || !parsed.job_id) throw new Error("The editor must contain a valid unattended shared DeploymentJob.");
+        if (parsed.schema_version !== 1 || parsed.start_policy !== "automatic" || !parsed.job_id) throw new Error(t("The editor must contain a valid unattended shared DeploymentJob."));
         request.job_id = parsed.job_id;
         request.source = "upload";
         request.answer_base64 = encodeJSON(pxeJobJson);
       } else if (pxeAnswerSource === "upload") {
-        if (!pxeAnswerFile) throw new Error("Select a local JSON DeploymentJob or legacy unattended answer file.");
-        if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The JSON file must be between 1 byte and 64 KiB.");
+        if (!pxeAnswerFile) throw new Error(t("Select a local JSON DeploymentJob or legacy unattended answer file."));
+        if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error(t("The JSON file must be between 1 byte and 64 KiB."));
         const answerBuffer = await pxeAnswerFile.arrayBuffer();
         const answerText = await pxeAnswerFile.text();
         try { const parsed = JSON.parse(answerText); if (parsed.schema_version === 1 && parsed.start_policy === "automatic") request.job_id = parsed.job_id; } catch { /* server returns the detailed JSON validation error */ }
         request.answer_base64 = encodeJSON(new TextDecoder().decode(answerBuffer));
       } else if (pxeAnswerSource === "url") {
-        if (!pxeAnswerURL.trim()) throw new Error("Enter an HTTP or HTTPS URL.");
-        if (!pxeAnswerJobId.trim()) throw new Error("Enter the DeploymentJob UUID contained in the remote JSON file.");
+        if (!pxeAnswerURL.trim()) throw new Error(t("Enter an HTTP or HTTPS URL."));
+        if (!pxeAnswerJobId.trim()) throw new Error(t("Enter the DeploymentJob UUID contained in the remote JSON file."));
         request.url = pxeAnswerURL.trim();
       } else if (pxeAnswerSource === "repository" || pxeAnswerSource === "scp") {
-        if (!pxeAnswerRepositoryId) throw new Error("Select a configured image repository.");
+        if (!pxeAnswerRepositoryId) throw new Error(t("Select a configured image repository."));
         if (!pxeAnswerJobId.trim()) throw new Error("Enter the DeploymentJob UUID contained in the remote JSON file.");
-        if (!pxeAnswerRepositoryPath.trim()) throw new Error("Enter the relative path to the JSON answer file.");
+        if (!pxeAnswerRepositoryPath.trim()) throw new Error(t("Enter the relative path to the JSON answer file."));
         request.repository_id = pxeAnswerRepositoryId;
         request.source_path = pxeAnswerRepositoryPath.trim();
       }
@@ -940,7 +940,7 @@ export default function App() {
   };
 
   const revokePXEAnswer = async () => {
-    if (!pxeAnswerPublished?.job_id || !window.confirm("Revoke this job's published PXE answer? Clients that have already downloaded it may still possess a copy.")) return;
+    if (!pxeAnswerPublished?.job_id || !window.confirm(t("Revoke this job's published PXE answer? Clients that have already downloaded it may still possess a copy."))) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await callFeclora("revoke_pxe_answer", { job_id: pxeAnswerPublished.job_id });
@@ -1057,7 +1057,7 @@ export default function App() {
     setSelectedRepositoryId(job.repository_id || "");
     setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\n"));
     setRemoteJobId(crypto.randomUUID());
-    setNotice(job.boot_method === "pxe" ? "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving." : "DeploymentJob imported. Review all fields and the destination network interface before saving.");
+    setNotice(job.boot_method === "pxe" ? t("PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving.") : t("DeploymentJob imported. Review all fields and the destination network interface before saving."));
     setError("");
   };
 
@@ -1065,7 +1065,7 @@ export default function App() {
     if (!file) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      if (file.size < 1 || file.size > 64 * 1024) throw new Error("DeploymentJob JSON must be between 1 byte and 64 KiB.");
+      if (file.size < 1 || file.size > 64 * 1024) throw new Error(t("DeploymentJob JSON must be between 1 byte and 64 KiB."));
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = "";
       for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
@@ -1091,7 +1091,7 @@ export default function App() {
       }
       const result = await callFeclora("import_deployment_job", request);
       applyRemoteJobDefinition(result.job);
-      setNotice(result.message + " " + (result.job.boot_method === "pxe" ? "PXE boot settings were converted to safe ISO/Client defaults." : ""));
+      setNotice(result.message + " " + (result.job.boot_method === "pxe" ? t("PXE boot settings were converted to safe ISO/Client defaults.") : ""));
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1147,7 +1147,7 @@ export default function App() {
     try {
       const result = await callFeclora("start_deployment_service", { job_id: jobId });
       setServiceStatuses((current) => ({ ...current, [jobId]: result }));
-      setNotice("Persistent deployment service started. Clients may now connect; no disk operation starts until the Server operator explicitly authorizes and starts it.");
+      setNotice(t("Persistent deployment service started. Clients may now connect; no disk operation starts until the Server operator explicitly authorizes and starts it."));
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1157,7 +1157,7 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await callFeclora(action, { job_id: jobId, confirmation: phrase });
-      setNotice(result.message || "Deployment service command accepted.");
+      setNotice(result.message || t("Deployment service command accepted."));
       setServiceConfirmations((current) => ({ ...current, [jobId]: "", [jobId + "-cancel"]: "" }));
       await refreshDeploymentService(jobId);
       await refresh();
@@ -1197,7 +1197,7 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     setClientRemoteInspection(null); setClientRemoteJobStatus(null);
     const selectedInterface = networkInterfaces.find((item) => item.binding === clientRemoteInterface);
-    if (!selectedInterface) { setError("Select an active Client interface/address before testing connectivity."); setBusy(false); return; }
+    if (!selectedInterface) { setError(t("Select an active Client interface/address before testing connectivity.")); setBusy(false); return; }
     try {
       const result = await callFeclora("inspect_remote_job", {
         host: clientRemoteHost, job_id: clientRemoteJobId,
@@ -1209,7 +1209,7 @@ export default function App() {
       setClientRemoteEncrypt(false);
       setClientRemoteSign(false);
       setClientRemoteIgmpConfirmed(false);
-      setNotice("Server reachability and authenticated TLS identity verified; job inspected. No Client registration or disk operation has started.");
+      setNotice(t("Server reachability and authenticated TLS identity verified; job inspected. No Client registration or disk operation has started."));
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1228,8 +1228,8 @@ export default function App() {
       });
       setClientRemoteJobStatus(result);
       setNotice(result.phase === "failed"
-        ? "Client service started but reported a failure before completion; inspect its status detail."
-        : "Client service started. It will report READY only after local target approval, and will write only after the Server operator explicitly authorizes and starts the job.");
+        ? t("Client service started but reported a failure before completion; inspect its status detail.")
+        : t("Client service started. It will report READY only after local target approval, and will write only after the Server operator explicitly authorizes and starts the job."));
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1337,7 +1337,7 @@ export default function App() {
                           setBundleJobJSON(pxeJobJson);
                           setImageId(job.image_id || "");
                           if (job.repository_id) selectImageRepository(job.repository_id);
-                          setNotice("Copied the generated shared DeploymentJob into the bundle form. Verify the selected repository and image match.");
+                          setNotice(t("Copied the generated shared DeploymentJob into the bundle form. Verify the selected repository and image match."));
                         } catch (err) { setError(err?.message || String(err)); }
                       }}>{t("Use generated shared answer")}</Button>
                       <Field t={t} label={t("Shared schema-v1 DeploymentJob JSON")} help="Use the generated shared answer above or paste the exact automatic restore JSON. It must reference the selected image and repository and contain one stable target binding for every authorized Client.">
