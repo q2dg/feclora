@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from typing import Any, Callable
 
 from .disk_restore import DiskRestoreError, _target_geometry
@@ -51,6 +52,7 @@ def restore_staged_proportional_image(
     target_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     pre_write_callback: Callable[[], None] | None = None,
+    cancellation_requested: Callable[[], bool] | None = None,
 ) -> str:
     """Restore only to an exact-size whole disk and verify every written byte.
 
@@ -156,6 +158,8 @@ def restore_staged_proportional_image(
             raise StagedProportionalRestoreError(
                 "destination no longer matches the block-device identity captured during target selection"
             )
+        if cancellation_requested is not None and cancellation_requested():
+            raise StagedProportionalRestoreError("proportional restore cancelled before destination write")
         if pre_write_callback is not None:
             pre_write_callback()
         if check_target() != initial_identity:
@@ -176,7 +180,17 @@ def restore_staged_proportional_image(
             )
         except (OSError, PrivilegeError) as exc:
             raise StagedProportionalRestoreError(f"could not start destination write: {exc}") from exc
-        write_code = write_process.wait()
+        while True:
+            write_code = write_process.poll()
+            if write_code is not None:
+                break
+            if cancellation_requested is not None and cancellation_requested():
+                stop_process(write_process)
+                write_process = None
+                raise StagedProportionalRestoreError(
+                    "proportional restore cancelled during destination write; disk may be partially modified"
+                )
+            time.sleep(0.05)
         if write_code != 0:
             write_stderr.seek(0)
             detail = write_stderr.read(8192).decode("utf-8", errors="replace").strip()
