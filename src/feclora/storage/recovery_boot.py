@@ -175,7 +175,10 @@ def execute_recovery(directory: Path) -> str:
             ) from exc
         if not age_identity_file:
             raise RecoveryBootError("age-encrypted recovery requires a provisioned Live client identity")
-    with operation_record("restore_disk", target_path, image_id=manifest.image_id):
+    with operation_record(
+        "restore_disk", target_path, image_id=manifest.image_id,
+        log_path="/var/lib/feclora/operations.jsonl",
+    ):
         execute_restore(
             str(manifest_path), str(directory), target_path,
             target_type="disk",
