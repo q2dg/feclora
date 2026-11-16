@@ -561,13 +561,13 @@ export default function App() {
         operation_id: accepted.operation_id, action: "export_p2v_s3", state: "queued",
         events: [{ state: "queued", timestamp: new Date().toISOString(), details: { image_id: p2vExportImageId.trim() } }]
       }, ...current.filter((item) => item.operation_id !== accepted.operation_id)]);
-      setNotice("P2V export accepted by the durable worker. It verifies the source bundle before publishing to the selected filesystem repository.");
+      setNotice("t("P2V export accepted by the durable worker. It verifies the source bundle before publishing to the selected filesystem repository.")");
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
         if (eventData.event === "state") setOperations((current) => current.map((item) => item.operation_id === accepted.operation_id ? { ...item, state: eventData.state } : item));
       });
-      if (result.state === "completed") setNotice("P2V export completed successfully.");
-      else setError("P2V export " + result.state + ": " + (result.details?.error || result.details?.reason || "inspect the operation log."));
+      if (result.state === "completed") setNotice("t("P2V export completed successfully.")");
+      else setError(t("P2V export status") + " " + result.state + ": " + (result.details?.error || result.details?.reason || t("Inspect the operation log.")));
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
