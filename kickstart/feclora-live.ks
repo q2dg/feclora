@@ -151,6 +151,7 @@ chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-restore-profile"
 install -d "$TARGET_ROOT/usr/local/libexec" "$TARGET_ROOT/etc/systemd/system"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile.service" "$TARGET_ROOT/etc/systemd/system/feclora-restore-profile.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-pxe-answer.service" "$TARGET_ROOT/etc/systemd/system/feclora-pxe-answer.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-recovery-boot.service" "$TARGET_ROOT/etc/systemd/system/feclora-recovery-boot.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-deployment@.service" "$TARGET_ROOT/etc/systemd/system/feclora-deployment@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-client@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
@@ -177,7 +178,7 @@ install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclo
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe"
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
-systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service
+systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
 systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
 systemctl --root="$TARGET_ROOT" mask getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
