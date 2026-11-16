@@ -6,6 +6,11 @@ title: Remote image repositories
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
+![Illustrative repository configuration workflow]({{ '/assets/mockups/repository-setup.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. Provider choices and settings are conceptual.*
+
+
 # Remote image repositories
 
 Feclora stores image artifacts and manifests in an explicitly selected
