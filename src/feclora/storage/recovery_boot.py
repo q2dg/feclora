@@ -43,7 +43,7 @@ def discover_payload(roots: tuple[Path, ...] = MEDIA_ROOTS) -> Path | None:
             info = os.stat(root, follow_symlinks=False)
         except OSError:
             continue
-        if not stat.S_ISDIR(info.st_mode):
+        if not stat.S_ISDIR(info.st_mode) or not os.path.ismount(root):
             continue
         candidate = root / PAYLOAD
         try:
