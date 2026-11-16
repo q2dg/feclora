@@ -1030,6 +1030,43 @@ class CoordinatorControlTests(unittest.TestCase):
             "READ /dev/sda",
         )
 
+    def test_remote_clone_progress_is_persisted_for_interrupted_job_audit(self):
+        job = make_job(operation="clone", image_id=None, source_device="/dev/sda")
+        coordinator = DeploymentCoordinator(job)
+        coordinator.register_client(MAC)
+        coordinator.mark_ready(MAC)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server = DeploymentControlServer(
+            coordinator, context, local_identity="URI:feclora-server",
+        )
+        server._sessions[MAC] = FakeSocket()
+        server._target_devices[MAC] = "/dev/vdb"
+        server._progress_event_sink = Mock()
+        server._last_persisted_progress = {}
+
+        def arm():
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            return (MAC,)
+
+        def send(_socket, _header, *, progress_callback, **_kwargs):
+            progress_callback(0, 4096)
+            progress_callback(4096, 4096)
+
+        with patch("feclora.deployment.control.build_remote_clone_header", return_value=object()), \
+             patch("feclora.deployment.control.send_remote_disk", side_effect=send), \
+             patch.object(server, "arm_and_start", side_effect=arm), \
+             patch.object(server, "collect_results", return_value={MAC: "succeeded"}):
+            self.assertEqual(server.run_remote_clone_job(), {MAC: "succeeded"})
+
+        progress = server._progress_event_sink.call_args_list[-1].args[0]
+        self.assertEqual(progress["event"], "client_progress")
+        self.assertEqual(progress["client_mac"], MAC)
+        self.assertEqual(progress["client_state"], "running")
+        self.assertEqual(progress["progress"]["phase"], "clone")
+        self.assertEqual(progress["progress"]["completed_bytes"], 4096)
+        self.assertEqual(progress["progress"]["total_bytes"], 4096)
+
     def test_partition_clone_builds_partition_bound_session_header(self):
         job = make_job(
             operation="clone", image_id=None, source_device="/dev/sda1",
