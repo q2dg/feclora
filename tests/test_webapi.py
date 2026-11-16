@@ -112,6 +112,42 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(result["published"])
         self.assertTrue(result["output_directory"].endswith("fleet-bundle"))
 
+    def test_browse_image_passes_verified_partition_selector_to_guestfs(self):
+        from contextlib import contextmanager
+        from feclora.webapi import dispatch
+
+        manifest_path = Path("/tmp/feclora-test-image.manifest.json")
+        manifest = SimpleNamespace(
+            image_id="golden", image_type="disk",
+            artifacts=[SimpleNamespace(role="disk-image", encryption="none")],
+        )
+        layout = {
+            "partitions": [
+                {"selector": "/dev/sda2"},
+                {"selector": "/dev/sda1"},
+            ],
+        }
+
+        @contextmanager
+        def repository_context(*args, **kwargs):
+            yield Path("/tmp")
+
+        with patch("feclora.webapi._operation_repository_context", repository_context), \
+             patch("feclora.webapi._image_manifest", return_value=manifest_path), \
+             patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
+             patch("feclora.webapi._inspect_image_layout_from_repository", return_value=layout), \
+             patch("feclora.webapi._security_material", return_value={"age_decryption_available": False}), \
+             patch("feclora.webapi._client_runtime_config", return_value=None), \
+             patch("feclora.storage.image_browser.browse_image", return_value={"path": "/"}) as browse:
+            result = dispatch({
+                "action": "browse_image",
+                "params": {"image_id": "golden", "partition_index": 1, "path": "/"},
+            })
+
+        self.assertEqual(result, {"path": "/"})
+        self.assertEqual(browse.call_args.kwargs["expected_partition_selector"], "/dev/sda2")
+        self.assertEqual(browse.call_args.kwargs["expected_partition_count"], 2)
+
     def test_logical_volume_capture_action_is_submitted_to_durable_worker(self):
         params = {
             "source": "/dev/vg0/data",
