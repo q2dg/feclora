@@ -1,5 +1,9 @@
 # Recovery ISO: operator build and verification procedure
 
+![Illustrative recovery media assembly workflow]({{ '/assets/mockups/recovery-workflow.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. Recovery ISO assembly is documented; boot-time restore dispatch remains incomplete.*
+
 This document describes how an operator would create and inspect a self-contained
 Feclora recovery ISO. It is a procedure, not evidence that a real ISO has been
 built or boot-tested. Repository development and CI must not run the assembly
