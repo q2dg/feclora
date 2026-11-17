@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+      - name: Validate documentation links and guide assets
+        run: python3 build/check_docs.py
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
       - name: Build minimal project website and documentation
