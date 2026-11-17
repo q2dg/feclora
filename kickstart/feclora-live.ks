@@ -3,7 +3,6 @@
 # Use Fedora's core package group, not the full Server product environment.
 # Live boot is retained; Firefox/Cage is the only local interactive shell.
 
-text
 cdrom
 lang en_US.UTF-8
 keyboard --xlayouts='us'
