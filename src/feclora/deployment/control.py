@@ -548,7 +548,7 @@ class DeploymentControlServer:
             raise DeploymentControlError("client progress frame has missing or unknown fields")
         if message.get("job_id") != self.coordinator.job.job_id:
             raise DeploymentControlError("client progress belongs to another deployment job")
-        if message.get("phase") not in {"save", "restore", "transfer"}:
+        if message.get("phase") not in {"save", "restore", "clone", "transfer"}:
             raise DeploymentControlError("client progress phase is invalid")
         if message["phase"] != "transfer" and message["phase"] != self.coordinator.job.operation:
             raise DeploymentControlError("client disk-I/O progress phase does not match the deployment operation")
