@@ -2205,7 +2205,7 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
         from feclora.webapi import _create_restore_profile
         manifest = SimpleNamespace(
             image_id="golden", image_type="disk", source_size_bytes=10_000_000,
-            logical_sector_size=512, artifacts=[SimpleNamespace(encryption="none")],
+            logical_sector_size=512, artifacts=[SimpleNamespace(role="disk-image", format="raw", encryption="none")],
         )
         inventory = {"devices": [{
             "path": "/dev/sda", "type": "disk", "size_bytes": 20_000_000,
@@ -2239,7 +2239,7 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
         from feclora.webapi import _create_restore_profile
         manifest = SimpleNamespace(
             image_id="golden", image_type="disk", source_size_bytes=10_000_000,
-            logical_sector_size=512, artifacts=[SimpleNamespace(encryption="none")],
+            logical_sector_size=512, artifacts=[SimpleNamespace(role="disk-image", format="raw", encryption="none")],
         )
         inventory = {"devices": [
             {"path": "/dev/sda", "type": "disk", "serial": "DUPLICATE", "size_bytes": 20_000_000, "logical_sector_size": 512, "mountpoints": [], "children": []},
