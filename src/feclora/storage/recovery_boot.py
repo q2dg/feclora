@@ -45,12 +45,21 @@ def discover_payload(roots: tuple[Path, ...] = MEDIA_ROOTS) -> Path | None:
             continue
         if not stat.S_ISDIR(info.st_mode) or not os.path.ismount(root):
             continue
-        candidate = root / PAYLOAD
+        media_directory = root / PAYLOAD.parts[0]
         try:
-            candidate_info = os.stat(candidate, follow_symlinks=False)
+            media_info = os.lstat(media_directory)
         except OSError:
             continue
-        if stat.S_ISDIR(candidate_info.st_mode):
+        # The mounted medium is untrusted input. Do not follow a Rock Ridge or
+        # removable-filesystem symlink out of the mount while locating payloads.
+        if not stat.S_ISDIR(media_info.st_mode) or stat.S_ISLNK(media_info.st_mode):
+            continue
+        candidate = media_directory / PAYLOAD.parts[1]
+        try:
+            candidate_info = os.lstat(candidate)
+        except OSError:
+            continue
+        if stat.S_ISDIR(candidate_info.st_mode) and not stat.S_ISLNK(candidate_info.st_mode):
             found.append(candidate)
     unique = list(dict.fromkeys(found))
     if len(unique) > 1:
