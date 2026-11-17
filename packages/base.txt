@@ -1,4 +1,5 @@
-# Runtime packages for the Fedora 45 minimal Live kiosk appliance (x86_64).
+# Explicit Feclora runtime packages for the Fedora 45 Live kiosk appliance (x86_64).
+# The Kickstart also selects @core; this file documents the additional runtime set.
 # Keep this list aligned with kickstart/feclora-live.ks.
 kernel
 tar
