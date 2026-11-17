@@ -14,21 +14,22 @@ dedicated `feclora-kiosk` account. The kiosk account has no login shell, is
 not a member of `wheel`, and cannot invoke the privileged Feclora API.
 
 The `feclora` administrator account is created as a member of `wheel`, but
-starts locked. On each fresh Live boot, Firefox opens the first-boot assistant
-at `http://127.0.0.1:8765/`. This service binds only to IPv4 loopback and
-checks the Host header, exact Origin and a short-lived CSRF token. It accepts
-a password of 14–128 characters, sends it to `chpasswd` through standard
-input (never command-line arguments or logs), marks setup complete for the
-current Live session, and redirects Firefox to the Feclora Cockpit application at
-`https://localhost:9090/cockpit/@localhost/feclora/index.html`.
-There is no default/shared administrator password.
+starts locked. On each fresh Live boot, Firefox opens the Feclora Cockpit application directly at
+`http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html`. The dedicated
+`feclora-cockpit-kiosk.service` starts Cockpit Web Service with its documented
+`--local-session` mode and binds it only to IPv4 loopback. This skips Cockpit's
+login flow for the physical kiosk. The bridge runs with system privileges so
+Feclora's existing privileged API actions can execute without an interactive
+password prompt. The ordinary Cockpit socket remains separate on port 9090
+and retains its normal PAM authentication; the passwordless endpoint is not
+reachable from the LAN. This is a local physical-appliance trust model, not a
+secure multi-user local-host boundary: other processes running on the same
+machine can also reach the loopback kiosk endpoint.
 
-The Live filesystem is currently ephemeral: the administrator password,
-first-boot marker and generated local CA/private keys are lost on reboot.
-Consequently the setup assistant runs again on every fresh Live boot. A
-persistent configuration/credential store is a separate design requirement;
-Feclora must not silently choose one of the disks that may be a restore target
-as its persistence device.
+The Live filesystem is currently ephemeral: generated local CA/private keys
+and session configuration are lost on reboot. A persistent configuration
+store is a separate design requirement; Feclora must not silently choose one
+of the disks that may be a restore target as its persistence device.
 
 Before Cockpit's socket is activated, a root-owned systemd oneshot generates
 a local CA and a server certificate with SANs for `localhost`,
