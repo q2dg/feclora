@@ -350,6 +350,8 @@ grep -q 'feclora-cockpit-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" ||
 grep -q '^ExecStart=/usr/libexec/cockpit-ws --address 127.0.0.1 --port 9091 --local-session /usr/libexec/cockpit-bridge$' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Passwordless Cockpit kiosk must use a loopback-only local session."
 grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Local Cockpit kiosk service must restart after failure."
 grep -Fq 'http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the local Feclora Cockpit application."
+grep -q 'languageConfirmed' "$ROOT_DIR/webui/src/App.jsx" || fail "Feclora must show the language selection screen before the operations menu."
+grep -q 'CONTINUE_LABELS' "$ROOT_DIR/webui/src/i18n.js" || fail "The first-run language screen must localize its continue action."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
