@@ -210,6 +210,16 @@ class DeploymentJournal:
         clients: dict[str, dict[str, Any]] = {}
         progress: dict[str, dict[str, Any]] = {}
         server_progress: dict[str, Any] | None = None
+        allowed_client_transitions = {
+            None: {"connected"},
+            "connected": {"ready", "disconnected"},
+            "ready": {"running", "disconnected"},
+            "running": {"succeeded", "failed", "disconnected"},
+            # A failed admission can be retried while the job is still CREATED.
+            "disconnected": {"connected"},
+            "succeeded": set(),
+            "failed": set(),
+        }
         for event in events:
             if event.get("event") == "server_progress":
                 snapshot = event.get("progress")
@@ -234,6 +244,22 @@ class DeploymentJournal:
             if state is not None:
                 if state not in {"connected", "ready", "running", "succeeded", "failed", "disconnected"}:
                     raise DeploymentJournalError("journal contains an unknown client state")
+                previous_state = clients.get(mac, {}).get("state")
+                if state not in allowed_client_transitions.get(previous_state, set()):
+                    raise DeploymentJournalError(
+                        f"journal contains an invalid Client state transition for {mac}: "
+                        f"{previous_state!r} -> {state!r}"
+                    )
+                expected_event = {
+                    "connected": "client_connected",
+                    "ready": "client_ready",
+                    "running": "client_running",
+                    "succeeded": "client_result",
+                    "failed": "client_result",
+                    "disconnected": "client_disconnected",
+                }[state]
+                if event.get("event") != expected_event:
+                    raise DeploymentJournalError("journal Client state does not match its event type")
                 clients[mac] = {
                     "state": state,
                     "detail": event.get("detail"),
@@ -253,6 +279,8 @@ class DeploymentJournal:
                             or snapshot["total_bytes"] < snapshot["completed_bytes"]
                         ))):
                     raise DeploymentJournalError("journal contains an invalid Client progress snapshot")
+                if clients.get(mac, {}).get("state") != "running" or event.get("client_state") != "running":
+                    raise DeploymentJournalError("journal contains Client progress outside a running Client state")
                 progress[mac] = copy.deepcopy(snapshot)
         job_state = events[-1].get("job_state")
         if job_state not in {"created", "armed", "running", "completed", "failed", "cancelled"}:
