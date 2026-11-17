@@ -64,6 +64,23 @@ operational approach is to build and boot a new ISO using
 8. Record the tested commit, ISO checksum, test results and any deviations in
    [the maintainer acceptance checklist](MAINTAINER-ACCEPTANCE.html).
 
+## Interrupted S3 image publication
+
+S3 image publication uses the manifest as its commit marker: Feclora uploads
+and verifies every artifact first, then publishes the manifest last. If the
+final manifest write fails, the payload objects may remain in the bucket but
+the image is intentionally absent from the Feclora image inventory. This is
+an incomplete publication, not a committed backup.
+
+Do not treat an object prefix by itself as a valid image set and do not create
+or copy a manifest manually to make it visible. Retry publication only after
+checking the original manifest and every artifact's size and SHA-256. If the
+image is no longer needed, inspect the exact object keys and remove orphaned
+payloads using the S3 provider's own administrative tooling; Feclora does not
+automatically delete partially uploaded objects because it cannot safely
+assume that no other writer or recovery process needs them. Keep provider
+versioning/retention policy and independent backups in force.
+
 ## Rollback and interrupted operations
 
 Because the system is Live and has no in-place upgrade mechanism, rollback
