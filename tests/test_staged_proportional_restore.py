@@ -251,6 +251,7 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         class PendingProcess(_Process):
             def __init__(self):
                 super().__init__()
+                self.returncode = None
                 self.poll_count = 0
             def poll(self):
                 self.poll_count += 1
