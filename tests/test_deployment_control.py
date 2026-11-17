@@ -193,6 +193,29 @@ class ListenerErrorTests(unittest.TestCase):
 
 
 class ClientProgressTests(unittest.TestCase):
+    def test_physical_clone_progress_is_accepted_for_running_receiver(self):
+        from types import SimpleNamespace
+
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = SimpleNamespace(
+            job=SimpleNamespace(job_id=JOB_ID, operation="clone"),
+            clients=lambda: (SimpleNamespace(
+                mac_address=MAC, state=ClientState.RUNNING,
+            ),),
+        )
+        server._lock = threading.RLock()
+        server._progress = {}
+        message = {
+            "type": "progress", "job_id": JOB_ID, "phase": "clone",
+            "completed_bytes": 4096, "total_bytes": 8192,
+        }
+        with patch("feclora.deployment.control.time.monotonic", return_value=10.0):
+            server._record_client_progress(MAC, message)
+        progress = server.client_progress()[MAC]
+        self.assertEqual(progress["phase"], "clone")
+        self.assertEqual(progress["completed_bytes"], 4096)
+        self.assertEqual(progress["total_bytes"], 8192)
+
     def test_progress_frame_is_validated_and_exposed_with_throughput(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
