@@ -426,6 +426,8 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_proportional_restore_workflow.py' || fail "Interactive proportional restore workflow tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_staged_proportional_restore.py' || fail "Guarded proportional destination writer tests failed."
 
+python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
+
 if (( errors > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$errors" >&2
   exit 1
