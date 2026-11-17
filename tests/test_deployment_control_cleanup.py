@@ -13,9 +13,17 @@ class AcceptedSocket:
         raise OSError("TLS socket already closed")
 
 
+class AcceptedRawSocket:
+    def settimeout(self, _value):
+        pass
+
+    def close(self):
+        pass
+
+
 class HandshakeCleanupTests(unittest.TestCase):
     def test_tls_close_failure_does_not_mask_handshake_error_or_leak_pending_socket(self):
-        accepted = object()
+        accepted = AcceptedRawSocket()
         tls_socket = AcceptedSocket()
         server = DeploymentControlServer.__new__(DeploymentControlServer)
         server._lock = threading.RLock()

@@ -99,7 +99,7 @@ class LocalControlProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalControlError, "not serializable"):
             local_control_request(
                 "/unused/socket", "arm",
-                {"job_id": "job", "confirmation": "yes", "extra": float("nan")},
+                {"job_id": float("nan"), "confirmation": "yes"},
             )
 
     def test_client_enforces_exact_arm_parameters_before_connecting(self):
@@ -136,7 +136,7 @@ class LocalControlProtocolTests(unittest.TestCase):
     def test_listener_thread_start_failure_closes_socket_and_resets_state(self):
         server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
         listener = mock.Mock()
-        info = mock.Mock(st_mode=stat.S_IFSOCK | 0o600, st_dev=1, st_ino=2)
+        info = mock.Mock(st_mode=stat.S_IFSOCK | 0o600, st_dev=1, st_ino=2, st_uid=0)
         parent_info = mock.Mock(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
         class BrokenThread:
             def __init__(self, **_kwargs):

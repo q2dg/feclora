@@ -202,13 +202,18 @@ class DeploymentJournalTests(unittest.TestCase):
             path = os.path.join(directory, "job.jsonl")
             alias = os.path.join(directory, "alias.jsonl")
             journal = DeploymentJournal(path, JOB_ID)
+            journal({
+                "timestamp": "2026-11-08T12:00:00+00:00",
+                "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+            })
+            original_size = os.path.getsize(path)
             os.link(path, alias)
             with self.assertRaisesRegex(DeploymentJournalError, "permissions or ownership are unsafe"):
                 journal({
-                    "timestamp": "2026-11-08T12:00:00+00:00",
-                    "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+                    "timestamp": "2026-11-08T12:00:01+00:00",
+                    "job_id": JOB_ID, "event": "job_armed", "job_state": "armed",
                 })
-            self.assertEqual(os.path.getsize(path), 0)
+            self.assertEqual(os.path.getsize(path), original_size)
 
     def test_journal_rejects_symlink(self):
         with tempfile.TemporaryDirectory() as directory:

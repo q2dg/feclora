@@ -31,7 +31,7 @@ class ClientUICaptureSecurityTests(unittest.TestCase):
     def test_no_optional_tools_keeps_plain_capture_available(self):
         config = SimpleNamespace(age_recipients_file=None)
         with patch("feclora.deployment.client_ui.shutil.which", return_value=None), patch(
-            "feclora.deployment.client_ui.dialog_app._menu", return_value="none",
+            "feclora.deployment.client_ui.dialog._menu", return_value="none",
         ) as menu:
             result = _capture_image_security_options(config)
         self.assertEqual(result, "")
@@ -41,7 +41,7 @@ class ClientUICaptureSecurityTests(unittest.TestCase):
         config = SimpleNamespace(age_recipients_file="/pki/recipients.txt")
         with patch("feclora.deployment.client_ui.os.path.isfile", return_value=True), patch(
             "feclora.deployment.client_ui.shutil.which", return_value="/usr/bin/age",
-        ), patch("feclora.deployment.client_ui.dialog_app._menu", return_value="age") as menu:
+        ), patch("feclora.deployment.client_ui.dialog._menu", return_value="age") as menu:
             result = _capture_image_security_options(config)
         self.assertEqual(result, config.age_recipients_file)
         self.assertEqual([item[0] for item in menu.call_args.args[2]], ["none", "age"])

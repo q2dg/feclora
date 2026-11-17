@@ -216,7 +216,8 @@ class S3RepositoryTests(unittest.TestCase):
         )
         client.objects["server-a/images/server.p2v.json"] = (metadata, {})
         repository = S3ObjectRepository(_config(), client=client)
-        self.assertEqual(repository.list_p2v_images(), [])
+        with self.assertRaisesRegex(S3RepositoryError, "cannot read P2V metadata"):
+            repository.list_p2v_images()
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaisesRegex(S3RepositoryError, "unavailable or invalid"):
                 repository.download_p2v("server", Path(temporary) / "export")
