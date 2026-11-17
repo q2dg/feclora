@@ -141,22 +141,6 @@ content. A duplicate identical event is idempotent. Corrupt report-journal
 JSON is a fail-closed condition; preserve it for inspection rather than
 editing individual lines.
 
-The Live Client first fsyncs each report into a private local outbox at
-`/var/lib/feclora/pxe/report-outbox/` (one queue per job and MAC, mode 0600).
-When a later report is emitted, it retries queued events in order before the
-new event. The queue is cleared only after every queued event receives HTTP
-200; transport failures and server rejections leave it intact. Event IDs are
-deterministic, so replay after a lost response is idempotent. The outbox is
-bounded to 4 MiB per job/Client; if it fills or cannot be written, the restore
-continues and the local operation journal remains the evidence to reconcile.
-
-This is retry-on-next-report, not a background delivery daemon: if the Client
-never emits another report, pending events remain on its local disk and must be
-retrieved during manual reconciliation. Preserve the outbox alongside
-`/var/lib/feclora/pxe/operations.jsonl` before cleaning or reinstalling the
-Client. A report accepted by the Server but not yet cleared locally may be
-replayed; the Server should record it as a duplicate rather than a second event.
-
 Important trust boundary: these legacy PXE reports use HTTP and a MAC address
 asserted by the Client. They are not cryptographically authenticated machine
 identity and must not be treated as proof that a particular physical machine
