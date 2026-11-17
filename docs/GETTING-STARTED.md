@@ -19,7 +19,7 @@ title: Getting started
     <ol>
       <li>Obtain a Feclora ISO from a trusted source and verify its published SHA-256 when one is available.</li>
       <li>Boot the Live system. Feclora starts the Cockpit application in a restricted browser kiosk; it is not a general-purpose desktop.</li>
-      <li>Complete the first-boot administrator password setup and open the local Cockpit interface.</li>
+      <li>Select the interface language on the first Feclora screen; the operations menu then opens without a local login or password.</li>
       <li>Configure the network only if you need a remote repository, a Server/Client workflow or PXE.</li>
     </ol>
     <p><a href="./BUILD.html">Build and boot instructions →</a></p>
