@@ -29,6 +29,11 @@ if [[ -f "$ROOT_DIR/kickstart/feclora-live.ks" ]]; then
   grep -Eq 'enable .*feclora-recovery-boot\.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable guarded Recovery ISO boot dispatch."
 fi
 
+if [[ -f "$ROOT_DIR/build/build-webui.sh" ]]; then
+  grep -q 'LOCK_FINGERPRINT' "$ROOT_DIR/build/build-webui.sh" || fail "Frontend build does not fingerprint its locked dependencies."
+  grep -q 'npm ci --no-audit --no-fund' "$ROOT_DIR/build/build-webui.sh" || fail "Frontend build must retain reproducible npm ci installation on cache misses."
+fi
+
 if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
   grep -Fq "bash \"\${ROOT_DIR}/build/preflight.sh\"" "$ROOT_DIR/build/build-iso.sh" || fail "Build script must run host preflight before staging the ISO."
   grep -q -- '--make-iso' "$ROOT_DIR/build/build-iso.sh" || fail "Build script does not request ISO output."
@@ -36,6 +41,9 @@ if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
   if grep -Eq '^[[:space:]]+--no-virt([[:space:]]|$)' "$ROOT_DIR/build/build-iso.sh"; then
     fail "Unsafe --no-virt mode must not be enabled by the default build."
   fi
+  grep -q 'FECLORA_BUILD_RAM' "$ROOT_DIR/build/build-iso.sh" || fail "ISO build RAM must be configurable."
+  grep -q 'FECLORA_BUILD_VCPUS' "$ROOT_DIR/build/build-iso.sh" || fail "ISO build vCPU count must be configurable."
+  grep -q 'FECLORA_BUILD_PROXY' "$ROOT_DIR/build/build-iso.sh" || fail "ISO build must support a Fedora package-download proxy."
 fi
 
 
