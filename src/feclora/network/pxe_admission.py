@@ -245,26 +245,62 @@ class PXEAdmission:
             except FileNotFoundError:
                 existing = None
             known_started = False
+            last_status = None
+            last_bytes_done = None
+            last_bytes_total = None
             if existing is not None:
                 if (not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
                         or existing.st_uid != os.geteuid() or existing.st_mode & 0o077
                         or existing.st_size > 8 * 1024 * 1024):
                     raise PXEAdmissionError("PXE report journal is unsafe or exceeds 8 MiB")
                 with path.open("r", encoding="utf-8") as stream:
-                    for line in stream:
+                    for line_number, line in enumerate(stream, start=1):
                         try:
                             previous = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
+                        except json.JSONDecodeError as exc:
+                            raise PXEAdmissionError(
+                                f"PXE report journal contains invalid JSON at line {line_number}"
+                            ) from exc
                         if not isinstance(previous, dict):
-                            continue
+                            raise PXEAdmissionError(
+                                f"PXE report journal contains an invalid record at line {line_number}"
+                            )
                         if previous.get("event_id") == event_id:
-                            return False
+                            same_report = (
+                                previous.get("job_id") == canonical
+                                and previous.get("client_mac") == mac.lower()
+                                and all(previous.get(key) == value for key, value in event.items())
+                            )
+                            if same_report:
+                                return False
+                            raise PXEAdmissionError("PXE report event ID was reused for a different report")
                         if (previous.get("job_id") == canonical
                                 and previous.get("operation_id") == operation_id
-                                and previous.get("client_mac") == mac.lower()
-                                and previous.get("status") == "started"):
+                                and previous.get("client_mac") == mac.lower()):
                             known_started = True
+                            last_status = previous.get("status")
+                            if last_status == "progress":
+                                last_bytes_done = previous.get("bytes_done")
+                                last_bytes_total = previous.get("bytes_total")
+            if event["status"] == "started":
+                if known_started:
+                    raise PXEAdmissionError("PXE restore operation already has a start event")
+            elif not known_started:
+                raise PXEAdmissionError("PXE restore report has no previously received start event")
+            elif last_status in {"completed", "failed", "cancelled"}:
+                raise PXEAdmissionError("PXE restore operation already has a terminal report")
+            if event["status"] == "progress":
+                done = event.get("bytes_done")
+                total = event.get("bytes_total")
+                if total is not None and done is not None and done > total:
+                    raise PXEAdmissionError("PXE progress bytes_done cannot exceed bytes_total")
+                if last_bytes_done is not None and done is not None and done < last_bytes_done:
+                    raise PXEAdmissionError("PXE progress byte count cannot move backwards")
+                if (last_bytes_total is not None and total is not None
+                        and total != last_bytes_total):
+                    raise PXEAdmissionError("PXE progress total cannot change during an operation")
+            if event["status"] in {"completed", "failed", "cancelled"} and last_status is None:
+                raise PXEAdmissionError("PXE terminal report requires a started operation")
             if event["status"] == "started":
                 answer = self.http_root / "answers" / canonical / "answer.json"
                 try:
