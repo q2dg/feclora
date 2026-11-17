@@ -14,6 +14,8 @@ bootloader --timeout=3
 network --bootproto=dhcp --activate
 zerombr
 clearpart --all --initlabel
+# Create firmware-specific boot partitions (BIOS biosboot or UEFI ESP).
+reqpart
 part / --fstype=ext4 --size=8192 --grow
 
 %packages --excludedocs
