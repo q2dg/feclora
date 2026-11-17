@@ -1731,6 +1731,17 @@ const APP_UI_TEXT_PXE_DEPLOYMENT_FEEDBACK = {
 };
 for (const [language, values] of Object.entries(APP_UI_TEXT_PXE_DEPLOYMENT_FEEDBACK)) Object.assign(DICTS[language], values);
 
+const CONTINUE_LABELS = {
+  en: "Continue", es: "Continuar", ca: "Continua", gl: "Continuar",
+  eu: "Jarraitu", pt: "Continuar", fr: "Continuer", de: "Weiter",
+  it: "Continua", zh: "继续", ja: "続行", ru: "Продолжить",
+  ar: "متابعة", tr: "Devam et"
+};
+for (const [language, label] of Object.entries(CONTINUE_LABELS)) {
+  if (language === "en") EN.continue = label;
+  else if (DICTS[language]) DICTS[language].continue = label;
+}
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
