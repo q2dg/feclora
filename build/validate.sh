@@ -321,14 +321,15 @@ if ! grep -q 'setInterval' "$ROOT_DIR/webui/src/App.jsx"; then
 fi
 
 
-# Fedora Server minimal Live kiosk validation
+# Fedora @core minimal Live kiosk validation
 bash -n "$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate" || fail "Cockpit certificate provisioning script has invalid Bash syntax."
 bash -n "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Firefox kiosk launcher has invalid Bash syntax."
 bash -n "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap-ready" || fail "Kiosk bootstrap readiness probe has invalid Bash syntax."
 python3 -m json.tool "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" >/dev/null || fail "Firefox kiosk policy is not valid JSON."
-grep -Fq '@^server-product-environment' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not select Fedora Server."
-grep -Fq -- '-@container-management' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Minimal Server base must exclude container-management packages."
-grep -Fq -- '-@headless-management' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Minimal Server base must avoid duplicate headless-management packages."
+grep -Fqx '@core' <(sed -n '/^%packages/,/^%end/p' "$ROOT_DIR/kickstart/feclora-live.ks") || fail "Kickstart must select Fedora's core package group."
+if grep -Fq '@^server-product-environment' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart must not pull in the full Fedora Server product environment."
+fi
 for package in cage firefox; do
   grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
