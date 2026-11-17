@@ -4,6 +4,10 @@
 # Live boot is retained; Firefox/Cage is the only local interactive shell.
 
 cdrom
+# The standard Fedora DVD only carries a subset of Everything packages.
+# Use the full Fedora 45 repositories for the appliance runtime package set.
+repo --name=feclora-fedora-everything --baseurl=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
+repo --name=feclora-fedora-updates --baseurl=https://download.fedoraproject.org/pub/fedora/linux/updates/45/Everything/x86_64/
 lang en_US.UTF-8
 keyboard --xlayouts='us'
 timezone Etc/UTC --utc
