@@ -26,3 +26,14 @@ source. Pushes to `main` that change `docs/` trigger the deployment workflow.
 The site is considered published only after the workflow completes successfully
 and the public URL responds with the landing page; publication can take several
 minutes after the deployment job succeeds.
+
+## Documentation integrity checks
+
+Before Jekyll builds the site, the Pages workflow runs `build/check_docs.py`.
+The same check runs in the general CI workflow. It validates local Markdown
+links and HTML asset references against the source tree, resolves Jekyll `.html`
+links to their Markdown source pages, and requires each operator-guide card to
+include an illustration, descriptive alternative text and a destination link.
+External URLs are deliberately not probed, so transient third-party outages do
+not make CI or publication unreliable. A successful check is a source-tree
+integrity check; it does not replace browser review of the rendered site.
