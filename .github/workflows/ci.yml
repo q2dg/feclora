@@ -31,6 +31,7 @@ jobs:
           npm run test:dependency-pins
           npm run build
           npm run test:i18n
+          npm run test:api-contract
           test -s dist/index.html
           test -s dist/manifest.json
       - name: Install ShellCheck
