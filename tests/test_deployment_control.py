@@ -2023,7 +2023,7 @@ class PartialMultiClientResultTests(unittest.TestCase):
 class ConcurrentResultCollectionTests(unittest.TestCase):
     def test_collect_results_drains_pending_physical_ready_before_result(self):
         coordinator = DeploymentCoordinator(make_job(
-            operation="clone", transport="multicast",
+            operation="clone", image_id=None, source_device="/dev/sda",
         ))
         coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
