@@ -6,6 +6,9 @@ KS_FILE="${FECLORA_KS:-${ROOT_DIR}/kickstart/feclora-live.ks}"
 RESULT_DIR="${FECLORA_RESULT_DIR:-${ROOT_DIR}/out}"
 INSTALL_ISO="${FEDORA_INSTALL_ISO:-}"
 RELEASEVER="${FECLORA_RELEASEVER:-45}"
+BUILD_RAM="${FECLORA_BUILD_RAM:-}"
+BUILD_VCPUS="${FECLORA_BUILD_VCPUS:-}"
+BUILD_PROXY="${FECLORA_BUILD_PROXY:-}"
 
 usage() {
   cat <<'EOF'
@@ -17,6 +20,9 @@ Environment:
   FECLORA_KS          Kickstart file (default: kickstart/feclora-live.ks).
   FECLORA_RESULT_DIR  Output directory (default: out/).
   FECLORA_RELEASEVER  Fedora release version (default: 45).
+  FECLORA_BUILD_RAM   QEMU installer RAM in MiB (default: 50% of host RAM, min 4096, max 16384).
+  FECLORA_BUILD_VCPUS QEMU virtual CPUs (default: host CPUs, min 1, max 8).
+  FECLORA_BUILD_PROXY Optional HTTP proxy for Fedora package downloads (also cacheable).
 
 Run on a Fedora 45 x86_64 build host. Install lorax, lorax-lmc-virt,
 qemu-kvm and the other build dependencies first. The build requires root.
@@ -34,31 +40,14 @@ if [[ -z "${INSTALL_ISO}" || ! -f "${INSTALL_ISO}" ]]; then
   usage >&2
   exit 2
 fi
+[[ -f "${KS_FILE}" ]] || { echo "Kickstart file not found: ${KS_FILE}" >&2; exit 2; }
+[[ "$(uname -m)" == "x86_64" ]] || { echo "This initial build target is x86_64; host is $(uname -m)." >&2; exit 2; }
+[[ "${EUID}" -eq 0 ]] || { echo "Run as root (for example: sudo -E $0)." >&2; exit 2; }
 
-if [[ ! -f "${KS_FILE}" ]]; then
-  echo "Kickstart file not found: ${KS_FILE}" >&2
-  exit 2
-fi
-
-if [[ "$(uname -m)" != "x86_64" ]]; then
-  echo "This initial build target is x86_64; host is $(uname -m)." >&2
-  exit 2
-fi
-
-if [[ "${EUID}" -ne 0 ]]; then
-  echo "Run as root (for example: sudo -E $0)." >&2
-  exit 2
-fi
-
-for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm; do
-  if ! command -v "${cmd}" >/dev/null 2>&1; then
-    echo "Required command not found: ${cmd}. Install the build dependencies first." >&2
-    exit 127
-  fi
+for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm sha256sum; do
+  command -v "${cmd}" >/dev/null 2>&1 || { echo "Required command not found: ${cmd}. Install the build dependencies first." >&2; exit 127; }
 done
 
-# The Lorax result directory must not exist when livemedia-creator starts.
-# Keep intermediate installer media outside it; Lorax creates RESULT_DIR.
 RESULT_DIR="$(realpath -m -- "${RESULT_DIR}")"
 if [[ -e "${RESULT_DIR}" ]]; then
   echo "Output directory already exists: ${RESULT_DIR}" >&2
@@ -66,39 +55,59 @@ if [[ -e "${RESULT_DIR}" ]]; then
   exit 1
 fi
 
-# Build the Cockpit frontend before staging the augmented installer media.
+SECONDS=0
+echo "[1/4] Building Cockpit frontend..."
 bash "${ROOT_DIR}/build/build-webui.sh"
+echo "Frontend phase: ${SECONDS}s"
 
-# Fail early if KVM, source inputs, or output capacity are not ready.
+echo "[2/4] Checking build host..."
 bash "${ROOT_DIR}/build/preflight.sh"
+
+# Scale QEMU resources to the build host, while retaining conservative bounds.
+HOST_CPUS="$(nproc)"
+if [[ -z "${BUILD_VCPUS}" ]]; then
+  BUILD_VCPUS="${HOST_CPUS}"
+  (( BUILD_VCPUS > 8 )) && BUILD_VCPUS=8
+  (( BUILD_VCPUS < 1 )) && BUILD_VCPUS=1
+fi
+if [[ -z "${BUILD_RAM}" ]]; then
+  HOST_RAM_MIB="$(awk '/MemTotal:/ {print int($2 / 1024)}' /proc/meminfo)"
+  BUILD_RAM=$((HOST_RAM_MIB / 2))
+  (( BUILD_RAM > 16384 )) && BUILD_RAM=16384
+  (( BUILD_RAM < 4096 )) && BUILD_RAM=4096
+fi
+[[ "${BUILD_VCPUS}" =~ ^[1-9][0-9]*$ ]] || { echo "FECLORA_BUILD_VCPUS must be a positive integer." >&2; exit 2; }
+[[ "${BUILD_RAM}" =~ ^[1-9][0-9]*$ ]] || { echo "FECLORA_BUILD_RAM must be a positive integer (MiB)." >&2; exit 2; }
 
 mkdir -p "$(dirname -- "${RESULT_DIR}")"
 WORK_DIR="$(mktemp -d "$(dirname -- "${RESULT_DIR}")/.feclora-build.XXXXXX")"
 trap 'rm -rf -- "${WORK_DIR}"' EXIT
 
-# Stage only the Python application payload. mkksiso places this directory
-# at the root of a temporary copy of the installer DVD.
+echo "[3/4] Preparing augmented installer ISO..."
 APP_STAGE="${WORK_DIR}/feclora-app"
 AUGMENTED_ISO="${WORK_DIR}/feclora-installer.iso"
 mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist"
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
 
-# mkksiso positional arguments are: Kickstart, input ISO, output ISO.
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
-printf 'Fedora release: %s\\nInstaller ISO: %s\\nKickstart: %s\\nOutput: %s\\n' \
-  "${RELEASEVER}" "${AUGMENTED_ISO}" "${KS_FILE}" "${RESULT_DIR}"
-livemedia-creator \
-  --make-iso \
-  --iso "${AUGMENTED_ISO}" \
-  --ks "${KS_FILE}" \
-  --resultdir "${RESULT_DIR}" \
-  --project feclora \
-  --releasever "${RELEASEVER}" \
-  --ram 4096 \
-  --vcpus 4 \
-  --iso-only \
+echo "[4/4] Creating Live ISO with ${BUILD_VCPUS} vCPUs and ${BUILD_RAM} MiB RAM..."
+LMC_ARGS=(
+  --make-iso
+  --iso "${AUGMENTED_ISO}"
+  --ks "${KS_FILE}"
+  --resultdir "${RESULT_DIR}"
+  --project feclora
+  --releasever "${RELEASEVER}"
+  --ram "${BUILD_RAM}"
+  --vcpus "${BUILD_VCPUS}"
+  --iso-only
   --iso-name feclora-live.iso
+)
+if [[ -n "${BUILD_PROXY}" ]]; then
+  LMC_ARGS+=(--proxy "${BUILD_PROXY}")
+fi
+livemedia-creator "${LMC_ARGS[@]}"
 
-printf 'Build command completed. Inspect the ISO and logs under: %s\n' "${RESULT_DIR}"
+printf 'Build command completed in %ss. Inspect the ISO and logs under: %s\n' "${SECONDS}" "${RESULT_DIR}"
