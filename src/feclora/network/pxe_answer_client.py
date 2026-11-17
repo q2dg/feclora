@@ -471,7 +471,12 @@ def _pxe_report_callback(
                             or queue_info.st_mode & 0o077 or queue_info.st_size + len(body) + 1 > 4 * 1024 * 1024):
                         return
                     os.fchmod(queue_fd, 0o600)
-                    os.write(queue_fd, body + b"\n")
+                    pending = memoryview(body + b"\n")
+                    while pending:
+                        written = os.write(queue_fd, pending)
+                        if written <= 0:
+                            raise OSError("short write while persisting PXE report outbox")
+                        pending = pending[written:]
                     os.fsync(queue_fd)
 
                     os.lseek(queue_fd, 0, os.SEEK_SET)
