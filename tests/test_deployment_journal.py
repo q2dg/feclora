@@ -651,6 +651,27 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(report["clients"][MAC]["state"], "ready")
             self.assertFalse(report["automatic_resume"])
 
+    def test_legacy_cancelled_armed_job_requires_reconciliation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            journal({
+                "timestamp": "2026-11-08T12:00:03+00:00",
+                "job_id": JOB_ID, "event": "job_cancelled",
+                "job_state": "cancelled",
+            })
+
+            report = DeploymentJournal.inspect(journal.path).recovery_report()
+
+            self.assertEqual(report["job_state"], "cancelled")
+            self.assertTrue(report["interrupted"])
+            self.assertEqual(report["clients"][MAC]["state"], "running")
+            self.assertFalse(report["automatic_resume"])
+
     def test_service_crash_before_client_connect_is_interrupted(self):
         with tempfile.TemporaryDirectory() as directory:
             journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
