@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from feclora.network.pxe_admission import PXEAdmission
+from feclora.network.pxe_admission import PXEAdmission, PXEAdmissionError
 
 
 class PXEAdmissionTests(unittest.TestCase):
@@ -118,7 +118,7 @@ class PXEAdmissionTests(unittest.TestCase):
             self.assertTrue(admission.record_report(
                 job_id, mac, event("progress", bytes_done=100, bytes_total=200),
             ))
-            with self.assertRaisesRegex(Exception, "cannot move backwards"):
+            with self.assertRaisesRegex(PXEAdmissionError, "cannot move backwards"):
                 admission.record_report(
                     job_id, mac, event("progress", bytes_done=90, bytes_total=200),
                 )
