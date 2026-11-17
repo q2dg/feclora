@@ -32,7 +32,7 @@ This procedure copies a **legacy** P2V bundle (QCOW2 plus its `.p2v.json` sideca
 <li>Follow progress and the terminal result in the notification and <strong>Operation log</strong>. On failure, inspect the operation details and destination before retrying.</li>
 </ol>
 
-![Illustrative repository configuration mockup](assets/mockups/repository-setup.svg)
+![Illustrative repository configuration mockup](assets/mockups/p2v-export.svg)
 
 *Illustrative mockup, not a live screenshot. The S3 export controls are implemented in Cockpit; the drawing is conceptual.*
 
