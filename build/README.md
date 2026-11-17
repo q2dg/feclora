@@ -11,10 +11,10 @@ build uses Lorax `livemedia-creator` with QEMU virtualization and deliberately
 avoids `--no-virt`, which bypasses the isolated virtualized build path.
 
 The Kickstart selects Fedora's `@core` package group instead of the broader
-Server product environment, installs Cage
-and Firefox, creates separate locked-administrator and unprivileged-kiosk
-accounts, generates/trusts the local Cockpit certificate, and enables the
-first-boot assistant and kiosk systemd services. This is source-level wiring;
+Server product environment, installs Cage and Firefox, creates a locked
+administrator and unprivileged kiosk account, generates/trusts the local
+Cockpit certificate, and enables a loopback-only passwordless Cockpit
+`--local-session` service plus the Firefox kiosk. This is source-level wiring;
 BIOS/UEFI boot, Firefox policy behavior and physical kiosk acceptance have not
 yet been run.
 
@@ -137,9 +137,9 @@ still maintainer-run tasks.
 - The Kickstart and ISO pipeline are source-level build inputs, not a
   validated Live image. ISO generation and boot acceptance remain operator
   tasks.
-- The Live root filesystem is ephemeral by design. The first-boot administrator
-  password, completion marker, local CA/private key and temporary session
-  configuration are regenerated on every fresh boot. No Live-session
+- The Live root filesystem is ephemeral by design. The local CA/private key and
+  temporary session configuration are regenerated on every fresh boot; no
+  user password is created or requested. No Live-session
   persistence is required. Durable images/manifests belong in explicitly
   selected repositories; Feclora must not select a potential restore target
   disk implicitly.
