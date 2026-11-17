@@ -57,20 +57,29 @@ for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm; do
   fi
 done
 
+# The Lorax result directory must not exist when livemedia-creator starts.
+# Keep intermediate installer media outside it; Lorax creates RESULT_DIR.
+RESULT_DIR="$(realpath -m -- "${RESULT_DIR}")"
+if [[ -e "${RESULT_DIR}" ]]; then
+  echo "Output directory already exists: ${RESULT_DIR}" >&2
+  echo "Move it aside or run 'make clean' before building again." >&2
+  exit 1
+fi
+
 # Build the Cockpit frontend before staging the augmented installer media.
 bash "${ROOT_DIR}/build/build-webui.sh"
 
 # Fail early if KVM, source inputs, or output capacity are not ready.
 bash "${ROOT_DIR}/build/preflight.sh"
 
-mkdir -p "${RESULT_DIR}"
-RESULT_DIR="$(cd -- "${RESULT_DIR}" && pwd)"
+mkdir -p "$(dirname -- "${RESULT_DIR}")"
+WORK_DIR="$(mktemp -d "$(dirname -- "${RESULT_DIR}")/.feclora-build.XXXXXX")"
+trap 'rm -rf -- "${WORK_DIR}"' EXIT
 
 # Stage only the Python application payload. mkksiso places this directory
 # at the root of a temporary copy of the installer DVD.
-APP_STAGE="${RESULT_DIR}/feclora-app"
-AUGMENTED_ISO="${RESULT_DIR}/feclora-installer.iso"
-rm -rf "${APP_STAGE}"
+APP_STAGE="${WORK_DIR}/feclora-app"
+AUGMENTED_ISO="${WORK_DIR}/feclora-installer.iso"
 mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist"
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
@@ -78,9 +87,8 @@ cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
 # mkksiso positional arguments are: Kickstart, input ISO, output ISO.
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
-printf 'Fedora release: %s\nInstaller ISO: %s\nKickstart: %s\nOutput: %s\n' \
+printf 'Fedora release: %s\\nInstaller ISO: %s\\nKickstart: %s\\nOutput: %s\\n' \
   "${RELEASEVER}" "${AUGMENTED_ISO}" "${KS_FILE}" "${RESULT_DIR}"
-
 livemedia-creator \
   --make-iso \
   --iso "${AUGMENTED_ISO}" \
