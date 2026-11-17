@@ -286,6 +286,21 @@ class DeploymentJournal:
         if job_state not in {"created", "armed", "running", "completed", "failed", "cancelled"}:
             raise DeploymentJournalError("journal contains an unknown job state")
         operator_reconciled = events[-1].get("event") == "operator_reconciled"
+        client_states = [record["state"] for record in clients.values()]
+        if job_state == "completed" and (
+            not client_states or any(state != "succeeded" for state in client_states)
+        ):
+            raise DeploymentJournalError(
+                "completed deployment job must have at least one Client and every Client must have succeeded"
+            )
+        if job_state == "failed" and not operator_reconciled and (
+            not client_states
+            or any(state in {"connected", "ready", "running"} for state in client_states)
+            or not any(state in {"failed", "disconnected"} for state in client_states)
+        ):
+            raise DeploymentJournalError(
+                "failed deployment job must have no active Clients and at least one failed or disconnected Client"
+            )
         has_service_start = any(event.get("event") == "service_started" for event in events)
         clean_unarmed_stop = (
             events[-1].get("event") == "service_stopped"
