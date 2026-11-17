@@ -79,6 +79,99 @@ class PXEAdmissionTests(unittest.TestCase):
             self.assertEqual(rows[0]["job_id"], job_id)
             self.assertEqual(rows[1]["status"], "progress")
 
+    def test_report_journal_enforces_monotonic_progress_and_terminal_state(self):
+        import json
+        import uuid
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            http_root = root / "http"
+            job_id = "123e4567-e89b-12d3-a456-426614174000"
+            answer = http_root / "answers" / job_id / "answer.json"
+            answer.parent.mkdir(parents=True)
+            answer.write_text("{}", encoding="utf-8")
+            admission = PXEAdmission(
+                str(root / "state" / "admission.json"),
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/",
+                boot_script_path=str(root / "boot.ipxe"),
+                max_clients=None, max_duration_seconds=None,
+                http_root=str(http_root),
+                report_log_path=str(root / "state" / "remote-reports.jsonl"),
+            )
+            mac = "aa:bb:cc:dd:ee:01"
+            self.assertTrue(admission.admit(mac)[0])
+            operation_id = str(uuid.uuid4())
+
+            def event(status, **fields):
+                return {
+                    "event_id": str(uuid.uuid4()),
+                    "operation_id": operation_id,
+                    "operation": "restore_disk",
+                    "timestamp": "2026-11-15T12:00:00Z",
+                    "status": status,
+                    "target": "/dev/sda",
+                    "image_id": "fedora-workstation",
+                    **fields,
+                }
+
+            self.assertTrue(admission.record_report(job_id, mac, event("started")))
+            self.assertTrue(admission.record_report(
+                job_id, mac, event("progress", bytes_done=100, bytes_total=200),
+            ))
+            with self.assertRaisesRegex(Exception, "cannot move backwards"):
+                admission.record_report(
+                    job_id, mac, event("progress", bytes_done=90, bytes_total=200),
+                )
+            with self.assertRaisesRegex(Exception, "total cannot change"):
+                admission.record_report(
+                    job_id, mac, event("progress", bytes_done=110, bytes_total=300),
+                )
+            self.assertTrue(admission.record_report(job_id, mac, event("completed")))
+            with self.assertRaisesRegex(Exception, "terminal report"):
+                admission.record_report(
+                    job_id, mac, event("progress", bytes_done=200, bytes_total=200),
+                )
+            rows = [json.loads(line) for line in
+                    (root / "state" / "remote-reports.jsonl").read_text().splitlines()]
+            self.assertEqual([row["status"] for row in rows],
+                             ["started", "progress", "completed"])
+
+    def test_report_event_id_cannot_be_reused_for_different_payload(self):
+        import uuid
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            http_root = root / "http"
+            job_id = "123e4567-e89b-12d3-a456-426614174000"
+            answer = http_root / "answers" / job_id / "answer.json"
+            answer.parent.mkdir(parents=True)
+            answer.write_text("{}", encoding="utf-8")
+            admission = PXEAdmission(
+                str(root / "state" / "admission.json"),
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/",
+                boot_script_path=str(root / "boot.ipxe"),
+                max_clients=None, max_duration_seconds=None,
+                http_root=str(http_root),
+                report_log_path=str(root / "state" / "remote-reports.jsonl"),
+            )
+            mac = "aa:bb:cc:dd:ee:01"
+            self.assertTrue(admission.admit(mac)[0])
+            operation_id = str(uuid.uuid4())
+            report = {
+                "event_id": str(uuid.uuid4()),
+                "operation_id": operation_id,
+                "operation": "restore_disk",
+                "timestamp": "2026-11-15T12:00:00Z",
+                "status": "started",
+                "target": "/dev/sda",
+                "image_id": "fedora-workstation",
+            }
+            self.assertTrue(admission.record_report(job_id, mac, report))
+            self.assertFalse(admission.record_report(job_id, mac, report))
+            changed = {**report, "target": "/dev/sdb"}
+            with self.assertRaisesRegex(Exception, "reused for a different report"):
+                admission.record_report(job_id, mac, changed)
+
     def test_state_survives_admission_process_restart(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = str(Path(tmp) / "state.json")
