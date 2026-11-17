@@ -301,6 +301,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertEqual(queue.read_text(encoding="utf-8"), "")
 
     def test_report_callback_keeps_outbox_when_server_rejects_report(self):
+        import uuid
         from unittest.mock import Mock
 
         command_line = (
