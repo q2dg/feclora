@@ -53,14 +53,14 @@ independent test run. Remove the temporary copy after the test.
 
 ## Boot acceptance
 
-- [ ] ISO boots in BIOS mode.
-- [ ] ISO boots in UEFI mode.
+- [ ] ISO boots in BIOS mode; GRUB does not display its menu and automatically selects the first entry.
+- [ ] ISO boots in UEFI mode; GRUB does not display its menu and automatically selects the first entry.
 - [ ] Cage/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
 - [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9091/` with no login or password prompt.
-- [ ] The interface-language selector is the first visible Feclora control and selecting a language updates the UI.
+- [ ] The first Feclora screen is the interface-language selector; selecting a language and continuing opens the Feclora operations menu.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9091`.
 - [ ] The ordinary authenticated `cockpit.socket` remains on `127.0.0.1:9090` and `[::1]:9090`.
 - [ ] The `feclora` administrator account remains locked; no password is created.
@@ -74,8 +74,7 @@ independent test run. Remove the temporary copy after the test.
 
 Use the VM's local display. Firefox must open the Feclora Cockpit app at
 `http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html` without asking
-for a username or password. The interface-language selector must be the first
-visible Feclora control; select a language and verify the Operations workflow.
+for a username or password. The first Feclora screen must be the interface-language selector; select a language, continue, and verify the Operations menu.
 The unauthenticated endpoint is bound to guest loopback only; do not forward
 port 9091. The separate authenticated Cockpit socket remains on 9090 and is
 also not forwarded.
