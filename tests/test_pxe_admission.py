@@ -122,7 +122,7 @@ class PXEAdmissionTests(unittest.TestCase):
                 admission.record_report(
                     job_id, mac, event("progress", bytes_done=90, bytes_total=200),
                 )
-            with self.assertRaisesRegex(Exception, "total cannot change"):
+            with self.assertRaisesRegex(PXEAdmissionError, "total cannot change"):
                 admission.record_report(
                     job_id, mac, event("progress", bytes_done=110, bytes_total=300),
                 )
