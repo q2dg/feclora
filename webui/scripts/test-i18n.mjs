@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { LANGUAGES, translate } from "../src/i18n.js";
 
 const localizedKeys = [
+  "continue",
+  "language",
   "Operation",
   "Image repository",
   "Image identifier",
