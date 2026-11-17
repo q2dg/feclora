@@ -26,7 +26,7 @@ if [[ -f "$ROOT_DIR/kickstart/feclora-live.ks" ]]; then
   grep -q 'feclora-restore-profile.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the opt-in unattended restore service."
   grep -q 'feclora-pxe-answer.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the conditional PXE answer downloader service."
   grep -q 'feclora-recovery-boot.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the Recovery ISO boot service."
-  grep -q 'enable feclora-recovery-boot.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable guarded Recovery ISO boot dispatch."
+  grep -Eq 'enable .*feclora-recovery-boot\.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable guarded Recovery ISO boot dispatch."
 fi
 
 if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
