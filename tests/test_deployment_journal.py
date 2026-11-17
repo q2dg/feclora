@@ -636,6 +636,21 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertFalse(report["interrupted"])
             self.assertEqual(report["event_count"], 1)
 
+    def test_cancelled_unarmed_job_with_connected_clients_is_not_interrupted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC)
+            coordinator.mark_ready(MAC)
+            coordinator.cancel()
+
+            report = DeploymentJournal.inspect(journal.path).recovery_report()
+
+            self.assertEqual(report["job_state"], "cancelled")
+            self.assertFalse(report["interrupted"])
+            self.assertEqual(report["clients"][MAC]["state"], "ready")
+            self.assertFalse(report["automatic_resume"])
+
     def test_service_crash_before_client_connect_is_interrupted(self):
         with tempfile.TemporaryDirectory() as directory:
             journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
