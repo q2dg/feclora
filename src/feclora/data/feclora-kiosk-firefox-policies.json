@@ -28,7 +28,7 @@
     "OverrideFirstRunPage": "",
     "OverridePostUpdatePage": "",
     "Homepage": {
-      "URL": "http://127.0.0.1:8765/",
+      "URL": "http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html",
       "Locked": true,
       "StartPage": "homepage"
     },
