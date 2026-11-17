@@ -82,10 +82,12 @@ authenticated transport form the trust boundary. Age encryption is optional.
   a Client connection resetting before its terminal result is received, and
   durable per-Client outcomes for a partially failed multicast restore.
   A new fault-injection test also covers repository I/O failure after multicast
-  START and checks that every participating Client is marked failed. Execute
-  the expanded suite on the exact commit; continue with service restart during
-  an active operation and real two-host receiver-loss acceptance. These are software
-  tests; physical network and multi-host acceptance remains maintainer-owned.
+  START and checks that every participating Client is marked failed. These
+  cases are included in project validation; the exact-commit CI must pass
+  before this work is considered complete. The remaining software regression
+  target is service restart during an active operation. Real two-host
+  receiver-loss and other physical/network acceptance remain maintainer-owned
+  (see [the acceptance checklist](MAINTAINER-ACCEPTANCE.md)).
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
   `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.

@@ -48,12 +48,9 @@ operator assertion; it does not roll back, resume or verify storage writes.
 Automated tests do not establish real-network or destructive-storage
 acceptance.
 
-## Implemented and remaining
+## Status and acceptance
 
-Still required:
-- physical multi-host acceptance for save, restore, multicast and remote clone;
-- BIOS/UEFI PXE VM boot and failure/packet-loss acceptance;
-- automated tests that execute capture/restore against disposable block
-  devices over the network;
-- multicast live progress, unicast multi-client fan-out, multicast save and
-  post-job power policies.
+This document is the protocol reference; it is not a feature-status checklist.
+Current implementation and automated-test status are maintained in the
+[feature matrix](FEATURE-MATRIX.md). Hands-on release acceptance is tracked in
+the [maintainer checklist](MAINTAINER-ACCEPTANCE.md).

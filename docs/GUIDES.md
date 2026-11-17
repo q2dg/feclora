@@ -28,4 +28,28 @@ title: Step-by-step operator guides
 </div></section>
 <p class="guide-note">All illustrations are explicitly labeled mockups, not screenshots of a running system. They explain the sequence and safety concepts; they do not prove that a workflow has passed runtime acceptance. Feature status and limitations are authoritative in the <a href="./FEATURE-MATRIX.html">feature matrix</a>.</p>
 <section class="section"><h2>Reference and maintenance</h2><ul><li><a href="./FEATURE-MATRIX.html">Feature and compatibility matrix</a></li><li><a href="./CERTIFICATE-MANAGEMENT.html">Server certificate and trust model</a></li><li><a href="./OPERATIONS.html">Backup, upgrade and rollback</a></li><li><a href="./BUILD.html">Build and software validation</a></li><li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer-owned acceptance checklist</a></li></ul></section>
+<section class="section" id="engineering-references"><h2>Engineering and compatibility references</h2>
+<p>These documents describe implementation contracts and safety boundaries. For user-facing capability status, use the <a href="./FEATURE-MATRIX.html">feature matrix</a>; for remaining software work, use the <a href="./ROADMAP.html">roadmap</a>.</p>
+<h3>Storage, artifacts and safety</h3><ul>
+<li><a href="./STORAGE-INVENTORY.html">Read-only storage inventory</a></li>
+<li><a href="./CAPTURE-SOURCE-SAFETY.html">Capture and restore source safety</a></li>
+<li><a href="./SAFE-STORAGE-SELECTION.html">Safe storage selection</a></li>
+<li><a href="./ARTIFACT-WRITER.html">Image artifact writer and atomic publication</a></li>
+<li><a href="./IMAGE-MANIFEST.html">Image manifest contract</a></li>
+<li><a href="./IMAGE-ENCRYPTION.html">Image encryption</a></li>
+<li><a href="./TOOLING-AND-TRANSPORTS.html">External tools and transport boundaries</a></li>
+<li><a href="./FILESYSTEM-SHRINK-RESEARCH.html">Filesystem shrink research checkpoint</a></li>
+</ul>
+<h3>Deployment and local operations</h3><ul>
+<li><a href="./DEPLOYMENT-JOB.html">Deployment job schema</a></li>
+<li><a href="./DEPLOYMENT-CONTROL.html">Server/Client control protocol</a></li>
+<li><a href="./DEPLOYMENT-COORDINATOR.html">Deployment coordinator state machine</a></li>
+<li><a href="./DURABLE-LOCAL-OPERATIONS.html">Durable local operation lifecycle</a></li>
+<li><a href="./DEPLOYMENT-ARTIFACT-BUNDLE.html">Deployment artifact bundle format</a></li>
+</ul>
+<h3>Build, testing and site maintenance</h3><ul>
+<li><a href="./FEDORA-45-COMPATIBILITY.html">Fedora 45 compatibility baseline</a></li>
+<li><a href="./ACCEPTANCE-TESTS.html">Physical and remote-environment acceptance runbook</a></li>
+<li><a href="./WEBSITE.html">GitHub Pages publishing and site maintenance</a></li>
+</ul></section>
 </main>

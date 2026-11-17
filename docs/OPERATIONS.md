@@ -103,8 +103,8 @@ the complete transitive dependency graph is committed in
 `webui/package-lock.json` (lockfile version 3). CI and
 `build/build-webui.sh` install from that lockfile with `npm ci`; the build
 script fails if the lockfile is missing rather than silently resolving a new
-dependency graph. Keep the lockfile synchronized with intentional dependency
-changes and verify clean-checkout `npm ci` builds.
+dependency graph. CI verifies clean-checkout installation and frontend builds;
+update the lockfile only for intentional dependency changes.
 
 Dependabot proposes updates for npm dependencies and GitHub Actions. CodeQL
 runs scheduled and on changes for Python and JavaScript/TypeScript. These

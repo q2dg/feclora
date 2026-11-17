@@ -2,7 +2,7 @@
 
 > **Repository visibility:** this file is committed in the public Feclora repository. It is an internal-style maintainer checklist, not a private document. Do not put passwords, private keys, personal data, or unpublished credentials here. Move it to a private repository or local untracked file if confidential handling is required.
 
-This checklist records the remaining hands-on validation owned by the maintainer. These tasks are deliberately not represented as completed by unit tests, CI, static checks, or documentation.
+This checklist records the remaining hands-on validation owned by the maintainer. These tasks are deliberately not represented as completed by unit tests, CI, static checks, or documentation. CI already covers clean-checkout `npm ci`, frontend compilation, dependency-pin checks and the npm audit; those automated checks are not duplicated here.
 
 ## Owner-run release tasks
 
@@ -17,7 +17,6 @@ This checklist records the remaining hands-on validation owned by the maintainer
 - [ ] Exercise the Cockpit bundle assembly operation separately using already-built inputs. Verify every bundle-manifest digest, byte-identical shared answer content, complete MAC target bindings, no-overwrite behavior and cleanup after interrupted publication. Removable-media answer discovery and Caddy/DHCP delivery remain separate acceptance items; do not claim ISO/USB or PXE discovery from bundle co-location alone.
 - [ ] Test interactive and unattended PXE in an isolated network, including DHCP/ProxyDHCP, BIOS/UEFI, answer publication/revocation, client admission limits, repository resolution and restore failure paths.
 - [ ] After runtime acceptance, add version-matched real screenshots where useful. Task-specific illustrative SVG mockups are published for the operator workflows; keep their mockup labels and never present them as runtime evidence.
-- [ ] Verify that a clean checkout installs and builds successfully with `npm ci` using the committed `webui/package-lock.json`; update the lockfile only when intentionally changing frontend dependencies.
 - [ ] Review all visible UI strings and complete/verify the 14 advertised locale dictionaries; record any intentionally untranslated text rather than silently claiming full localization.
 - [ ] Review Dependabot proposals and resolve high-severity npm audit and CodeQL findings before a release.
 
