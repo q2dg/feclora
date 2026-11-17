@@ -1154,8 +1154,16 @@ class DeploymentControlServer:
             try:
                 tls_socket.settimeout(timeout)
                 message = receive_control_message(tls_socket)
-                while message.get("type") == "progress":
-                    self._record_client_progress(mac, message)
+                while message.get("type") in {"progress", "physical_ready"}:
+                    if message.get("type") == "progress":
+                        self._record_client_progress(mac, message)
+                    else:
+                        if (set(message) != {"type", "job_id", "ready", "detail"}
+                                or message.get("job_id") != self.coordinator.job.job_id
+                                or not isinstance(message.get("ready"), bool)
+                                or not isinstance(message.get("detail"), str)
+                                or len(message["detail"]) > 256):
+                            raise DeploymentControlError("client physical-ready acknowledgement is invalid")
                     message = receive_control_message(tls_socket)
                 if message.get("type") != "result":
                     raise DeploymentControlError("client did not send a terminal result")
