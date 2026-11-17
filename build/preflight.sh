@@ -40,10 +40,11 @@ fi
 [[ -d "$ROOT_DIR/src/feclora" ]] || fail "Application source directory is missing."
 [[ "$(uname -m)" == "x86_64" ]] ||
   fail "Expected an x86_64 build host; detected $(uname -m)."
-grep -qx 'ID=fedora' /etc/os-release ||
-  fail "The build host must be Fedora 45; detected a non-Fedora distribution."
-grep -qx 'VERSION_ID="45"' /etc/os-release ||
-  fail "The build host must be Fedora 45; check /etc/os-release."
+. /etc/os-release
+[[ "${ID:-}" == "fedora" ]] ||
+  fail "The build host must be Fedora 45; detected ID=${ID:-unknown}."
+[[ "${VERSION_ID:-}" == "45" ]] ||
+  fail "The build host must be Fedora 45; detected VERSION_ID=${VERSION_ID:-unknown}."
 [[ "$RELEASEVER" == "45" ]] ||
   fail "The current Kickstart baseline is Fedora 45; FECLORA_RELEASEVER=$RELEASEVER is inconsistent."
 
