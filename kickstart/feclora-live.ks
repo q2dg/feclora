@@ -1,5 +1,6 @@
 #version=F45
-# Feclora Fedora Server minimal Live kiosk Kickstart for Fedora 45 x86_64.
+# Feclora Fedora 45 Live kiosk Kickstart for x86_64.
+# Use Fedora's core package group, not the full Server product environment.
 # Live boot is retained; Firefox/Cage is the only local interactive shell.
 
 text
@@ -17,9 +18,7 @@ clearpart --all --initlabel
 part / --fstype=ext4 --size=8192 --grow
 
 %packages --excludedocs
-@^server-product-environment
--@container-management
--@headless-management
+@core
 kernel
 tar
 sudo

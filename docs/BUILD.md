@@ -8,7 +8,7 @@ title: Build and validate the live ISO
 
 # Build and validate the live ISO
 
-This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance and how to validate it in disposable QEMU virtual machines.
+This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance from the `@core` package group plus Feclora's explicit runtime packages, and how to validate it in disposable QEMU virtual machines.
 It is a runbook, not evidence that the build or boot tests have passed.
 
 > **Implementation status:** the reproducible build pipeline, application-payload integration, and operator runbook are implemented. Executing the build and BIOS/UEFI boot acceptance remains an operator validation step; this document is not evidence that those tests have passed. Do not distribute an image as tested until the checks below have been executed and recorded.
@@ -170,8 +170,9 @@ criteria: the image must still boot in both firmware modes.
 
 ## Runtime behavior
 
-The Kickstart selects Fedora's Server product environment and adds Cage and
-Firefox as the only local graphical shell. The kiosk starts on tty1; no
+The Kickstart selects Fedora's `@core` package group rather than the broader
+Server product environment, then adds Feclora's explicit runtime package set.
+Cage and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
 general-purpose desktop or display manager is installed. On each fresh Live
 boot the first-boot page asks the operator to set the `feclora` administrator
 password before redirecting to Cockpit. The local Cockpit CA/certificate is

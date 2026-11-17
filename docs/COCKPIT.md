@@ -7,8 +7,8 @@ operations.
 
 ## Live kiosk startup, bootstrap and authentication
 
-The Live image uses Fedora's Server product environment with no general-purpose
-desktop. Cage is the minimal Wayland compositor; Firefox is the only local
+The Live image uses Fedora's `@core` package group plus Feclora's explicit
+runtime packages, with no general-purpose desktop. Cage is the minimal Wayland compositor; Firefox is the only local
 interactive application. `feclora-kiosk.service` starts it on tty1 under the
 dedicated `feclora-kiosk` account. The kiosk account has no login shell, is
 not a member of `wheel`, and cannot invoke the privileged Feclora API.

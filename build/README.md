@@ -3,13 +3,15 @@
 ## Initial target
 
 The build target is a Fedora 45 x86_64 Live appliance ISO for BIOS and UEFI
-systems. Its userspace is based on a minimal Fedora Server package set, with
+systems. Its userspace is based on Fedora's `@core` package group plus Feclora's explicit
+runtime package set, with
 no general-purpose desktop environment. The intended local presentation is a
 Cage Wayland kiosk running Firefox against Cockpit on localhost. The image
 build uses Lorax `livemedia-creator` with QEMU virtualization and deliberately
 avoids `--no-virt`, which bypasses the isolated virtualized build path.
 
-The Kickstart now selects Fedora's Server product environment, installs Cage
+The Kickstart selects Fedora's `@core` package group instead of the broader
+Server product environment, installs Cage
 and Firefox, creates separate locked-administrator and unprivileged-kiosk
 accounts, generates/trusts the local Cockpit certificate, and enables the
 first-boot assistant and kiosk systemd services. This is source-level wiring;
