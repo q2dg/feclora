@@ -1032,6 +1032,8 @@ class CoordinatorControlTests(unittest.TestCase):
 
     def test_collect_results_preserves_concurrent_terminal_failure_on_socket_loss(self):
         coordinator, server, _fake = self._server(make_job(image_id="golden"))
+        journal_events = []
+        coordinator._event_sink = journal_events.append
 
         class RacingSocket(FakeSocket):
             def recv(self, count):
@@ -1044,6 +1046,9 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(server.collect_results(timeout=1), {MAC: "failed"})
         self.assertEqual(coordinator.clients()[0].state, ClientState.FAILED)
         self.assertEqual(coordinator.clients()[0].detail, "receiver verification failed")
+        self.assertEqual(journal_events[-1]["event"], "client_result")
+        self.assertEqual(journal_events[-1]["client_state"], "failed")
+        self.assertNotIn("client_disconnected", [event["event"] for event in journal_events])
 
     def test_remote_clone_job_binds_ready_target_and_uses_existing_tls_session(self):
         job = make_job(
