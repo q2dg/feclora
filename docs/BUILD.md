@@ -203,7 +203,6 @@ At minimum, verify:
   the Feclora interface-language selector.
 - The separate authenticated Cockpit socket remains on loopback port 9090; the
   no-login local kiosk endpoint is bound only to `127.0.0.1:9091`.
-  warning.
 - `systemctl status cockpit.socket feclora-cockpit-certificate.service
   feclora-cockpit-kiosk.service feclora-kiosk.service` shows expected states.
 - `test -s /usr/share/cockpit/feclora/index.html` succeeds and Cockpit
@@ -217,18 +216,18 @@ At minimum, verify:
 - The local kiosk opens directly on every boot. No user password is created
   or requested; the `feclora` administrator account remains locked.
 
-The bootstrap assistant is loopback-only and is not exposed through QEMU
-port forwarding or the LAN. Complete password setup in the VM's local display.
-Cockpit is bound to guest loopback only; QEMU host port forwarding for 9090 is
-not part of the supported kiosk test path.
+The passwordless kiosk endpoint is loopback-only and must not be exposed through
+QEMU port forwarding or the LAN. The ordinary authenticated Cockpit socket is
+also guest-loopback-only; QEMU host port forwarding for 9090 is not part of the
+supported kiosk test path.
 
-The Cockpit Terminal page is available for diagnostics; the old `dialog` menu is not part of the supported startup flow. Remote Server/Client deployment is integrated through the persistent service and authenticated TLS control path. The unattended PXE answer workflow publishes a validated JSON answer and answer-specific script through Caddy; the Live client resolves the repository ID through its normal SSHFS, NFS, SMB/CIFS or S3 repository manager and invokes the guarded whole-disk restore engine. Repository credentials are not placed in the answer file. This workflow is distinct from Server-authenticated Remote jobs and does not provide Server-side operation-result reconciliation. Consult the [feature matrix](FEATURE-MATRIX.md) for exact scope and limitations.
+The local Cockpit bridge runs with system privileges; this is an intentionally local, single-user appliance interface, not a safe multi-user host service. The old `dialog` menu is not part of the supported startup flow. Remote Server/Client deployment is integrated through the persistent service and authenticated TLS control path. The unattended PXE answer workflow publishes a validated JSON answer and answer-specific script through Caddy; the Live client resolves the repository ID through its normal SSHFS, NFS, SMB/CIFS or S3 repository manager and invokes the guarded whole-disk restore engine. Repository credentials are not placed in the answer file. This workflow is distinct from Server-authenticated Remote jobs and does not provide Server-side operation-result reconciliation. Consult the [feature matrix](FEATURE-MATRIX.md) for exact scope and limitations.
 
 ### Kiosk operator acceptance (pending)
 
 The kiosk implementation is now present in source and Kickstart. It is not
 accepted until BIOS and UEFI cold boots, Firefox enterprise policy behavior,
-Cockpit TLS trust, administrator bootstrap, service restart and physical
+Cockpit local-session startup, service restart and physical
 keyboard/TTY escape behavior have been exercised on disposable VMs and
 representative hardware. Follow [the VM smoke-test procedure](../tests/VM-SMOKE-TEST.md)
 and record results; do not infer hardware acceptance from static validation.
