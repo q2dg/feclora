@@ -436,7 +436,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
 
         job, success, detail = join_deployment(
             config.host, config.port, context,
-            expected_
+            expected_server_identity=config.server_identity,
             mac_address=config.mac_address,
             job_id=job_id,
             prepare_local_target=prepare_local_target,
