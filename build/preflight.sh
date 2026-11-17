@@ -60,9 +60,11 @@ done
 [[ -r /dev/kvm && -w /dev/kvm ]] ||
   fail "The current user cannot read/write /dev/kvm."
 
-mkdir -p "$RESULT_DIR"
-RESULT_DIR="$(cd -- "$RESULT_DIR" && pwd)"
-available_kib="$(df -Pk "$RESULT_DIR" | awk 'NR == 2 {print $4}')"
+# Check free space on the filesystem that will contain the results without
+# creating RESULT_DIR: livemedia-creator requires that directory not to exist.
+RESULT_PARENT="$(dirname -- "$RESULT_DIR")"
+mkdir -p "$RESULT_PARENT"
+available_kib="$(df -Pk "$RESULT_PARENT" | awk 'NR == 2 {print $4}')"
 [[ "$available_kib" =~ ^[0-9]+$ ]] || fail "Could not determine free space for $RESULT_DIR."
 [[ "$MIN_FREE_GIB" =~ ^[1-9][0-9]*$ ]] || fail "FECLORA_MIN_FREE_GIB must be a positive integer."
 required_kib=$((MIN_FREE_GIB * 1024 * 1024))
