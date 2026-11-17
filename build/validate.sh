@@ -166,10 +166,8 @@ for package in lvm2 stratisd stratis-cli btrfs-progs exfatprogs f2fs-tools partc
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
 
-for package in python3-libguestfs; do
-  grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
-  grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
-done
+grep -qx "python3-libguestfs" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include python3-libguestfs."
+grep -qx "python3-libguestfs" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include python3-libguestfs."
 
 grep -q '"browse_image"' "$ROOT_DIR/webui/src/api.js" || fail "Cockpit API action allowlist is missing browse_image."
 grep -q 'inspect_image_layout|browse_image' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Privileged Cockpit wrapper is missing browse_image."
