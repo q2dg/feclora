@@ -302,6 +302,10 @@ class DeploymentCoordinator:
         with self._lock:
             if self._state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
                 raise CoordinatorError("Deployment job is already terminal")
+            if self._state is not JobState.CREATED:
+                raise CoordinatorError(
+                    "Deployment cancellation is permitted only before the job is armed"
+                )
             self._record_event("job_cancelled", job_state=JobState.CANCELLED)
             self._state = JobState.CANCELLED
 
