@@ -404,7 +404,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service._write_private_json", side_effect=lambda path, value: Path(path).write_text(json.dumps(value), encoding="utf-8")), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_tls_context", return_value=object()), \
-                 mock.patch.object(ClientDeploymentService, "_find_unattended_disk", return_value=selected) as resolve_target,
+                 mock.patch.object(ClientDeploymentService, "_find_unattended_disk", return_value=selected) as resolve_target, \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value=selected), \
                  mock.patch("feclora.deployment.client_service._select_unattended_multicast_interface", return_value="enp1s0"), \
                  mock.patch("feclora.deployment.client_service.inspect_multicast_interface", return_value=SimpleNamespace(warnings=())), \
