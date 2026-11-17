@@ -13,6 +13,8 @@ if [[ ! -f package-lock.json ]]; then
 fi
 npm ci --no-audit --no-fund
 npm run test:dependency-pins
+npm run test:i18n
+npm run test:api-contract
 npm run build
 test -s dist/index.html
 test -s dist/manifest.json
