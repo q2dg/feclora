@@ -8,7 +8,7 @@ title: Build and validate the live ISO
 
 # Build and validate the live ISO
 
-This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance and how to validate it in disposable QEMU virtual machines.
+This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance directly on the host, without QEMU/KVM. Optional BIOS/UEFI boot validation is a separate activity.
 It is a runbook, not evidence that the build or boot tests have passed.
 
 > **Implementation status:** the reproducible build pipeline, application-payload integration, and operator runbook are implemented. Executing the build and BIOS/UEFI boot acceptance remains an operator validation step; this document is not evidence that those tests have passed. Do not distribute an image as tested until the checks below have been executed and recorded.
@@ -16,20 +16,24 @@ It is a runbook, not evidence that the build or boot tests have passed.
 ## 1. Scope and build host
 
 The initial build target is Fedora 45 on an x86_64 host. The build uses
-Anaconda/Kickstart through Lorax `livemedia-creator`, with QEMU virtualization.
-The script intentionally does not use `--no-virt`.
+Anaconda/Kickstart through Lorax `livemedia-creator` in native mode (`--no-virt`):
+Anaconda runs directly on the build host. QEMU, KVM and hardware virtualization
+are not required or invoked by the ISO-generation procedure.
 
-Use a dedicated build machine or VM with:
+Use a dedicated Fedora 45 x86_64 build machine. Because `--no-virt` runs
+Anaconda directly on the host, use a disposable machine with no valuable or
+attached production disks. Lorax explicitly warns that a no-virt build can
+potentially affect real host devices if Anaconda misbehaves; do not run this
+procedure on a workstation or server whose data you cannot afford to lose.
+
+The build host should have:
 
 - Node.js and npm (the build-host dependency installer provides both) to compile the React/PatternFly Cockpit package.
 
 - Fedora 45 x86_64 and working Fedora package repositories.
-- Hardware virtualization enabled in firmware and KVM available to the host.
 - Enough free disk space for the source DVD, augmented installer ISO,
   intermediate build tree, logs, and final ISO. Allow tens of GiB rather than
   planning around the final ISO size alone.
-- A graphical session for the interactive QEMU smoke tests, or a separately
-  configured display/serial workflow.
 - A Fedora 45 x86_64 DVD installer ISO.
 
 Fedora releases have finite support windows. Fedora 45 is the project's
@@ -54,19 +58,17 @@ make deps
 ```
 
 This invokes `build/install-host-deps.sh`, which installs the Fedora packages
-`lorax`, `lorax-lmc-virt`, `qemu-kvm`, and `edk2-ovmf`.
+`lorax`, `anaconda-tui`, `xorriso`, `nodejs` and `npm`. It does not install QEMU/KVM.
 
-Check the host architecture, virtualization device, and available space:
+Check the host architecture and available space:
 
 ```bash
 uname -m
-test -c /dev/kvm && echo "KVM device available" || echo "KVM unavailable"
 df -h .
 ```
 
 The expected host is Fedora 45 on `x86_64`. If `/dev/kvm` is unavailable,
-fix host virtualization permissions/configuration before building; the normal
-build path requires QEMU virtualization.
+the ISO build does not need a virtualization device or hardware virtualization.
 
 After setting `FEDORA_INSTALL_ISO` in the next section, run the automated
 preflight before the build:
@@ -76,7 +78,7 @@ make preflight FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
 The preflight checks the Fedora release, architecture, input files, required
-commands, KVM access, and free space on the output filesystem. It reserves a
+commands and free space on the output filesystem. It reserves a
 conservative default minimum of 20 GiB; override this with
 `FECLORA_MIN_FREE_GIB` only after checking the actual space requirements for
 the selected installer ISO and build workload. Passing preflight does not
@@ -139,8 +141,9 @@ The target invokes `build/build-iso.sh` with root privileges. The script:
    frontend build at `out/feclora-app/webui/dist`.
 4. Uses `mkksiso --add` to add the complete application payload and Kickstart
    to a temporary installer ISO named `out/feclora-installer.iso`.
-5. Runs `livemedia-creator --make-iso` against the augmented installer ISO,
-   using QEMU virtualization and the project's Kickstart.
+5. Runs `livemedia-creator --make-iso --no-virt` against the augmented
+   installer ISO. Anaconda performs the installation directly on the host;
+   no QEMU process, KVM device or virtual machine is used.
 6. Requests the final image as `out/feclora-live.iso`.
 
 The expected final artifact is:
@@ -166,7 +169,8 @@ sha256sum out/feclora-live.iso
 
 Record the checksum and file size with the test results. A successful build
 process and a non-empty ISO are necessary but not sufficient acceptance
-criteria: the image must still boot in both firmware modes.
+criteria. BIOS/UEFI boot testing is separate and optional if you only need
+the generated ISO.
 
 ## Runtime behavior
 
@@ -212,10 +216,9 @@ At minimum, verify:
 - After reboot, the Live session asks for the administrator password again;
   this confirms the documented ephemeral-session behavior, not persistence.
 
-The bootstrap assistant is loopback-only and is not exposed through QEMU
-port forwarding or the LAN. Complete password setup in the VM's local display.
-Cockpit is bound to guest loopback only; QEMU host port forwarding for 9090 is
-not part of the supported kiosk test path.
+The bootstrap assistant is loopback-only and is not exposed through the LAN.
+Complete password setup in the local display when performing a boot test.
+Cockpit is bound to guest loopback only.
 
 The Cockpit Terminal page is available for diagnostics; the old `dialog` menu is not part of the supported startup flow. Remote Server/Client deployment is integrated through the persistent service and authenticated TLS control path. The unattended PXE answer workflow publishes a validated JSON answer and answer-specific script through Caddy; the Live client resolves the repository ID through its normal SSHFS, NFS, SMB/CIFS or S3 repository manager and invokes the guarded whole-disk restore engine. Repository credentials are not placed in the answer file. This workflow is distinct from Server-authenticated Remote jobs and does not provide Server-side operation-result reconciliation. Consult the [feature matrix](FEATURE-MATRIX.md) for exact scope and limitations.
 
@@ -240,12 +243,10 @@ For every build/test run, record:
 - Input DVD ISO filename and verified SHA-256.
 - Build command and whether `livemedia-creator` completed successfully.
 - Final ISO filename, size, and SHA-256.
-- QEMU version and whether KVM acceleration was enabled.
-- BIOS and UEFI firmware details (including OVMF file paths/versions).
-- BIOS boot result, UEFI boot result, launcher result, and inventory result.
+- Whether the ISO was built with native Anaconda `--no-virt` (the required build mode).
+- If boot tests are performed: firmware details, BIOS/UEFI results, launcher result and inventory result.
 - Relevant logs and any deviations or failures.
 
-Do not mark the live-image milestone complete until the ISO build, BIOS boot,
-UEFI boot, payload/launcher, and virtual-device inventory checks have all
-passed. A VM boot test does not validate disk imaging or restoration; those
+Do not mark the live-image milestone complete until the ISO build and payload checks have passed. If the image is to be represented
+as boot-tested, BIOS and UEFI boot checks must also have passed. A VM boot test does not validate disk imaging or restoration; those
 require separate tests using disposable virtual disks.
