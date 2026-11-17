@@ -84,10 +84,10 @@ authenticated transport form the trust boundary. Age encryption is optional.
   A new fault-injection test also covers repository I/O failure after multicast
   START and checks that every participating Client is marked failed. These
   cases are included in project validation; the exact-commit CI must pass
-  before this work is considered complete. The remaining software regression
-  target is service restart during an active operation. Real two-host
-  receiver-loss and other physical/network acceptance remain maintainer-owned
-  (see [the acceptance checklist](MAINTAINER-ACCEPTANCE.md)).
+  before this work is considered complete. A service-level regression also
+  verifies that a journal left RUNNING is refused on restart and never resumed;
+  live service-restart and real two-host receiver-loss acceptance remain
+  maintainer-owned (see [the acceptance checklist](MAINTAINER-ACCEPTANCE.md)).
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
   `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.

@@ -285,6 +285,50 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                 "confirmation": "CANCEL " + service.job.job_id,
             })
 
+    def test_service_restart_refuses_running_journal_without_resuming(self):
+        from feclora.deployment.job import DeploymentJob
+        from feclora.deployment.journal import DeploymentJournal
+
+        job = DeploymentJob.from_dict({
+            "schema_version": 1, "job_id": "12345678-1234-4234-8234-123456789abc",
+            "operation": "restore", "image_id": "image-1",
+            "authorized_clients": ["02:00:00:00:00:01"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            journal_path = Path(directory) / f"{job.job_id}.jsonl"
+            journal = DeploymentJournal(journal_path, job.job_id)
+            journal({
+                "timestamp": "2026-11-17T00:00:00+00:00",
+                "job_id": job.job_id, "event": "job_created",
+                "job_state": "created", "job": job.to_dict(),
+            })
+            journal({
+                "timestamp": "2026-11-17T00:00:01+00:00",
+                "job_id": job.job_id, "event": "service_started", "job_state": "created",
+            })
+            journal({
+                "timestamp": "2026-11-17T00:00:02+00:00",
+                "job_id": job.job_id, "event": "job_armed", "job_state": "armed",
+            })
+            journal({
+                "timestamp": "2026-11-17T00:00:03+00:00",
+                "job_id": job.job_id, "event": "job_running", "job_state": "running",
+            })
+
+            with mock.patch(
+                "feclora.deployment.service.JOURNAL_DIRECTORY", Path(directory),
+            ), mock.patch(
+                "feclora.deployment.service.load_server_runtime_config",
+                return_value=SimpleNamespace(),
+            ):
+                with self.assertRaisesRegex(
+                    DeploymentServiceError, "inspect and reconcile its journal instead of resuming it",
+                ):
+                    DeploymentService(job.job_id)
+
     def test_s3_client_capture_is_published_inside_transfer_callback(self):
         service = DeploymentService.__new__(DeploymentService)
         service.job = SimpleNamespace(
