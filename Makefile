@@ -5,7 +5,7 @@ SHELL := /usr/bin/env bash
 help:
 	@echo 'webui    Build the Cockpit React/PatternFly frontend'
 	@echo 'deps     Install Fedora build-host dependencies'
-	@echo 'preflight Check host, KVM, input ISO and free space'
+	@echo 'preflight Check host, input ISO and free space'
 	@echo 'validate Run static project and Bash syntax checks'
 	@echo 'test     Run hardware-independent Python unit tests'
 	@echo 'build    Build the ISO (requires FEDORA_INSTALL_ISO and root)'
