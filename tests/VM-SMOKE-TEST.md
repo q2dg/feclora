@@ -59,10 +59,11 @@ independent test run. Remove the temporary copy after the test.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
-- [ ] The local first-boot assistant accepts a new administrator password and redirects to Cockpit.
-- [ ] Cockpit presents no TLS warning; the localhost CA is trusted by Firefox.
-- [ ] The `feclora` account was locked before setup and accepts the password created in the assistant.
-- [ ] `cockpit.socket` listens only on `127.0.0.1:9090` and `[::1]:9090`.
+- [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9091/` with no login or password prompt.
+- [ ] The interface-language selector is the first visible Feclora control and selecting a language updates the UI.
+- [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9091`.
+- [ ] The ordinary authenticated `cockpit.socket` remains on `127.0.0.1:9090` and `[::1]:9090`.
+- [ ] The `feclora` administrator account remains locked; no password is created.
 - [ ] Certificate, bootstrap and kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
 - [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
