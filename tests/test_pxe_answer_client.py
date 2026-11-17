@@ -259,7 +259,7 @@ class PXEAnswerClientTests(unittest.TestCase):
 
     def test_report_callback_retries_persisted_events_before_new_event(self):
         import uuid
-        from unittest.mock import Mock
+        from unittest.mock import MagicMock, Mock
 
         command_line = (
             f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
@@ -267,11 +267,11 @@ class PXEAnswerClientTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as root:
             queue = Path(root) / f"{JOB}-aabbccddee01.jsonl"
-            offline_callback = _pxe_report_callback(spool_directory=root)
             with patch("feclora.network.pxe_answer_client.Path.read_text",
                        return_value=command_line), \
                  patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
                        side_effect=OSError("offline")):
+                offline_callback = _pxe_report_callback(spool_directory=root)
                 offline_callback({
                     "operation_id": str(uuid.uuid4()), "operation": "restore_disk",
                     "timestamp": "2026-11-15T12:00:00Z", "status": "started",
@@ -280,7 +280,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertEqual(len(queue.read_text(encoding="utf-8").splitlines()), 1)
             queued_event = json.loads(queue.read_text(encoding="utf-8"))["event"]
 
-            response = Mock()
+            response = MagicMock()
             response.status = 200
             response.__enter__.return_value = response
             opener = Mock()
@@ -304,14 +304,14 @@ class PXEAnswerClientTests(unittest.TestCase):
 
     def test_report_callback_keeps_outbox_when_server_rejects_report(self):
         import uuid
-        from unittest.mock import Mock
+        from unittest.mock import MagicMock, Mock
 
         command_line = (
             f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
             f"feclora.pxe_answer_url={URL} feclora.pxe_client_mac=aa:bb:cc:dd:ee:01"
         )
         with tempfile.TemporaryDirectory() as root:
-            response = Mock()
+            response = MagicMock()
             response.status = 400
             response.__enter__.return_value = response
             opener = Mock()
