@@ -15,8 +15,9 @@ backup, artifact provenance or a published release pipeline.
 ## Persistence boundary
 
 A fresh Feclora Live boot creates a new ephemeral system session. The local
-administrator password, CA/private key, temporary configuration and service
-state are regenerated or reset. Images and manifests must live in explicitly
+CA/private key, temporary configuration and service state are regenerated or
+reset. The local kiosk has no password prompt; the separate administrator
+account remains locked. Images and manifests must live in explicitly
 selected repositories outside the ephemeral Live root.
 
 Treat repository contents and the Feclora Live environment as separate backup
