@@ -1030,6 +1030,21 @@ class CoordinatorControlTests(unittest.TestCase):
         server._sessions[MAC] = fake
         return coordinator, server, fake
 
+    def test_collect_results_preserves_concurrent_terminal_failure_on_socket_loss(self):
+        coordinator, server, _fake = self._server(make_job(image_id="golden"))
+
+        class RacingSocket(FakeSocket):
+            def recv(self, count):
+                coordinator.report_result(
+                    MAC, success=False, detail="receiver verification failed",
+                )
+                raise ConnectionResetError("socket closed after terminal result")
+
+        server._sessions[MAC] = RacingSocket()
+        self.assertEqual(server.collect_results(timeout=1), {MAC: "failed"})
+        self.assertEqual(coordinator.clients()[0].state, ClientState.FAILED)
+        self.assertEqual(coordinator.clients()[0].detail, "receiver verification failed")
+
     def test_remote_clone_job_binds_ready_target_and_uses_existing_tls_session(self):
         job = make_job(
             operation="clone", image_id=None, source_device="/dev/sda",
