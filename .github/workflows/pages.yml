@@ -6,6 +6,7 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/pages.yml"
+      - "build/check_docs.py"
   workflow_dispatch:
 
 permissions:
