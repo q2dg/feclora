@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "test:i18n": "node scripts/test-i18n.mjs",
-    "test:dependency-pins": "node scripts/check-dependency-pins.mjs"
+    "test:dependency-pins": "node scripts/check-dependency-pins.mjs",
+    "test:api-contract": "node scripts/test-api-contract.mjs"
   },
   "dependencies": {
     "@patternfly/patternfly": "6.7.0",
