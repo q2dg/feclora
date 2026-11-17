@@ -43,10 +43,10 @@ class RecoveryBootTests(unittest.TestCase):
             kwargs["pre_write_callback"]()
             raise RuntimeError("simulated power-loss boundary")
         with patch("feclora.storage.recovery_boot._load_answer",
-                   return_value={"image_id": "rescue-01", "selector": selector}), \\
-             patch("feclora.storage.recovery_boot._load_manifest", return_value=manifest), \\
-             patch("feclora.storage.recovery_boot._resolve", return_value=("/dev/sda", {})), \\
-             patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \\
+                   return_value={"image_id": "rescue-01", "selector": selector}), \
+             patch("feclora.storage.recovery_boot._load_manifest", return_value=manifest), \
+             patch("feclora.storage.recovery_boot._resolve", return_value=("/dev/sda", {})), \
+             patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \
              patch("feclora.storage.recovery_boot.execute_restore", side_effect=interrupted_restore):
             with self.assertRaisesRegex(RuntimeError, "power-loss boundary"):
                 from feclora.storage.recovery_boot import execute_recovery
@@ -65,12 +65,12 @@ class RecoveryBootTests(unittest.TestCase):
             kwargs["pre_write_callback"]()
             writes.append("write")
         with patch("feclora.storage.recovery_boot._load_answer",
-                   return_value={"image_id": "rescue-01", "selector": selector}), \\
-             patch("feclora.storage.recovery_boot._load_manifest", return_value=manifest), \\
+                   return_value={"image_id": "rescue-01", "selector": selector}), \
+             patch("feclora.storage.recovery_boot._load_manifest", return_value=manifest), \
              patch("feclora.storage.recovery_boot._resolve", side_effect=[
                  ("/dev/sda", {}), changed_target(None, None)
-             ]), \\
-             patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \\
+             ]), \
+             patch("feclora.storage.recovery_boot.operation_record", return_value=nullcontext()), \
              patch("feclora.storage.recovery_boot.execute_restore", side_effect=attempted_restore):
             from feclora.storage.recovery_boot import execute_recovery
             with self.assertRaisesRegex(RecoveryBootError, "identity or device path changed"):
