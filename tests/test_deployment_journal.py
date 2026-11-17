@@ -475,6 +475,49 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(states[second_mac], ClientState.FAILED)
             self.assertFalse(report["automatic_resume"])
 
+    def test_recovery_report_rejects_terminal_client_state_overwrite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            coordinator.report_result(MAC, success=True, detail="read-back verified")
+            journal({
+                "timestamp": "2026-11-08T12:00:04+00:00",
+                "job_id": JOB_ID, "event": "client_disconnected",
+                "job_state": "completed", "client_mac": MAC,
+                "client_state": "disconnected", "detail": "late socket timeout",
+            })
+            with self.assertRaisesRegex(DeploymentJournalError, "invalid Client state transition"):
+                journal.recovery_report()
+
+    def test_recovery_report_rejects_progress_after_terminal_client_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            coordinator.report_result(MAC, success=True, detail="read-back verified")
+            journal({
+                "timestamp": "2026-11-08T12:00:04+00:00",
+                "job_id": JOB_ID, "event": "client_progress",
+                "job_state": "completed", "client_mac": MAC,
+                "client_state": "running",
+                "progress": {
+                    "phase": "restore", "completed_bytes": 4096,
+                    "total_bytes": 4096, "bytes_per_second": 1024.0,
+                    "updated_at": "2026-11-08T12:00:04+00:00",
+                },
+            })
+            with self.assertRaisesRegex(DeploymentJournalError, "invalid Client state transition"):
+                journal.recovery_report()
+
     def test_coordinator_rejects_journal_for_another_job(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
