@@ -64,33 +64,34 @@ independent test run. Remove the temporary copy after the test.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9091`.
 - [ ] The ordinary authenticated `cockpit.socket` remains on `127.0.0.1:9090` and `[::1]:9090`.
 - [ ] The `feclora` administrator account remains locked; no password is created.
-- [ ] Certificate, bootstrap and kiosk systemd units reach the expected states.
+- [ ] Certificate, local Cockpit kiosk and Firefox kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
 - [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
 
-## Cockpit login and screenshot capture
+## Cockpit kiosk and screenshot capture
 
-Use the VM's local display to complete the first-boot password assistant. It
-binds only to guest loopback and is deliberately unavailable through QEMU
-port forwarding. Firefox then opens Cockpit at `https://localhost:9090/cockpit/@localhost/feclora/index.html`.
-Sign in as `feclora`, open the Feclora application and verify the Operations
-workflow. The browser must not show a certificate interstitial; do not bypass
-TLS validation. Cockpit listens on guest loopback only; no host port forwarding for 9090 is configured.
+Use the VM's local display. Firefox must open the Feclora Cockpit app at
+`http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html` without asking
+for a username or password. The interface-language selector must be the first
+visible Feclora control; select a language and verify the Operations workflow.
+The unauthenticated endpoint is bound to guest loopback only; do not forward
+port 9091. The separate authenticated Cockpit socket remains on 9090 and is
+also not forwarded.
 
 ## Kiosk confinement and session behavior
 
 - [ ] Firefox enterprise policy reports `WebsiteFilter` blocking all URLs except
-  the local setup and Cockpit origins.
+  the local Feclora Cockpit origin.
 - [ ] Attempting an external URL is blocked; browser chrome and developer tools
   are unavailable in the kiosk session.
 - [ ] systemd cgroup IP filters deny non-loopback destinations for Firefox and
-  the bootstrap service while allowing Cockpit/setup loopback traffic.
+  the local Cockpit kiosk endpoint while allowing loopback traffic.
 - [ ] Killing Firefox or Cage causes the systemd kiosk service to restart it.
 - [ ] getty@tty1–tty6 are masked and no autologin/passwordless-sudo setup exists.
 - [ ] The `feclora-kiosk` account has no login shell and is not in `wheel`.
-- [ ] The kiosk account cannot access privileged Cockpit/Feclora actions.
+- [ ] The local Cockpit kiosk can perform the Feclora operations expected by the UI; the endpoint is only reachable from guest loopback.
 - [ ] Record keyboard/VT escape behavior on the actual target hardware.
 - [ ] Reboot confirms current Live-session credentials and generated CA are
   ephemeral and the setup assistant appears again.
