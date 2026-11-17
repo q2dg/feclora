@@ -384,7 +384,9 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             real_stat = os.stat
 
             def fake_multicast(*args, **kwargs):
-                kwargs["pre_write_callback"]()
+                callback = kwargs.get("pre_write_callback")
+                self.assertTrue(callable(callback), "unattended multicast restore must receive the pre-write target revalidation callback")
+                callback()
                 return True, "multicast restore completed"
 
             def fake_join(host, port, context, **kwargs):
