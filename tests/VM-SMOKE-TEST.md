@@ -93,8 +93,7 @@ also not forwarded.
 - [ ] The `feclora-kiosk` account has no login shell and is not in `wheel`.
 - [ ] The local Cockpit kiosk can perform the Feclora operations expected by the UI; the endpoint is only reachable from guest loopback.
 - [ ] Record keyboard/VT escape behavior on the actual target hardware.
-- [ ] Reboot confirms current Live-session credentials and generated CA are
-  ephemeral and the setup assistant appears again.
+- [ ] Reboot confirms the local no-login kiosk starts directly again and the generated CA is recreated.
 
 ## Hardware discovery
 
