@@ -518,6 +518,73 @@ class DeploymentJournalTests(unittest.TestCase):
             with self.assertRaisesRegex(DeploymentJournalError, "progress outside a running Client state"):
                 journal.recovery_report()
 
+    def test_recovery_report_rejects_completed_job_with_failed_client(self):
+        second_mac = "52:54:00:12:34:57"
+        job = DeploymentJob.from_dict({
+            **make_job().to_dict(), "authorized_clients": [MAC, second_mac],
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            coordinator = DeploymentCoordinator(job, event_sink=journal)
+            for mac in (MAC, second_mac):
+                coordinator.register_client(mac)
+                coordinator.mark_ready(mac)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            coordinator.mark_running(second_mac)
+            coordinator.report_result(MAC, success=True, detail="verified")
+            coordinator.report_result(second_mac, success=False, detail="read-back mismatch")
+            events = list(journal.events)
+            # Tamper with the final event's semantic state, then rebuild a valid
+            # hash chain through a fresh journal writer to test semantic checks.
+            journal_path = journal.path
+            payload = [dict(event) for event in events]
+            payload[-1]["job_state"] = "completed"
+            with open(journal_path, "wb") as stream:
+                stream.write(b"")
+            forged = DeploymentJournal(journal_path, JOB_ID)
+            for event in payload:
+                event.pop("sequence", None)
+                event.pop("previous_hash", None)
+                event.pop("event_hash", None)
+                forged(event)
+            with self.assertRaisesRegex(DeploymentJournalError, "completed deployment job"):
+                forged.recovery_report()
+
+    def test_recovery_report_rejects_failed_job_with_running_client(self):
+        second_mac = "52:54:00:12:34:57"
+        job = DeploymentJob.from_dict({
+            **make_job().to_dict(), "authorized_clients": [MAC, second_mac],
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            coordinator = DeploymentCoordinator(job, event_sink=journal)
+            for mac in (MAC, second_mac):
+                coordinator.register_client(mac)
+                coordinator.mark_ready(mac)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            coordinator.mark_running(second_mac)
+            coordinator.report_result(MAC, success=False, detail="write failed")
+            events = [dict(event) for event in journal.events]
+            journal_path = journal.path
+            with open(journal_path, "wb") as stream:
+                stream.write(b"")
+            forged = DeploymentJournal(journal_path, JOB_ID)
+            for event in events:
+                event.pop("sequence", None)
+                event.pop("previous_hash", None)
+                event.pop("event_hash", None)
+                forged(event)
+            # Append a terminal job marker with one receiver still running.
+            forged({
+                "timestamp": "2026-11-08T12:00:04+00:00",
+                "job_id": JOB_ID, "event": "job_failed",
+                "job_state": "failed",
+            })
+            with self.assertRaisesRegex(DeploymentJournalError, "failed deployment job"):
+                forged.recovery_report()
+
     def test_coordinator_rejects_journal_for_another_job(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
