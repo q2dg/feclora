@@ -124,6 +124,33 @@ operational evidence and must be correlated with the Server journal. If either
 endpoint's evidence is missing, corrupt or contradictory, stop and resolve
 the discrepancy before writing to any target.
 
+## PXE unattended restore reports
+
+The legacy answer-file PXE restore path sends best-effort status reports to
+the PXE Server over the same HTTP service used for boot assets. Reports are
+advisory telemetry, not a transaction protocol: a Server outage, timeout,
+answer revocation or Client shutdown can prevent delivery, and a failed report
+does not stop a restore already in progress. The Client's local operation
+journal remains the primary evidence for that restore.
+
+The Server accepts one `started` event, monotonic `progress` events and at
+most one terminal event (`completed`, `failed` or `cancelled`) for each
+job/Client/operation. It rejects progress that moves backwards or changes a
+known total, reports after a terminal event, and event-ID reuse with different
+content. A duplicate identical event is idempotent. Corrupt report-journal
+JSON is a fail-closed condition; preserve it for inspection rather than
+editing individual lines.
+
+Important trust boundary: these legacy PXE reports use HTTP and a MAC address
+asserted by the Client. They are not cryptographically authenticated machine
+identity and must not be treated as proof that a particular physical machine
+performed the operation. Use them for operational correlation only, on a
+trusted isolated provisioning network. A missing or contradictory report
+does not prove failure or success; inspect the Client's local operation log
+and target device before accepting the outcome. Shared schema-v1 DeploymentJob
+PXE handoff uses the persistent authenticated Server/Client deployment
+lifecycle instead of this legacy report channel.
+
 ## Rollback and interrupted operations
 
 Because the system is Live and has no in-place upgrade mechanism, rollback
