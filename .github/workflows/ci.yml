@@ -44,6 +44,8 @@ jobs:
           bash build/preflight.sh --help
       - name: Run ShellCheck
         run: shellcheck build/*.sh
+      - name: Validate documentation links and guide assets
+        run: python3 build/check_docs.py
       - name: Run Python unit tests
         run: PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile Python modules
