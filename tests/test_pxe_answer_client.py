@@ -239,7 +239,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             opener = Mock()
             opener.open.return_value = response
             with patch("feclora.network.pxe_answer_client.Path.read_text",
-                       return_value=command_line), \\
+                       return_value=command_line), \
                  patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
                        return_value=opener):
                 callback = _pxe_report_callback(spool_directory=root)
@@ -269,7 +269,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             queue = Path(root) / f"{JOB}-aabbccddee01.jsonl"
             offline_callback = _pxe_report_callback(spool_directory=root)
             with patch("feclora.network.pxe_answer_client.Path.read_text",
-                       return_value=command_line), \\
+                       return_value=command_line), \
                  patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
                        side_effect=OSError("offline")):
                 offline_callback({
@@ -286,7 +286,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             opener = Mock()
             opener.open.return_value = response
             with patch("feclora.network.pxe_answer_client.Path.read_text",
-                       return_value=command_line), \\
+                       return_value=command_line), \
                  patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
                        return_value=opener):
                 online_callback = _pxe_report_callback(spool_directory=root)
@@ -317,7 +317,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             opener = Mock()
             opener.open.return_value = response
             with patch("feclora.network.pxe_answer_client.Path.read_text",
-                       return_value=command_line), \\
+                       return_value=command_line), \
                  patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
                        return_value=opener):
                 callback = _pxe_report_callback(spool_directory=root)
@@ -336,7 +336,7 @@ class PXEAnswerClientTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as root:
             with patch("feclora.network.pxe_answer_client.Path.read_text",
-                       return_value=command_line), \\
+                       return_value=command_line), \
                  patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
                        side_effect=OSError("offline")):
                 callback = _pxe_report_callback(spool_directory=root)
