@@ -12,7 +12,7 @@ timezone Etc/UTC --utc
 rootpw --lock
 firewall --enabled
 selinux --enforcing
-bootloader --timeout=3
+bootloader --timeout=0
 network --bootproto=dhcp --activate
 zerombr
 clearpart --all --initlabel
@@ -99,8 +99,7 @@ lshw
 systemctl --root=/ enable NetworkManager
 systemctl --root=/ enable cockpit.socket
 
-# The administrator account starts locked. The local first-boot
-# assistant sets its password before Cockpit accepts the administrator login.
+# The administrator account remains locked in the passwordless local kiosk profile.
 useradd --create-home --groups wheel --shell /bin/bash feclora
 passwd --lock feclora
 
@@ -161,10 +160,9 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-loca
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate" "$TARGET_ROOT/usr/libexec/feclora/feclora-cockpit-certificate"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-launch"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-bootstrap-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-bootstrap-ready"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-certificate.service"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-bootstrap.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk-bootstrap.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-kiosk.service"
 install -d -m 0755 "$TARGET_ROOT/etc/firefox/policies" "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-policies.json" "$TARGET_ROOT/etc/firefox/policies/policies.json"
 cat > "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d/feclora.conf" <<'EOF'
@@ -182,7 +180,7 @@ install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
-systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service feclora-kiosk.service
+systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
 systemctl --root="$TARGET_ROOT" mask getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
