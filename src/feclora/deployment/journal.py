@@ -302,12 +302,18 @@ class DeploymentJournal:
                 "failed deployment job must have no active Clients and at least one failed or disconnected Client"
             )
         has_service_start = any(event.get("event") == "service_started" for event in events)
+        was_armed = any(
+            event.get("event") == "job_armed"
+            or event.get("job_state") in {"armed", "running"}
+            for event in events
+        )
         clean_unarmed_stop = (
             events[-1].get("event") == "service_stopped"
             and job_state == "created" and not clients
         )
         interrupted = (
             job_state in {"armed", "running"}
+            or (job_state == "cancelled" and was_armed)
             or (job_state == "created" and bool(clients))
             or (job_state == "created" and has_service_start and not clean_unarmed_stop)
         )
