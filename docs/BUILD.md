@@ -196,9 +196,11 @@ At minimum, verify:
 
 - BIOS and UEFI boot reach the Firefox kiosk on tty1 without a desktop or
   console login prompt.
-- The first-boot assistant appears and accepts a new 14–128 character
-  administrator password; the administrator account was locked before setup.
-- The assistant redirects to `https://localhost:9090/cockpit/@localhost/feclora/index.html` without a certificate
+- Firefox opens `http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html`
+  directly, without a login or password prompt. The first visible control is
+  the Feclora interface-language selector.
+- The separate authenticated Cockpit socket remains on loopback port 9090; the
+  no-login local kiosk endpoint is bound only to `127.0.0.1:9091`.
   warning.
 - `systemctl status cockpit.socket feclora-cockpit-certificate.service
   feclora-kiosk-bootstrap.service feclora-kiosk.service` shows expected states.
@@ -210,8 +212,8 @@ At minimum, verify:
 - The kiosk account is not in `wheel`; getty@tty1–tty6 are masked; there is
   no autologin configuration or NOPASSWD sudo rule.
 - Firefox and Cage restart after terminating the kiosk process.
-- After reboot, the Live session asks for the administrator password again;
-  this confirms the documented ephemeral-session behavior, not persistence.
+- The local kiosk opens directly on every boot. No user password is created
+  or requested; the `feclora` administrator account remains locked.
 
 The bootstrap assistant is loopback-only and is not exposed through QEMU
 port forwarding or the LAN. Complete password setup in the VM's local display.
