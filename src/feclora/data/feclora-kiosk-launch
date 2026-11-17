@@ -1,10 +1,6 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
-if [[ -e /var/lib/feclora/kiosk-setup-complete ]]; then
-  url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
-else
-  url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
-fi
+url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 export MOZ_ENABLE_WAYLAND=1
 exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
