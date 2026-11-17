@@ -173,14 +173,16 @@ criteria: the image must still boot in both firmware modes.
 The Kickstart selects Fedora's `@core` package group rather than the broader
 Server product environment, then adds Feclora's explicit runtime package set.
 Cage and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
-general-purpose desktop or display manager is installed. On each fresh Live
-boot the first-boot page asks the operator to set the `feclora` administrator
-password before redirecting to Cockpit. The local Cockpit CA/certificate is
-generated and trusted automatically before the Cockpit socket starts.
+general-purpose desktop or display manager is installed. On each fresh Live boot the Firefox kiosk opens the local Feclora Cockpit
+application directly through a loopback-only Cockpit `--local-session` service.
+The interface-language selector is the first visible Feclora control. No user
+password is created or requested; the `feclora` administrator account remains
+locked. A separate, normally authenticated Cockpit socket is retained on
+loopback port 9090. The local CA/certificate is generated and trusted for that
+separate endpoint.
 
-The Live root is intentionally ephemeral. The administrator password, local CA
-private key, first-boot completion marker and temporary Feclora configuration
-are session-local and reset on reboot. Each boot begins a new session; this is
+The Live root is intentionally ephemeral. The local CA private key and
+temporary Feclora configuration are session-local and reset on reboot. Each boot begins a new session; this is
 the intended operating model, not a missing persistence feature. Images,
 manifests and other data that must survive are written to repositories or
 storage explicitly selected by the operator. Never select a potential restore
@@ -203,7 +205,7 @@ At minimum, verify:
   no-login local kiosk endpoint is bound only to `127.0.0.1:9091`.
   warning.
 - `systemctl status cockpit.socket feclora-cockpit-certificate.service
-  feclora-kiosk-bootstrap.service feclora-kiosk.service` shows expected states.
+  feclora-cockpit-kiosk.service feclora-kiosk.service` shows expected states.
 - `test -s /usr/share/cockpit/feclora/index.html` succeeds and Cockpit
   displays storage inventory and the local Operations wizard.
 - `/usr/share/feclora/python/feclora` contains the Python application.
