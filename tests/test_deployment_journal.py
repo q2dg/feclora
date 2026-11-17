@@ -515,7 +515,7 @@ class DeploymentJournalTests(unittest.TestCase):
                     "updated_at": "2026-11-08T12:00:04+00:00",
                 },
             })
-            with self.assertRaisesRegex(DeploymentJournalError, "invalid Client state transition"):
+            with self.assertRaisesRegex(DeploymentJournalError, "progress outside a running Client state"):
                 journal.recovery_report()
 
     def test_coordinator_rejects_journal_for_another_job(self):
