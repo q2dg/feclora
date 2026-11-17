@@ -33,9 +33,8 @@ if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
   grep -Fq "bash \"\${ROOT_DIR}/build/preflight.sh\"" "$ROOT_DIR/build/build-iso.sh" || fail "Build script must run host preflight before staging the ISO."
   grep -q -- '--make-iso' "$ROOT_DIR/build/build-iso.sh" || fail "Build script does not request ISO output."
   grep -Fq "mkksiso --add \"\${APP_STAGE}\" \"\${KS_FILE}\" \"\${INSTALL_ISO}\" \"\${AUGMENTED_ISO}\"" "$ROOT_DIR/build/build-iso.sh" || fail "mkksiso must receive the app payload, Kickstart, input ISO and output ISO in that order."
-  grep -Eq '^[[:space:]]+--no-virt([[:space:]]|$)' "$ROOT_DIR/build/build-iso.sh" || fail "ISO build must explicitly use native Anaconda --no-virt mode."
-  if grep -Eq 'qemu-system|qemu-kvm|/dev/kvm' "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh"; then
-    fail "ISO build scripts must not depend on QEMU or KVM."
+  if grep -Eq '^[[:space:]]+--no-virt([[:space:]]|$)' "$ROOT_DIR/build/build-iso.sh"; then
+    fail "Unsafe --no-virt mode must not be enabled by the default build."
   fi
 fi
 
