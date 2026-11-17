@@ -91,9 +91,11 @@ authenticated transport form the trust boundary. Age encryption is optional.
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
   `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.
-  Keep clean-checkout lockfile validation, resolve scanner findings, finish
-  locale coverage, and maintain the backup/upgrade/rollback and release
-  evidence runbook.
+  CI now verifies that every frontend API action is allowed by the installed
+  Kickstart wrapper and implemented by backend dispatch. CI and GitHub Pages
+  also validate local documentation links/assets and illustrated guide cards.
+  Remaining work is to resolve scanner findings, finish locale coverage, and
+  maintain the backup/upgrade/rollback and release evidence runbook.
 
 ## Maintainer-run release acceptance
 
