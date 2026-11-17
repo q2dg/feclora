@@ -1,9 +1,9 @@
 # Cockpit web interface
 
 Cockpit is Feclora's primary operator interface. The React/PatternFly
-application is installed at `/usr/share/cockpit/feclora` and uses Cockpit's
-authenticated session and explicit superuser authorization for privileged
-operations.
+application is installed at `/usr/share/cockpit/feclora`. The physical kiosk
+uses Cockpit's loopback-only `--local-session` mode without a login prompt;
+the separate port 9090 Cockpit socket retains normal PAM authentication.
 
 ## Live kiosk startup, bootstrap and authentication
 
@@ -11,7 +11,8 @@ The Live image uses Fedora's `@core` package group plus Feclora's explicit
 runtime packages, with no general-purpose desktop. Cage is the minimal Wayland compositor; Firefox is the only local
 interactive application. `feclora-kiosk.service` starts it on tty1 under the
 dedicated `feclora-kiosk` account. The kiosk account has no login shell, is
-not a member of `wheel`, and cannot invoke the privileged Feclora API.
+not a member of `wheel`. The separate root-owned local Cockpit service starts
+the bridge for this dedicated physical-kiosk session.
 
 The `feclora` administrator account is created as a member of `wheel`, but
 starts locked. On each fresh Live boot, Firefox opens the Feclora Cockpit application directly at
@@ -41,11 +42,9 @@ certificate and private key as separate files in
 warnings or accept an untrusted certificate interactively.
 
 Firefox runs with `--kiosk` and a managed enterprise policy. Firefox's
-`WebsiteFilter` blocks all URLs except the loopback setup page and the local
-Cockpit host. Firefox match patterns do not constrain port numbers, so these
+`WebsiteFilter` blocks all URLs except the loopback Feclora Cockpit host. Firefox match patterns do not constrain port numbers, so these
 loopback hosts are allowed on any port. Independently, systemd's cgroup IP
-filters restrict both the kiosk browser and bootstrap service to IPv4/IPv6
-loopback; the browser cannot open connections to LAN or Internet addresses. Password storage, private browsing,
+filters restrict the kiosk browser to IPv4/IPv6 loopback; the browser cannot open connections to LAN or Internet addresses. Password storage, private browsing,
 developer tools, add-ons management, Safe Mode and certificate-warning
 bypass are disabled. The local
 CA is installed through Firefox's supported Linux `Certificates.Install`
@@ -55,11 +54,10 @@ enable VT switching), and getty services on tty1–tty6 are masked.
 
 This is defense in depth, not a claim of tamper-proof physical kiosk
 security. Firmware/boot-menu access and hardware-level keyboard escape
-behavior still require operator testing. The authenticated Cockpit Terminal
-remains available to the administrator inside Cockpit; the kiosk account
-itself cannot log in to Cockpit as an administrator. Do not treat fullscreen
-browser mode as a substitute for Cockpit authentication or backend
-authorization.
+behavior still require operator testing. The local no-login bridge runs with system privileges. This is deliberately
+a single-user physical-appliance trust model: any other process already
+running on the same host can connect to the loopback endpoint. Do not expose
+port 9091 on a network interface or forward it through SSH/QEMU.
 
 ## Build and package
 
@@ -71,8 +69,8 @@ media and installed at `/usr/share/cockpit/feclora`.
 
 The target image includes `cockpit`, `cockpit-system`,
 `cockpit-storaged`, `cage` and `firefox`; it does not install a desktop
-environment. `cockpit.socket`, the certificate/bootstrap units and the kiosk
-unit are enabled by Kickstart. The Cockpit socket drop-in resets the default
+environment. The authenticated `cockpit.socket`, certificate unit, local
+passwordless kiosk service and Firefox kiosk unit are enabled by Kickstart. The Cockpit socket drop-in resets the default
 wildcard listener and binds port 9090 only to `127.0.0.1` and `::1`; remote
 LAN access is intentionally unavailable in this kiosk profile.
 
