@@ -235,6 +235,7 @@ class PXEAnswerClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             response = MagicMock()
             response.status = 200
+            response.__enter__.return_value = response
             opener = Mock()
             opener.open.return_value = response
             with patch("feclora.network.pxe_answer_client.Path.read_text",
@@ -281,6 +282,7 @@ class PXEAnswerClientTests(unittest.TestCase):
 
             response = Mock()
             response.status = 200
+            response.__enter__.return_value = response
             opener = Mock()
             opener.open.return_value = response
             with patch("feclora.network.pxe_answer_client.Path.read_text",
@@ -311,6 +313,7 @@ class PXEAnswerClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             response = Mock()
             response.status = 400
+            response.__enter__.return_value = response
             opener = Mock()
             opener.open.return_value = response
             with patch("feclora.network.pxe_answer_client.Path.read_text",
