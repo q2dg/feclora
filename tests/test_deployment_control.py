@@ -2021,6 +2021,41 @@ class PartialMultiClientResultTests(unittest.TestCase):
 
 
 class ConcurrentResultCollectionTests(unittest.TestCase):
+    def test_collect_results_drains_pending_physical_ready_before_result(self):
+        coordinator = DeploymentCoordinator(make_job(
+            operation="clone", transport="multicast",
+        ))
+        coordinator.register_client(MAC)
+        coordinator.mark_ready(MAC)
+        coordinator.arm()
+        coordinator.mark_running(MAC)
+        incoming = b"".join((
+            frame({
+                "type": "physical_ready", "job_id": JOB_ID,
+                "ready": True, "detail": "receiver armed",
+            }),
+            frame({
+                "type": "progress", "job_id": JOB_ID, "phase": "clone",
+                "completed_bytes": 8192, "total_bytes": 16384,
+            }),
+            frame({
+                "type": "result", "job_id": JOB_ID,
+                "success": True, "detail": "disk read-back verified",
+            }),
+        ))
+        fake = FakeSocket(incoming)
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: fake}
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = None
+
+        self.assertEqual(server.collect_results(timeout=1), {MAC: "succeeded"})
+        self.assertEqual(coordinator.clients()[0].state, ClientState.SUCCEEDED)
+        self.assertEqual(server.client_progress()[MAC]["completed_bytes"], 8192)
+
     def test_slow_client_does_not_delay_collection_of_peer_result(self):
         mac2 = "52:54:00:12:34:57"
         coordinator = DeploymentCoordinator(make_job(authorized_clients=[MAC, mac2]))
