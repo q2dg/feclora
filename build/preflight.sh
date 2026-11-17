@@ -51,10 +51,13 @@ if [[ "$EUID" -ne 0 ]]; then
   fail "Run preflight as root, for example: sudo -E make preflight FEDORA_INSTALL_ISO=..."
 fi
 
-for cmd in livemedia-creator mkksiso; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64; do
   command -v "$cmd" >/dev/null 2>&1 || fail "Required command not found: $cmd (install make deps)."
 done
 
+[[ -c /dev/kvm ]] || fail "/dev/kvm is unavailable; enable hardware virtualization and install/configure KVM."
+[[ -r /dev/kvm && -w /dev/kvm ]] ||
+  fail "The current user cannot read/write /dev/kvm."
 
 mkdir -p "$RESULT_DIR"
 RESULT_DIR="$(cd -- "$RESULT_DIR" && pwd)"
@@ -73,5 +76,5 @@ printf '  Installer ISO: %s\n' "$INSTALL_ISO"
 printf '  Kickstart: %s\n' "$KS_FILE"
 printf '  Output directory: %s\n' "$RESULT_DIR"
 printf '  Free space: %s GiB (minimum: %s GiB)\n' "$((available_kib / 1024 / 1024))" "$MIN_FREE_GIB"
-printf '  Build mode: native Anaconda (--no-virt; no QEMU/KVM)\n'
+printf '  KVM: available\n'
 printf 'This confirms host prerequisites only; ISO build and BIOS/UEFI boot remain unverified.\n'
