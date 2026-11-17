@@ -3,9 +3,7 @@ set -Eeuo pipefail
 
 packages=(
   lorax
-  lorax-lmc-virt
-  qemu-kvm
-  edk2-ovmf
+  anaconda-tui
   xorriso
   nodejs
   npm
