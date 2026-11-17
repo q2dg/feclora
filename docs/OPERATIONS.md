@@ -81,6 +81,49 @@ automatically delete partially uploaded objects because it cannot safely
 assume that no other writer or recovery process needs them. Keep provider
 versioning/retention policy and independent backups in force.
 
+## Interrupted Server/Client deployment recovery
+
+A Server/Client job is an audit trail, not a resumable transfer checkpoint.
+The Server journal is stored at
+`/var/lib/feclora/deployments/<job-uuid>.jsonl`; the Client keeps its local
+request/status records under `/var/lib/feclora/client-jobs/`, including
+`<job-uuid>.status.json`. Preserve both endpoints' records before rebooting,
+restarting services or cleaning temporary files. The Server journal is
+append-only and SHA-256 hash-chained; do not edit, truncate, concatenate or
+recreate it manually.
+
+After an unexpected exit, use this sequence:
+
+1. Stop attempts to restart or re-arm the same job. Feclora deliberately
+   rejects a job definition whose journal already contains session history.
+   A Client process exit marks a nonterminal local status as
+   `interrupted`; it does not reconnect or resume block-device I/O.
+2. Preserve the Server journal, each selected Client's status record and
+   operation logs. Record the job UUID, last durable event, per-Client
+   terminal state and last persisted byte count. Progress is the last durable
+   observation, not proof of how many bytes reached stable media.
+3. Inspect every destination independently. Match the physical device using
+   stable identity (WWN/serial where available), then verify its current
+   geometry and contents. Do not rely on a saved `/dev/sdX` path: device names
+   can change after reboot. For clone jobs, inspect both source and receiver.
+4. Treat every destination without a successful terminal verification result
+   as untrusted, including a Client that disconnected after reporting progress.
+   A successful result from one Client does not make another Client's
+   incomplete destination safe.
+5. Reconcile the interrupted job only after the operator has inspected every
+   selected Client and target. Keep the original journal as evidence; do not
+   manufacture terminal success events or reset the job to `created`.
+6. If another operation is required, create a new job with fresh approvals and
+   revalidate the source image and every destination. Never reuse an interrupted
+   job as a retry mechanism.
+
+A journal hash chain detects accidental or unauthorized modification of its
+records; it does not prove that a disk write completed or that the journal
+came from an authenticated publisher. The Client status file is local
+operational evidence and must be correlated with the Server journal. If either
+endpoint's evidence is missing, corrupt or contradictory, stop and resolve
+the discrepancy before writing to any target.
+
 ## Rollback and interrupted operations
 
 Because the system is Live and has no in-place upgrade mechanism, rollback
