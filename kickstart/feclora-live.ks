@@ -114,8 +114,8 @@ install -d -o feclora-kiosk -g feclora-kiosk -m 0700 /var/lib/feclora-kiosk
 # installed live filesystem. mkksiso adds this directory at the DVD root.
 %post --nochroot --erroronfail
 set -eu
-APP_SOURCE=/run/install/source/feclora-app/src/feclora
-WEB_SOURCE=/run/install/source/feclora-app/webui/dist
+APP_SOURCE=/run/install/repo/feclora-app/src/feclora
+WEB_SOURCE=/run/install/repo/feclora-app/webui/dist
 TARGET_ROOT=/mnt/sysroot
 
 if [ ! -d "$APP_SOURCE" ]; then
