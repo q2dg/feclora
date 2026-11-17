@@ -175,7 +175,7 @@ Server product environment, then adds Feclora's explicit runtime package set.
 Cage and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
 general-purpose desktop or display manager is installed. On each fresh Live boot the Firefox kiosk opens the local Feclora Cockpit
 application directly through a loopback-only Cockpit `--local-session` service.
-The interface-language selector is the first visible Feclora control. No user
+The first Feclora screen asks the operator to select the interface language; continuing opens the operations menu. No user
 password is created or requested; the `feclora` administrator account remains
 locked. A separate, normally authenticated Cockpit socket is retained on
 loopback port 9090. The local CA/certificate is generated and trusted for that
@@ -196,8 +196,7 @@ host block devices.
 
 At minimum, verify:
 
-- BIOS and UEFI boot reach the Firefox kiosk on tty1 without a desktop or
-  console login prompt.
+- BIOS and UEFI boot select the first GRUB entry automatically without displaying the menu, then reach the Firefox kiosk on tty1 without a desktop or console login prompt.
 - Firefox opens `http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html`
   directly, without a login or password prompt. The first visible control is
   the Feclora interface-language selector.
