@@ -18,8 +18,9 @@ Environment:
   FECLORA_RESULT_DIR  Output directory (default: out/).
   FECLORA_RELEASEVER  Fedora release version (default: 45).
 
-Run on a Fedora 45 x86_64 build host. Install lorax, anaconda-tui and the other build dependencies first. The build requires root.
-Anaconda runs directly on the build host through Lorax --no-virt; QEMU/KVM is not used.
+Run on a Fedora 45 x86_64 build host. Install lorax, lorax-lmc-virt,
+qemu-kvm and the other build dependencies first. The build requires root.
+The build uses QEMU virtualization; it deliberately does not use --no-virt.
 EOF
 }
 
@@ -49,7 +50,7 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 2
 fi
 
-for cmd in livemedia-creator mkksiso npm; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     echo "Required command not found: ${cmd}. Install the build dependencies first." >&2
     exit 127
@@ -59,7 +60,7 @@ done
 # Build the Cockpit frontend before staging the augmented installer media.
 bash "${ROOT_DIR}/build/build-webui.sh"
 
-# Fail early if source inputs or output capacity are not ready.
+# Fail early if KVM, source inputs, or output capacity are not ready.
 bash "${ROOT_DIR}/build/preflight.sh"
 
 mkdir -p "${RESULT_DIR}"
@@ -89,7 +90,6 @@ livemedia-creator \
   --releasever "${RELEASEVER}" \
   --ram 4096 \
   --vcpus 4 \
-  --no-virt \
   --iso-only \
   --iso-name feclora-live.iso
 
