@@ -47,14 +47,13 @@ Technical references:
 ## Build and test
 
 Follow [docs/BUILD.md](docs/BUILD.md) for host prerequisites, static validation,
-automated tests, ISO build instructions and disposable QEMU checks. ISO
+automated tests and native (no-QEMU) ISO build instructions. Optional BIOS/UEFI boot checks are a separate step. ISO
 generation and hardware/network acceptance are maintainer-run activities.
 
 ## Built on
 
 Fedora Server, Cockpit, Firefox, Cage, Partclone, LVM2, cryptsetup,
-NetworkManager, UDPcast, dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and
-QEMU/KVM.
+NetworkManager, UDPcast, dnsmasq, iPXE, Caddy, age, zstd, LZ4 and Lorax.
 
 ## License
 
