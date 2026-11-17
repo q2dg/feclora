@@ -567,7 +567,7 @@ class TLSContextTests(unittest.TestCase):
         self.assertIs(server.tls_context, context)
 
 
-    def test_firewall_cleanup_failure_preserves_recovery_state_and_releases_callback(self):
+    def test_firewall_cleanup_failure_preserves_recovery_state_and_callback(self):
         class Firewall:
             def is_open(self, interface):
                 return False
@@ -598,7 +598,7 @@ class TLSContextTests(unittest.TestCase):
         with self.assertRaisesRegex(DeploymentControlError, "firewall cleanup failed"):
             server.stop()
         self.assertEqual(len(callbacks), 1)
-        self.assertIsNone(server._firewall_state_callback)
+        self.assertIsNotNone(server._firewall_state_callback)
         self.assertTrue(server._firewall_opened)
 
     def test_stop_retains_firewall_callback_when_persisted_state_clear_fails(self):
@@ -683,6 +683,10 @@ class TLSContextTests(unittest.TestCase):
 
             def add_ports(self, interface, ports):
                 return tuple(ports)
+
+            def export_state(self, interface):
+                return {"zone": "feclora-pxe-12345678", "restore_zone": "public",
+                        "ports": ["9443/tcp"]}
 
             def remove_ports(self, interface, ports):
                 self.removal_attempted = True
