@@ -85,6 +85,24 @@ class RecoveryBootTests(unittest.TestCase):
         with patch("feclora.storage.recovery_boot.os.path.ismount", return_value=False):
             self.assertIsNone(discover_payload((self.root,)))
 
+    def test_discovery_does_not_follow_symlinked_feclora_directory(self):
+        media = self.root / "media"
+        media.mkdir()
+        outside = self.root / "outside"
+        (outside / "RECOVERY").mkdir(parents=True)
+        (media / "FECLORA").symlink_to(outside, target_is_directory=True)
+        with patch("feclora.storage.recovery_boot.os.path.ismount", return_value=True):
+            self.assertIsNone(discover_payload((media,)))
+
+    def test_discovery_does_not_follow_symlinked_recovery_directory(self):
+        media = self.root / "media"
+        (media / "FECLORA").mkdir(parents=True)
+        outside = self.root / "outside"
+        outside.mkdir()
+        (media / "FECLORA" / "RECOVERY").symlink_to(outside, target_is_directory=True)
+        with patch("feclora.storage.recovery_boot.os.path.ismount", return_value=True):
+            self.assertIsNone(discover_payload((media,)))
+
     def test_discovery_returns_none_without_payload(self):
         self.assertIsNone(discover_payload((self.root / "missing",)))
 
