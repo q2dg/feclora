@@ -99,6 +99,15 @@ lshw
 systemctl --root=/ enable NetworkManager
 systemctl --root=/ enable cockpit.socket
 
+# Boot the default (first) GRUB entry immediately, without showing the menu.
+cat >> /etc/default/grub <<'EOF'
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=0
+GRUB_TIMEOUT_STYLE=hidden
+GRUB_SAVEDEFAULT=false
+EOF
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
 # The administrator account remains locked in the passwordless local kiosk profile.
 useradd --create-home --groups wheel --shell /bin/bash feclora
 passwd --lock feclora
