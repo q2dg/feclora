@@ -389,18 +389,8 @@ def _managed_repository(repository_id: str, image_id: str):
             manager.unmount(repository_id)
 
 
-def _pxe_report_callback(
-    *,
-    spool_directory: str | os.PathLike[str] = "/var/lib/feclora/pxe/report-outbox",
-) -> Any:
-    """Build a durable, best-effort reporter for the per-job Live kernel handoff.
-
-    Reports are fsync'd to a private local outbox before network delivery. A
-    successful HTTP 200 clears the queue; failures leave it for the next event
-    in this boot/job to retry. The server's event-ID deduplication makes replay
-    safe if the connection drops after the server commits a report.
-    """
-    import fcntl
+def _pxe_report_callback() -> Any:
+    """Build a best-effort HTTP reporter from the per-job Live kernel handoff."""
     import json
     import shlex
     import uuid
@@ -423,100 +413,28 @@ def _pxe_report_callback(
                 or not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", mac)):
             return None
         endpoint = f"http://{parsed.hostname}:{parsed.port or 80}/pxe/report/{job_id}"
-        spool_root = Path(spool_directory)
-        spool_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-        root_info = os.lstat(spool_root)
-        if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
-                or root_info.st_uid != os.geteuid() or root_info.st_mode & 0o077):
-            return None
     except (OSError, UnicodeError, ValueError):
         return None
-
-    spool_path = spool_root / f"{job_id}-{mac.replace(':', '')}.jsonl"
-    lock_path = spool_root / f".{job_id}-{mac.replace(':', '')}.lock"
 
     def report(event: dict[str, Any]) -> None:
         allowed = ("operation_id", "operation", "timestamp", "status", "target",
                    "image_id", "bytes_done", "bytes_total", "error_type", "error")
         payload_event = {key: event[key] for key in allowed if key in event}
-        # Deterministic IDs make a retried local event identical to the original
-        # even if the process dies after the Server commits but before queue clear.
-        identity = json.dumps(
-            {"job_id": job_id, "client_mac": mac, "event": payload_event},
-            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        payload_event["event_id"] = str(uuid.uuid4())
+        body = json.dumps({"client_mac": mac, "event": payload_event}).encode("utf-8")
+        request = urllib.request.Request(
+            endpoint, data=body,
+            headers={"Content-Type": "application/json", "Accept": "text/plain",
+                     "User-Agent": "Feclora-PXE-Reporter/1"},
+            method="POST",
         )
-        payload_event["event_id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
-        body = json.dumps(
-            {"client_mac": mac, "event": payload_event},
-            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
-        ).encode("utf-8")
-        if len(body) > 16384:
-            return
-
         try:
-            lock_fd = os.open(
-                lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
-            )
-            try:
-                lock_info = os.fstat(lock_fd)
-                if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.geteuid()
-                        or lock_info.st_mode & 0o077):
-                    return
-                fcntl.flock(lock_fd, fcntl.LOCK_EX)
-                flags = os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-                queue_fd = os.open(spool_path, flags, 0o600)
-                try:
-                    queue_info = os.fstat(queue_fd)
-                    if (not stat.S_ISREG(queue_info.st_mode) or queue_info.st_uid != os.geteuid()
-                            or queue_info.st_mode & 0o077 or queue_info.st_size + len(body) + 1 > 4 * 1024 * 1024):
-                        return
-                    os.fchmod(queue_fd, 0o600)
-                    pending = memoryview(body + b"\n")
-                    while pending:
-                        written = os.write(queue_fd, pending)
-                        if written <= 0:
-                            raise OSError("short write while persisting PXE report outbox")
-                        pending = pending[written:]
-                    os.fsync(queue_fd)
-
-                    os.lseek(queue_fd, 0, os.SEEK_SET)
-                    raw = bytearray()
-                    while True:
-                        chunk = os.read(queue_fd, 65536)
-                        if not chunk:
-                            break
-                        raw.extend(chunk)
-                    try:
-                        queued = [json.loads(line) for line in raw.splitlines() if line]
-                    except (UnicodeError, json.JSONDecodeError):
-                        return
-
-                    opener = urllib.request.build_opener(_NoRedirect)
-                    for queued_body in queued:
-                        request = urllib.request.Request(
-                            endpoint,
-                            data=json.dumps(queued_body, sort_keys=True, separators=(",", ":")).encode("utf-8"),
-                            headers={"Content-Type": "application/json", "Accept": "text/plain",
-                                     "User-Agent": "Feclora-PXE-Reporter/1"},
-                            method="POST",
-                        )
-                        try:
-                            with opener.open(request, timeout=3.0) as response:
-                                if response.status != 200:
-                                    return
-                                response.read(128)
-                        except (OSError, urllib.error.URLError, TimeoutError):
-                            return
-                    os.ftruncate(queue_fd, 0)
-                    os.fsync(queue_fd)
-                finally:
-                    os.close(queue_fd)
-            finally:
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
-                os.close(lock_fd)
-        except (OSError, ValueError):
-            # Reporting must never interrupt a destructive restore. The durable
-            # local operation journal remains available for manual reconciliation.
+            opener = urllib.request.build_opener(_NoRedirect)
+            with opener.open(request, timeout=3.0) as response:
+                # A report is advisory; the restore must continue if the Server
+                # is offline, the job was revoked, or HTTP delivery fails.
+                response.read(128)
+        except (OSError, urllib.error.URLError, TimeoutError):
             return
 
     return report
