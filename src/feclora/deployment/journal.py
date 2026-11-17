@@ -241,7 +241,7 @@ class DeploymentJournal:
             if not isinstance(mac, str) or not mac:
                 raise DeploymentJournalError("journal contains an invalid client identity")
             state = event.get("client_state")
-            if state is not None:
+            if state is not None and event.get("event") != "client_progress":
                 if state not in {"connected", "ready", "running", "succeeded", "failed", "disconnected"}:
                     raise DeploymentJournalError("journal contains an unknown client state")
                 previous_state = clients.get(mac, {}).get("state")
