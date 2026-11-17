@@ -58,7 +58,7 @@ def source_candidate(source: Path, raw: str) -> Path | None:
         candidate = source.parent / target
     candidate = candidate.resolve()
     try:
-        candidate.relative_to(DOCS.resolve())
+        candidate.relative_to(ROOT.resolve())
     except ValueError:
         return None
     if candidate.suffix.lower() == ".html":
