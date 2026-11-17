@@ -1182,7 +1182,18 @@ class DeploymentControlServer:
                 try:
                     self.coordinator.disconnect_client(mac, f"result not received: {exc}")
                 except CoordinatorError:
+                    # A concurrent transfer worker may already have committed
+                    # a terminal result. Never let a later socket error replace
+                    # that authoritative coordinator state in the returned map.
                     pass
+                record = next(
+                    (item for item in self.coordinator.clients() if item.mac_address == mac),
+                    None,
+                )
+                if record is not None and record.state in {
+                    ClientState.SUCCEEDED, ClientState.FAILED, ClientState.DISCONNECTED,
+                }:
+                    return mac, record.state.value
                 return mac, "disconnected"
             finally:
                 try:
