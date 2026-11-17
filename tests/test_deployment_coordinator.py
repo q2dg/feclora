@@ -194,11 +194,20 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         )
         self.assertEqual(self.coordinator.state, JobState.FAILED)
 
-    def test_cancellation_is_terminal(self):
+    def test_cancellation_is_terminal_before_arm(self):
+        self.connect()
         self.coordinator.cancel()
         self.assertEqual(self.coordinator.state, JobState.CANCELLED)
+        self.assertEqual(self.coordinator.clients()[0].state, ClientState.READY)
         with self.assertRaisesRegex(CoordinatorError, "terminal"):
             self.coordinator.arm()
+
+    def test_cancellation_is_rejected_after_arm_without_mutating_state(self):
+        self.connect()
+        self.coordinator.arm()
+        with self.assertRaisesRegex(CoordinatorError, "only before the job is armed"):
+            self.coordinator.cancel()
+        self.assertEqual(self.coordinator.state, JobState.ARMED)
 
     def test_cannot_report_result_without_running(self):
         self.connect()
