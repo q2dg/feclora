@@ -50,6 +50,7 @@ function Field({ label, children, help, t = (value) => value }) {
 
 export default function App() {
   const { language, setLanguage, t } = useLanguagePreference();
+  const [languageConfirmed, setLanguageConfirmed] = useState(false);
   const [tab, setTab] = useState("operations");
   const [status, setStatus] = useState(null);
   const [revokeIdentity, setRevokeIdentity] = useState("");
@@ -1267,6 +1268,25 @@ export default function App() {
     ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || (partitionId || imageId)))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (isProportionalRestore ? source && source !== target && proportionalSourceDevice?.major_minor && restoreTargetDevice?.major_minor && restoreTargetDevice.size_bytes < proportionalSourceDevice.size_bytes : (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes)))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
+
+  if (!languageConfirmed) {
+    return (
+      <Page>
+        <PageSection variant="default">
+          <Title headingLevel="h1">Feclora</Title>
+          <Title headingLevel="h2" size="xl">{t("language")}</Title>
+          <p className="pf-v6-u-mb-lg">{t("tagline")}</p>
+          <div className="pf-v6-u-mb-lg">
+            <label htmlFor="feclora-first-language" className="pf-v6-c-form__label pf-v6-u-mb-sm">{t("language")}</label>
+            <select id="feclora-first-language" className="pf-v6-c-form-control" value={language} onChange={(event) => setLanguage(event.target.value)} autoFocus>
+              {LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </div>
+          <Button variant="primary" onClick={() => setLanguageConfirmed(true)}>{t("continue")}</Button>
+        </PageSection>
+      </Page>
+    );
+  }
 
   return (
     <Page>
