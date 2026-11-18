@@ -443,11 +443,7 @@ python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide a
 
 
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -535,11 +531,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
  "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Passwordless Cockpit kiosk must use a loopback-only local session."
 grep -Fq 'http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the local Feclora Cockpit application."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
@@ -619,11 +611,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -711,11 +699,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
  "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
@@ -791,11 +775,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -883,11 +863,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
  "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Passwordless Cockpit kiosk must use a loopback-only local session."
 grep -Fq 'http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the local Feclora Cockpit application."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
@@ -967,11 +943,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -1059,11 +1031,15 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
+
+
+
+
 if (( errors > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$errors" >&2
   exit 1
 fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n
 
 for unit in feclora-root-terminal.service feclora-kiosk-return.service; do
   [[ -s "$ROOT_DIR/src/feclora/data/$unit" ]] || fail "Root-terminal unit is missing: $unit"
@@ -1079,4 +1055,4 @@ if (( errors > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$errors" >&2
   exit 1
 fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
