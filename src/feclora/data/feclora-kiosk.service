@@ -38,4 +38,4 @@ IPAddressAllow=::1/128
 ReadWritePaths=/var/lib/feclora-kiosk
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target graphical.target
