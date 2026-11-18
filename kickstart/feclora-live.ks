@@ -54,6 +54,7 @@ udpcast
 # Required live-media boot components
 plymouth
 plymouth-plugin-script
+curl
 plymouth-plugin-two-step
 plymouth-scripts
 librsvg2-tools
@@ -219,19 +220,107 @@ chown root:root "$TARGET_ROOT/var/lib/feclora/images"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/images"
 %end
 
-# Activate Feclora's Plymouth splash in the Live initramfs.
+# Diagnostic Plymouth theme: a single image downloaded at build time from
+# Wikimedia Commons (CC0). Keep the original Feclora theme installed unchanged.
 %post --erroronfail
 PLYMOUTH_THEME_DIR=/usr/share/plymouth/themes/feclora
 rsvg-convert --width=640 --output="$PLYMOUTH_THEME_DIR/feclora-logo.png" "$PLYMOUTH_THEME_DIR/feclora-logo-dark.svg"
 test -s "$PLYMOUTH_THEME_DIR/feclora-logo.png"
+
+TEST_THEME_DIR=/usr/share/plymouth/themes/feclora-test
+install -d "$TEST_THEME_DIR"
+curl --fail --location --silent --show-error --retry 3 --connect-timeout 15 --max-time 60 \
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Colordrawn_Sun.svg/250px-Colordrawn_Sun.svg.png' \
+  --output "$TEST_THEME_DIR/test-image.png"
+test -s "$TEST_THEME_DIR/test-image.png"
+cat > "$TEST_THEME_DIR/feclora-test.plymouth" <<'EOF'
+[Plymouth Theme]
+Name=Feclora diagnostic image
+Description=Minimal single-image Plymouth diagnostic theme
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/feclora-test
+ScriptFile=feclora-test.script
+EOF
+cat > "$TEST_THEME_DIR/feclora-test.script" <<'EOF'
+Window.SetBackgroundTopColor(0.035, 0.075, 0.13);
+Window.SetBackgroundBottomColor(0.012, 0.027, 0.055);
+
+test_image = Image("test-image.png");
+test_sprite = Sprite(test_image);
+test_sprite.SetPosition(
+    Window.GetWidth() / 2 - test_image.GetWidth() / 2,
+    Window.GetHeight() / 2 - test_image.GetHeight() / 2,
+    10000
+);
+EOF
+cat > "$TEST_THEME_DIR/IMAGE-SOURCE.txt" <<'EOF'
+Image: Colordrawn Sun.svg (PNG thumbnail rendition)
+Author: Anpang01
+Source: https://commons.wikimedia.org/wiki/File:Colordrawn_Sun.svg
+Original file: https://upload.wikimedia.org/wikipedia/commons/f/f9/Colordrawn_Sun.svg
+License: CC0 1.0 Universal Public Domain Dedication
+Downloaded at ISO build time from Wikimedia Commons.
+EOF
+
 install -d /etc/dracut.conf.d
 cat > /etc/dracut.conf.d/feclora-plymouth.conf <<'EOF'
 add_dracutmodules+=" plymouth "
-install_items+=" /usr/share/plymouth/themes/feclora/feclora.plymouth /usr/share/plymouth/themes/feclora/feclora.script /usr/share/plymouth/themes/feclora/feclora-logo.png /usr/lib64/plymouth/script.so "
+install_items+=" /usr/share/plymouth/themes/feclora/feclora.plymouth /usr/share/plymouth/themes/feclora/feclora.script /usr/share/plymouth/themes/feclora/feclora-logo.png /usr/share/plymouth/themes/feclora-test/feclora-test.plymouth /usr/share/plymouth/themes/feclora-test/feclora-test.script /usr/share/plymouth/themes/feclora-test/test-image.png /usr/lib64/plymouth/script.so "
 EOF
-plymouth-set-default-theme feclora -R
-test "$(plymouth-set-default-theme)" = feclora
-grep -q '^Theme=feclora$' /etc/plymouth/plymouthd.conf
+plymouth-set-default-theme feclora-test -R
+test "$(plymouth-set-default-theme)" = feclora-test
+grep -q '^Theme=feclora-testshopt -s nullglob
+
+# Validate kernel initramfs images only. The rescue image is generated
+# separately by dracut and is not required to use the Feclora splash theme.
+initrds=()
+for initrd in /boot/initramfs-*.img; do
+  [[ -f "$initrd" ]] || continue
+  case "$initrd" in
+    */initramfs-0-rescue-*.img)
+      echo "Skipping rescue initramfs: $initrd"
+      continue
+      ;;
+  esac
+  initrds+=("$initrd")
+done
+
+if [ "${#initrds[@]}" -eq 0 ]; then
+  echo "No generated initramfs found after selecting the Feclora Plymouth theme." >&2
+  exit 1
+fi
+for initrd in "${initrds[@]}"; do
+  listing="$(lsinitrd "$initrd")"
+  modules="$(lsinitrd -m "$initrd")"
+  if ! grep -Eq '^plymouth$' <<<"$modules"; then
+    echo "The Plymouth dracut module is missing from initramfs $initrd." >&2
+    exit 1
+  fi
+  theme_config="$(lsinitrd -f /etc/plymouth/plymouthd.conf "$initrd")"
+  if ! grep -Eq '^[[:space:]]*Theme=feclora-test$' <<<"$theme_config"; then
+    echo "Initramfs $initrd does not select the diagnostic image Plymouth theme." >&2
+    exit 1
+  fi
+  for asset in \
+    usr/share/plymouth/themes/feclora/feclora.plymouth \
+    usr/share/plymouth/themes/feclora/feclora.script \
+    usr/share/plymouth/themes/feclora/feclora-logo.png \
+    usr/share/plymouth/themes/feclora-test/feclora-test.plymouth \
+    usr/share/plymouth/themes/feclora-test/feclora-test.script \
+    usr/share/plymouth/themes/feclora-test/test-image.png \
+    usr/lib64/plymouth/script.so; do
+    if ! grep -Fq "$asset" <<<"$listing"; then
+      echo "Plymouth asset $asset is missing from initramfs $initrd." >&2
+      exit 1
+    fi
+  done
+done
+%end
+
+shutdown
+ /etc/plymouth/plymouthd.conf
 shopt -s nullglob
 
 # Validate kernel initramfs images only. The rescue image is generated
