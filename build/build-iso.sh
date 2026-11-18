@@ -127,11 +127,35 @@ LMC_ARGS=(
   --iso-only
   --iso-name feclora-live.iso
   --lorax-templates "${LORAX_TEMPLATE_DIR}"
-  --extra-boot-args "rd.plymouth=1 rhgb quiet loglevel=3 vt.global_cursor_default=0"
+  --extra-boot-args "rd.plymouth=1 rhgb plymouth.debug rd.debug loglevel=7 systemd.show_status=1 vt.global_cursor_default=0"
 )
 if [[ -n "${BUILD_PROXY}" ]]; then
   LMC_ARGS+=(--proxy "${BUILD_PROXY}")
 fi
 livemedia-creator "${LMC_ARGS[@]}"
+
+# Inspect the initramfs actually shipped in the ISO, not only /boot inside
+# the installed Live root. Keep the report beside the artifact for offline
+# diagnosis; do not claim the splash is present unless its assets are listed.
+ISO_FILE="${RESULT_DIR}/feclora-live.iso"
+INITRD_TMP="${WORK_DIR}/iso-boot-initrd.img"
+REPORT="${RESULT_DIR}/boot-initrd-plymouth-check.txt"
+{
+  echo "ISO: ${ISO_FILE}"
+  echo "Boot initramfs path: /images/pxeboot/initrd.img"
+  if xorriso -osirrox on -indev "${ISO_FILE}" -extract /images/pxeboot/initrd.img "${INITRD_TMP}" >/dev/null 2>&1 && [[ -s "${INITRD_TMP}" ]]; then
+    echo "ISO initramfs extraction: OK"
+    echo "--- dracut modules ---"
+    lsinitrd -m "${INITRD_TMP}" 2>&1 || true
+    echo "--- Plymouth theme/config/assets ---"
+    lsinitrd "${INITRD_TMP}" 2>&1 | grep -Ei 'plymouth|feclora|script\\.so' || true
+    echo "--- embedded Plymouth configuration ---"
+    lsinitrd -f /etc/plymouth/plymouthd.conf "${INITRD_TMP}" 2>&1 || true
+  else
+    echo "ISO initramfs extraction failed at /images/pxeboot/initrd.img."
+    echo "List candidate initrds with: xorriso -indev out/feclora-live.iso -find / -name initrd.img -print"
+  fi
+} > "${REPORT}"
+rm -f "${INITRD_TMP}"
 
 printf 'Build command completed in %ss. Inspect the ISO and logs under: %s\n' "${SECONDS}" "${RESULT_DIR}"
