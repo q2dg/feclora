@@ -222,9 +222,11 @@ chmod 0700 "$TARGET_ROOT/var/lib/feclora/images"
 %post --erroronfail
 PLYMOUTH_THEME_DIR=/usr/share/plymouth/themes/feclora
 rsvg-convert --width=640 --output="$PLYMOUTH_THEME_DIR/feclora-logo.png" "$PLYMOUTH_THEME_DIR/feclora-logo-dark.svg"
+test -s "$PLYMOUTH_THEME_DIR/feclora-logo.png"
 install -d /etc/dracut.conf.d
 cat > /etc/dracut.conf.d/feclora-plymouth.conf <<'EOF'
 add_dracutmodules+=" plymouth "
+install_items+=" /usr/share/plymouth/themes/feclora/feclora-logo.png "
 EOF
 plymouth-set-default-theme -R feclora
 %end
