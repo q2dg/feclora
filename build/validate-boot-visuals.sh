@@ -25,7 +25,8 @@ grep -q -- '--lorax-templates' "$BUILD" || fail "The ISO build does not use the 
 grep -q 'set default="0"' "$BUILD" || fail "Lorax menu default is not the first entry."
 grep -q 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
 grep -q 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not pinned to the logind libseat backend."
-grep -q 'cage -x --' "$LAUNCH" || fail "Cage is not configured to disable XWayland."
+grep -q '^exec /usr/bin/cage -- ' "$LAUNCH" || fail "Kiosk launcher must invoke Cage using supported arguments."
+if grep -q 'cage -x' "$LAUNCH"; then fail "Kiosk launcher must not pass the unsupported -x option to Cage."; fi
 grep -q 'WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
 grep -q '^After=.*plymouth-quit-wait.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth has released it."
 grep -qx 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
