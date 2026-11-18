@@ -232,7 +232,21 @@ plymouth-set-default-theme feclora -R
 test "$(plymouth-set-default-theme)" = feclora
 grep -q '^Theme=feclora$' /etc/plymouth/plymouthd.conf
 shopt -s nullglob
-initrds=(/boot/initramfs-*.img)
+
+# Validate kernel initramfs images only. The rescue image is generated
+# separately by dracut and is not required to use the Feclora splash theme.
+initrds=()
+for initrd in /boot/initramfs-*.img; do
+  [[ -f "$initrd" ]] || continue
+  case "$initrd" in
+    */initramfs-0-rescue-*.img)
+      echo "Skipping rescue initramfs: $initrd"
+      continue
+      ;;
+  esac
+  initrds+=("$initrd")
+done
+
 if [ "${#initrds[@]}" -eq 0 ]; then
   echo "No generated initramfs found after selecting the Feclora Plymouth theme." >&2
   exit 1
