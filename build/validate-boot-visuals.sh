@@ -5,6 +5,7 @@ KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BUILD="$ROOT_DIR/build/build-iso.sh"
 SERVICE="$ROOT_DIR/src/feclora/data/feclora-kiosk.service"
 LAUNCH="$ROOT_DIR/src/feclora/data/feclora-kiosk-launch"
+PAM="$ROOT_DIR/src/feclora/data/feclora-kiosk.pam"
 THEME="$ROOT_DIR/src/feclora/data/plymouth"
 fail() { echo "BOOT VISUAL VALIDATION ERROR: $*" >&2; exit 1; }
 
@@ -25,55 +26,15 @@ grep -q 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not pin
 grep -q 'cage -x --' "$LAUNCH" || fail "Cage is not configured to disable XWayland."
 grep -q 'WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
 grep -q '^After=.*plymouth-quit-wait.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth has released it."
-grep -q '^Before=graphical.target
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
- "$SERVICE" || fail "Kiosk must be part of graphical-target startup ordering."
-grep -q '^Wants=dbus.socket systemd-logind.service
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
- "$SERVICE" || fail "Kiosk must explicitly pull in D-Bus and logind."
-grep -q '^PAMName=feclora-kiosk
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
- "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
-grep -q '^StandardInput=tty-fail
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
- "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
-grep -q '^WantedBy=graphical.target
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
- "$SERVICE" || fail "Kiosk must start only with graphical.target."
-[[ -s "$ROOT_DIR/src/feclora/data/feclora-kiosk.pam" ]] || fail "Dedicated kiosk PAM configuration is missing."
+grep -qx 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
+grep -qx 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must explicitly pull in D-Bus and logind."
+grep -qx 'PAMName=feclora-kiosk' "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
+grep -qx 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
+grep -qx 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must start only with graphical.target."
+[[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
 grep -q 'feclora-kiosk.pam.*etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
 grep -q 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
 grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
 for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
