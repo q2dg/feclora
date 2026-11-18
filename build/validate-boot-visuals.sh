@@ -16,6 +16,8 @@ grep -q '^ModuleName=script$' "$THEME/feclora.plymouth" || fail "Feclora must us
 grep -q '^ScriptFile=feclora.script$' "$THEME/feclora.plymouth" || fail "Plymouth script entry point is not configured."
 grep -q 'Image("feclora-logo.png")' "$THEME/feclora.script" || fail "Plymouth script does not load the generated Feclora PNG logo."
 grep -q 'rsvg-convert .*feclora-logo.png' "$KS" || fail "Kickstart does not generate the PNG logo required by the script theme."
+grep -q 'test -s "\$PLYMOUTH_THEME_DIR/feclora-logo.png"' "$KS" || fail "Kickstart does not verify the generated Plymouth logo."
+grep -q 'install_items.*feclora-logo.png' "$KS" || fail "The Plymouth logo is not explicitly included in the initramfs."
 grep -q 'plymouth-set-default-theme -R feclora' "$KS" || fail "Feclora is not selected and rebuilt into the initramfs."
 grep -q 'add_dracutmodules.*plymouth' "$KS" || fail "Plymouth dracut module is not explicitly included."
 grep -q 'rd.plymouth=1 rhgb quiet loglevel=3 vt.global_cursor_default=0' "$BUILD" || fail "Quiet graphical boot arguments are missing."
