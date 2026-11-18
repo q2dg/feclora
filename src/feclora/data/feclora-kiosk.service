@@ -25,10 +25,13 @@ TTYVHangup=yes
 TTYVTDisallocate=no
 UtmpIdentifier=tty1
 UtmpMode=user
+SyslogIdentifier=feclora-kiosk
+StandardOutput=journal
+StandardError=journal
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 ExecStartPost=+/usr/bin/chvt 1
 Restart=always
-RestartSec=3
+RestartSec=5
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
@@ -43,7 +46,7 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 IPAddressDeny=any
 IPAddressAllow=127.0.0.1/32
 IPAddressAllow=::1/128
-ReadWritePaths=/var/lib/feclora-kiosk
+ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk
 
 [Install]
 WantedBy=graphical.target
