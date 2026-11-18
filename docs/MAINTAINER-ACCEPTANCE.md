@@ -8,7 +8,7 @@ This checklist records the remaining hands-on validation owned by the maintainer
 
 - [ ] Build the ISO using the documented procedure and record the commit, Fedora build host, installer ISO checksum, build logs, output size and final SHA-256.
 - [ ] Boot the ISO in BIOS and UEFI modes; record firmware/VM configuration and results separately.
-- [ ] Test Cockpit and the Firefox kiosk on physical hardware and virtual machines, including first-boot password setup, TLS trust, keyboard/layout, service restart and kiosk escape-path behavior.
+- [ ] Test Cockpit and the Firefox kiosk on physical hardware and virtual machines, including the language-selection screen, passwordless local kiosk startup, root-terminal handoff and return to the graphical kiosk, TLS trust, keyboard/layout, service restart and kiosk escape-path behavior.
 - [ ] Perform restore operations against disposable real disks. Verify source/target identity, overwrite confirmation, read-back verification and failure behavior. Never use production data or a disk whose contents are not disposable.
 - [ ] Validate each remote repository provider against a real endpoint: SSHFS, NFS, SMB/CIFS and S3-compatible storage. Include permissions, bad credentials, disconnects, interrupted transfers and recovery.
 - [ ] Validate deployment with multiple Clients, including unicast and multicast where applicable. Record Client count, network topology, IGMP/switch configuration, per-Client results and failures.
