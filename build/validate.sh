@@ -25,6 +25,7 @@ for file in \
   webui/src/App.jsx webui/src/api.js webui/src/i18n.js \
   src/feclora/webapi.py src/feclora/data/feclora-cockpit-kiosk.service \
   src/feclora/data/feclora-kiosk.service src/feclora/data/feclora-kiosk-launch \
+  src/feclora/data/feclora-kiosk.pam build/validate-boot-visuals.sh \\
   src/feclora/data/feclora-kiosk-firefox-policies.json \
   src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-kiosk-return.service \
@@ -60,6 +61,11 @@ require_text 'feclora-kiosk-return\.service' src/feclora/data/feclora-root-termi
 require_text '^User=root$' src/feclora/data/feclora-root-terminal.service "Root terminal must run as root."
 require_text '^TTYPath=/dev/tty1$' src/feclora/data/feclora-root-terminal.service "Root terminal must use the physical kiosk display."
 require_text '^Conflicts=feclora-cockpit-kiosk\.service feclora-kiosk\.service$' src/feclora/data/feclora-root-terminal.service "Root terminal must stop the graphical kiosk while active."
+
+# Validate the complete Plymouth and graphical-session handoff configuration.
+if ! bash "$ROOT_DIR/build/validate-boot-visuals.sh"; then
+  fail "Boot visual and kiosk session validation failed."
+fi
 
 # Shell syntax and Python correctness.
 while IFS= read -r -d '' script; do
