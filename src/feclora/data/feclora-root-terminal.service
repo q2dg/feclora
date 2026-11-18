@@ -1,0 +1,20 @@
+[Unit]
+Description=Feclora local root shell on the physical kiosk display
+After=systemd-logind.service feclora-cockpit-kiosk.service feclora-kiosk.service
+Conflicts=feclora-cockpit-kiosk.service feclora-kiosk.service
+
+[Service]
+Type=idle
+User=root
+Group=root
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+ExecStart=/usr/bin/bash --login
+ExecStopPost=/usr/bin/systemctl start --no-block feclora-kiosk-return.service
+Restart=no
+UMask=0077
