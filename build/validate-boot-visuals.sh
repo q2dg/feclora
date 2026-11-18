@@ -1,74 +1,72 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BUILD="$ROOT_DIR/build/build-iso.sh"
 SERVICE="$ROOT_DIR/src/feclora/data/feclora-kiosk.service"
 LAUNCH="$ROOT_DIR/src/feclora/data/feclora-kiosk-launch"
+RECOVERY="$ROOT_DIR/src/feclora/data/feclora-recovery-boot.service"
 PAM="$ROOT_DIR/src/feclora/data/feclora-kiosk.pam"
 THEME="$ROOT_DIR/src/feclora/data/plymouth"
-fail() { echo "BOOT VISUAL VALIDATION ERROR: $*" >&2; exit 1; }
 
+fail() {
+  printf 'BOOT VISUAL VALIDATION ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+# Packages and source assets required by the graphical boot path.
 for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox; do
-  grep -qx "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
+  grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
-grep -q '^ModuleName=script$' "$THEME/feclora.plymouth" || fail "Feclora must use the script Plymouth renderer."
-grep -q '^ScriptFile=feclora.script$' "$THEME/feclora.plymouth" || fail "Plymouth script entry point is not configured."
-grep -q 'Image("feclora-logo.png")' "$THEME/feclora.script" || fail "Plymouth script does not load the generated Feclora PNG logo."
-grep -q 'rsvg-convert .*feclora-logo.png' "$KS" || fail "Kickstart does not generate the PNG logo required by the script theme."
-grep -q 'test -s "\$PLYMOUTH_THEME_DIR/feclora-logo.png"' "$KS" || fail "Kickstart does not verify the generated Plymouth logo."
-grep -q 'install_items.*feclora-logo.png' "$KS" || fail "The Plymouth logo is not explicitly included in the initramfs."
-grep -q 'plymouth-set-default-theme feclora -R' "$KS" || fail "Feclora is not selected and rebuilt into the initramfs."
-grep -q 'add_dracutmodules.*plymouth' "$KS" || fail "Plymouth dracut module is not explicitly included."
-grep -q 'usr/lib64/plymouth/script.so' "$KS" || fail "The script renderer plugin is not explicitly included in the initramfs."
-grep -q 'lsinitrd' "$KS" || fail "Kickstart does not inspect the generated initramfs for Plymouth assets."
-grep -q '^RuntimeDirectory=feclora
-grep -q 'rd.plymouth=1 rhgb quiet loglevel=3 vt.global_cursor_default=0' "$BUILD" || fail "Quiet graphical boot arguments are missing."
-grep -q -- '--lorax-templates' "$BUILD" || fail "The ISO build does not use the hidden-menu Lorax templates."
-grep -q 'set default="0"' "$BUILD" || fail "Lorax menu default is not the first entry."
-grep -q 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
-grep -q 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not pinned to the logind libseat backend."
-grep -q '^exec /usr/bin/cage -- ' "$LAUNCH" || fail "Kiosk launcher must invoke Cage using supported arguments."
-if grep -q 'cage -x' "$LAUNCH"; then fail "Kiosk launcher must not pass the unsupported -x option to Cage."; fi
-grep -q 'WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
-grep -q '^After=.*plymouth-quit-wait.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth has released it."
-grep -qx 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
-grep -qx 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must explicitly pull in D-Bus and logind."
-grep -qx 'PAMName=feclora-kiosk' "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
-grep -qx 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
-grep -qx 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must start only with graphical.target."
+
+[[ -s "$THEME/feclora.plymouth" ]] || fail "Plymouth theme descriptor is missing."
+[[ -s "$THEME/feclora.script" ]] || fail "Plymouth script is missing."
+[[ -s "$THEME/feclora-logo-dark.svg" ]] || fail "Plymouth source logo is missing."
+grep -Fxq 'ModuleName=script' "$THEME/feclora.plymouth" || fail "Feclora must use the script Plymouth renderer."
+grep -Fxq 'ScriptFile=feclora.script' "$THEME/feclora.plymouth" || fail "Plymouth script entry point is not configured."
+grep -Fq 'Image("feclora-logo.png")' "$THEME/feclora.script" || fail "Plymouth script does not load the generated PNG logo."
+grep -Fq 'rsvg-convert --width=640 --output="$PLYMOUTH_THEME_DIR/feclora-logo.png"' "$KS" || fail "Kickstart does not generate the PNG logo."
+grep -Fq 'test -s "$PLYMOUTH_THEME_DIR/feclora-logo.png"' "$KS" || fail "Kickstart does not verify the generated logo."
+grep -Fq 'plymouth-set-default-theme feclora -R' "$KS" || fail "Feclora theme is not selected and rebuilt into initramfs."
+grep -Fq 'add_dracutmodules+=" plymouth "' "$KS" || fail "Plymouth dracut module is not explicitly included."
+grep -Fq 'install_items+=' "$KS" || fail "Plymouth assets are not explicitly included in initramfs."
+grep -Fq '/usr/lib64/plymouth/script.so' "$KS" || fail "Plymouth script renderer plugin is not included in initramfs."
+grep -Fq 'lsinitrd -m "$initrd"' "$KS" || fail "Kickstart does not inspect initramfs module contents."
+grep -Fq 'lsinitrd -f /etc/plymouth/plymouthd.conf "$initrd"' "$KS" || fail "Kickstart does not verify the initramfs Plymouth theme selection."
+
+# Keep the recovery service's systemd sandbox path present before namespace setup.
+grep -Fxq 'RuntimeDirectory=feclora' "$RECOVERY" || fail "Recovery service does not create its writable runtime directory."
+grep -Fxq 'ReadWritePaths=/var/lib/feclora /run/feclora' "$RECOVERY" || fail "Recovery service writable paths do not match its runtime directory."
+
+# The ISO bootloader is generated by Lorax templates, not installed-system GRUB.
+grep -Fq 'set default=\\"0\\"' "$BUILD" || fail "Lorax template override does not select the first boot entry."
+grep -Fq 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
+grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
+grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
+grep -Fq 'rd.plymouth=1 rhgb quiet loglevel=3 vt.global_cursor_default=0' "$BUILD" || fail "Quiet graphical boot arguments are missing."
+
+# Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
+grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
+grep -Fq 'exec /usr/bin/cage -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must invoke Cage with its application separator."
+if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH"; then
+  fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
+fi
+grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
+grep -Fxq 'export WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
+
+# Validate the systemd handoff from Plymouth to the kiosk.
+grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth releases it."
+grep -Fxq 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
+grep -Fxq 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must pull in D-Bus and logind."
+grep -Fxq 'PAMName=feclora-kiosk' "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
+grep -Fxq 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
+grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled for graphical.target."
 [[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
-grep -q 'feclora-kiosk.pam.*etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
-grep -q 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
- "$ROOT_DIR/src/feclora/data/feclora-recovery-boot.service" || fail "Recovery service does not create its writable runtime directory."
-grep -q 'rd.plymouth=1 rhgb quiet loglevel=3 vt.global_cursor_default=0' "$BUILD" || fail "Quiet graphical boot arguments are missing."
-grep -q -- '--lorax-templates' "$BUILD" || fail "The ISO build does not use the hidden-menu Lorax templates."
-grep -q 'set default="0"' "$BUILD" || fail "Lorax menu default is not the first entry."
-grep -q 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
-grep -q 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not pinned to the logind libseat backend."
-grep -q '^exec /usr/bin/cage -- ' "$LAUNCH" || fail "Kiosk launcher must invoke Cage using supported arguments."
-if grep -q 'cage -x' "$LAUNCH"; then fail "Kiosk launcher must not pass the unsupported -x option to Cage."; fi
-grep -q 'WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
-grep -q '^After=.*plymouth-quit-wait.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth has released it."
-grep -qx 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
-grep -qx 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must explicitly pull in D-Bus and logind."
-grep -qx 'PAMName=feclora-kiosk' "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
-grep -qx 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
-grep -qx 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must start only with graphical.target."
-[[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
-grep -q 'feclora-kiosk.pam.*etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
-grep -q 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
-grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
-grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
-for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
-  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
-done
+grep -Fq 'feclora-kiosk.pam" "$TARGET_ROOT/etc/pam.d/feclora-kiosk"' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
+grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
+grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable local Cockpit kiosk dependencies."
+grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -Fq 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+
 printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
