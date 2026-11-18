@@ -24,7 +24,55 @@ grep -q 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configure
 grep -q 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not pinned to the logind libseat backend."
 grep -q 'cage -x --' "$LAUNCH" || fail "Cage is not configured to disable XWayland."
 grep -q 'WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
-grep -q '^WantedBy=multi-user.target graphical.target$' "$SERVICE" || fail "Kiosk service is not enabled from both boot targets."
+grep -q '^After=.*plymouth-quit-wait.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth has released it."
+grep -q '^Before=graphical.target
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
+  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
+done
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+ "$SERVICE" || fail "Kiosk must be part of graphical-target startup ordering."
+grep -q '^Wants=dbus.socket systemd-logind.service
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
+  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
+done
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+ "$SERVICE" || fail "Kiosk must explicitly pull in D-Bus and logind."
+grep -q '^PAMName=feclora-kiosk
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
+  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
+done
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+ "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
+grep -q '^StandardInput=tty-fail
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
+  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
+done
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+ "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
+grep -q '^WantedBy=graphical.target
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
+  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
+done
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+ "$SERVICE" || fail "Kiosk must start only with graphical.target."
+[[ -s "$ROOT_DIR/src/feclora/data/feclora-kiosk.pam" ]] || fail "Dedicated kiosk PAM configuration is missing."
+grep -q 'feclora-kiosk.pam.*etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
+grep -q 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
 grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
 grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
