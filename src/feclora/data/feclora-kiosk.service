@@ -29,7 +29,9 @@ SyslogIdentifier=feclora-kiosk
 StandardOutput=journal
 StandardError=journal
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
-ExecStartPost=+/usr/bin/chvt 1
+# Do not switch to tty1 while Cage is still initializing: that exposes a
+# blank VT if DRM/logind acquisition has not completed yet.
+ExecStartPost=+/usr/bin/bash -c 'uid="$(id -u feclora-kiosk)"; for attempt in {1..30}; do if compgen -G "/run/user/${uid}/wayland-*" >/dev/null; then /usr/bin/chvt 1; exit 0; fi; sleep 1; done; echo "WARNING: Cage did not create a Wayland socket within 30 seconds; leaving the current VT active." >&2; exit 0'
 Restart=always
 RestartSec=5
 UMask=0077
