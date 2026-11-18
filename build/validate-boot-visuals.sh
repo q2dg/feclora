@@ -28,12 +28,16 @@ grep -Fxq 'ScriptFile=feclora.script' "$THEME/feclora.plymouth" || fail "Plymout
 grep -Fq 'Image("feclora-logo.png")' "$THEME/feclora.script" || fail "Plymouth script does not load the generated PNG logo."
 grep -Fq 'rsvg-convert --width=640 --output=' "$KS" || fail "Kickstart does not generate the PNG logo."
 grep -Fq 'test -s ' "$KS" || fail "Kickstart does not verify the generated logo."
-grep -Fq 'plymouth-set-default-theme feclora -R' "$KS" || fail "Feclora theme is not selected and rebuilt into initramfs."
+grep -Fq 'plymouth-set-default-theme feclora-test -R' "$KS" || fail "Diagnostic image theme is not selected and rebuilt into initramfs."
+grep -Fq 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Colordrawn_Sun.svg/250px-Colordrawn_Sun.svg.png' "$KS" || fail "Diagnostic theme image source is missing."
+grep -Fq 'test-image.png' "$KS" || fail "Diagnostic theme image is not installed in the initramfs."
+grep -Fq 'Theme=feclora-test' "$KS" || fail "Diagnostic image theme is not verified in Plymouth configuration."
 grep -Fq 'add_dracutmodules+=" plymouth "' "$KS" || fail "Plymouth dracut module is not explicitly included."
 grep -Fq 'install_items+=' "$KS" || fail "Plymouth assets are not explicitly included in initramfs."
 grep -Fq '/usr/lib64/plymouth/script.so' "$KS" || fail "Plymouth script renderer plugin is not included in initramfs."
 grep -Fq 'lsinitrd -m' "$KS" || fail "Kickstart does not inspect initramfs module contents."
 grep -Fq 'lsinitrd -f /etc/plymouth/plymouthd.conf' "$KS" || fail "Kickstart does not verify the initramfs Plymouth theme selection."
+grep -Fq 'feclora-test/test-image.png' "$KS" || fail "Kickstart does not verify the external test image in the initramfs."
 
 # Keep the recovery service's systemd sandbox path present before namespace setup.
 grep -Fxq 'RuntimeDirectory=feclora' "$RECOVERY" || fail "Recovery service does not create its writable runtime directory."
