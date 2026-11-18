@@ -18,7 +18,7 @@ grep -q 'Image("feclora-logo.png")' "$THEME/feclora.script" || fail "Plymouth sc
 grep -q 'rsvg-convert .*feclora-logo.png' "$KS" || fail "Kickstart does not generate the PNG logo required by the script theme."
 grep -q 'test -s "\$PLYMOUTH_THEME_DIR/feclora-logo.png"' "$KS" || fail "Kickstart does not verify the generated Plymouth logo."
 grep -q 'install_items.*feclora-logo.png' "$KS" || fail "The Plymouth logo is not explicitly included in the initramfs."
-grep -q 'plymouth-set-default-theme -R feclora' "$KS" || fail "Feclora is not selected and rebuilt into the initramfs."
+grep -q 'plymouth-set-default-theme feclora -R' "$KS" || fail "Feclora is not selected and rebuilt into the initramfs."
 grep -q 'add_dracutmodules.*plymouth' "$KS" || fail "Plymouth dracut module is not explicitly included."
 grep -q 'usr/lib64/plymouth/script.so' "$KS" || fail "The script renderer plugin is not explicitly included in the initramfs."
 grep -q 'lsinitrd' "$KS" || fail "Kickstart does not inspect the generated initramfs for Plymouth assets."
