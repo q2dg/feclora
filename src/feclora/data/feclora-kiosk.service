@@ -1,10 +1,7 @@
 [Unit]
 Description=Feclora Firefox kiosk on the local display
 After=systemd-logind.service systemd-user-sessions.service feclora-cockpit-kiosk.service
-Before=plymouth-quit.service
 Requires=feclora-cockpit-kiosk.service
-Conflicts=getty@tty1.service
-After=getty@tty1.service
 
 [Service]
 Type=simple
