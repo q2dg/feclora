@@ -3924,6 +3924,20 @@ def dispatch(request: Any) -> dict[str, Any]:
     params = request.get("params", {})
     if not isinstance(params, dict):
         raise WebAPIError("params must be a JSON object")
+    if action == "open_root_terminal":
+        if params:
+            raise WebAPIError("open_root_terminal does not accept parameters")
+        try:
+            result = subprocess.run(
+                ["/usr/bin/systemctl", "start", "--no-block", "feclora-root-terminal.service"],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise WebAPIError("cannot request the local root terminal") from exc
+        if result.returncode != 0:
+            raise WebAPIError("systemd rejected the local root terminal request")
+        return {"requested": True}
     if action == "get_keyboard_layout":
         if params:
             raise WebAPIError("get_keyboard_layout does not accept parameters")
