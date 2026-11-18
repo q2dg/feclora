@@ -44,7 +44,7 @@ grep -Fq 's/^set default=.*/set default=' "$BUILD" || fail "Lorax template overr
 grep -Fq 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
 grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
 grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
-grep -Fq 'rd.plymouth=1 rhgb plymouth.debug rd.debug loglevel=7 systemd.show_status=1 vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
+grep -Fq 'rd.plymouth=1 rhgb quiet loglevel=3 plymouth.debug systemd.show_status=0 vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
 
 # Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
 grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
@@ -58,6 +58,7 @@ grep -Fq 'tee -a "$LOG_DIR/launcher.log"' "$LAUNCH" || fail "Kiosk launcher must
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
 grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must wait for the local Cockpit endpoint."
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
+grep -Fq 'wayland-*' "$SERVICE" || fail "Kiosk must wait for Cage to create its Wayland socket before switching VTs."
 grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must be writable inside the service sandbox."
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
