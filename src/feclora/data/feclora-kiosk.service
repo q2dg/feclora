@@ -1,6 +1,10 @@
 [Unit]
 Description=Feclora Firefox kiosk on the local display
-After=systemd-logind.service systemd-user-sessions.service feclora-cockpit-kiosk.service
+Wants=dbus.socket systemd-logind.service
+After=dbus.socket systemd-logind.service systemd-user-sessions.service plymouth-quit-wait.service feclora-cockpit-kiosk.service
+Before=graphical.target
+ConditionPathExists=/dev/tty0
+Conflicts=getty@tty1.service
 Requires=feclora-cockpit-kiosk.service
 
 [Service]
@@ -12,15 +16,18 @@ Environment=HOME=/var/lib/feclora-kiosk
 Environment=MOZ_ENABLE_WAYLAND=1
 Environment=LIBSEAT_BACKEND=logind
 EnvironmentFile=-/etc/feclora/kiosk-keyboard.conf
-PAMName=login
+PAMName=feclora-kiosk
 TTYPath=/dev/tty1
-StandardInput=tty
+StandardInput=tty-fail
 TTYReset=yes
 TTYVHangup=yes
-TTYVTDisallocate=yes
+TTYVTDisallocate=no
+UtmpIdentifier=tty1
+UtmpMode=user
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
-Restart=always
-RestartSec=2
+ExecStartPost=+/usr/bin/chvt 1
+Restart=on-failure
+RestartSec=5
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
@@ -38,4 +45,4 @@ IPAddressAllow=::1/128
 ReadWritePaths=/var/lib/feclora-kiosk
 
 [Install]
-WantedBy=multi-user.target graphical.target
+WantedBy=graphical.target
