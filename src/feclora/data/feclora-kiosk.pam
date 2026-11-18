@@ -1,6 +1,9 @@
 # PAM session for the Feclora Cage kiosk.
-# Cage is launched by systemd; no interactive password login is provided.
-auth       required     pam_unix.so nullok
-account    required     pam_unix.so
+# This is a systemd-managed service, not an interactive login. The kiosk
+# account intentionally has a locked password, so do not authenticate it
+# with pam_unix; grant the service session and let pam_systemd create its
+# logind seat/runtime environment.
+auth       required     pam_permit.so
+account    required     pam_permit.so
 session    required     pam_unix.so
 session    required     pam_systemd.so
