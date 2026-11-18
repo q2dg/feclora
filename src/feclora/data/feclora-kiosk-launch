@@ -1,11 +1,26 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
+
+LOG_DIR=/var/log/feclora-kiosk
+mkdir -p "$LOG_DIR"
+# Keep a plain-text copy recoverable from the Live filesystem; tee also
+# forwards every line to the systemd journal.
+exec > >(tee -a "$LOG_DIR/launcher.log") 2>&1
+
 url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 export MOZ_ENABLE_WAYLAND=1
-# Cage is a Wayland-only kiosk compositor; do not pass unsupported options.
-# Wait for the local Cockpit endpoint before opening Firefox. systemd considers
-# the Cockpit service started before its HTTP listener is necessarily ready.
+
+echo
+echo "===== Feclora kiosk launch: $(date --iso-8601=seconds) ====="
+echo "uid=$(id) cmdline=$(cat /proc/cmdline)"
+echo "seat=${XDG_SEAT:-unset} runtime=${XDG_RUNTIME_DIR:-unset}"
+echo "DRM devices:"
+ls -la /dev/dri 2>&1 || true
+echo "Input devices:"
+ls -la /dev/input 2>&1 || true
+
+# Wait for Cockpit's local-session endpoint before opening Firefox.
 ready=0
 for attempt in {1..60}; do
   if (exec 3<>/dev/tcp/127.0.0.1/9091) 2>/dev/null; then
@@ -16,11 +31,13 @@ for attempt in {1..60}; do
   sleep 1
 done
 if (( ready == 0 )); then
-  echo "Local Cockpit kiosk endpoint did not become ready on 127.0.0.1:9091." >&2
+  echo "ERROR: Cockpit kiosk endpoint did not listen on 127.0.0.1:9091 within 60 seconds."
+  systemctl --no-pager --full status feclora-cockpit-kiosk.service 2>&1 || true
   exit 1
 fi
 
-# Let wlroots choose the available renderer. Forcing GLES2 can leave Cage with
-# a black VT on virtual GPUs or systems without a usable EGL/GLES2 stack.
+# Let wlroots select the renderer supported by the available GPU.
 unset WLR_RENDERER
+echo "Cockpit endpoint is ready; starting Cage and Firefox."
+echo "Cage/Firefox exit status and stderr will be recorded below."
 exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
