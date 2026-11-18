@@ -87,6 +87,28 @@ echo "[3/4] Preparing augmented installer ISO..."
 APP_STAGE="${WORK_DIR}/feclora-app"
 AUGMENTED_ISO="${WORK_DIR}/feclora-installer.iso"
 mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist"
+
+# Lorax builds the ISO boot menus from its own templates, independently of
+# /etc/default/grub in the installed Live filesystem. Override both firmware
+# variants so the first entry boots immediately without showing the menu.
+LORAX_TEMPLATE_SOURCE="${FECLORA_LORAX_TEMPLATES:-/usr/share/lorax/templates.d/99-generic}"
+LORAX_TEMPLATE_DIR="${WORK_DIR}/lorax-templates"
+[[ -d "${LORAX_TEMPLATE_SOURCE}/live/config_files/x86" ]] || {
+  echo "Lorax live templates not found under ${LORAX_TEMPLATE_SOURCE}." >&2
+  exit 1
+}
+cp -a "${LORAX_TEMPLATE_SOURCE}" "${LORAX_TEMPLATE_DIR}"
+for grub_cfg in \
+  "${LORAX_TEMPLATE_DIR}/live/config_files/x86/grub2-bios.cfg" \
+  "${LORAX_TEMPLATE_DIR}/live/config_files/x86/grub2-efi.cfg"; do
+  [[ -f "${grub_cfg}" ]] || { echo "Required Lorax GRUB template missing: ${grub_cfg}" >&2; exit 1; }
+  sed -i -E 's/^set default=.*/set default="0"/; s/^set timeout=.*/set timeout=0/' "${grub_cfg}"
+  if ! grep -q '^set timeout_style=' "${grub_cfg}"; then
+    sed -i '/^set timeout=0$/a set timeout_style=hidden' "${grub_cfg}"
+  else
+    sed -i 's/^set timeout_style=.*/set timeout_style=hidden/' "${grub_cfg}"
+  fi
+done
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
 
@@ -104,6 +126,8 @@ LMC_ARGS=(
   --vcpus "${BUILD_VCPUS}"
   --iso-only
   --iso-name feclora-live.iso
+  --lorax-templates "${LORAX_TEMPLATE_DIR}"
+  --extra-boot-args "rd.plymouth=1"
 )
 if [[ -n "${BUILD_PROXY}" ]]; then
   LMC_ARGS+=(--proxy "${BUILD_PROXY}")

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Feclora
+Description=Feclora branded boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/feclora
+ScriptFile=/usr/share/plymouth/themes/feclora/feclora.script

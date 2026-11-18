@@ -52,6 +52,10 @@ caddy
 udpcast
 
 # Required live-media boot components
+plymouth
+plymouth-plugin-script
+plymouth-scripts
+librsvg2-tools
 dracut-config-generic
 dracut-network
 dracut-live
@@ -137,6 +141,16 @@ if [ ! -s "$WEB_SOURCE/index.html" ] || [ ! -s "$WEB_SOURCE/manifest.json" ]; th
 fi
 
 install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
+PLYMOUTH_SOURCE="$APP_SOURCE/data/plymouth"
+PLYMOUTH_TARGET="$TARGET_ROOT/usr/share/plymouth/themes/feclora"
+if [ ! -s "$PLYMOUTH_SOURCE/feclora.plymouth" ] || [ ! -s "$PLYMOUTH_SOURCE/feclora.script" ] || [ ! -s "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" ]; then
+  echo "Feclora Plymouth theme assets are missing: $PLYMOUTH_SOURCE" >&2
+  exit 1
+fi
+install -d "$PLYMOUTH_TARGET"
+install -m 0644 "$PLYMOUTH_SOURCE/feclora.plymouth" "$PLYMOUTH_TARGET/feclora.plymouth"
+install -m 0644 "$PLYMOUTH_SOURCE/feclora.script" "$PLYMOUTH_TARGET/feclora.script"
+install -m 0644 "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" "$PLYMOUTH_TARGET/feclora-logo-dark.svg"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
 install -d "$TARGET_ROOT/usr/lib/tmpfiles.d"
@@ -196,6 +210,17 @@ install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
 chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/images"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/images"
+%end
+
+# Activate Feclora's Plymouth splash in the Live initramfs.
+%post --erroronfail
+PLYMOUTH_THEME_DIR=/usr/share/plymouth/themes/feclora
+rsvg-convert --width=640 --output="$PLYMOUTH_THEME_DIR/feclora-logo.png" "$PLYMOUTH_THEME_DIR/feclora-logo-dark.svg"
+install -d /etc/dracut.conf.d
+cat > /etc/dracut.conf.d/feclora-plymouth.conf <<'EOF'
+add_dracutmodules+=" plymouth "
+EOF
+plymouth-set-default-theme -R feclora
 %end
 
 shutdown
