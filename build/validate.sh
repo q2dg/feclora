@@ -25,7 +25,7 @@ for file in \
   webui/src/App.jsx webui/src/api.js webui/src/i18n.js \
   src/feclora/webapi.py src/feclora/data/feclora-cockpit-kiosk.service \
   src/feclora/data/feclora-kiosk.service src/feclora/data/feclora-kiosk-launch \
-  src/feclora/data/feclora-kiosk.pam build/validate-boot-visuals.sh \\
+  src/feclora/data/feclora-kiosk.pam build/validate-boot-visuals.sh \
   src/feclora/data/feclora-kiosk-firefox-policies.json \
   src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-kiosk-return.service \
