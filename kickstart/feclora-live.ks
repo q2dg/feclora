@@ -155,6 +155,7 @@ install -m 0644 "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" "$PLYMOUTH_TARGET/feclo
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
 install -d "$TARGET_ROOT/usr/lib/tmpfiles.d"
+install -d -o feclora-kiosk -g feclora-kiosk -m 0750 "$TARGET_ROOT/var/log/feclora-kiosk"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-image-browser-cache.conf" "$TARGET_ROOT/usr/lib/tmpfiles.d/feclora-image-browser-cache.conf"
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
 cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
