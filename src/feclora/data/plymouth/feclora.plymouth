@@ -1,8 +1,24 @@
 [Plymouth Theme]
 Name=Feclora
 Description=Feclora branded boot splash
-ModuleName=script
+ModuleName=two-step
 
-[script]
+[two-step]
+Font=Cantarell 12
+TitleFont=Cantarell Light 30
 ImageDir=/usr/share/plymouth/themes/feclora
-ScriptFile=/usr/share/plymouth/themes/feclora/feclora.script
+DialogHorizontalAlignment=.5
+DialogVerticalAlignment=.382
+TitleHorizontalAlignment=.5
+TitleVerticalAlignment=.382
+HorizontalAlignment=.5
+VerticalAlignment=.5
+WatermarkHorizontalAlignment=.5
+WatermarkVerticalAlignment=.5
+Transition=none
+TransitionDuration=0.0
+BackgroundStartColor=0x091a30
+BackgroundEndColor=0x030b18
+ProgressBarBackgroundColor=0x24415b
+ProgressBarForegroundColor=0x28c3df
+MessageBelowAnimation=false
