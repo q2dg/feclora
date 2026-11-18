@@ -40,6 +40,7 @@ fi
 [[ -d "$ROOT_DIR/src/feclora" ]] || fail "Application source directory is missing."
 [[ "$(uname -m)" == "x86_64" ]] ||
   fail "Expected an x86_64 build host; detected $(uname -m)."
+# shellcheck source=/etc/os-release
 . /etc/os-release
 [[ "${ID:-}" == "fedora" ]] ||
   fail "The build host must be Fedora 45; detected ID=${ID:-unknown}."
