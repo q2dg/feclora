@@ -48,6 +48,8 @@ grep -Fq 'rd.plymouth=1 rhgb quiet loglevel=3 plymouth.debug systemd.show_status
 
 # Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
 grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
+grep -Fxq 'Environment=XDG_RUNTIME_DIR=/run/feclora-kiosk' "$SERVICE" || fail "System kiosk user has no dedicated Wayland runtime directory."
+grep -Fxq 'RuntimeDirectory=feclora-kiosk' "$SERVICE" || fail "systemd does not create the kiosk Wayland runtime directory."
 grep -Fq 'exec /usr/bin/cage -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must invoke Cage with its application separator."
 if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH"; then
   fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
