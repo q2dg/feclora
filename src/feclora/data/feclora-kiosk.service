@@ -1,5 +1,6 @@
 [Unit]
 Description=Feclora Firefox kiosk on the local display
+StartLimitIntervalSec=0
 Wants=dbus.socket systemd-logind.service
 After=dbus.socket systemd-logind.service systemd-user-sessions.service plymouth-quit-wait.service feclora-cockpit-kiosk.service
 Before=graphical.target
@@ -28,7 +29,6 @@ ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 ExecStartPost=+/usr/bin/chvt 1
 Restart=always
 RestartSec=3
-StartLimitIntervalSec=0
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
