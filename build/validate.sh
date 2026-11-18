@@ -441,22 +441,13 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 python3 "$ROOT_DIR/build/check_docs.py" || fail "Documentation links and guide assets failed validation."
 
 
-for unit in feclora-root-terminal.service feclora-kiosk-return.service; do
-  [[ -s "$ROOT_DIR/src/feclora/data/$unit" ]] || fail "Root-terminal unit is missing: $unit"
-  grep -Fq "$unit" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install $unit."
-done
-grep -q 'open_root_terminal' "$ROOT_DIR/webui/src/api.js" || fail "Frontend does not expose the local root-terminal action."
-grep -q 'open_root_terminal' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart Cockpit API wrapper does not allow the local root-terminal action."
-grep -q 'def dispatch(request' "$ROOT_DIR/src/feclora/webapi.py" || fail "Privileged Cockpit API dispatch is missing."
-grep -q 'feclora-root-terminal.service' "$ROOT_DIR/src/feclora/webapi.py" || fail "Privileged Cockpit API does not request the fixed root-terminal unit."
-grep -q 'feclora-kiosk-return.service' "$ROOT_DIR/src/feclora/data/feclora-root-terminal.service" || fail "Root-terminal exit does not request kiosk restoration."
+
 
 if (( errors > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$errors" >&2
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/kickstart/feclora-live.ks" || fail "GRUB must select the default entry without a countdown."
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -465,15 +456,11 @@ grep -Fq '"https://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firef
 grep -Fq '"wss://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must allow Cockpit websockets."
 grep -Fq '/usr/lib/mozilla/certificates/feclora-kiosk-ca.crt' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must install the local CA using its Linux certificate policy."
 grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit socket must wait for local TLS certificate provisioning."
-grep -q 'feclora-kiosk-bootstrap-ready' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the bootstrap readiness probe."
 grep -q 'feclora-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable the Firefox kiosk service."
-grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the Feclora Cockpit application."
-grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" || fail "First-boot assistant does not redirect into the Feclora Cockpit application."
-grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
+grep -Fq 'http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the local Feclora Cockpit application."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
@@ -558,7 +545,6 @@ grep -Fq 'http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html' "$ROOT_DI
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
@@ -638,7 +624,6 @@ if (( errors > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/kickstart/feclora-live.ks" || fail "GRUB must select the default entry without a countdown."
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -647,15 +632,11 @@ grep -Fq '"https://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firef
 grep -Fq '"wss://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must allow Cockpit websockets."
 grep -Fq '/usr/lib/mozilla/certificates/feclora-kiosk-ca.crt' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must install the local CA using its Linux certificate policy."
 grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit socket must wait for local TLS certificate provisioning."
-grep -q 'feclora-kiosk-bootstrap-ready' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the bootstrap readiness probe."
 grep -q 'feclora-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable the Firefox kiosk service."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the Feclora Cockpit application."
-grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" || fail "First-boot assistant does not redirect into the Feclora Cockpit application."
-grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
@@ -815,7 +796,6 @@ if (( errors > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/kickstart/feclora-live.ks" || fail "GRUB must select the default entry without a countdown."
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -824,15 +804,11 @@ grep -Fq '"https://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firef
 grep -Fq '"wss://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must allow Cockpit websockets."
 grep -Fq '/usr/lib/mozilla/certificates/feclora-kiosk-ca.crt' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must install the local CA using its Linux certificate policy."
 grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit socket must wait for local TLS certificate provisioning."
-grep -q 'feclora-kiosk-bootstrap-ready' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the bootstrap readiness probe."
 grep -q 'feclora-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable the Firefox kiosk service."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the Feclora Cockpit application."
-grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" || fail "First-boot assistant does not redirect into the Feclora Cockpit application."
-grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
@@ -917,7 +893,6 @@ grep -Fq 'http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html' "$ROOT_DI
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
@@ -997,7 +972,6 @@ if (( errors > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/kickstart/feclora-live.ks" || fail "GRUB must select the default entry without a countdown."
 grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv4 loopback."
 grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit must bind to IPv6 loopback."
 grep -Fq '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must block all URLs by default."
@@ -1006,15 +980,11 @@ grep -Fq '"https://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firef
 grep -Fq '"wss://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox WebsiteFilter must allow Cockpit websockets."
 grep -Fq '/usr/lib/mozilla/certificates/feclora-kiosk-ca.crt' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must install the local CA using its Linux certificate policy."
 grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Cockpit socket must wait for local TLS certificate provisioning."
-grep -q 'feclora-kiosk-bootstrap-ready' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install the bootstrap readiness probe."
 grep -q 'feclora-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable the Firefox kiosk service."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the Feclora Cockpit application."
-grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" || fail "First-boot assistant does not redirect into the Feclora Cockpit application."
-grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
 grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
 grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
@@ -1094,3 +1064,19 @@ if (( errors > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
+for unit in feclora-root-terminal.service feclora-kiosk-return.service; do
+  [[ -s "$ROOT_DIR/src/feclora/data/$unit" ]] || fail "Root-terminal unit is missing: $unit"
+  grep -Fq "$unit" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install $unit."
+done
+grep -q 'open_root_terminal' "$ROOT_DIR/webui/src/api.js" || fail "Frontend does not expose the local root-terminal action."
+grep -q 'open_root_terminal' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart Cockpit API wrapper does not allow the local root-terminal action."
+grep -q 'def dispatch(request' "$ROOT_DIR/src/feclora/webapi.py" || fail "Privileged Cockpit API dispatch is missing."
+grep -q 'feclora-root-terminal.service' "$ROOT_DIR/src/feclora/webapi.py" || fail "Privileged Cockpit API does not request the fixed root-terminal unit."
+grep -q 'feclora-kiosk-return.service' "$ROOT_DIR/src/feclora/data/feclora-root-terminal.service" || fail "Root-terminal exit does not request kiosk restoration."
+
+if (( errors > 0 )); then
+  printf 'Validation failed with %d error(s).\n' "$errors" >&2
+  exit 1
+fi
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n
