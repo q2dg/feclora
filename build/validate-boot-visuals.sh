@@ -44,7 +44,7 @@ grep -Fq 's/^set default=.*/set default=' "$BUILD" || fail "Lorax template overr
 grep -Fq 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
 grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
 grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
-grep -Fq 'rd.plymouth=1 rhgb quiet loglevel=3 vt.global_cursor_default=0' "$BUILD" || fail "Quiet graphical boot arguments are missing."
+grep -Fq 'rd.plymouth=1 rhgb plymouth.debug rd.debug loglevel=7 systemd.show_status=1 vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
 
 # Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
 grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
@@ -54,8 +54,12 @@ if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH";
 fi
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
 grep -Fq 'unset WLR_RENDERER' "$LAUNCH" || fail "Cage must allow wlroots renderer autodetection."
+grep -Fq 'tee -a "$LOG_DIR/launcher.log"' "$LAUNCH" || fail "Kiosk launcher must preserve a plain-text diagnostic log."
+grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
 grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must wait for the local Cockpit endpoint."
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
+grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must be writable inside the service sandbox."
+grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
 # Validate the systemd handoff from Plymouth to the kiosk.
@@ -68,6 +72,7 @@ grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled 
 [[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
 grep -Fq 'etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
 grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
+grep -Fq 'var/log/feclora-kiosk' "$KS" || fail "Kickstart does not create the offline-retrievable kiosk log directory."
 grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable local Cockpit kiosk dependencies."
 grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -Fq 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
