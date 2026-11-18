@@ -186,6 +186,8 @@ install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cock
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-launch"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-certificate.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk.service"
+install -d -m 0755 "$TARGET_ROOT/etc/pam.d"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.pam" "$TARGET_ROOT/etc/pam.d/feclora-kiosk"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-kiosk.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-root-terminal.service" "$TARGET_ROOT/etc/systemd/system/feclora-root-terminal.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-return.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk-return.service"
@@ -206,7 +208,8 @@ install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
-systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service
+systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service
+systemctl --root="$TARGET_ROOT" enable feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
 systemctl --root="$TARGET_ROOT" mask getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
