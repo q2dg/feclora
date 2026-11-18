@@ -65,6 +65,22 @@ class PXEOperationHistoryTests(unittest.TestCase):
 
 
 class WebAPITests(unittest.TestCase):
+    def test_open_root_terminal_requests_only_the_fixed_local_systemd_unit(self):
+        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as runner:
+            result = dispatch({"action": "open_root_terminal", "params": {}})
+        self.assertEqual(result, {"requested": True})
+        args, kwargs = runner.call_args
+        self.assertEqual(args[0], ["/usr/bin/systemctl", "start", "--no-block", "feclora-root-terminal.service"])
+        self.assertIs(kwargs["stdin"], __import__("subprocess").DEVNULL)
+        self.assertTrue(kwargs["check"] is False)
+
+    def test_open_root_terminal_rejects_parameters_and_systemd_errors(self):
+        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+            dispatch({"action": "open_root_terminal", "params": {"command": "/bin/sh"}})
+        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="denied")):
+            with self.assertRaisesRegex(WebAPIError, "systemd rejected"):
+                dispatch({"action": "open_root_terminal", "params": {}})
+
     def test_deployment_bundle_worker_uses_one_validated_shared_answer(self):
         from contextlib import contextmanager
         from feclora.webapi import _execute_operation
