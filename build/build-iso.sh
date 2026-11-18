@@ -127,7 +127,7 @@ LMC_ARGS=(
   --iso-only
   --iso-name feclora-live.iso
   --lorax-templates "${LORAX_TEMPLATE_DIR}"
-  --extra-boot-args "rd.plymouth=1 rhgb plymouth.debug rd.debug loglevel=7 systemd.show_status=1 vt.global_cursor_default=0"
+  --extra-boot-args "rd.plymouth=1 rhgb quiet loglevel=3 plymouth.debug systemd.show_status=0 vt.global_cursor_default=0"
 )
 if [[ -n "${BUILD_PROXY}" ]]; then
   LMC_ARGS+=(--proxy "${BUILD_PROXY}")
@@ -143,6 +143,15 @@ REPORT="${RESULT_DIR}/boot-initrd-plymouth-check.txt"
 {
   echo "ISO: ${ISO_FILE}"
   echo "Boot initramfs path: /images/pxeboot/initrd.img"
+  echo "--- GRUB kernel command lines ---"
+  for grub_cfg in /boot/grub2/grub.cfg /EFI/BOOT/grub.cfg /EFI/fedora/grub.cfg; do
+    grub_tmp="${WORK_DIR}/$(basename "${grub_cfg}").${RANDOM}"
+    if xorriso -osirrox on -indev "${ISO_FILE}" -extract "${grub_cfg}" "${grub_tmp}" >/dev/null 2>&1 && [[ -s "${grub_tmp}" ]]; then
+      echo "GRUB config: ${grub_cfg}"
+      grep -E '^[[:space:]]*(linux|linuxefi)[[:space:]]' "${grub_tmp}" || true
+    fi
+    rm -f "${grub_tmp}"
+  done
   if xorriso -osirrox on -indev "${ISO_FILE}" -extract /images/pxeboot/initrd.img "${INITRD_TMP}" >/dev/null 2>&1 && [[ -s "${INITRD_TMP}" ]]; then
     echo "ISO initramfs extraction: OK"
     echo "--- dracut modules ---"
