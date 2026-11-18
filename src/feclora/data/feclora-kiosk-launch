@@ -3,6 +3,6 @@ set -Eeuo pipefail
 url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 export MOZ_ENABLE_WAYLAND=1
-# Keep the kiosk Wayland-native: do not start an XWayland server.
+# Cage is a Wayland-only kiosk compositor; do not pass unsupported options.
 export WLR_RENDERER=gles2
-exec /usr/bin/cage -x -- /usr/bin/firefox --kiosk --new-instance "$url"
+exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
