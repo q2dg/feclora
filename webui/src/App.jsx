@@ -51,6 +51,7 @@ function Field({ label, children, help, t = (value) => value }) {
 export default function App() {
   const { language, setLanguage, t } = useLanguagePreference();
   const [languageConfirmed, setLanguageConfirmed] = useState(false);
+  const [terminalError, setTerminalError] = useState("");
   const [tab, setTab] = useState("operations");
   const [status, setStatus] = useState(null);
   const [revokeIdentity, setRevokeIdentity] = useState("");
@@ -1282,7 +1283,18 @@ export default function App() {
               {LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </div>
-          <Button variant="primary" onClick={() => setLanguageConfirmed(true)}>{t("continue")}</Button>
+          <div className="pf-v6-u-display-flex pf-v6-u-flex-wrap pf-v6-u-gap-md">
+            <Button variant="primary" onClick={() => setLanguageConfirmed(true)}>{t("continue")}</Button>
+            <Button variant="secondary" onClick={async () => {
+              setTerminalError("");
+              try {
+                await callFeclora("open_root_terminal");
+              } catch (error) {
+                setTerminalError(error.message);
+              }
+            }}>{t("openRootTerminal")}</Button>
+          </div>
+          {terminalError && <Alert variant="danger" title={t("rootTerminalFailed")} isInline>{terminalError}</Alert>}
         </PageSection>
       </Page>
     );
