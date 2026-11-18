@@ -228,7 +228,7 @@ cat > /etc/dracut.conf.d/feclora-plymouth.conf <<'EOF'
 add_dracutmodules+=" plymouth "
 install_items+=" /usr/share/plymouth/themes/feclora/feclora.plymouth /usr/share/plymouth/themes/feclora/feclora.script /usr/share/plymouth/themes/feclora/feclora-logo.png /usr/lib64/plymouth/script.so "
 EOF
-plymouth-set-default-theme -R feclora
+plymouth-set-default-theme feclora -R
 test "$(plymouth-set-default-theme)" = feclora
 grep -q '^Theme=feclora
 
