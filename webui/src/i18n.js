@@ -1742,6 +1742,19 @@ for (const [language, label] of Object.entries(CONTINUE_LABELS)) {
   else if (DICTS[language]) DICTS[language].continue = label;
 }
 
+Object.assign(EN, {
+  openRootTerminal: "Open root terminal",
+  rootTerminalFailed: "Could not open the root terminal"
+});
+Object.assign(DICTS.es, {
+  openRootTerminal: "Abrir terminal como root",
+  rootTerminalFailed: "No se pudo abrir el terminal root"
+});
+Object.assign(DICTS.ca, {
+  openRootTerminal: "Obre el terminal com a root",
+  rootTerminalFailed: "No s'ha pogut obrir el terminal root"
+});
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
