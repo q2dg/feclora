@@ -14,6 +14,7 @@ User=feclora-kiosk
 Group=feclora-kiosk
 SupplementaryGroups=video render
 Environment=HOME=/var/lib/feclora-kiosk
+Environment=XDG_RUNTIME_DIR=/run/feclora-kiosk
 Environment=MOZ_ENABLE_WAYLAND=1
 Environment=LIBSEAT_BACKEND=logind
 EnvironmentFile=-/etc/feclora/kiosk-keyboard.conf
@@ -31,10 +32,12 @@ StandardError=journal
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 # Do not switch to tty1 while Cage is still initializing: that exposes a
 # blank VT if DRM/logind acquisition has not completed yet.
-ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/user/$(id -u feclora-kiosk)/wayland-*" >/dev/null; then /usr/bin/chvt 1; exit 0; fi; sleep 1; done; echo "WARNING: Cage did not create a Wayland socket within 30 seconds; leaving the current VT active." >&2; exit 0'
+ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/feclora-kiosk/wayland-*" >/dev/null; then /usr/bin/chvt 1; exit 0; fi; sleep 1; done; echo "WARNING: Cage did not create a Wayland socket within 30 seconds; leaving the current VT active." >&2; exit 0'
 Restart=always
 RestartSec=5
 UMask=0077
+RuntimeDirectory=feclora-kiosk
+RuntimeDirectoryMode=0700
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
