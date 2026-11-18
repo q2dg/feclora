@@ -53,7 +53,10 @@ if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH";
   fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
 fi
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
-grep -Fxq 'export WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
+grep -Fq 'unset WLR_RENDERER' "$LAUNCH" || fail "Cage must allow wlroots renderer autodetection."
+grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must wait for the local Cockpit endpoint."
+grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
+grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
 # Validate the systemd handoff from Plymouth to the kiosk.
 grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth releases it."
