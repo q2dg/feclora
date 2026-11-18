@@ -54,6 +54,7 @@ udpcast
 # Required live-media boot components
 plymouth
 plymouth-plugin-script
+plymouth-plugin-two-step
 plymouth-scripts
 librsvg2-tools
 dracut-config-generic
