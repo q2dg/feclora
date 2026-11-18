@@ -24,7 +24,15 @@ grep -q 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configure
 grep -q 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not pinned to the logind libseat backend."
 grep -q 'cage -x --' "$LAUNCH" || fail "Cage is not configured to disable XWayland."
 grep -q 'WLR_RENDERER=gles2' "$LAUNCH" || fail "Cage is not configured to use the GLES2 renderer."
-grep -q '^WantedBy=graphical.target$' "$SERVICE" || fail "Kiosk service is not enabled for graphical.target."
+grep -q '^WantedBy=multi-user.target graphical.target
+grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
+grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
+grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."\ngrep -q 'WantedBy=multi-user.target graphical.target' "$SERVICE" || fail "Kiosk service is not enabled from the multi-user target as a fallback."
+for file in feclora.plymouth feclora.script feclora-logo-dark.svg; do
+  [[ -s "$THEME/$file" ]] || fail "Plymouth theme asset is missing: $file"
+done
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+ "$SERVICE" || fail "Kiosk service is not enabled for both normal and graphical boot targets."
 grep -q 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk and its local Cockpit dependencies."
 grep -q 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -q 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
