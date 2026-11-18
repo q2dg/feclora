@@ -230,22 +230,29 @@ install_items+=" /usr/share/plymouth/themes/feclora/feclora.plymouth /usr/share/
 EOF
 plymouth-set-default-theme feclora -R
 test "$(plymouth-set-default-theme)" = feclora
-grep -q '^Theme=feclora
-
-shutdown
- /etc/plymouth/plymouthd.conf
+grep -q '^Theme=feclora$' /etc/plymouth/plymouthd.conf
 shopt -s nullglob
 initrds=(/boot/initramfs-*.img)
-if [ "${#initrds[@]}" -eq 0 ]; then
+if [ "\${#initrds[@]}" -eq 0 ]; then
   echo "No generated initramfs found after selecting the Feclora Plymouth theme." >&2
   exit 1
 fi
-for initrd in "${initrds[@]}"; do
+for initrd in "\${initrds[@]}"; do
   listing="$(lsinitrd "$initrd")"
-  for asset in \\
-    usr/share/plymouth/themes/feclora/feclora.plymouth \\
-    usr/share/plymouth/themes/feclora/feclora.script \\
-    usr/share/plymouth/themes/feclora/feclora-logo.png \\
+  modules="$(lsinitrd -m "$initrd")"
+  if ! grep -Eq '^plymouth$' <<<"$modules"; then
+    echo "The Plymouth dracut module is missing from initramfs $initrd." >&2
+    exit 1
+  fi
+  theme_config="$(lsinitrd -f /etc/plymouth/plymouthd.conf "$initrd")"
+  if ! grep -Eq '^[[:space:]]*Theme=feclora$' <<<"$theme_config"; then
+    echo "Initramfs $initrd does not select the Feclora Plymouth theme." >&2
+    exit 1
+  fi
+  for asset in \
+    usr/share/plymouth/themes/feclora/feclora.plymouth \
+    usr/share/plymouth/themes/feclora/feclora.script \
+    usr/share/plymouth/themes/feclora/feclora-logo.png \
     usr/lib64/plymouth/script.so; do
     if ! grep -Fq "$asset" <<<"$listing"; then
       echo "Plymouth asset $asset is missing from initramfs $initrd." >&2
