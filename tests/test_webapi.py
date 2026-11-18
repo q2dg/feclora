@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -71,7 +72,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result, {"requested": True})
         args, kwargs = runner.call_args
         self.assertEqual(args[0], ["/usr/bin/systemctl", "start", "--no-block", "feclora-root-terminal.service"])
-        self.assertIs(kwargs["stdin"], __import__("subprocess").DEVNULL)
+        self.assertIs(kwargs["stdin"], subprocess.DEVNULL)
         self.assertTrue(kwargs["check"] is False)
 
     def test_open_root_terminal_rejects_parameters_and_systemd_errors(self):
