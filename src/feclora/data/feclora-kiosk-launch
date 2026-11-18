@@ -4,5 +4,23 @@ url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 export MOZ_ENABLE_WAYLAND=1
 # Cage is a Wayland-only kiosk compositor; do not pass unsupported options.
-export WLR_RENDERER=gles2
+# Wait for the local Cockpit endpoint before opening Firefox. systemd considers
+# the Cockpit service started before its HTTP listener is necessarily ready.
+ready=0
+for attempt in {1..60}; do
+  if (exec 3<>/dev/tcp/127.0.0.1/9091) 2>/dev/null; then
+    exec 3>&-
+    ready=1
+    break
+  fi
+  sleep 1
+done
+if (( ready == 0 )); then
+  echo "Local Cockpit kiosk endpoint did not become ready on 127.0.0.1:9091." >&2
+  exit 1
+fi
+
+# Let wlroots choose the available renderer. Forcing GLES2 can leave Cage with
+# a black VT on virtual GPUs or systems without a usable EGL/GLES2 stack.
+unset WLR_RENDERER
 exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
