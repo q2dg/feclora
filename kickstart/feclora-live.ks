@@ -233,11 +233,11 @@ test "$(plymouth-set-default-theme)" = feclora
 grep -q '^Theme=feclora$' /etc/plymouth/plymouthd.conf
 shopt -s nullglob
 initrds=(/boot/initramfs-*.img)
-if [ "\${#initrds[@]}" -eq 0 ]; then
+if [ "${#initrds[@]}" -eq 0 ]; then
   echo "No generated initramfs found after selecting the Feclora Plymouth theme." >&2
   exit 1
 fi
-for initrd in "\${initrds[@]}"; do
+for initrd in "${initrds[@]}"; do
   listing="$(lsinitrd "$initrd")"
   modules="$(lsinitrd -m "$initrd")"
   if ! grep -Eq '^plymouth$' <<<"$modules"; then
