@@ -39,8 +39,9 @@ else
   echo "Cockpit endpoint is ready."
 fi
 
-# Let wlroots select the renderer supported by the available GPU.
-unset WLR_RENDERER
+# VirtualBox's VMware SVGA adapter cannot initialize EGL/Vulkan reliably without 3D.
+# Force wlroots' software Pixman renderer, which still presents through DRM/KMS.
+export WLR_RENDERER=pixman
 echo "Starting Cage and Firefox."
 echo "Cage/Firefox exit status and stderr will be recorded below."
 exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
