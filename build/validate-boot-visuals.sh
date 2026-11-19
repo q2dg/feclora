@@ -13,8 +13,7 @@ PAM="$ROOT_DIR/src/feclora/data/feclora-kiosk.pam"
 THEME="$ROOT_DIR/src/feclora/data/plymouth"
 
 fail() {
-  printf 'BOOT VISUAL VALIDATION ERROR: %s
-' "$*" >&2
+  printf 'BOOT VISUAL VALIDATION ERROR: %s\n' "$*" >&2
   exit 1
 }
 
@@ -109,5 +108,4 @@ grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.servi
 grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -Fq 'unmask getty@tty1.service' "$KS" || fail "Diagnostic ISO must leave tty1 available for display isolation."
 
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.
-'
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
