@@ -59,6 +59,7 @@ cockpit-system
 cockpit-storaged
 policycoreutils-python-utils
 cockpit-ws-selinux
+cockpit-bridge
 
 # Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
 cage
@@ -128,6 +129,9 @@ systemctl --root=/ enable cockpit.socket
 # The dedicated local kiosk instance listens on TCP 9091. SELinux's
 # cockpit policy (websm_port_t) otherwise only permits the default 9090.
 semanage port -a -t websm_port_t -p tcp 9091
+
+# The Live image is assembled from an overlay; explicitly apply RPM SELinux file contexts.
+restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge
 
 # TEMPORARY DIAGNOSTIC ACCESS ONLY: remove this account and SSH configuration
 # before producing any official Feclora ISO. Use only behind VirtualBox NAT.
