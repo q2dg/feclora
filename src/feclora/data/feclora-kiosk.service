@@ -1,8 +1,8 @@
 [Unit]
 Description=Feclora Firefox kiosk on the local display
 StartLimitIntervalSec=0
-Wants=dbus.socket systemd-logind.service network-online.target
-After=dbus.socket systemd-logind.service systemd-user-sessions.service network-online.target plymouth-quit-wait.service feclora-cockpit-kiosk.service
+Wants=dbus.socket systemd-logind.service
+After=dbus.socket systemd-logind.service systemd-user-sessions.service plymouth-quit-wait.service feclora-cockpit-kiosk.service
 Before=graphical.target
 ConditionPathExists=/dev/tty0
 Conflicts=getty@tty1.service
@@ -29,7 +29,6 @@ UtmpMode=user
 SyslogIdentifier=feclora-kiosk
 StandardOutput=journal
 StandardError=journal
-ExecStartPre=+/usr/libexec/feclora/feclora-show-network-address
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 # Do not switch to tty1 while Cage is still initializing: that exposes a
 # blank VT if DRM/logind acquisition has not completed yet.
