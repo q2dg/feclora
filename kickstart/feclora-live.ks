@@ -4,8 +4,9 @@
 # Live boot is retained; Firefox/Cage is the only local interactive shell.
 
 url --url=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
-# Additional packages and updates are fetched from Fedora's network repositories.
-repo --name=feclora-fedora-updates --baseurl=https://download.fedoraproject.org/pub/fedora/linux/updates/45/Everything/x86_64/
+# Keep installation on the release tree; the optional updates repo is deliberately
+# omitted because Anaconda initializes every configured repo even when it is not
+# used for package installation, making ISO builds depend on the updates mirror.
 lang en_US.UTF-8
 keyboard --xlayouts='us'
 timezone Etc/UTC --utc
