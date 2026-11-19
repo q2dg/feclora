@@ -154,7 +154,8 @@ passwd --lock feclora
 useradd --system --no-create-home --home-dir /var/lib/feclora-kiosk \
   --shell /sbin/nologin --user-group feclora-kiosk
 install -d -o feclora-kiosk -g feclora-kiosk -m 0700 /var/lib/feclora-kiosk
-install -d -o feclora-kiosk -g feclora-kiosk -m 0750 /var/log/feclora-kiosk
+usermod --append --groups feclora-logs feclora-kiosk
+install -d -o feclora-kiosk -g feclora-logs -m 2750 /var/log/feclora-kiosk
 
 %end
 
