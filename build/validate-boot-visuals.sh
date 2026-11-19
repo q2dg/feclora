@@ -47,7 +47,7 @@ grep -Fq 'diagnostics.tar.gz' "$DIAGNOSTICS" || fail "Diagnostics collector does
 grep -Fq 'chgrp feclora-logs "$REPORT"' "$DIAGNOSTICS" || fail "Diagnostic report is not readable by the dedicated logs group."
 grep -Fq 'chmod 0640 "$REPORT"' "$DIAGNOSTICS" || fail "Diagnostic report permissions are not read-only for the logs group."
 grep -Fq 'chmod 0640 "$LOG_DIR/launcher.log"' "$DIAGNOSTICS" || fail "Launcher log is not readable by the dedicated logs group."
-grep -Fq 'chmod 2750 /var/log/feclora-kiosk' "$KS" || fail "Kiosk log directory does not preserve the diagnostics group."
+grep -Fq 'install -d -o feclora-kiosk -g feclora-logs -m 2750 /var/log/feclora-kiosk' "$KS" || fail "Kiosk log directory does not preserve the diagnostics group."
 grep -Fq 'ExecStopPost=+/usr/libexec/feclora/feclora-kiosk-diagnostics stop' "$SERVICE" || fail "Kiosk exit must trigger a final diagnostics snapshot."
 grep -Fq 'feclora-kiosk-diagnostics' "$KS" || fail "Kickstart does not install the offline diagnostics collector."
 [[ -s "$THEME/feclora.plymouth" ]] || fail "Plymouth theme descriptor is missing."
