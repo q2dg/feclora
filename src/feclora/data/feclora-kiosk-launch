@@ -39,9 +39,16 @@ else
   echo "Cockpit endpoint is ready."
 fi
 
-# VirtualBox's VMware SVGA adapter cannot initialize EGL/Vulkan reliably without 3D.
-# Force wlroots' software Pixman renderer, which still presents through DRM/KMS.
-export WLR_RENDERER=pixman
+# VirtualBox's VMware SVGA adapter may not initialize EGL/Vulkan without 3D.
+# Use Pixman only on VirtualBox; physical machines retain wlroots renderer autodetection.
+virt_vendor="$(systemd-detect-virt --vm 2>/dev/null || true)"
+if [[ "$virt_vendor" == "oracle" ]]; then
+  export WLR_RENDERER=pixman
+  echo "VirtualBox detected; using wlroots Pixman software renderer."
+else
+  unset WLR_RENDERER
+  echo "Virtualization vendor: ${virt_vendor:-none}; using wlroots renderer autodetection."
+fi
 echo "Starting Cage and Firefox."
 echo "Cage/Firefox exit status and stderr will be recorded below."
 exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
