@@ -17,10 +17,17 @@ fail() {
 }
 
 # Packages and source assets required by the graphical boot path.
-for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox; do
+for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
 
+grep -Fq "useradd --create-home --shell /bin/bash pepe" "$KS" || fail "Temporary SSH diagnostic user is not created."
+grep -Fq "pepe:1234" "$KS" || fail "Temporary SSH diagnostic password is not configured."
+grep -Fq "PasswordAuthentication yes" "$KS" || fail "Temporary SSH password authentication is not enabled."
+grep -Fq "AllowUsers pepe" "$KS" || fail "SSH access is not restricted to the diagnostic user."
+grep -Fq "PermitRootLogin no" "$KS" || fail "SSH root login must remain disabled."
+grep -Fq "enable sshd.service" "$KS" || fail "SSH daemon is not enabled for diagnostic boot."
+grep -Fq "firewall-offline-cmd --add-service=ssh" "$KS" || fail "SSH is not allowed through the guest firewall."
 [[ -s "$DIAGNOSTICS" ]] || fail "Offline kiosk diagnostics collector is missing."
 grep -Fq 'journalctl --boot' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture the current boot journal."
 grep -Fq 'lspci -nnk' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture graphics hardware and drivers."
