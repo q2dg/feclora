@@ -21,13 +21,14 @@ TMP="$REPORT.tmp"
   printf '\n'; cat /etc/fedora-release 2>&1 || true
 
   section "COCKPIT EXECUTABLE PERMISSIONS AND SELINUX"
-  rpm -q cockpit-ws cockpit-ws-selinux 2>&1 || true
+  rpm -q cockpit-ws cockpit-ws-selinux cockpit-bridge 2>&1 || true
   semodule -l 2>&1 | grep -i cockpit || true
   semanage port -l 2>&1 | grep -E "^websm_port_t[[:space:]]" || true
-  ls -lZ /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
+  ls -lZ /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge 2>&1 || true
   namei -l /usr/libexec/cockpit-ws 2>&1 || true
-  stat /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
-  matchpathcon /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
+  stat /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge 2>&1 || true
+  matchpathcon /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge 2>&1 || true
+  restorecon -n -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge 2>&1 || true
   getenforce 2>&1 || true
   ausearch -m AVC,USER_AVC -ts boot 2>&1 || true
 
@@ -43,6 +44,8 @@ TMP="$REPORT.tmp"
   journalctl --boot --no-pager -o short-monotonic -k -p warning 2>&1 || true
 
   section "GRAPHICS DEVICES"
+  printf 'WLR_RENDERER configured by launcher: pixman\\n'
+  cage --version 2>&1 || true
   ls -la /dev/dri /dev/fb* 2>&1 || true
   for f in /sys/class/drm/*/status /sys/class/drm/*/enabled /sys/class/graphics/fb*/name; do
     [ -e "$f" ] || continue
