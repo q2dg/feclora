@@ -57,6 +57,7 @@ openssh-server
 cockpit
 cockpit-system
 cockpit-storaged
+policycoreutils-python-utils
 cockpit-ws-selinux
 
 # Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
@@ -123,6 +124,10 @@ lshw
 %post --erroronfail
 systemctl --root=/ enable NetworkManager
 systemctl --root=/ enable cockpit.socket
+
+# The dedicated local kiosk instance listens on TCP 9091. SELinux's
+# cockpit policy (websm_port_t) otherwise only permits the default 9090.
+semanage port -a -t websm_port_t -p tcp 9091
 
 # TEMPORARY DIAGNOSTIC ACCESS ONLY: remove this account and SSH configuration
 # before producing any official Feclora ISO. Use only behind VirtualBox NAT.
