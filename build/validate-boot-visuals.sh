@@ -17,6 +17,9 @@ fail() {
 }
 
 # Packages and source assets required by the graphical boot path.
+grep -Fq 'retries=20' "$KS" || fail "Anaconda DNF retry count is not increased for transient mirror failures."
+grep -Fq 'timeout=60' "$KS" || fail "Anaconda DNF download timeout is not increased."
+grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloads are not bounded."
 for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
