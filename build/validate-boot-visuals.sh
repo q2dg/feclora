@@ -92,7 +92,17 @@ grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explic
 grep -Fq 'unset WLR_RENDERER' "$LAUNCH" || fail "Cage must allow wlroots renderer autodetection."
 grep -Fq 'tee -a "$LOG_DIR/launcher.log"' "$LAUNCH" || fail "Kiosk launcher must preserve a plain-text diagnostic log."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
-grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must wait for the local Cockpit endpoint."
+grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must check the local Cockpit endpoint."
+grep -Fq 'for attempt in {1..15}' "$LAUNCH" || fail "Cockpit readiness check must be bounded to 15 seconds."
+grep -Fq 'Starting Cage/Firefox anyway' "$LAUNCH" || fail "Kiosk must start Cage even when Cockpit is unavailable."
+grep -Fxq 'Wants=feclora-cockpit-kiosk.service' "$SERVICE" || fail "Cockpit must be optional for the graphical kiosk."
+if grep -Fxq 'Requires=feclora-cockpit-kiosk.service' "$SERVICE"; then
+  fail "Cockpit failure must not stop the graphical kiosk."
+fi
+grep -Fq 'ExecStartPre=+/usr/bin/chmod 0755 /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit executable modes are not repaired before startup."
+grep -Fq 'ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit SELinux labels are not restored before startup."
+grep -Fq 'ausearch -m AVC,USER_AVC -ts boot' "$DIAGNOSTICS" || fail "Diagnostics do not collect SELinux access denials."
+grep -Fq 'ls -lZ /usr/libexec/cockpit-ws' "$DIAGNOSTICS" || fail "Diagnostics do not capture Cockpit executable SELinux labels."
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
 grep -Fq 'wayland-*' "$SERVICE" || fail "Kiosk must wait for Cage to create its Wayland socket before switching VTs."
 grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must be writable inside the service sandbox."
