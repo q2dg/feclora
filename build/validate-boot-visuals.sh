@@ -74,6 +74,11 @@ grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the cu
 grep -Fq 'rd.plymouth=0 loglevel=7 systemd.show_status=1 rd.debug vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
 
 grep -Fq 'semanage port -a -t websm_port_t -p tcp 9091' "$KS" || fail "Cockpit kiosk port 9091 is not authorized in SELinux."
+grep -Fxq "cockpit-bridge" "$KS" || fail "Cockpit bridge package is missing."
+grep -Fq "restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge" "$KS" || fail "Cockpit RPM executables are not relabeled with their SELinux policy contexts."
+grep -Fq -- "--local-session /usr/bin/cockpit-bridge" "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit kiosk must invoke the packaged cockpit-bridge path."
+grep -Fq "export WLR_RENDERER=pixman" "$LAUNCH" || fail "VirtualBox kiosk must use the wlroots Pixman software renderer."
+grep -Fq "cockpit-bridge" "$DIAGNOSTICS" || fail "Diagnostics do not verify the Cockpit bridge package and executable."
 # Ensure Cockpit's SELinux execution policy is installed, then validate Cage/Firefox.
 if grep -Eq 'ExecStartPre=.*(chmod|restorecon).*cockpit-(ws|bridge)' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"; then
   fail "Cockpit package permissions and SELinux labels must come from the RPM and cockpit-ws-selinux policy, not runtime workarounds."
