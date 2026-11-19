@@ -6,13 +6,15 @@ KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BUILD="$ROOT_DIR/build/build-iso.sh"
 SERVICE="$ROOT_DIR/src/feclora/data/feclora-kiosk.service"
 LAUNCH="$ROOT_DIR/src/feclora/data/feclora-kiosk-launch"
-DIAGNOSTICS="$ROOT_DIR/src/feclora/data/feclora-kiosk-diagnostics"\nNETWORK_DISPLAY="$ROOT_DIR/src/feclora/data/feclora-show-network-address"
+DIAGNOSTICS="$ROOT_DIR/src/feclora/data/feclora-kiosk-diagnostics"
+NETWORK_DISPLAY="$ROOT_DIR/src/feclora/data/feclora-show-network-address"
 RECOVERY="$ROOT_DIR/src/feclora/data/feclora-recovery-boot.service"
 PAM="$ROOT_DIR/src/feclora/data/feclora-kiosk.pam"
 THEME="$ROOT_DIR/src/feclora/data/plymouth"
 
 fail() {
-  printf 'BOOT VISUAL VALIDATION ERROR: %s\n' "$*" >&2
+  printf 'BOOT VISUAL VALIDATION ERROR: %s
+' "$*" >&2
   exit 1
 }
 
@@ -31,7 +33,13 @@ grep -Fq "AllowUsers pepe" "$KS" || fail "SSH access is not restricted to the di
 grep -Fq "PermitRootLogin no" "$KS" || fail "SSH root login must remain disabled."
 grep -Fq "enable sshd.service" "$KS" || fail "SSH daemon is not enabled for diagnostic boot."
 grep -Fq "firewall-offline-cmd --add-service=ssh" "$KS" || fail "SSH is not allowed through the guest firewall."
-[[ -s "$DIAGNOSTICS" ]] || fail "Offline kiosk diagnostics collector is missing."\n[[ -s "$NETWORK_DISPLAY" ]] || fail "TTY1 network address display script is missing."\ngrep -Fq "ExecStartPre=+/usr/libexec/feclora/feclora-show-network-address" "$SERVICE" || fail "Kiosk does not display the guest IP on tty1 before starting Cage."\ngrep -Fq "network-online.target" "$SERVICE" || fail "Kiosk is not ordered after network-online.target."\ngrep -Fq "sleep 25" "$NETWORK_DISPLAY" || fail "TTY1 network address display does not remain visible for its diagnostic interval."\ngrep -Fq "ip -4 -o address show scope global" "$NETWORK_DISPLAY" || fail "TTY1 network address display does not retrieve global IPv4 addresses."\ngrep -Fq "feclora-show-network-address" "$KS" || fail "Kickstart does not install the tty1 network address display script."
+[[ -s "$DIAGNOSTICS" ]] || fail "Offline kiosk diagnostics collector is missing."
+[[ -s "$NETWORK_DISPLAY" ]] || fail "TTY1 network address display script is missing."
+grep -Fq "ExecStartPre=+/usr/libexec/feclora/feclora-show-network-address" "$SERVICE" || fail "Kiosk does not display the guest IP on tty1 before starting Cage."
+grep -Fq "network-online.target" "$SERVICE" || fail "Kiosk is not ordered after network-online.target."
+grep -Fq "sleep 25" "$NETWORK_DISPLAY" || fail "TTY1 network address display does not remain visible for its diagnostic interval."
+grep -Fq "ip -4 -o address show scope global" "$NETWORK_DISPLAY" || fail "TTY1 network address display does not retrieve global IPv4 addresses."
+grep -Fq "feclora-show-network-address" "$KS" || fail "Kickstart does not install the tty1 network address display script."
 grep -Fq 'journalctl --boot' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture the current boot journal."
 grep -Fq 'lspci -nnk' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture graphics hardware and drivers."
 grep -Fq 'diagnostics.tar.gz' "$DIAGNOSTICS" || fail "Diagnostics collector does not create a portable log archive."
@@ -101,4 +109,5 @@ grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.servi
 grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -Fq 'unmask getty@tty1.service' "$KS" || fail "Diagnostic ISO must leave tty1 available for display isolation."
 
-printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
+printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.
+'
