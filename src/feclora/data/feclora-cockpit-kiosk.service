@@ -10,6 +10,8 @@ Group=root
 ExecStart=/usr/libexec/cockpit-ws --address 127.0.0.1 --port 9091 --local-session /usr/libexec/cockpit-bridge
 Restart=on-failure
 RestartSec=2
+ExecStartPre=+/usr/bin/chmod 0755 /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge
+ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge
 UMask=0077
 
 [Install]
