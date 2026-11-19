@@ -60,13 +60,14 @@ mv -f "$TMP" "$REPORT"
 chgrp feclora-logs "$REPORT"
 chmod 0640 "$REPORT"
 
+# The launcher runs with a restrictive systemd umask; normalize its log before archiving.
+chgrp feclora-logs "$LOG_DIR/launcher.log" 2>/dev/null || true
+chmod 0640 "$LOG_DIR/launcher.log" 2>/dev/null || true
+
 # Keep a portable bundle containing only the kiosk-specific logs and report.
 tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log 2>/dev/null || true
 chgrp feclora-logs "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
 chmod 0640 "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
-chgrp feclora-logs "$LOG_DIR/launcher.log" 2>/dev/null || true
-chmod 0640 "$LOG_DIR/launcher.log" 2>/dev/null || true
-
 # Also copy the bundle to a writable boot partition when one is available;
 # this can make the report recoverable from the VM disk without booting Feclora.
 for boot_dir in /boot /boot/efi; do
