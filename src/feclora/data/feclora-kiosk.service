@@ -29,7 +29,8 @@ UtmpMode=user
 SyslogIdentifier=feclora-kiosk
 StandardOutput=journal
 StandardError=journal
-ExecStartPre=+/usr/libexec/feclora/feclora-show-network-address\nExecStart=/usr/libexec/feclora/feclora-kiosk-launch
+ExecStartPre=+/usr/libexec/feclora/feclora-show-network-address
+ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 # Do not switch to tty1 while Cage is still initializing: that exposes a
 # blank VT if DRM/logind acquisition has not completed yet.
 ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/feclora-kiosk/wayland-*" >/dev/null; then /usr/bin/chvt 1; break; fi; sleep 1; done; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
