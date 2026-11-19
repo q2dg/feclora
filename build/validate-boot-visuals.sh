@@ -21,7 +21,7 @@ fail() {
 grep -Fq 'retries=20' "$KS" || fail "Anaconda DNF retry count is not increased for transient mirror failures."
 grep -Fq 'timeout=60' "$KS" || fail "Anaconda DNF download timeout is not increased."
 grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloads are not bounded."
-for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server cockpit-ws-selinux; do
+for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server cockpit-ws-selinux policycoreutils-python-utils; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
 
@@ -80,6 +80,7 @@ grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
 grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
 grep -Fq 'rd.plymouth=0 loglevel=7 systemd.show_status=1 rd.debug vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
 
+grep -Fq 'semanage port -a -t websm_port_t -p tcp 9091' "$KS" || fail "Cockpit kiosk port 9091 is not authorized in SELinux."
 # Ensure Cockpit's SELinux execution policy is installed, then validate Cage/Firefox.
 if grep -Eq 'ExecStartPre=.*(chmod|restorecon).*cockpit-(ws|bridge)' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"; then
   fail "Cockpit package permissions and SELinux labels must come from the RPM and cockpit-ws-selinux policy, not runtime workarounds."
