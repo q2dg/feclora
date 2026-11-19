@@ -4,6 +4,20 @@
 # Live boot is retained; Firefox/Cage is the only local interactive shell.
 
 url --url=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
+
+# Anaconda downloads hundreds of RPMs from Fedora mirrors. Transient mirror
+# failures must not abort the entire ISO build after exhausting a short retry
+# window. This runs in the installer environment before Anaconda configures DNF.
+%pre --erroronfail
+install -d -m 0755 /etc/dnf
+cat > /etc/dnf/dnf.conf <<'EOF'
+[main]
+retries=20
+timeout=60
+minrate=1
+max_parallel_downloads=3
+EOF
+%end
 # Keep installation on the release tree; the optional updates repo is deliberately
 # omitted because Anaconda initializes every configured repo even when it is not
 # used for package installation, making ISO builds depend on the updates mirror.
