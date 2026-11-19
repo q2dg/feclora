@@ -21,7 +21,7 @@ fail() {
 grep -Fq 'retries=20' "$KS" || fail "Anaconda DNF retry count is not increased for transient mirror failures."
 grep -Fq 'timeout=60' "$KS" || fail "Anaconda DNF download timeout is not increased."
 grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloads are not bounded."
-for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server; do
+for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server cockpit-ws-selinux; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
 
@@ -80,6 +80,10 @@ grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
 grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
 grep -Fq 'rd.plymouth=0 loglevel=7 systemd.show_status=1 rd.debug vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
 
+# Ensure Cockpit's SELinux execution policy is installed, then validate Cage/Firefox.
+if grep -Eq 'ExecStartPre=.*(chmod|restorecon).*cockpit-(ws|bridge)' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"; then
+  fail "Cockpit package permissions and SELinux labels must come from the RPM and cockpit-ws-selinux policy, not runtime workarounds."
+fi
 # Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
 grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
 grep -Fxq 'Environment=XDG_RUNTIME_DIR=/run/feclora-kiosk' "$SERVICE" || fail "System kiosk user has no dedicated Wayland runtime directory."
@@ -99,8 +103,6 @@ grep -Fxq 'Wants=feclora-cockpit-kiosk.service' "$SERVICE" || fail "Cockpit must
 if grep -Fxq 'Requires=feclora-cockpit-kiosk.service' "$SERVICE"; then
   fail "Cockpit failure must not stop the graphical kiosk."
 fi
-grep -Fq 'ExecStartPre=+/usr/bin/chmod 0755 /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit executable modes are not repaired before startup."
-grep -Fq 'ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit SELinux labels are not restored before startup."
 grep -Fq 'ausearch -m AVC,USER_AVC -ts boot' "$DIAGNOSTICS" || fail "Diagnostics do not collect SELinux access denials."
 grep -Fq 'ls -lZ /usr/libexec/cockpit-ws' "$DIAGNOSTICS" || fail "Diagnostics do not capture Cockpit executable SELinux labels."
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
