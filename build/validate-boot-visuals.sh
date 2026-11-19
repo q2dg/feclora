@@ -48,7 +48,7 @@ grep -Fq 's/^set default=.*/set default=' "$BUILD" || fail "Lorax template overr
 grep -Fq 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
 grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
 grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
-grep -Fq 'rd.plymouth=1 rhgb quiet loglevel=3 plymouth.debug systemd.show_status=0 vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
+grep -Fq 'rd.plymouth=0 loglevel=7 systemd.show_status=1 rd.debug vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
 
 # Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
 grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
