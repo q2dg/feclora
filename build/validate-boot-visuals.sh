@@ -25,7 +25,9 @@ for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox opens
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
 
-grep -Fq "useradd --create-home --shell /bin/bash pepe" "$KS" || fail "Temporary SSH diagnostic user is not created."
+grep -Fq "groupadd --system feclora-logs" "$KS" || fail "Dedicated read-only diagnostics group is not created."
+grep -Fq "useradd --create-home --groups feclora-logs --shell /bin/bash pepe" "$KS" || fail "Temporary SSH user is not assigned to the diagnostics group."
+grep -Fq "usermod --append --groups feclora-logs feclora-kiosk" "$KS" || fail "Kiosk user is not assigned to the diagnostics group."
 grep -Fq "pepe:1234" "$KS" || fail "Temporary SSH diagnostic password is not configured."
 grep -Fq "PasswordAuthentication yes" "$KS" || fail "Temporary SSH password authentication is not enabled."
 grep -Fq "AllowUsers pepe" "$KS" || fail "SSH access is not restricted to the diagnostic user."
@@ -42,6 +44,10 @@ grep -Fq "feclora-show-network-address" "$KS" || fail "Kickstart does not instal
 grep -Fq 'journalctl --boot' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture the current boot journal."
 grep -Fq 'lspci -nnk' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture graphics hardware and drivers."
 grep -Fq 'diagnostics.tar.gz' "$DIAGNOSTICS" || fail "Diagnostics collector does not create a portable log archive."
+grep -Fq 'chgrp feclora-logs "$REPORT"' "$DIAGNOSTICS" || fail "Diagnostic report is not readable by the dedicated logs group."
+grep -Fq 'chmod 0640 "$REPORT"' "$DIAGNOSTICS" || fail "Diagnostic report permissions are not read-only for the logs group."
+grep -Fq 'chmod 0640 "$LOG_DIR/launcher.log"' "$DIAGNOSTICS" || fail "Launcher log is not readable by the dedicated logs group."
+grep -Fq 'chmod 2750 /var/log/feclora-kiosk' "$KS" || fail "Kiosk log directory does not preserve the diagnostics group."
 grep -Fq 'ExecStopPost=+/usr/libexec/feclora/feclora-kiosk-diagnostics stop' "$SERVICE" || fail "Kiosk exit must trigger a final diagnostics snapshot."
 grep -Fq 'feclora-kiosk-diagnostics' "$KS" || fail "Kickstart does not install the offline diagnostics collector."
 [[ -s "$THEME/feclora.plymouth" ]] || fail "Plymouth theme descriptor is missing."
