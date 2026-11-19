@@ -78,7 +78,7 @@ grep -Fxq 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly i
 grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled for graphical.target."
 [[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
 grep -Fq 'etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
-grep -Fq 'disable feclora-kiosk.service' "$KS" || fail "Diagnostic ISO must keep Cage/Firefox disabled."
+grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "Diagnostic ISO must enable Cage/Firefox for the no-Plymouth graphics test."
 grep -Fq 'var/log/feclora-kiosk' "$KS" || fail "Kickstart does not create the offline-retrievable kiosk log directory."
 grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable local Cockpit kiosk dependencies."
 grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
