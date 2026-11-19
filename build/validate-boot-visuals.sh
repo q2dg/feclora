@@ -77,7 +77,10 @@ grep -Fq 'semanage port -a -t websm_port_t -p tcp 9091' "$KS" || fail "Cockpit k
 grep -Fxq "cockpit-bridge" "$KS" || fail "Cockpit bridge package is missing."
 grep -Fq "restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge" "$KS" || fail "Cockpit RPM executables are not relabeled with their SELinux policy contexts."
 grep -Fq -- "--local-session /usr/bin/cockpit-bridge" "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit kiosk must invoke the packaged cockpit-bridge path."
-grep -Fq "export WLR_RENDERER=pixman" "$LAUNCH" || fail "VirtualBox kiosk must use the wlroots Pixman software renderer."
+grep -Fq 'systemd-detect-virt --vm' "$LAUNCH" || fail "Kiosk must detect the VM vendor before selecting a renderer."
+grep -Fq 'if [[ "$virt_vendor" == "oracle" ]]' "$LAUNCH" || fail "Pixman must be restricted to VirtualBox guests."
+grep -Fq 'export WLR_RENDERER=pixman' "$LAUNCH" || fail "VirtualBox guests must use the wlroots Pixman software renderer."
+grep -Fq 'unset WLR_RENDERER' "$LAUNCH" || fail "Physical machines must retain wlroots renderer autodetection."
 grep -Fq "cockpit-bridge" "$DIAGNOSTICS" || fail "Diagnostics do not verify the Cockpit bridge package and executable."
 # Ensure Cockpit's SELinux execution policy is installed, then validate Cage/Firefox.
 if grep -Eq 'ExecStartPre=.*(chmod|restorecon).*cockpit-(ws|bridge)' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"; then
@@ -92,7 +95,7 @@ if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH";
   fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
 fi
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
-grep -Fq 'unset WLR_RENDERER' "$LAUNCH" || fail "Cage must allow wlroots renderer autodetection."
+grep -Fq 'using wlroots renderer autodetection.' "$LAUNCH" || fail "Physical-machine renderer autodetection must be logged."
 grep -Fq 'tee -a "$LOG_DIR/launcher.log"' "$LAUNCH" || fail "Kiosk launcher must preserve a plain-text diagnostic log."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
 grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must check the local Cockpit endpoint."
