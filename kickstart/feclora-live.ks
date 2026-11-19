@@ -57,6 +57,7 @@ openssh-server
 cockpit
 cockpit-system
 cockpit-storaged
+cockpit-ws-selinux
 
 # Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
 cage
