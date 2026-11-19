@@ -36,6 +36,9 @@ firewalld
 openssl
 ca-certificates
 
+# Temporary SSH access for VirtualBox diagnostics only; remove before release.
+openssh-server
+
 # Cockpit web interface; primary operator entry point
 cockpit
 cockpit-system
@@ -105,6 +108,20 @@ lshw
 %post --erroronfail
 systemctl --root=/ enable NetworkManager
 systemctl --root=/ enable cockpit.socket
+
+# TEMPORARY DIAGNOSTIC ACCESS ONLY: remove this account and SSH configuration
+# before producing any official Feclora ISO. Use only behind VirtualBox NAT.
+useradd --create-home --shell /bin/bash pepe
+printf '%s\n' 'pepe:1234' | chpasswd
+install -d -m 0755 /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/10-feclora-diagnostic.conf <<'EOF'
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers pepe
+EOF
+systemctl --root=/ enable sshd.service
+firewall-offline-cmd --add-service=ssh
 
 # Boot the default (first) GRUB entry immediately, without showing the menu.
 cat >> /etc/default/grub <<'EOF'
