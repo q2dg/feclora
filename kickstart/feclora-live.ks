@@ -125,7 +125,8 @@ systemctl --root=/ enable cockpit.socket
 
 # TEMPORARY DIAGNOSTIC ACCESS ONLY: remove this account and SSH configuration
 # before producing any official Feclora ISO. Use only behind VirtualBox NAT.
-useradd --create-home --shell /bin/bash pepe
+groupadd --system feclora-logs
+useradd --create-home --groups feclora-logs --shell /bin/bash pepe
 printf '%s\n' 'pepe:1234' | chpasswd
 install -d -m 0755 /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/10-feclora-diagnostic.conf <<'EOF'
