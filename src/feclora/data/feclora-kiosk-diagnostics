@@ -23,6 +23,7 @@ TMP="$REPORT.tmp"
   section "COCKPIT EXECUTABLE PERMISSIONS AND SELINUX"
   rpm -q cockpit-ws cockpit-ws-selinux 2>&1 || true
   semodule -l 2>&1 | grep -i cockpit || true
+  semanage port -l 2>&1 | grep -E "^websm_port_t[[:space:]]" || true
   ls -lZ /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
   namei -l /usr/libexec/cockpit-ws 2>&1 || true
   stat /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
