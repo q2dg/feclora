@@ -8,7 +8,7 @@ TTY=/dev/tty1
 
 addresses=""
 for attempt in $(seq 1 30); do
-  addresses="$(/usr/sbin/ip -4 -o address show scope global 2>/dev/null | /usr/bin/awk '{ split($4, a, "/"); printf "  %-12s %s\\n", $2, a[1] }')"
+  addresses="$(/usr/sbin/ip -4 -o address show scope global 2>/dev/null | /usr/bin/awk '{ split($4, a, "/"); printf "  %-12s %s\n", $2, a[1] }')"
   [[ -n "$addresses" ]] && break
   sleep 2
 done
