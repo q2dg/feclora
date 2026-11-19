@@ -21,6 +21,8 @@ TMP="$REPORT.tmp"
   printf '\n'; cat /etc/fedora-release 2>&1 || true
 
   section "COCKPIT EXECUTABLE PERMISSIONS AND SELINUX"
+  rpm -q cockpit-ws cockpit-ws-selinux 2>&1 || true
+  semodule -l 2>&1 | grep -i cockpit || true
   ls -lZ /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
   namei -l /usr/libexec/cockpit-ws 2>&1 || true
   stat /usr/libexec/cockpit-ws /usr/libexec/cockpit-bridge 2>&1 || true
