@@ -69,7 +69,7 @@ grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must b
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
-# Validate the systemd handoff from Plymouth to the kiosk.
+# Validate the kiosk service configuration even though this diagnostic ISO disables it.
 grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth releases it."
 grep -Fxq 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
 grep -Fxq 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must pull in D-Bus and logind."
@@ -78,10 +78,10 @@ grep -Fxq 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly i
 grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled for graphical.target."
 [[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
 grep -Fq 'etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
-grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "Kickstart does not enable the kiosk service."
+grep -Fq 'disable feclora-kiosk.service' "$KS" || fail "Diagnostic ISO must keep Cage/Firefox disabled."
 grep -Fq 'var/log/feclora-kiosk' "$KS" || fail "Kickstart does not create the offline-retrievable kiosk log directory."
 grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable local Cockpit kiosk dependencies."
 grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
-grep -Fq 'mask getty@tty1.service' "$KS" || fail "TTY1 getty is not masked for kiosk ownership."
+grep -Fq 'unmask getty@tty1.service' "$KS" || fail "Diagnostic ISO must leave tty1 available for display isolation."
 
 printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'
