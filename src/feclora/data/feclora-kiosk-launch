@@ -20,9 +20,10 @@ ls -la /dev/dri 2>&1 || true
 echo "Input devices:"
 ls -la /dev/input 2>&1 || true
 
-# Wait for Cockpit's local-session endpoint before opening Firefox.
+# Give Cockpit a short head start, but never make the graphical session depend
+# on it: Cage must still start so graphics failures remain independently visible.
 ready=0
-for attempt in {1..60}; do
+for attempt in {1..15}; do
   if (exec 3<>/dev/tcp/127.0.0.1/9091) 2>/dev/null; then
     exec 3>&-
     ready=1
@@ -31,13 +32,15 @@ for attempt in {1..60}; do
   sleep 1
 done
 if (( ready == 0 )); then
-  echo "ERROR: Cockpit kiosk endpoint did not listen on 127.0.0.1:9091 within 60 seconds."
+  echo "WARNING: Cockpit kiosk endpoint is not listening on 127.0.0.1:9091 after 15 seconds."
+  echo "Starting Cage/Firefox anyway; the Cockpit page may show a connection error until Cockpit is repaired."
   systemctl --no-pager --full status feclora-cockpit-kiosk.service 2>&1 || true
-  exit 1
+else
+  echo "Cockpit endpoint is ready."
 fi
 
 # Let wlroots select the renderer supported by the available GPU.
 unset WLR_RENDERER
-echo "Cockpit endpoint is ready; starting Cage and Firefox."
+echo "Starting Cage and Firefox."
 echo "Cage/Firefox exit status and stderr will be recorded below."
 exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
