@@ -61,4 +61,16 @@ chmod 0640 "$REPORT"
 # Keep a portable bundle containing only the kiosk-specific logs and report.
 tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log 2>/dev/null || true
 chmod 0640 "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
+
+# Also copy the bundle to a writable boot partition when one is available;
+# this can make the report recoverable from the VM disk without booting Feclora.
+for boot_dir in /boot /boot/efi; do
+  [ -d "$boot_dir" ] || continue
+  probe="$boot_dir/.feclora-diagnostics-write-test"
+  if : >"$probe" 2>/dev/null; then
+    rm -f "$probe"
+    cp -f "$LOG_DIR/diagnostics.txt" "$boot_dir/feclora-kiosk-diagnostics.txt" 2>/dev/null || true
+    cp -f "$LOG_DIR/diagnostics.tar.gz" "$boot_dir/feclora-kiosk-diagnostics.tar.gz" 2>/dev/null || true
+  fi
+done
 echo "Feclora diagnostics written to $REPORT"
