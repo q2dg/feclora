@@ -6,7 +6,7 @@ After=dbus.socket systemd-logind.service systemd-user-sessions.service network-o
 Before=graphical.target
 ConditionPathExists=/dev/tty0
 Conflicts=getty@tty1.service
-Requires=feclora-cockpit-kiosk.service
+Wants=feclora-cockpit-kiosk.service
 
 [Service]
 Type=simple
