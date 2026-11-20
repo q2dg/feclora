@@ -249,7 +249,7 @@ systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclo
 systemctl --root="$TARGET_ROOT" enable feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" unmask getty@tty1.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
-systemctl --root="$TARGET_ROOT" mask getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
+systemctl --root="$TARGET_ROOT" mask getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
 chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/images"
