@@ -192,4 +192,4 @@ def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Pat
         raise KeyboardLayoutError(f"keyboard saved but graphical kiosk restart was not scheduled: {detail}")
     return {"layout": layout, "keymap": keymap, "xkb_layout": xkb_layout,
             "xkb_variant": xkb_variant, "applied": True,
-            "scope": "persistent Linux console and Cage/Wayland XKB; kiosk session restarts shortly"}
+            "scope": "persistent Linux console and Weston/Wayland XKB; kiosk session restarts shortly"}
