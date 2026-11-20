@@ -172,7 +172,7 @@ criteria: the image must still boot in both firmware modes.
 
 The Kickstart selects Fedora's `@core` package group rather than the broader
 Server product environment, then adds Feclora's explicit runtime package set.
-Cage and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
+Weston and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
 general-purpose desktop or display manager is installed. On each fresh Live boot the Firefox kiosk opens the local Feclora Cockpit
 application directly through a loopback-only Cockpit `--local-session` service.
 The first Feclora screen asks the operator to select the interface language; continuing opens the operations menu. No user
@@ -211,7 +211,7 @@ At minimum, verify:
   deny all kiosk network destinations except loopback.
 - The kiosk account is not in `wheel`; getty@tty1–tty6 are masked; there is
   no autologin configuration or NOPASSWD sudo rule.
-- Firefox and Cage restart after terminating the kiosk process.
+- Firefox and Weston restart after terminating the kiosk process.
 - The local kiosk opens directly on every boot. No user password is created
   or requested; the `feclora` administrator account remains locked.
 
