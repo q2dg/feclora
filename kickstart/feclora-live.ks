@@ -60,7 +60,6 @@ cockpit-bridge
 
 # Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
 cage
-xorg-x11-server-Xwayland
 firefox
 
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
