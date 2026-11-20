@@ -245,7 +245,7 @@ chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
 systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service
-# Diagnostic boot: keep Plymouth disabled, but start the kiosk so Cage/Firefox can be tested.
+# Diagnostic boot: keep Plymouth disabled, but start the kiosk so Weston/Firefox can be tested.
 systemctl --root="$TARGET_ROOT" enable feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" unmask getty@tty1.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
