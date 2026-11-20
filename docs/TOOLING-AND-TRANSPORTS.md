@@ -39,7 +39,7 @@ their upstream documentation or project home pages.
 | Fedora Server | Base Live userspace and package environment | [fedoraproject.org/server](https://fedoraproject.org/server/) |
 | Cockpit | Primary browser-based administration interface | [cockpit-project.org](https://cockpit-project.org/) |
 | Firefox | Restricted kiosk browser | [mozilla.org/firefox](https://www.mozilla.org/firefox/) |
-| Cage | Wayland kiosk compositor | [github.com/cage-kiosk/cage](https://github.com/cage-kiosk/cage) |
+| Weston | Wayland kiosk compositor with kiosk-shell | [wayland.freedesktop.org](https://wayland.freedesktop.org/) |
 | React | Cockpit application UI | [react.dev](https://react.dev/) |
 | PatternFly | UI component system | [patternfly.org](https://www.patternfly.org/) |
 | Vite | Frontend build tooling | [vite.dev](https://vite.dev/) |
