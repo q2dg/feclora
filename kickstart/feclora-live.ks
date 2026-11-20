@@ -50,9 +50,6 @@ firewalld
 openssl
 ca-certificates
 
-# Temporary SSH access for VirtualBox diagnostics only; remove before release.
-openssh-server
-
 # Cockpit web interface; primary operator entry point
 cockpit
 cockpit-system
@@ -133,21 +130,12 @@ semanage port -a -t websm_port_t -p tcp 9091
 # The Live image is assembled from an overlay; explicitly apply RPM SELinux file contexts.
 restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge
 
-# TEMPORARY DIAGNOSTIC ACCESS ONLY: remove this account and SSH configuration
-# before producing any official Feclora ISO. Use only behind VirtualBox NAT.
+# Temporary local console account for diagnostics; remove before the official release.
 groupadd --system feclora-logs
 useradd --create-home --groups feclora-logs --shell /bin/bash pepe
 printf '%s\n' 'pepe:1234' | chpasswd
-install -d -m 0755 /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/10-feclora-diagnostic.conf <<'EOF'
-PasswordAuthentication yes
-KbdInteractiveAuthentication no
-PermitRootLogin no
-AllowUsers pepe
-EOF
-# Explicitly enable both the SSH daemon and the firewall on every diagnostic boot.
-systemctl --root=/ enable firewalld.service sshd.service
-firewall-offline-cmd --add-service=ssh
+# Keep the firewall enabled; no remote administration service is installed.
+systemctl --root=/ enable firewalld.service
 
 # Boot the default (first) GRUB entry immediately, without showing the menu.
 cat >> /etc/default/grub <<'EOF'
