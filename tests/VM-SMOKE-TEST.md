@@ -55,7 +55,7 @@ independent test run. Remove the temporary copy after the test.
 
 - [ ] ISO boots in BIOS mode; GRUB does not display its menu and automatically selects the first entry.
 - [ ] ISO boots in UEFI mode; GRUB does not display its menu and automatically selects the first entry.
-- [ ] Cage/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
+- [ ] Weston/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
@@ -87,7 +87,7 @@ also not forwarded.
   are unavailable in the kiosk session.
 - [ ] systemd cgroup IP filters deny non-loopback destinations for Firefox and
   the local Cockpit kiosk endpoint while allowing loopback traffic.
-- [ ] Killing Firefox or Cage causes the systemd kiosk service to restart it.
+- [ ] Killing Firefox or Weston causes the systemd kiosk service to restart it.
 - [ ] getty@tty1–tty6 are masked and no autologin/passwordless-sudo setup exists.
 - [ ] The `feclora-kiosk` account has no login shell and is not in `wheel`.
 - [ ] The local Cockpit kiosk can perform the Feclora operations expected by the UI; the endpoint is only reachable from guest loopback.
