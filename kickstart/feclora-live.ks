@@ -157,6 +157,15 @@ install -d -o feclora-kiosk -g feclora-kiosk -m 0700 /var/lib/feclora-kiosk
 usermod --append --groups feclora-logs feclora-kiosk
 install -d -o feclora-kiosk -g feclora-logs -m 2750 /var/log/feclora-kiosk
 
+# Anaconda writes the installation disk UUID into fstab and kernel cmdline.
+# Neither belongs in the generated LiveOS overlay: the ISO boots via root=live.
+if [ -f /etc/fstab ]; then
+  awk '/^[[:space:]]*#/ || NF == 0 { print; next } $2 != "/" { print }' /etc/fstab > /etc/fstab.feclora
+  install -m 0644 /etc/fstab.feclora /etc/fstab
+  rm -f /etc/fstab.feclora
+fi
+rm -f /etc/kernel/cmdline
+
 %end
 
 # Copy the application payload from the augmented installer DVD into the
