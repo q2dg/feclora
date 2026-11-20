@@ -9,7 +9,7 @@ for the repository owner.
 ## Product model
 
 Feclora is a Fedora-based minimal Live appliance built from the `@core` package
-group and Feclora's explicit runtime packages. Cage launches Firefox
+group and Feclora's explicit runtime packages. Weston kiosk-shell launches Firefox
 in kiosk mode and opens the Feclora application in Cockpit; there is no
 general-purpose desktop. The Live session is intentionally ephemeral: each
 boot creates fresh local credentials, certificates and temporary configuration.
