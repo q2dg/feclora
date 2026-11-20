@@ -145,7 +145,8 @@ KbdInteractiveAuthentication no
 PermitRootLogin no
 AllowUsers pepe
 EOF
-systemctl --root=/ enable sshd.service
+# Explicitly enable both the SSH daemon and the firewall on every diagnostic boot.
+systemctl --root=/ enable firewalld.service sshd.service
 firewall-offline-cmd --add-service=ssh
 
 # Boot the default (first) GRUB entry immediately, without showing the menu.
