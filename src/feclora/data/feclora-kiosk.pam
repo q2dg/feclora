@@ -1,4 +1,4 @@
-# PAM session for the Feclora Cage kiosk.
+# PAM session for the Feclora Weston kiosk.
 # This is a systemd-managed service, not an interactive login. The kiosk
 # account intentionally has a locked password, so do not authenticate it
 # with pam_unix; grant the service session and let pam_systemd create its
