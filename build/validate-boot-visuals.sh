@@ -20,9 +20,12 @@ fail() {
 grep -Fq 'retries=20' "$KS" || fail "Anaconda DNF retry count is not increased for transient mirror failures."
 grep -Fq 'timeout=60' "$KS" || fail "Anaconda DNF download timeout is not increased."
 grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloads are not bounded."
-for package in plymouth plymouth-plugin-script librsvg2-tools cage xorg-x11-server-Xwayland firefox cockpit-ws-selinux policycoreutils-python-utils; do
+for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox cockpit-ws-selinux policycoreutils-python-utils; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
+if grep -Eiq '^[[:space:]]*xorg-x11-server-Xwayland([[:space:]]|$)' "$KS"; then
+  fail "Pure Wayland kiosk image must not install XWayland."
+fi
 
 grep -Fq "groupadd --system feclora-logs" "$KS" || fail "Dedicated read-only diagnostics group is not created."
 grep -Fq "useradd --create-home --groups feclora-logs --shell /bin/bash pepe" "$KS" || fail "Temporary local console user is not assigned to the diagnostics group."
