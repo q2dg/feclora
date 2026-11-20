@@ -51,4 +51,4 @@ else
 fi
 echo "Starting Cage and Firefox."
 echo "Cage/Firefox exit status and stderr will be recorded below."
-exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
+exec /usr/bin/cage -x -- /usr/bin/firefox --kiosk --new-instance "$url"
