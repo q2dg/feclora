@@ -44,8 +44,8 @@ TMP="$REPORT.tmp"
   journalctl --boot --no-pager -o short-monotonic -k -p warning 2>&1 || true
 
   section "GRAPHICS DEVICES"
-  printf 'WLR_RENDERER configured by launcher: pixman\\n'
-  cage --version 2>&1 || true
+  printf 'Kiosk user runtime directory: /run/user/%s\\n' "$(id -u feclora-kiosk 2>/dev/null || echo unknown)"
+  cage -v 2>&1 || true
   ls -la /dev/dri /dev/fb* 2>&1 || true
   for f in /sys/class/drm/*/status /sys/class/drm/*/enabled /sys/class/graphics/fb*/name; do
     [ -e "$f" ] || continue
@@ -62,6 +62,8 @@ TMP="$REPORT.tmp"
   ls -la /dev/tty0 /dev/tty1 /dev/tty2 2>&1 || true
 
   section "WAYLAND AND PROCESSES"
+  KIOSK_UID="$(id -u feclora-kiosk 2>/dev/null || true)"
+  if [ -n "$KIOSK_UID" ]; then ls -la "/run/user/$KIOSK_UID" 2>&1 || true; fi
   ls -la /run/feclora-kiosk 2>&1 || true
   ps -eo pid,ppid,user,stat,tty,comm,args 2>&1 | grep -E '(^ *PID|cage|firefox|Xwayland|cockpit-ws)' || true
   lsmod 2>&1 || true
