@@ -94,9 +94,9 @@ grep -Fq '"/run/user/%U/wayland-*"' "$SERVICE" || fail "Kiosk readiness watcher 
 if grep -Fq 'chvt 1' <(sed -n '/^ExecStartPost=/p' "$SERVICE"); then
   fail "Kiosk must not wait for the Wayland socket before activating its VT; that deadlocks DRM session acquisition."
 fi
-grep -Fq 'exec /usr/bin/cage -x -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk must explicitly disable XWayland in Cage."
-if grep -Eq '(^|[[:space:]])cage[[:space:]].*--disable-xwayland' "$LAUNCH"; then
-  fail "Kiosk launcher uses an unknown XWayland option; use Cage -x."
+grep -Fq 'exec /usr/bin/cage -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must invoke Cage with its application separator."
+if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH"; then
+  fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
 fi
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
 grep -Fq 'cage -v' "$DIAGNOSTICS" || fail "Diagnostics use an unsupported Cage version flag."
