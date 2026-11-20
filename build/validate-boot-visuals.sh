@@ -89,7 +89,11 @@ grep -Fq 'ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/bin
 # Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
 grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
 grep -Fxq 'Environment=XDG_RUNTIME_DIR=/run/user/%U' "$SERVICE" || fail "Kiosk XDG_RUNTIME_DIR does not match the PAM/logind user runtime directory."
-grep -Fq '"/run/user/%U/wayland-*"' "$SERVICE" || fail "Kiosk VT switch watcher does not monitor the PAM/logind Wayland socket directory."
+grep -Fxq 'ExecStartPre=+/usr/bin/chvt 1' "$SERVICE" || fail "Kiosk VT1 must be activated before Cage requests a DRM session."
+grep -Fq '"/run/user/%U/wayland-*"' "$SERVICE" || fail "Kiosk readiness watcher does not monitor the PAM/logind Wayland socket directory."
+if grep -Fq 'chvt 1' <(sed -n '/^ExecStartPost=/p' "$SERVICE"); then
+  fail "Kiosk must not wait for the Wayland socket before activating its VT; that deadlocks DRM session acquisition."
+fi
 grep -Fq 'exec /usr/bin/cage -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must invoke Cage with its application separator."
 if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH"; then
   fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
