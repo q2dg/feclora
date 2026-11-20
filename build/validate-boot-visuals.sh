@@ -87,18 +87,22 @@ grep -Fq "cockpit-bridge" "$DIAGNOSTICS" || fail "Diagnostics do not verify the 
 grep -Fq 'ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit executables are not relabeled before systemd executes them."
 # Ensure Weston uses the DRM backend and kiosk shell without loading XWayland.
 if grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE"; then fail "wlroots libseat environment must not be carried over to Weston."; fi
-grep -Fxq 'Environment=XDG_RUNTIME_DIR=/run/user/%U' "$SERVICE" || fail "Kiosk XDG_RUNTIME_DIR does not match the PAM/logind user runtime directory."
+grep -Fxq 'Environment=XDG_RUNTIME_DIR=/run/feclora-kiosk' "$SERVICE" || fail "Kiosk XDG_RUNTIME_DIR does not use its systemd-managed runtime directory."
+grep -Fxq 'RuntimeDirectory=feclora-kiosk' "$SERVICE" || fail "Systemd must create the kiosk runtime directory before sandbox setup."
+grep -Fxq 'RuntimeDirectoryMode=0700' "$SERVICE" || fail "Kiosk runtime directory must be private."
 grep -Fxq 'ExecStartPre=+/usr/bin/chvt 1' "$SERVICE" || fail "Kiosk VT1 must be activated before Weston requests a DRM session."
-grep -Fq '"/run/user/%U/wayland-*"' "$SERVICE" || fail "Kiosk readiness watcher does not monitor the PAM/logind Wayland socket directory."
+grep -Fq '"/run/feclora-kiosk/wayland-*"' "$SERVICE" || fail "Kiosk readiness watcher does not monitor the systemd-managed Wayland socket directory."
 if grep -Fq 'chvt 1' <(sed -n '/^ExecStartPost=/p' "$SERVICE"); then
   fail "Kiosk must not wait for the Wayland socket before activating its VT; that deadlocks DRM session acquisition."
 fi
 grep -Fq 'WESTON_ARGS=(--backend=drm-backend.so --shell=kiosk-shell.so --no-config)' "$LAUNCH" || fail "Kiosk launcher must select Weston's DRM backend, kiosk shell and isolated configuration."
 grep -Fq 'exec /usr/bin/weston "\${WESTON_ARGS[@]}" -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must start Firefox as Weston's Wayland child."
 if grep -Eq -- '(^|[[:space:]])--xwayland([[:space:]]|$)|xwayland\.so' "$LAUNCH"; then fail "Pure Wayland kiosk must not enable or load XWayland."; fi
+grep -Fxq 'export XDG_RUNTIME_DIR=/run/feclora-kiosk' "$LAUNCH" || fail "Weston and Firefox must use the systemd-managed runtime directory."
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
 grep -Fq 'weston --version' "$DIAGNOSTICS" || fail "Diagnostics do not record the Weston version."
 grep -Fq 'KIOSK_UID' "$DIAGNOSTICS" || fail "Diagnostics do not inspect the PAM/logind runtime directory."
+grep -Fq 'Weston XDG_RUNTIME_DIR: /run/feclora-kiosk' "$DIAGNOSTICS" || fail "Diagnostics do not inspect Weston's runtime directory."
 grep -Fq 'using Weston renderer autodetection.' "$LAUNCH" || fail "Physical-machine Weston renderer autodetection must be logged."
 grep -Fq 'tee -a "$LOG_DIR/launcher.log"' "$LAUNCH" || fail "Kiosk launcher must preserve a plain-text diagnostic log."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
@@ -114,9 +118,9 @@ grep -Fq 'ls -lZ /usr/libexec/cockpit-ws' "$DIAGNOSTICS" || fail "Diagnostics do
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
 grep -Fq 'wayland-*' "$SERVICE" || fail "Kiosk readiness diagnostics must monitor Weston's Wayland socket."
 grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must be writable inside the service sandbox."
-grep -Fq 'ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk writable paths must be limited to persistent data and logs; PAM creates /run/user/%U at session startup."
-if grep -Fq '/run/user/%U' <(sed -n '/^ReadWritePaths=/p' "$SERVICE"); then
-  fail "PAM must create /run/user/%U after systemd has prepared the service namespace; do not add it to ReadWritePaths."
+grep -Fq 'ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk writable paths must be limited to persistent data and logs; systemd manages /run/feclora-kiosk."
+if grep -Fq '/run/user' <(sed -n '/^ReadWritePaths=/p' "$SERVICE"); then
+  fail "Do not expose PAM's late-created /run/user tree through ReadWritePaths."
 fi
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
@@ -132,6 +136,8 @@ grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled 
 grep -Fq 'etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
 grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "Diagnostic ISO must enable Weston/Firefox for the no-Plymouth graphics test."
 grep -Fq 'var/log/feclora-kiosk' "$KS" || fail "Kickstart does not create the offline-retrievable kiosk log directory."
+grep -Fq 'rm -f /etc/kernel/cmdline' "$KS" || fail "Kickstart must remove Anaconda's installed-system kernel command line from the LiveOS image."
+grep -Fq '$2 != "/"' "$KS" || fail "Kickstart must remove Anaconda's installed-root fstab entry from the LiveOS image."
 grep -Fq 'enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service' "$KS" || fail "Kickstart does not enable local Cockpit kiosk dependencies."
 grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default target is not graphical.target."
 grep -Fq 'unmask getty@tty1.service' "$KS" || fail "Diagnostic ISO must leave tty1 available for display isolation."
