@@ -1,16 +1,11 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
-
 LOG_DIR=/var/log/feclora-kiosk
 mkdir -p "$LOG_DIR"
-# Keep a plain-text copy recoverable from the Live filesystem; tee also
-# forwards every line to the systemd journal.
 exec > >(tee -a "$LOG_DIR/launcher.log") 2>&1
-
 url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 export MOZ_ENABLE_WAYLAND=1
-
 echo
 echo "===== Feclora kiosk launch: $(date --iso-8601=seconds) ====="
 echo "uid=$(id) cmdline=$(cat /proc/cmdline)"
@@ -19,9 +14,7 @@ echo "DRM devices:"
 ls -la /dev/dri 2>&1 || true
 echo "Input devices:"
 ls -la /dev/input 2>&1 || true
-
-# Give Cockpit a short head start, but never make the graphical session depend
-# on it: Cage must still start so graphics failures remain independently visible.
+# Cockpit is optional: keep the graphical session independently diagnosable.
 ready=0
 for attempt in {1..15}; do
   if (exec 3<>/dev/tcp/127.0.0.1/9091) 2>/dev/null; then
@@ -33,22 +26,22 @@ for attempt in {1..15}; do
 done
 if (( ready == 0 )); then
   echo "WARNING: Cockpit kiosk endpoint is not listening on 127.0.0.1:9091 after 15 seconds."
-  echo "Starting Cage/Firefox anyway; the Cockpit page may show a connection error until Cockpit is repaired."
+  echo "Starting Weston/Firefox anyway; the Cockpit page may show a connection error until Cockpit is repaired."
   systemctl --no-pager --full status feclora-cockpit-kiosk.service 2>&1 || true
 else
   echo "Cockpit endpoint is ready."
 fi
-
-# VirtualBox's VMware SVGA adapter may not initialize EGL/Vulkan without 3D.
-# Use Pixman only on VirtualBox; physical machines retain wlroots renderer autodetection.
+# --no-config prevents a system/user weston.ini from loading optional modules.
+# XWayland is deliberately not requested; Firefox is a native Wayland client.
+WESTON_ARGS=(--backend=drm-backend.so --shell=kiosk-shell.so --no-config)
+# Force software rendering only on VirtualBox; physical machines autodetect.
 virt_vendor="$(systemd-detect-virt --vm 2>/dev/null || true)"
 if [[ "$virt_vendor" == "oracle" ]]; then
-  export WLR_RENDERER=pixman
-  echo "VirtualBox detected; using wlroots Pixman software renderer."
+  WESTON_ARGS+=(--renderer=pixman)
+  echo "VirtualBox detected; using Weston Pixman software renderer."
 else
-  unset WLR_RENDERER
-  echo "Virtualization vendor: ${virt_vendor:-none}; using wlroots renderer autodetection."
+  echo "Virtualization vendor: ${virt_vendor:-none}; using Weston renderer autodetection."
 fi
-echo "Starting Cage and Firefox."
-echo "Cage/Firefox exit status and stderr will be recorded below."
-exec /usr/bin/cage -- /usr/bin/firefox --kiosk --new-instance "$url"
+echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
+echo "Weston/Firefox exit status and stderr will be recorded below."
+exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/bin/firefox --kiosk --new-instance "$url"
