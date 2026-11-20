@@ -64,6 +64,8 @@ TMP="$REPORT.tmp"
   section "WAYLAND AND PROCESSES"
   KIOSK_UID="$(id -u feclora-kiosk 2>/dev/null || true)"
   if [ -n "$KIOSK_UID" ]; then ls -la "/run/user/$KIOSK_UID" 2>&1 || true; fi
+  echo "Weston XDG_RUNTIME_DIR: /run/feclora-kiosk"
+  ls -ldZ /run/feclora-kiosk 2>&1 || true
   ls -la /run/feclora-kiosk 2>&1 || true
   ps -eo pid,ppid,user,stat,tty,comm,args 2>&1 | grep -E '(^ *PID|weston|firefox|Xwayland|cockpit-ws)' || true
   lsmod 2>&1 || true
