@@ -51,7 +51,7 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 IPAddressDeny=any
 IPAddressAllow=127.0.0.1/32
 IPAddressAllow=::1/128
-ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk /run/user/%U
+ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk
 
 [Install]
 WantedBy=graphical.target
