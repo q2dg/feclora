@@ -32,6 +32,7 @@ grep -Fq "PasswordAuthentication yes" "$KS" || fail "Temporary SSH password auth
 grep -Fq "AllowUsers pepe" "$KS" || fail "SSH access is not restricted to the diagnostic user."
 grep -Fq "PermitRootLogin no" "$KS" || fail "SSH root login must remain disabled."
 grep -Fq "enable sshd.service" "$KS" || fail "SSH daemon is not enabled for diagnostic boot."
+grep -Fq "enable firewalld.service sshd.service" "$KS" || fail "SSH daemon and guest firewall are not explicitly enabled for diagnostic boot."
 grep -Fq "firewall-offline-cmd --add-service=ssh" "$KS" || fail "SSH is not allowed through the guest firewall."
 [[ -s "$DIAGNOSTICS" ]] || fail "Offline kiosk diagnostics collector is missing."
 grep -Fq 'journalctl --boot' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture the current boot journal."
