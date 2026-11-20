@@ -132,7 +132,7 @@ restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge
 
 # Temporary local console account for diagnostics; remove before the official release.
 groupadd --system feclora-logs
-useradd --create-home --groups feclora-logs --shell /bin/bash pepe
+useradd --create-home --groups feclora-logs,systemd-journal --shell /bin/bash pepe
 printf '%s\n' 'pepe:1234' | chpasswd
 # Keep the firewall enabled; no remote administration service is installed.
 systemctl --root=/ enable firewalld.service
