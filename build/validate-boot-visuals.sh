@@ -20,20 +20,18 @@ fail() {
 grep -Fq 'retries=20' "$KS" || fail "Anaconda DNF retry count is not increased for transient mirror failures."
 grep -Fq 'timeout=60' "$KS" || fail "Anaconda DNF download timeout is not increased."
 grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloads are not bounded."
-for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox openssh-server cockpit-ws-selinux policycoreutils-python-utils; do
+for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox cockpit-ws-selinux policycoreutils-python-utils; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
 
 grep -Fq "groupadd --system feclora-logs" "$KS" || fail "Dedicated read-only diagnostics group is not created."
-grep -Fq "useradd --create-home --groups feclora-logs --shell /bin/bash pepe" "$KS" || fail "Temporary SSH user is not assigned to the diagnostics group."
+grep -Fq "useradd --create-home --groups feclora-logs --shell /bin/bash pepe" "$KS" || fail "Temporary local console user is not assigned to the diagnostics group."
 grep -Fq "usermod --append --groups feclora-logs feclora-kiosk" "$KS" || fail "Kiosk user is not assigned to the diagnostics group."
-grep -Fq "pepe:1234" "$KS" || fail "Temporary SSH diagnostic password is not configured."
-grep -Fq "PasswordAuthentication yes" "$KS" || fail "Temporary SSH password authentication is not enabled."
-grep -Fq "AllowUsers pepe" "$KS" || fail "SSH access is not restricted to the diagnostic user."
-grep -Fq "PermitRootLogin no" "$KS" || fail "SSH root login must remain disabled."
-grep -Fq "enable sshd.service" "$KS" || fail "SSH daemon is not enabled for diagnostic boot."
-grep -Fq "enable firewalld.service sshd.service" "$KS" || fail "SSH daemon and guest firewall are not explicitly enabled for diagnostic boot."
-grep -Fq "firewall-offline-cmd --add-service=ssh" "$KS" || fail "SSH is not allowed through the guest firewall."
+grep -Fq "pepe:1234" "$KS" || fail "Temporary local console password is not configured."
+grep -Fq "enable firewalld.service" "$KS" || fail "Guest firewall is not enabled."
+if grep -Eq "openssh-server|sshd\.service|sshd_config|add-service=ssh" "$KS"; then
+  fail "Diagnostic SSH server configuration must not be included in the ISO."
+fi
 [[ -s "$DIAGNOSTICS" ]] || fail "Offline kiosk diagnostics collector is missing."
 grep -Fq 'journalctl --boot' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture the current boot journal."
 grep -Fq 'lspci -nnk' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture graphics hardware and drivers."
@@ -114,7 +112,7 @@ grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must b
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
-# Validate the kiosk service configuration even though this diagnostic ISO disables it.
+# Validate the kiosk service configuration used by this diagnostic ISO.
 grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth releases it."
 grep -Fxq 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
 grep -Fxq 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must pull in D-Bus and logind."
