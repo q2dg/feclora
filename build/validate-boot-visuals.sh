@@ -20,7 +20,7 @@ fail() {
 grep -Fq 'retries=20' "$KS" || fail "Anaconda DNF retry count is not increased for transient mirror failures."
 grep -Fq 'timeout=60' "$KS" || fail "Anaconda DNF download timeout is not increased."
 grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloads are not bounded."
-for package in plymouth plymouth-plugin-script librsvg2-tools cage firefox cockpit-ws-selinux policycoreutils-python-utils; do
+for package in plymouth plymouth-plugin-script librsvg2-tools weston firefox cockpit-ws-selinux policycoreutils-python-utils; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
 if grep -Eiq '^[[:space:]]*xorg-x11-server-Xwayland([[:space:]]|$)' "$KS"; then
@@ -81,32 +81,30 @@ grep -Fq "restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge" "$KS" |
 grep -Fq -- "--local-session /usr/bin/cockpit-bridge" "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit kiosk must invoke the packaged cockpit-bridge path."
 grep -Fq 'systemd-detect-virt --vm' "$LAUNCH" || fail "Kiosk must detect the VM vendor before selecting a renderer."
 grep -Fq 'if [[ "$virt_vendor" == "oracle" ]]' "$LAUNCH" || fail "Pixman must be restricted to VirtualBox guests."
-grep -Fq 'export WLR_RENDERER=pixman' "$LAUNCH" || fail "VirtualBox guests must use the wlroots Pixman software renderer."
-grep -Fq 'unset WLR_RENDERER' "$LAUNCH" || fail "Physical machines must retain wlroots renderer autodetection."
+grep -Fq 'WESTON_ARGS+=(--renderer=pixman)' "$LAUNCH" || fail "VirtualBox guests must use Weston's Pixman software renderer."
 grep -Fq "cockpit-bridge" "$DIAGNOSTICS" || fail "Diagnostics do not verify the Cockpit bridge package and executable."
 # The live overlay may lose RPM xattrs while the ISO is assembled; relabel the two packaged executables before Cockpit starts.
 grep -Fq 'ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge' "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit executables are not relabeled before systemd executes them."
-# Ensure Cage receives only supported invocation syntax and Firefox selects Wayland.
-grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE" || fail "Cage is not configured to use logind."
+# Ensure Weston uses the DRM backend and kiosk shell without loading XWayland.
+if grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$SERVICE"; then fail "wlroots libseat environment must not be carried over to Weston."; fi
 grep -Fxq 'Environment=XDG_RUNTIME_DIR=/run/user/%U' "$SERVICE" || fail "Kiosk XDG_RUNTIME_DIR does not match the PAM/logind user runtime directory."
-grep -Fxq 'ExecStartPre=+/usr/bin/chvt 1' "$SERVICE" || fail "Kiosk VT1 must be activated before Cage requests a DRM session."
+grep -Fxq 'ExecStartPre=+/usr/bin/chvt 1' "$SERVICE" || fail "Kiosk VT1 must be activated before Weston requests a DRM session."
 grep -Fq '"/run/user/%U/wayland-*"' "$SERVICE" || fail "Kiosk readiness watcher does not monitor the PAM/logind Wayland socket directory."
 if grep -Fq 'chvt 1' <(sed -n '/^ExecStartPost=/p' "$SERVICE"); then
   fail "Kiosk must not wait for the Wayland socket before activating its VT; that deadlocks DRM session acquisition."
 fi
-grep -Fq 'exec /usr/bin/cage -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must invoke Cage with its application separator."
-if grep -Eq '(^|[[:space:]])cage[[:space:]].*(-x|--disable-xwayland)' "$LAUNCH"; then
-  fail "Kiosk launcher contains a Cage option not supported by the packaged binary."
-fi
+grep -Fq 'WESTON_ARGS=(--backend=drm-backend.so --shell=kiosk-shell.so --no-config)' "$LAUNCH" || fail "Kiosk launcher must select Weston's DRM backend, kiosk shell and isolated configuration."
+grep -Fq 'exec /usr/bin/weston "\${WESTON_ARGS[@]}" -- /usr/bin/firefox' "$LAUNCH" || fail "Kiosk launcher must start Firefox as Weston's Wayland child."
+if grep -Eq -- '(^|[[:space:]])--xwayland([[:space:]]|$)|xwayland\.so' "$LAUNCH"; then fail "Pure Wayland kiosk must not enable or load XWayland."; fi
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
-grep -Fq 'cage -v' "$DIAGNOSTICS" || fail "Diagnostics use an unsupported Cage version flag."
+grep -Fq 'weston --version' "$DIAGNOSTICS" || fail "Diagnostics do not record the Weston version."
 grep -Fq 'KIOSK_UID' "$DIAGNOSTICS" || fail "Diagnostics do not inspect the PAM/logind runtime directory."
-grep -Fq 'using wlroots renderer autodetection.' "$LAUNCH" || fail "Physical-machine renderer autodetection must be logged."
+grep -Fq 'using Weston renderer autodetection.' "$LAUNCH" || fail "Physical-machine Weston renderer autodetection must be logged."
 grep -Fq 'tee -a "$LOG_DIR/launcher.log"' "$LAUNCH" || fail "Kiosk launcher must preserve a plain-text diagnostic log."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
 grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must check the local Cockpit endpoint."
 grep -Fq 'for attempt in {1..15}' "$LAUNCH" || fail "Cockpit readiness check must be bounded to 15 seconds."
-grep -Fq 'Starting Cage/Firefox anyway' "$LAUNCH" || fail "Kiosk must start Cage even when Cockpit is unavailable."
+grep -Fq 'Starting Weston/Firefox anyway' "$LAUNCH" || fail "Kiosk must start Weston even when Cockpit is unavailable."
 grep -Fxq 'Wants=feclora-cockpit-kiosk.service' "$SERVICE" || fail "Cockpit must be optional for the graphical kiosk."
 if grep -Fxq 'Requires=feclora-cockpit-kiosk.service' "$SERVICE"; then
   fail "Cockpit failure must not stop the graphical kiosk."
