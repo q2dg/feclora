@@ -30,9 +30,11 @@ SyslogIdentifier=feclora-kiosk
 StandardOutput=journal
 StandardError=journal
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
-# Do not switch to tty1 while Cage is still initializing: that exposes a
-# blank VT if DRM/logind acquisition has not completed yet.
-ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/user/%U/wayland-*" >/dev/null; then /usr/bin/chvt 1; break; fi; sleep 1; done; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
+# Activate the service's assigned VT after PAM/logind registers the session,
+# but before Cage asks logind for an active DRM session. Delaying chvt until
+# the Wayland socket exists deadlocks: Cage cannot create it before activation.
+ExecStartPre=+/usr/bin/chvt 1
+ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/user/%U/wayland-*" >/dev/null; then break; fi; sleep 1; done; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
 ExecStopPost=+/usr/libexec/feclora/feclora-kiosk-diagnostics stop
 Restart=always
 RestartSec=5
