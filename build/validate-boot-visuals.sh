@@ -112,9 +112,12 @@ fi
 grep -Fq 'ausearch -m AVC,USER_AVC -ts boot' "$DIAGNOSTICS" || fail "Diagnostics do not collect SELinux access denials."
 grep -Fq 'ls -lZ /usr/libexec/cockpit-ws' "$DIAGNOSTICS" || fail "Diagnostics do not capture Cockpit executable SELinux labels."
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
-grep -Fq 'wayland-*' "$SERVICE" || fail "Kiosk must wait for Weston to create its Wayland socket before switching VTs."
+grep -Fq 'wayland-*' "$SERVICE" || fail "Kiosk readiness diagnostics must monitor Weston's Wayland socket."
 grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must be writable inside the service sandbox."
 grep -Fq 'ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk writable paths must be limited to persistent data and logs; PAM creates /run/user/%U at session startup."
+if grep -Fq '/run/user/%U' <(sed -n '/^ReadWritePaths=/p' "$SERVICE"); then
+  fail "PAM must create /run/user/%U after systemd has prepared the service namespace; do not add it to ReadWritePaths."
+fi
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
