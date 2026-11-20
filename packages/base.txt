@@ -20,7 +20,7 @@ cockpit-system
 cockpit-storaged
 
 # Minimal local graphical shell: Firefox kiosk only, no general-purpose desktop
-cage
+weston
 firefox
 
 # Embedded Server-mode PXE stack (installed, never enabled by default)
