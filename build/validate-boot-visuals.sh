@@ -28,7 +28,7 @@ if grep -Eiq '^[[:space:]]*xorg-x11-server-Xwayland([[:space:]]|$)' "$KS"; then
 fi
 
 grep -Fq "groupadd --system feclora-logs" "$KS" || fail "Dedicated read-only diagnostics group is not created."
-grep -Fq "useradd --create-home --groups feclora-logs --shell /bin/bash pepe" "$KS" || fail "Temporary local console user is not assigned to the diagnostics group."
+grep -Fq "useradd --create-home --groups feclora-logs,systemd-journal --shell /bin/bash pepe" "$KS" || fail "Temporary local console user must have read-only journal and diagnostics access."
 grep -Fq "usermod --append --groups feclora-logs feclora-kiosk" "$KS" || fail "Kiosk user is not assigned to the diagnostics group."
 grep -Fq "pepe:1234" "$KS" || fail "Temporary local console password is not configured."
 grep -Fq "enable firewalld.service" "$KS" || fail "Guest firewall is not enabled."
