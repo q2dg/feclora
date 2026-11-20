@@ -8,7 +8,7 @@ the separate port 9090 Cockpit socket retains normal PAM authentication.
 ## Live kiosk startup, bootstrap and authentication
 
 The Live image uses Fedora's `@core` package group plus Feclora's explicit
-runtime packages, with no general-purpose desktop. Cage is the minimal Wayland compositor; Firefox is the only local
+runtime packages, with no general-purpose desktop. Weston runs the DRM backend with kiosk-shell; Firefox is the only local
 interactive application. `feclora-kiosk.service` starts it on tty1 under the
 dedicated `feclora-kiosk` account. The kiosk account has no login shell, is
 not a member of `wheel`. The separate root-owned local Cockpit service starts
@@ -48,9 +48,9 @@ filters restrict the kiosk browser to IPv4/IPv6 loopback; the browser cannot ope
 developer tools, add-ons management, Safe Mode and certificate-warning
 bypass are disabled. The local
 CA is installed through Firefox's supported Linux `Certificates.Install`
-policy and separately into Fedora's system trust store. The Cage/Firefox systemd service
-restarts after failure. Cage is launched without its `-s` option (which would
-enable VT switching), and getty services on tty1–tty6 are masked.
+policy and separately into Fedora's system trust store. The Weston/Firefox systemd service
+restarts after failure. Weston is launched with `--no-config` and without
+`--xwayland`, so no X11 compatibility server or user configuration is loaded.
 
 This is defense in depth, not a claim of tamper-proof physical kiosk
 security. Firmware/boot-menu access and hardware-level keyboard escape
@@ -68,7 +68,7 @@ On the Fedora 45 build host, install Node.js and npm with
 media and installed at `/usr/share/cockpit/feclora`.
 
 The target image includes `cockpit`, `cockpit-system`,
-`cockpit-storaged`, `cage` and `firefox`; it does not install a desktop
+`cockpit-storaged`, `weston` and `firefox`; it does not install a desktop
 environment. The authenticated `cockpit.socket`, certificate unit, local
 passwordless kiosk service and Firefox kiosk unit are enabled by Kickstart. The Cockpit socket drop-in resets the default
 wildcard listener and binds port 9090 only to `127.0.0.1` and `::1`; remote
