@@ -16,7 +16,6 @@ SupplementaryGroups=video render
 Environment=HOME=/var/lib/feclora-kiosk
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 Environment=MOZ_ENABLE_WAYLAND=1
-Environment=LIBSEAT_BACKEND=logind
 EnvironmentFile=-/etc/feclora/kiosk-keyboard.conf
 PAMName=feclora-kiosk
 TTYPath=/dev/tty1
@@ -31,8 +30,8 @@ StandardOutput=journal
 StandardError=journal
 ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 # Activate the service's assigned VT after PAM/logind registers the session,
-# but before Cage asks logind for an active DRM session. Delaying chvt until
-# the Wayland socket exists deadlocks: Cage cannot create it before activation.
+# but before Weston asks logind for an active DRM session. Delaying chvt until
+# the Wayland socket exists deadlocks: Weston cannot create it before activation.
 ExecStartPre=+/usr/bin/chvt 1
 ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/user/%U/wayland-*" >/dev/null; then break; fi; sleep 1; done; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
 ExecStopPost=+/usr/libexec/feclora/feclora-kiosk-diagnostics stop
