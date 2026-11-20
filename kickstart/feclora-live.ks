@@ -1,7 +1,7 @@
 #version=F45
 # Feclora Fedora 45 Live kiosk Kickstart for x86_64.
 # Use Fedora's core package group, not the full Server product environment.
-# Live boot is retained; Firefox/Cage is the only local interactive shell.
+# Live boot is retained; Weston/Firefox is the only local interactive shell.
 
 url --url=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
 
@@ -59,7 +59,7 @@ cockpit-ws-selinux
 cockpit-bridge
 
 # Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
-cage
+weston
 firefox
 
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
