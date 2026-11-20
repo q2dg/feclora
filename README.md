@@ -52,7 +52,7 @@ generation and hardware/network acceptance are maintainer-run activities.
 
 ## Built on
 
-Fedora Server, Cockpit, Firefox, Cage, Partclone, LVM2, cryptsetup,
+Fedora Server, Cockpit, Firefox, Weston, Partclone, LVM2, cryptsetup,
 NetworkManager, UDPcast, dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and
 QEMU/KVM.
 
