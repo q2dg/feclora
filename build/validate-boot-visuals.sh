@@ -114,6 +114,7 @@ grep -Fq 'ls -lZ /usr/libexec/cockpit-ws' "$DIAGNOSTICS" || fail "Diagnostics do
 grep -Fxq 'Restart=always' "$SERVICE" || fail "Kiosk must recover after its browser/compositor exits."
 grep -Fq 'wayland-*' "$SERVICE" || fail "Kiosk must wait for Weston to create its Wayland socket before switching VTs."
 grep -Fq '/var/log/feclora-kiosk' "$SERVICE" || fail "Kiosk log directory must be writable inside the service sandbox."
+grep -Fq 'ReadWritePaths=/var/lib/feclora-kiosk /var/log/feclora-kiosk /run/user/%U' "$SERVICE" || fail "Weston must be able to create its Wayland socket in the PAM runtime directory."
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
