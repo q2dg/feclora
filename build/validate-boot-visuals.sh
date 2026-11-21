@@ -53,16 +53,16 @@ grep -Fxq 'ScriptFile=feclora.script' "$THEME/feclora.plymouth" || fail "Plymout
 grep -Fq 'Image("feclora-logo.png")' "$THEME/feclora.script" || fail "Plymouth script does not load the generated PNG logo."
 grep -Fq 'rsvg-convert --width=640 --output=' "$KS" || fail "Kickstart does not generate the PNG logo."
 grep -Fq 'test -s ' "$KS" || fail "Kickstart does not verify the generated logo."
-grep -Fq 'plymouth-set-default-theme feclora-test -R' "$KS" || fail "Diagnostic image theme is not selected and rebuilt into initramfs."
-grep -Fq 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Colordrawn_Sun.svg/250px-Colordrawn_Sun.svg.png' "$KS" || fail "Diagnostic theme image source is missing."
-grep -Fq 'test-image.png' "$KS" || fail "Diagnostic theme image is not installed in the initramfs."
-grep -Fq 'Theme=feclora-test' "$KS" || fail "Diagnostic image theme is not verified in Plymouth configuration."
+grep -Fq 'plymouth-set-default-theme feclora -R' "$KS" || fail "Feclora Plymouth theme is not selected and rebuilt into initramfs."
+if grep -Fq 'Colordrawn_Sun.svg' "$KS"; then fail "External diagnostic Plymouth artwork must not replace Feclora branding."; fi
+grep -Fq 'feclora-logo.png' "$KS" || fail "Feclora logo is not installed in the initramfs."
+grep -Fq 'Theme=feclora' "$KS" || fail "Feclora theme is not verified in Plymouth configuration."
 grep -Fq 'add_dracutmodules+=" plymouth "' "$KS" || fail "Plymouth dracut module is not explicitly included."
 grep -Fq 'install_items+=' "$KS" || fail "Plymouth assets are not explicitly included in initramfs."
 grep -Fq '/usr/lib64/plymouth/script.so' "$KS" || fail "Plymouth script renderer plugin is not included in initramfs."
 grep -Fq 'lsinitrd -m' "$KS" || fail "Kickstart does not inspect initramfs module contents."
 grep -Fq 'lsinitrd -f /etc/plymouth/plymouthd.conf' "$KS" || fail "Kickstart does not verify the initramfs Plymouth theme selection."
-grep -Fq 'feclora-test/test-image.png' "$KS" || fail "Kickstart does not verify the external test image in the initramfs."
+grep -Fq 'feclora/feclora-logo.png' "$KS" || fail "Kickstart does not verify the Feclora logo in the initramfs."
 
 # Keep the recovery service's systemd sandbox path present before namespace setup.
 grep -Fxq 'RuntimeDirectory=feclora' "$RECOVERY" || fail "Recovery service does not create its writable runtime directory."
@@ -73,7 +73,8 @@ grep -Fq 's/^set default=.*/set default=' "$BUILD" || fail "Lorax template overr
 grep -Fq 'set timeout_style=hidden' "$BUILD" || fail "Lorax menu is not configured as hidden."
 grep -Fq 'set timeout=0' "$BUILD" || fail "Lorax menu timeout is not zero."
 grep -Fq -- '--lorax-templates' "$BUILD" || fail "ISO build does not pass the customized Lorax templates."
-grep -Fq 'rd.plymouth=0 loglevel=7 systemd.show_status=1 rd.debug vt.global_cursor_default=0' "$BUILD" || fail "Diagnostic graphical boot arguments are missing."
+grep -Fq 'rhgb quiet vt.global_cursor_default=0' "$BUILD" || fail "Graphical boot must enable the Plymouth splash without diagnostic console output."
+if grep -Fq 'rd.plymouth=0' "$BUILD"; then fail "ISO boot arguments must not disable Plymouth."; fi
 
 grep -Fq 'semanage port -a -t websm_port_t -p tcp 9091' "$KS" || fail "Cockpit kiosk port 9091 is not authorized in SELinux."
 grep -Fxq "cockpit-bridge" "$KS" || fail "Cockpit bridge package is missing."
@@ -134,7 +135,7 @@ grep -Fxq 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly i
 grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled for graphical.target."
 [[ -s "$PAM" ]] || fail "Dedicated kiosk PAM configuration is missing."
 grep -Fq 'etc/pam.d/feclora-kiosk' "$KS" || fail "Kickstart does not install the dedicated kiosk PAM stack."
-grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "Diagnostic ISO must enable Weston/Firefox for the no-Plymouth graphics test."
+grep -Fq 'enable feclora-kiosk.service' "$KS" || fail "ISO must enable the Weston/Firefox kiosk service."
 grep -Fq 'var/log/feclora-kiosk' "$KS" || fail "Kickstart does not create the offline-retrievable kiosk log directory."
 grep -Fq 'rm -f /etc/kernel/cmdline' "$KS" || fail "Kickstart must remove Anaconda's installed-system kernel command line from the LiveOS image."
 grep -Fq '$2 != "/"' "$KS" || fail "Kickstart must remove Anaconda's installed-root fstab entry from the LiveOS image."
