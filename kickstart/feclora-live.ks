@@ -121,11 +121,7 @@ lshw
 
 %post --erroronfail
 systemctl --root=/ enable NetworkManager
-systemctl --root=/ enable cockpit.socket
-
-# The dedicated local kiosk instance listens on TCP 9091. SELinux's
-# cockpit policy (websm_port_t) otherwise only permits the default 9090.
-semanage port -a -t websm_port_t -p tcp 9091
+systemctl --root=/ mask cockpit.socket
 
 # The Live image is assembled from an overlay; explicitly apply RPM SELinux file contexts.
 restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge
@@ -237,19 +233,8 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kios
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-kiosk.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-root-terminal.service" "$TARGET_ROOT/etc/systemd/system/feclora-root-terminal.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-return.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk-return.service"
-install -d -m 0755 "$TARGET_ROOT/etc/firefox/policies" "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d" "$TARGET_ROOT/etc/systemd/system/cockpit.service.d"
+install -d -m 0755 "$TARGET_ROOT/etc/firefox/policies"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-policies.json" "$TARGET_ROOT/etc/firefox/policies/policies.json"
-cat > "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d/feclora.conf" <<'EOF'
-[Socket]
-ListenStream=
-ListenStream=127.0.0.1:9090
-ListenStream=[::1]:9090
-EOF
-cat > "$TARGET_ROOT/etc/systemd/system/cockpit.service.d/feclora.conf" <<'EOF'
-[Unit]
-Requires=feclora-cockpit-certificate.service feclora-local-operation-recovery.service
-After=feclora-cockpit-certificate.service feclora-local-operation-recovery.service
-EOF
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe"
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
