@@ -101,6 +101,9 @@ grep -Fq 'exec /usr/bin/weston "\${WESTON_ARGS[@]}" -- /usr/bin/firefox' "$LAUNC
 if grep -Eq -- '(^|[[:space:]])--xwayland([[:space:]]|$)|xwayland\.so' "$LAUNCH"; then fail "Pure Wayland kiosk must not enable or load XWayland."; fi
 grep -Fxq 'export XDG_RUNTIME_DIR=/run/feclora-kiosk' "$LAUNCH" || fail "Weston and Firefox must use the systemd-managed runtime directory."
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
+grep -Fq '/usr/bin/firefox --kiosk --private-window --new-instance' "$LAUNCH" || fail "Firefox must start directly in private kiosk mode."
+grep -Fq '"UserMessaging"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox onboarding and recommendation messages must be disabled for kiosk use."
+grep -Fq '"SkipOnboarding": true' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox first-run onboarding must be disabled."
 grep -Fq 'weston --version' "$DIAGNOSTICS" || fail "Diagnostics do not record the Weston version."
 grep -Fq 'KIOSK_UID' "$DIAGNOSTICS" || fail "Diagnostics do not inspect the PAM/logind runtime directory."
 grep -Fq 'Weston XDG_RUNTIME_DIR: /run/feclora-kiosk' "$DIAGNOSTICS" || fail "Diagnostics do not inspect Weston's runtime directory."
