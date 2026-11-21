@@ -1,0 +1,16 @@
+#!/usr/bin/bash
+set -u
+
+LOG_DIR=/var/log/feclora-kiosk
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/firefox.log"
+printf '\n===== Firefox kiosk launch: %s =====\n' "$(date --iso-8601=seconds)" >>"$LOG_FILE"
+printf 'Firefox arguments:' >>"$LOG_FILE"
+printf ' %q' "$@" >>"$LOG_FILE"
+printf '\n' >>"$LOG_FILE"
+
+/usr/bin/firefox "$@" >>"$LOG_FILE" 2>&1
+status=$?
+
+printf 'Firefox exited at %s with status %s\n' "$(date --iso-8601=seconds)" "$status" >>"$LOG_FILE"
+exit "$status"
