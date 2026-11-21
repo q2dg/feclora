@@ -4,10 +4,10 @@
   "requires": {
     "cockpit": "*"
   },
-  "menu": [
-    {
+  "menu": {
+    "index": {
       "label": "Feclora",
       "path": "index.html"
     }
-  ]
+  }
 }
