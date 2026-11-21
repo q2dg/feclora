@@ -1,6 +1,7 @@
 [Unit]
 Description=Feclora local Cockpit kiosk session without login
-After=local-fs.target
+Requires=feclora-cockpit-certificate.service feclora-local-operation-recovery.service
+After=local-fs.target feclora-cockpit-certificate.service feclora-local-operation-recovery.service
 Before=feclora-kiosk.service
 
 [Service]
