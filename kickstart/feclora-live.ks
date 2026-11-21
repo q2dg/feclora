@@ -228,6 +228,7 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-loca
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate" "$TARGET_ROOT/usr/libexec/feclora/feclora-cockpit-certificate"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-launch"
+install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-firefox-launch"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-diagnostics" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-diagnostics"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-certificate.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk.service"
@@ -255,7 +256,7 @@ chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
 systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service
-# Diagnostic boot: keep Plymouth disabled, but start the kiosk so Weston/Firefox can be tested.
+# Start the graphical kiosk during diagnostic boot so Weston/Firefox can be tested.
 systemctl --root="$TARGET_ROOT" enable feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" unmask getty@tty1.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
