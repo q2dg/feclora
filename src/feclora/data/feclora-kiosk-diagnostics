@@ -79,6 +79,13 @@ TMP="$REPORT.tmp"
   else
     echo "Weston log has not been created."
   fi
+
+  section "FIREFOX KIOSK CLIENT LOG"
+  if [ -s "$LOG_DIR/firefox.log" ]; then
+    cat "$LOG_DIR/firefox.log" 2>&1 || true
+  else
+    echo "Firefox log has not been created."
+  fi
 } >"$TMP" 2>&1
 
 mv -f "$TMP" "$REPORT"
@@ -88,12 +95,12 @@ chmod 0640 "$REPORT"
 # The launcher runs with a restrictive systemd umask; normalize its logs before archiving.
 chgrp feclora-logs "$LOG_DIR/launcher.log" 2>/dev/null || true
 chmod 0640 "$LOG_DIR/launcher.log" 2>/dev/null || true
-chgrp feclora-logs "$LOG_DIR/weston.log" 2>/dev/null || true
-chmod 0640 "$LOG_DIR/weston.log" 2>/dev/null || true
+chgrp feclora-logs "$LOG_DIR/weston.log" "$LOG_DIR/firefox.log" 2>/dev/null || true
+chmod 0640 "$LOG_DIR/weston.log" "$LOG_DIR/firefox.log" 2>/dev/null || true
 
 # Keep a portable bundle containing only the kiosk-specific logs and report.
 if [ -f "$LOG_DIR/weston.log" ]; then
-  tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log weston.log 2>/dev/null || true
+  tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log weston.log firefox.log 2>/dev/null || true
 else
   tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log 2>/dev/null || true
 fi
