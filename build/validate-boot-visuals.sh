@@ -77,6 +77,21 @@ grep -Fq 'rhgb quiet vt.global_cursor_default=0' "$BUILD" || fail "Graphical boo
 if grep -Fq 'rd.plymouth=0' "$BUILD"; then fail "ISO boot arguments must not disable Plymouth."; fi
 
 grep -Fq 'semanage port -a -t websm_port_t -p tcp 9091' "$KS" || fail "Cockpit kiosk port 9091 is not authorized in SELinux."
+# Socket activation must not wait for services ordered after basic.target.
+# Gate the activated Cockpit services instead, avoiding a sockets.target cycle.
+RECOVERY_SERVICE="$ROOT_DIR/src/feclora/data/feclora-local-operation-recovery.service"
+CERTIFICATE_SERVICE="$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate.service"
+COCKPIT_KIOSK_SERVICE="$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"
+if grep -Fq 'Before=cockpit.socket' "$RECOVERY_SERVICE" "$CERTIFICATE_SERVICE"; then
+  fail "Cockpit prerequisites must not be ordered before cockpit.socket."
+fi
+grep -Fq 'Requires=feclora-cockpit-certificate.service feclora-local-operation-recovery.service' "$COCKPIT_KIOSK_SERVICE" || fail "Local Cockpit kiosk must require certificate provisioning and local-operation recovery."
+grep -Fq 'After=local-fs.target feclora-cockpit-certificate.service feclora-local-operation-recovery.service' "$COCKPIT_KIOSK_SERVICE" || fail "Local Cockpit kiosk must start after its certificate and recovery prerequisites."
+grep -Fq 'cockpit.service.d/feclora.conf' "$KS" || fail "Authenticated Cockpit service prerequisites drop-in is not installed."
+grep -Fq 'Requires=feclora-cockpit-certificate.service feclora-local-operation-recovery.service' "$KS" || fail "Authenticated Cockpit service must require certificate provisioning and local-operation recovery."
+grep -Fq 'After=feclora-cockpit-certificate.service feclora-local-operation-recovery.service' "$KS" || fail "Authenticated Cockpit service must wait for certificate provisioning and local-operation recovery."
+grep -Fq 'ListenStream=127.0.0.1:9090' "$KS" || fail "Authenticated Cockpit socket must remain restricted to IPv4 loopback."
+grep -Fq 'ListenStream=[::1]:9090' "$KS" || fail "Authenticated Cockpit socket must remain restricted to IPv6 loopback."
 grep -Fxq "cockpit-bridge" "$KS" || fail "Cockpit bridge package is missing."
 grep -Fq "restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge" "$KS" || fail "Cockpit RPM executables are not relabeled with their SELinux policy contexts."
 grep -Fq -- "--local-session /usr/bin/cockpit-bridge" "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit kiosk must invoke the packaged cockpit-bridge path."
