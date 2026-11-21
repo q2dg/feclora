@@ -99,11 +99,10 @@ chgrp feclora-logs "$LOG_DIR/weston.log" "$LOG_DIR/firefox.log" 2>/dev/null || t
 chmod 0640 "$LOG_DIR/weston.log" "$LOG_DIR/firefox.log" 2>/dev/null || true
 
 # Keep a portable bundle containing only the kiosk-specific logs and report.
-if [ -f "$LOG_DIR/weston.log" ]; then
-  tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log weston.log firefox.log 2>/dev/null || true
-else
-  tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log 2>/dev/null || true
-fi
+archive_files=(diagnostics.txt launcher.log)
+[ -f "$LOG_DIR/weston.log" ] && archive_files+=(weston.log)
+[ -f "$LOG_DIR/firefox.log" ] && archive_files+=(firefox.log)
+tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" "${archive_files[@]}" 2>/dev/null || true
 chgrp feclora-logs "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
 chmod 0640 "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
 # Also copy the bundle to a writable boot partition when one is available;
