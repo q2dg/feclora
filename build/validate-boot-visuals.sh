@@ -116,7 +116,7 @@ if grep -Fq 'chvt 1' <(sed -n '/^ExecStartPost=/p' "$SERVICE"); then
 fi
 grep -Fq 'WESTON_ARGS=(--backend=drm-backend.so --shell=kiosk-shell.so --no-config)' "$LAUNCH" || fail "Kiosk launcher must select Weston's DRM backend, kiosk shell and isolated configuration."
 grep -Fq 'exec /usr/bin/weston "\${WESTON_ARGS[@]}" -- /usr/libexec/feclora/feclora-kiosk-firefox-launch' "$LAUNCH" || fail "Kiosk launcher must start the logging Firefox wrapper as Weston's Wayland child."
-grep -Fq 'exec /usr/bin/firefox "$@"' "$FIREFOX_LAUNCH" || fail "Firefox wrapper must execute the packaged browser with the supplied kiosk arguments."
+grep -Fq '/usr/bin/firefox "$@" >>"$LOG_FILE" 2>&1' "$FIREFOX_LAUNCH" || fail "Firefox wrapper must execute the packaged browser and capture its output."
 grep -Fq 'Firefox exited at' "$FIREFOX_LAUNCH" || fail "Firefox wrapper must record the browser exit timestamp and status."
 grep -Fq 'WESTON_ARGS+=(--log="$LOG_DIR/weston.log")' "$LAUNCH" || fail "Weston compositor output must be captured in its dedicated log."
 if grep -Eq -- '(^|[[:space:]])--xwayland([[:space:]]|$)|xwayland\.so' "$LAUNCH"; then fail "Pure Wayland kiosk must not enable or load XWayland."; fi
