@@ -1,9 +1,9 @@
 [Unit]
 Description=Feclora Firefox kiosk on the local display
 StartLimitIntervalSec=0
-Wants=dbus.socket systemd-logind.service
-After=dbus.socket systemd-logind.service systemd-user-sessions.service plymouth-quit-wait.service feclora-cockpit-kiosk.service
-Before=graphical.target
+Wants=dbus.socket systemd-logind.service plymouth-start.service
+After=dbus.socket systemd-logind.service systemd-user-sessions.service plymouth-start.service feclora-cockpit-kiosk.service
+Before=plymouth-quit.service graphical.target
 ConditionPathExists=/dev/tty0
 Conflicts=getty@tty1.service
 Wants=feclora-cockpit-kiosk.service
@@ -35,7 +35,9 @@ ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 # but before Weston asks logind for an active DRM session. Delaying chvt until
 # the Wayland socket exists deadlocks: Weston cannot create it before activation.
 ExecStartPre=+/usr/bin/chvt 1
-ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/feclora-kiosk/wayland-*" >/dev/null; then break; fi; sleep 1; done; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
+# Let Plymouth release DRM while retaining its last frame for the Weston handoff.
+ExecStartPre=+/usr/bin/bash -c '/usr/bin/plymouth deactivate || true'
+ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/feclora-kiosk/wayland-*" >/dev/null; then break; fi; sleep 1; done; for attempt in {1..30}; do if /usr/bin/pgrep -u feclora-kiosk -x firefox >/dev/null; then break; fi; sleep 1; done; sleep 2; /usr/bin/plymouth quit --retain-splash || true; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
 ExecStopPost=+/usr/libexec/feclora/feclora-kiosk-diagnostics stop
 Restart=always
 RestartSec=5
