@@ -1,7 +1,7 @@
 [Unit]
 Description=Reconcile unfinished Feclora local storage operations
 After=local-fs.target
-Before=cockpit.socket
+Before=feclora-cockpit-kiosk.service cockpit.service
 RequiresMountsFor=/var/lib/feclora
 
 [Service]
