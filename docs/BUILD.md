@@ -177,9 +177,9 @@ general-purpose desktop or display manager is installed. On each fresh Live boot
 application directly through a loopback-only Cockpit `--local-session` service.
 The first Feclora screen asks the operator to select the interface language; continuing opens the operations menu. No user
 password is created or requested; the `feclora` administrator account remains
-locked. A separate, normally authenticated Cockpit socket is retained on
-loopback port 9090. The local CA/certificate is generated and trusted for that
-separate endpoint.
+locked. The dedicated Cockpit local-session service owns loopback port 9090;
+the standard authenticated `cockpit.socket` is masked and is not used. The local
+CA/certificate is generated and trusted for the kiosk endpoint.
 
 The Live root is intentionally ephemeral. The local CA private key and
 temporary Feclora configuration are session-local and reset on reboot. Each boot begins a new session; this is
@@ -197,11 +197,11 @@ host block devices.
 At minimum, verify:
 
 - BIOS and UEFI boot select the first GRUB entry automatically without displaying the menu, then reach the Firefox kiosk on tty1 without a desktop or console login prompt.
-- Firefox opens `http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html`
+- Firefox opens `http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html`
   directly, without a login or password prompt. The first visible control is
   the Feclora interface-language selector.
-- The separate authenticated Cockpit socket remains on loopback port 9090; the
-  no-login local kiosk endpoint is bound only to `127.0.0.1:9091`.
+- `feclora-cockpit-kiosk.service` owns `127.0.0.1:9090` in `--local-session`
+  mode; `cockpit.socket` is masked and inactive.
 - `systemctl status cockpit.socket feclora-cockpit-certificate.service
   feclora-cockpit-kiosk.service feclora-kiosk.service` shows expected states.
 - `test -s /usr/share/cockpit/feclora/index.html` succeeds and Cockpit
@@ -216,9 +216,8 @@ At minimum, verify:
   or requested; the `feclora` administrator account remains locked.
 
 The passwordless kiosk endpoint is loopback-only and must not be exposed through
-QEMU port forwarding or the LAN. The ordinary authenticated Cockpit socket is
-also guest-loopback-only; QEMU host port forwarding for 9090 is not part of the
-supported kiosk test path.
+QEMU port forwarding or the LAN. Do not forward port 9090; it is the local
+single-user kiosk endpoint, not an authenticated remote administration service.
 
 The local Cockpit bridge runs with system privileges; this is an intentionally local, single-user appliance interface, not a safe multi-user host service. The old `dialog` menu is not part of the supported startup flow. Remote Server/Client deployment is integrated through the persistent service and authenticated TLS control path. The unattended PXE answer workflow publishes a validated JSON answer and answer-specific script through Caddy; the Live client resolves the repository ID through its normal SSHFS, NFS, SMB/CIFS or S3 repository manager and invokes the guarded whole-disk restore engine. Repository credentials are not placed in the answer file. This workflow is distinct from Server-authenticated Remote jobs and does not provide Server-side operation-result reconciliation. Consult the [feature matrix](FEATURE-MATRIX.md) for exact scope and limitations.
 
