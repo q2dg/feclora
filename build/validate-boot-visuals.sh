@@ -130,10 +130,15 @@ fi
 grep -Fq 'pam_permit.so' "$PAM" || fail "Password-locked kiosk account must not be rejected by PAM authentication."
 grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery must not be permanently rate-limited."
 
-# Validate the kiosk service configuration used by this diagnostic ISO.
-grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE" || fail "Kiosk may take the display before Plymouth releases it."
-grep -Fxq 'Before=graphical.target' "$SERVICE" || fail "Kiosk must be ordered before graphical.target."
-grep -Fxq 'Wants=dbus.socket systemd-logind.service' "$SERVICE" || fail "Kiosk must pull in D-Bus and logind."
+# Validate the Plymouth-to-kiosk DRM handoff and the final graphical target.
+if grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE"; then
+  fail "Kiosk must not wait for Plymouth to disappear before starting Weston."
+fi
+grep -Fxq 'Before=plymouth-quit.service graphical.target' "$SERVICE" || fail "Plymouth must not quit before the kiosk startup handoff."
+grep -Fq 'plymouth deactivate || true' "$SERVICE" || fail "Kiosk must ask Plymouth to release DRM while retaining its splash frame."
+grep -Fq 'pgrep -u feclora-kiosk -x firefox' "$SERVICE" || fail "Plymouth splash must remain until the Firefox kiosk process starts."
+grep -Fq 'plymouth quit --retain-splash' "$SERVICE" || fail "Plymouth must retain its final frame during the Firefox handoff."
+grep -Fxq 'Wants=dbus.socket systemd-logind.service plymouth-start.service' "$SERVICE" || fail "Kiosk must pull in D-Bus, logind and Plymouth."
 grep -Fxq 'PAMName=feclora-kiosk' "$SERVICE" || fail "Kiosk must use its dedicated PAM session."
 grep -Fxq 'StandardInput=tty-fail' "$SERVICE" || fail "Kiosk must fail clearly if it cannot acquire its VT."
 grep -Fxq 'WantedBy=graphical.target' "$SERVICE" || fail "Kiosk must be enabled for graphical.target."
