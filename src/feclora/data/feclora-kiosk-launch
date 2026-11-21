@@ -1,5 +1,6 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
+SECONDS=0
 LOG_DIR=/var/log/feclora-kiosk
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_DIR/launcher.log") 2>&1
@@ -45,6 +46,7 @@ if [[ "$virt_vendor" == "oracle" ]]; then
 else
   echo "Virtualization vendor: ${virt_vendor:-none}; using Weston renderer autodetection."
 fi
+echo "Kiosk preflight elapsed: ${SECONDS}s."
 echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
 echo "Weston/Firefox exit status and stderr will be recorded below."
 exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/bin/firefox --kiosk --private-window --new-instance "$url"
