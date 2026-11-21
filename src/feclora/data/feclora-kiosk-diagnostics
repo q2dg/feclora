@@ -72,18 +72,31 @@ TMP="$REPORT.tmp"
 
   section "KIOSK LAUNCHER LOG"
   cat "$LOG_DIR/launcher.log" 2>&1 || true
+
+  section "WESTON COMPOSITOR LOG"
+  if [ -s "$LOG_DIR/weston.log" ]; then
+    cat "$LOG_DIR/weston.log" 2>&1 || true
+  else
+    echo "Weston log has not been created."
+  fi
 } >"$TMP" 2>&1
 
 mv -f "$TMP" "$REPORT"
 chgrp feclora-logs "$REPORT"
 chmod 0640 "$REPORT"
 
-# The launcher runs with a restrictive systemd umask; normalize its log before archiving.
+# The launcher runs with a restrictive systemd umask; normalize its logs before archiving.
 chgrp feclora-logs "$LOG_DIR/launcher.log" 2>/dev/null || true
 chmod 0640 "$LOG_DIR/launcher.log" 2>/dev/null || true
+chgrp feclora-logs "$LOG_DIR/weston.log" 2>/dev/null || true
+chmod 0640 "$LOG_DIR/weston.log" 2>/dev/null || true
 
 # Keep a portable bundle containing only the kiosk-specific logs and report.
-tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log 2>/dev/null || true
+if [ -f "$LOG_DIR/weston.log" ]; then
+  tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log weston.log 2>/dev/null || true
+else
+  tar -czf "$LOG_DIR/diagnostics.tar.gz" -C "$LOG_DIR" diagnostics.txt launcher.log 2>/dev/null || true
+fi
 chgrp feclora-logs "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
 chmod 0640 "$LOG_DIR/diagnostics.tar.gz" 2>/dev/null || true
 # Also copy the bundle to a writable boot partition when one is available;
