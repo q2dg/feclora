@@ -127,7 +127,7 @@ LMC_ARGS=(
   --iso-only
   --iso-name feclora-live.iso
   --lorax-templates "${LORAX_TEMPLATE_DIR}"
-  --extra-boot-args "rd.plymouth=0 loglevel=7 systemd.show_status=1 rd.debug vt.global_cursor_default=0"
+  --extra-boot-args "rhgb quiet vt.global_cursor_default=0"
 )
 if [[ -n "${BUILD_PROXY}" ]]; then
   LMC_ARGS+=(--proxy "${BUILD_PROXY}")
