@@ -47,4 +47,4 @@ else
 fi
 echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
 echo "Weston/Firefox exit status and stderr will be recorded below."
-exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/bin/firefox --kiosk --new-instance "$url"
+exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/bin/firefox --kiosk --private-window --new-instance "$url"
