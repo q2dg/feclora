@@ -46,7 +46,11 @@ if [[ "$virt_vendor" == "oracle" ]]; then
 else
   echo "Virtualization vendor: ${virt_vendor:-none}; using Weston renderer autodetection."
 fi
+# Keep Weston diagnostics separate from Firefox stderr and the launcher preflight.
+# Weston terminates when its kiosk client exits, so this log must survive restarts.
+WESTON_ARGS+=(--log="$LOG_DIR/weston.log")
 echo "Kiosk preflight elapsed: ${SECONDS}s."
 echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
+echo "Weston log: $LOG_DIR/weston.log"
 echo "Weston/Firefox exit status and stderr will be recorded below."
 exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/bin/firefox --kiosk --private-window --new-instance "$url"
