@@ -22,7 +22,7 @@
     "DisableFormHistory": true,
     "OfferToSaveLogins": false,
     "PasswordManagerEnabled": false,
-    "DisablePrivateBrowsing": true,
+    "DisablePrivateBrowsing": false,
     "DisableTelemetry": true,
     "DisableDeveloperTools": true,
     "DisableSafeMode": true,
@@ -45,8 +45,12 @@
       "Block": ["<all_urls>"],
       "Exceptions": [
         "http://127.0.0.1/*",
+        "https://127.0.0.1/*",
         "ws://127.0.0.1/*",
+        "wss://127.0.0.1/*",
+        "http://localhost/*",
         "https://localhost/*",
+        "ws://localhost/*",
         "wss://localhost/*"
       ]
     },
