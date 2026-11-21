@@ -81,7 +81,10 @@ if grep -Fq 'rd.plymouth=0' "$BUILD"; then fail "ISO boot arguments must not dis
 
 COCKPIT_KIOSK_SERVICE="$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"
 grep -Fq 'systemctl --root=/ mask cockpit.socket' "$KS" || fail "The standard Cockpit socket must be masked so it cannot claim port 9090."
-if grep -Eq 'systemctl --root=/ enable cockpit\\.socket|cockpit\\.socket\\.d|cockpit\\.service\\.d|9091' "$KS"; then
+if grep -Fq 'systemctl --root=/ enable cockpit.socket' "$KS" \
+  || grep -Fq 'cockpit.socket.d' "$KS" \
+  || grep -Fq 'cockpit.service.d' "$KS" \
+  || grep -Fq '9091' "$KS"; then
   fail "Kickstart must not enable standard Cockpit socket activation or configure a second kiosk port."
 fi
 grep -Fq 'Requires=feclora-cockpit-certificate.service feclora-local-operation-recovery.service' "$COCKPIT_KIOSK_SERVICE" || fail "Local Cockpit kiosk must require certificate provisioning and local-operation recovery."
@@ -133,7 +136,7 @@ grep -Fq 'section "WESTON COMPOSITOR LOG"' "$DIAGNOSTICS" || fail "Diagnostics m
 grep -Fq 'section "FIREFOX KIOSK CLIENT LOG"' "$DIAGNOSTICS" || fail "Diagnostics must include Firefox output and exit status."
 grep -Fq 'firefox.log' "$DIAGNOSTICS" || fail "Firefox log must be included in the portable diagnostic archive."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
-grep -Fq '/dev/tcp/127.0.0.1/9091' "$LAUNCH" || fail "Kiosk launcher must check the local Cockpit endpoint."
+grep -Fq '/dev/tcp/127.0.0.1/9090' "$LAUNCH" || fail "Kiosk launcher must check the local Cockpit endpoint on port 9090."
 grep -Fq 'for attempt in {1..15}' "$LAUNCH" || fail "Cockpit readiness check must be bounded to 15 seconds."
 grep -Fq 'Starting Weston/Firefox anyway' "$LAUNCH" || fail "Kiosk must start Weston even when Cockpit is unavailable."
 grep -Fxq 'Wants=feclora-cockpit-kiosk.service' "$SERVICE" || fail "Cockpit must be optional for the graphical kiosk."
