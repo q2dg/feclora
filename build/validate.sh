@@ -46,11 +46,11 @@ require_text 'npm ci --no-audit --no-fund' build/build-webui.sh "Frontend build 
 
 # Keep the kiosk local-only and unprivileged, while Cockpit's local session is
 # deliberately isolated on IPv4 loopback.
-require_text '^ExecStart=/usr/libexec/cockpit-ws --address 127\.0\.0\.1 --port 9091 --local-session /usr/bin/cockpit-bridge$' src/feclora/data/feclora-cockpit-kiosk.service "Passwordless Cockpit must use the loopback-only local session."
+require_text '^ExecStart=/usr/libexec/cockpit-ws --address 127\.0\.0\.1 --port 9090 --local-session /usr/bin/cockpit-bridge$' src/feclora/data/feclora-cockpit-kiosk.service "Passwordless Cockpit must use the loopback-only local session."
 require_text '^IPAddressDeny=any$' src/feclora/data/feclora-kiosk.service "Firefox kiosk must deny non-loopback network access."
 require_text '^IPAddressAllow=127\.0\.0\.1/32$' src/feclora/data/feclora-kiosk.service "Firefox kiosk must allow IPv4 loopback."
 require_text '^IPAddressAllow=::1/128$' src/feclora/data/feclora-kiosk.service "Firefox kiosk must allow IPv6 loopback."
-require_text 'http://127\.0\.0\.1:9091/cockpit/@localhost/feclora/index\.html' src/feclora/data/feclora-kiosk-launch "Kiosk launcher must open the local Feclora Cockpit application."
+require_text 'http://127\.0\.0\.1:9090/cockpit/@localhost/feclora/index\.html' src/feclora/data/feclora-kiosk-launch "Kiosk launcher must open the local Feclora Cockpit application."
 require_text 'languageConfirmed' webui/src/App.jsx "The first visible screen must be the language selector."
 require_text 'open_root_terminal' webui/src/App.jsx "Language selector must expose the root-terminal action."
 require_text 'open_root_terminal' webui/src/api.js "Frontend API must expose the root-terminal action."
