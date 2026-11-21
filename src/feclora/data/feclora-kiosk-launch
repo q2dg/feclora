@@ -4,7 +4,7 @@ SECONDS=0
 LOG_DIR=/var/log/feclora-kiosk
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_DIR/launcher.log") 2>&1
-url=http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html
+url=http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 # systemd creates this directory before applying the service mount namespace.
 # PAM still registers the logind session and creates /run/user/980 independently.
@@ -21,7 +21,7 @@ ls -la /dev/input 2>&1 || true
 # Cockpit is optional: keep the graphical session independently diagnosable.
 ready=0
 for attempt in {1..15}; do
-  if (exec 3<>/dev/tcp/127.0.0.1/9091) 2>/dev/null; then
+  if (exec 3<>/dev/tcp/127.0.0.1/9090) 2>/dev/null; then
     exec 3>&-
     ready=1
     break
@@ -29,7 +29,7 @@ for attempt in {1..15}; do
   sleep 1
 done
 if (( ready == 0 )); then
-  echo "WARNING: Cockpit kiosk endpoint is not listening on 127.0.0.1:9091 after 15 seconds."
+  echo "WARNING: Cockpit kiosk endpoint is not listening on 127.0.0.1:9090 after 15 seconds."
   echo "Starting Weston/Firefox anyway; the Cockpit page may show a connection error until Cockpit is repaired."
   systemctl --no-pager --full status feclora-cockpit-kiosk.service 2>&1 || true
 else
