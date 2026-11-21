@@ -3,7 +3,7 @@
 Cockpit is Feclora's primary operator interface. The React/PatternFly
 application is installed at `/usr/share/cockpit/feclora`. The physical kiosk
 uses Cockpit's loopback-only `--local-session` mode without a login prompt;
-the separate port 9090 Cockpit socket retains normal PAM authentication.
+the dedicated service owns port 9090 and the standard authenticated socket is masked.
 
 ## Live kiosk startup, bootstrap and authentication
 
@@ -16,14 +16,14 @@ the bridge for this dedicated physical-kiosk session.
 
 The `feclora` administrator account is created as a member of `wheel`, but
 starts locked. On each fresh Live boot, Firefox opens the Feclora Cockpit application directly at
-`http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html`. The dedicated
+`http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html`. The dedicated
 `feclora-cockpit-kiosk.service` starts Cockpit Web Service with its documented
 `--local-session` mode and binds it only to IPv4 loopback. This skips Cockpit's
 login flow for the physical kiosk. The bridge runs with system privileges so
 Feclora's existing privileged API actions can execute without an interactive
-password prompt. The ordinary Cockpit socket remains separate on port 9090
-and retains its normal PAM authentication; the passwordless endpoint is not
-reachable from the LAN. This is a local physical-appliance trust model, not a
+password prompt. The standard `cockpit.socket` is masked; Feclora uses only the dedicated
+passwordless local-session service on port 9090, which is not reachable from
+the LAN. This is a local physical-appliance trust model, not a
 secure multi-user local-host boundary: other processes running on the same
 machine can also reach the loopback kiosk endpoint.
 
@@ -32,7 +32,7 @@ and session configuration are lost on reboot. A persistent configuration
 store is a separate design requirement; Feclora must not silently choose one
 of the disks that may be a restore target as its persistence device.
 
-Before Cockpit's socket is activated, a root-owned systemd oneshot generates
+Before the local Cockpit service starts, a root-owned systemd oneshot generates
 a local CA and a server certificate with SANs for `localhost`,
 `127.0.0.1` and `::1`. The CA is installed in the Fedora system trust store and explicitly
 installed into Firefox using its Linux enterprise certificate policy. Cockpit receives the
@@ -57,7 +57,7 @@ security. Firmware/boot-menu access and hardware-level keyboard escape
 behavior still require operator testing. The local no-login bridge runs with system privileges. This is deliberately
 a single-user physical-appliance trust model: any other process already
 running on the same host can connect to the loopback endpoint. Do not expose
-port 9091 on a network interface or forward it through SSH/QEMU.
+port 9090 on a network interface or forward it through SSH/QEMU.
 
 ## Build and package
 
@@ -69,10 +69,10 @@ media and installed at `/usr/share/cockpit/feclora`.
 
 The target image includes `cockpit`, `cockpit-system`,
 `cockpit-storaged`, `weston` and `firefox`; it does not install a desktop
-environment. The authenticated `cockpit.socket`, certificate unit, local
-passwordless kiosk service and Firefox kiosk unit are enabled by Kickstart. The Cockpit socket drop-in resets the default
-wildcard listener and binds port 9090 only to `127.0.0.1` and `::1`; remote
-LAN access is intentionally unavailable in this kiosk profile.
+environment. The standard `cockpit.socket` is masked by Kickstart. The certificate unit,
+local passwordless kiosk service and Firefox kiosk unit are enabled; the
+kiosk service itself binds port 9090 only to `127.0.0.1`. No Cockpit listener
+is exposed on a LAN interface.
 
 ## Storage workflows
 
