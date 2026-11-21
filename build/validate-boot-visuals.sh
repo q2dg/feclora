@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# This validator intentionally greps literal shell source fragments.
+# shellcheck disable=SC2016
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
