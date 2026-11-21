@@ -10,7 +10,7 @@ User=root
 Group=root
 # Reapply the RPM SELinux labels on the live overlay before systemd executes Cockpit.
 ExecStartPre=+/usr/sbin/restorecon -F /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge
-ExecStart=/usr/libexec/cockpit-ws --address 127.0.0.1 --port 9091 --local-session /usr/bin/cockpit-bridge
+ExecStart=/usr/libexec/cockpit-ws --address 127.0.0.1 --port 9090 --local-session /usr/bin/cockpit-bridge
 Restart=on-failure
 RestartSec=2
 UMask=0077
