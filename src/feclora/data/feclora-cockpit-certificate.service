@@ -1,7 +1,7 @@
 [Unit]
 Description=Provision and trust the local Feclora Cockpit TLS certificate
 After=local-fs.target
-Before=feclora-cockpit-kiosk.service feclora-kiosk.service cockpit.service
+Before=feclora-cockpit-kiosk.service feclora-kiosk.service
 
 [Service]
 Type=oneshot
