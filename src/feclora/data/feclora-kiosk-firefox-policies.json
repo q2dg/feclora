@@ -9,6 +9,15 @@
     "DontCheckDefaultBrowser": true,
     "DisableFirefoxAccounts": true,
     "DisableFirefoxStudies": true,
+    "UserMessaging": {
+      "ExtensionRecommendations": false,
+      "FeatureRecommendations": false,
+      "UrlbarInterventions": false,
+      "SkipOnboarding": true,
+      "MoreFromMozilla": false,
+      "FirefoxLabs": false,
+      "Locked": true
+    },
     "DisableFirefoxScreenshots": true,
     "DisableFormHistory": true,
     "OfferToSaveLogins": false,
