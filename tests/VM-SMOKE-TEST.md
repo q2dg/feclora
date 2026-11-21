@@ -58,11 +58,12 @@ independent test run. Remove the temporary copy after the test.
 - [ ] Weston/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
-- [ ] `cockpit.socket` is enabled and active.
-- [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9091/` with no login or password prompt.
+- [ ] `cockpit.socket` is masked and inactive.
+- [ ] `feclora-cockpit-kiosk.service` owns `127.0.0.1:9090` using `--local-session`.
+- [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9090/` with no login or password prompt.
 - [ ] The first Feclora screen is the interface-language selector; selecting a language and continuing opens the Feclora operations menu.
-- [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9091`.
-- [ ] The ordinary authenticated `cockpit.socket` remains on `127.0.0.1:9090` and `[::1]:9090`.
+- [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9090`.
+- [ ] No separate authenticated Cockpit socket or second listener is active.
 - [ ] The `feclora` administrator account remains locked; no password is created.
 - [ ] Certificate, local Cockpit kiosk and Firefox kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
@@ -73,11 +74,10 @@ independent test run. Remove the temporary copy after the test.
 ## Cockpit kiosk and screenshot capture
 
 Use the VM's local display. Firefox must open the Feclora Cockpit app at
-`http://127.0.0.1:9091/cockpit/@localhost/feclora/index.html` without asking
+`http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html` without asking
 for a username or password. The first Feclora screen must be the interface-language selector; select a language, continue, and verify the Operations menu.
 The unauthenticated endpoint is bound to guest loopback only; do not forward
-port 9091. The separate authenticated Cockpit socket remains on 9090 and is
-also not forwarded.
+port 9090. The standard Cockpit socket is masked; do not forward this port.
 
 ## Kiosk confinement and session behavior
 
