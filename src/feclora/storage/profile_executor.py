@@ -386,7 +386,7 @@ def execute_unattended_restore_profile(
     current_inventory = inventory if inventory is not None else collect_inventory()
     target = _matching_target(profile, current_inventory)
     if expected_target_path is not None and target.get("path") != expected_target_path:
-        raise RestoreProfileError("detected profile target path differs from the explicitly confirmed Cockpit target")
+        raise RestoreProfileError("detected profile target path differs from the explicitly confirmed target")
     profile.authorize(target)
     repository_path = Path(repository)
     manifest_path = repository_path / profile.image_manifest

@@ -1,4 +1,4 @@
-"""Privileged, allowlisted Cockpit API for Feclora storage workflows.
+"""Privileged, allowlisted API for Feclora terminal workflows.
 
 Requests are one bounded JSON object on stdin. Long operations run in this
 process and emit newline-delimited progress events followed by one result.
@@ -35,7 +35,7 @@ MAX_REQUEST = 128 * 1024
 
 
 class WebAPIError(RuntimeError):
-    """A Cockpit API request was invalid or could not be fulfilled."""
+    """An API request was invalid or could not be fulfilled."""
 
 
 def _emit(value: dict[str, Any]) -> None:
@@ -973,7 +973,7 @@ def _operations() -> list[dict[str, Any]]:
     if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
         raise WebAPIError("operation journal must be a private root-owned regular file")
     if info.st_size > 2 * 1024 * 1024:
-        raise WebAPIError("operation journal exceeds the Cockpit read limit")
+        raise WebAPIError("operation journal exceeds the API read limit")
     records = []
     for line in path.read_text(encoding="utf-8").splitlines()[-200:]:
         try:
@@ -1013,13 +1013,13 @@ def _service_state() -> dict[str, str]:
     services = {}
     try:
         result = subprocess.run(
-            ["/usr/bin/systemctl", "is-active", "feclora-cockpit-kiosk.service"],
+            ["/usr/bin/systemctl", "is-active", "feclora-tui.service"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=3,
         )
-        services["Cockpit kiosk"] = result.stdout.strip() or "inactive"
+        services["Textual interface"] = result.stdout.strip() or "inactive"
     except (OSError, subprocess.SubprocessError):
-        services["Cockpit kiosk"] = "unknown"
+        services["Textual interface"] = "unknown"
     for label, pattern in (
         ("PXE dnsmasq", "feclora-dnsmasq-*.service"),
         ("PXE Caddy", "feclora-caddy-*.service"),
@@ -2498,12 +2498,12 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077):
             raise WebAPIError("PXE operation journal must be a private service-owned regular file")
         if info.st_size > 2 * 1024 * 1024:
-            raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
+            raise WebAPIError("PXE operation journal exceeds the API read limit")
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
             fd = None
             raw = stream.read(2 * 1024 * 1024 + 1)
         if len(raw.encode("utf-8")) > 2 * 1024 * 1024:
-            raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
+            raise WebAPIError("PXE operation journal exceeds the API read limit")
     finally:
         if fd is not None:
             os.close(fd)
@@ -3108,7 +3108,7 @@ def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
     if report.get("job_id") != job_id:
         raise WebAPIError("deployment journal UUID does not match the requested job")
     if report.get("job_state") != "created" or report.get("interrupted"):
-        raise WebAPIError("only a fresh, unstarted deployment job can be started from Cockpit")
+        raise WebAPIError("only a fresh, unstarted deployment job can be started from the interface")
     unit = _deployment_service_unit(job_id)
     try:
         result = subprocess.run(
@@ -3468,7 +3468,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _export_server_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_enrollment import export_server_age_recipients
+    from feclora.deployment.recipient_inventory_export import export_server_age_recipients
     try:
         return export_server_age_recipients(params)
     except Exception as exc:
@@ -3476,7 +3476,7 @@ def _export_server_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_client import refresh_client_age_recipients
+    from feclora.deployment.recipient_inventory_refresh import refresh_client_age_recipients
     try:
         return refresh_client_age_recipients(params)
     except Exception as exc:
@@ -4115,12 +4115,12 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_p2v", "import_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
                   "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "execute_restore_profile"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
-    raise WebAPIError("unsupported Cockpit API action")
+    raise WebAPIError("unsupported API action")
 
 
 def main() -> int:
     if os.geteuid() != 0:
-        _emit({"ok": False, "error": "Feclora Cockpit API requires authorized root execution"})
+        _emit({"ok": False, "error": "Feclora API requires authorized root execution"})
         return 1
     if len(sys.argv) != 2:
         _emit({"ok": False, "error": "one API command is required"})

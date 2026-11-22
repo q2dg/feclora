@@ -1,4 +1,4 @@
-"""Read-only NetworkManager connection profile inventory for Cockpit."""
+"""Read-only NetworkManager connection profile inventory for the TUI."""
 from __future__ import annotations
 
 import json

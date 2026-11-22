@@ -1,4 +1,4 @@
-"""Persistent, single-job Server deployment service for Cockpit.
+"""Persistent, single-job Server deployment service for the Textual interface.
 
 The service reuses the established TLS control plane, coordinator, journal and
 image-transfer engines. It never resumes an interrupted job after process loss.

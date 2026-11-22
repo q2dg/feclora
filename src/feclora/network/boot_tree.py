@@ -70,7 +70,7 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
         raise LiveBootAssetError("PXE HTTP port is invalid")
     base = f"http://{parsed}:{http_port}/live"
     # PXE is only an alternative way to start the exact Feclora Live image.
-    # Deployment selection happens after the normal Live Cockpit interface starts.
+    # Deployment selection happens after the normal Live Textual interface starts.
     return (
         "#!ipxe\n"
         "dhcp\n"

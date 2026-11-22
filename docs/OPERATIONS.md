@@ -16,7 +16,7 @@ backup, artifact provenance or a published release pipeline.
 
 A fresh Feclora Live boot creates a new ephemeral system session. The local
 CA/private key, temporary configuration and service state are regenerated or
-reset. The local kiosk has no password prompt; the separate administrator
+reset. The Textual interface has no password prompt; the separate administrator
 account remains locked. Images and manifests must live in explicitly
 selected repositories outside the ephemeral Live root.
 
@@ -46,15 +46,15 @@ operational approach is to build and boot a new ISO using
 [the build procedure](BUILD.html).
 
 1. Review the release notes and the exact source commit intended for the new
-   image. Check CI, Python tests, frontend build, localization checks,
-   dependency audit and CodeQL results for that commit.
+   image. Check CI, Python tests, localization checks and CodeQL results for
+   that commit.
 2. Back up and verify all required repository image sets and any external
    provider configuration using the provider's own backup process.
 3. Build the new ISO by following [BUILD](BUILD.html). Record the installer
    ISO checksum, source commit, build logs, output size and resulting ISO
    SHA-256.
-4. Boot the candidate ISO in disposable BIOS and UEFI VMs. Validate Cockpit,
-   kiosk startup, storage discovery and repository connectivity before using
+4. Boot the candidate ISO in disposable BIOS and UEFI VMs. Validate Textual
+   startup, storage discovery and repository connectivity before using
    it on operational machines.
 5. On disposable target media, exercise the storage operations relevant to
    the deployment. Never use a production disk as a test target.
@@ -186,17 +186,10 @@ the publisher.
 
 ## Quality and localization status
 
-The frontend's direct dependencies are pinned in `webui/package.json`, and
-the complete transitive dependency graph is committed in
-`webui/package-lock.json` (lockfile version 3). CI and
-`build/build-webui.sh` install from that lockfile with `npm ci`; the build
-script fails if the lockfile is missing rather than silently resolving a new
-dependency graph. CI verifies clean-checkout installation and frontend builds;
-update the lockfile only for intentional dependency changes.
-
-Dependabot proposes updates for npm dependencies and GitHub Actions. CodeQL
-runs scheduled and on changes for Python and JavaScript/TypeScript. These
-automated scanners complement, but do not replace, code review, tests and
+The Live interface uses Fedora's `python3-textual` package. The pinned
+`textual==8.1.1` dependency in `requirements-test.txt` is used for tests; it is
+not installed from PyPI into the Live image. Dependabot proposes GitHub Actions
+updates, and CodeQL complements (but does not replace) code review, tests and
 maintainer release acceptance.
 
 The interface currently offers 14 locales, but translation coverage is not

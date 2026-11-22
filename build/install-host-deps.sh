@@ -8,8 +8,6 @@ packages=(
   edk2-ovmf
   xorriso
   dracut
-  nodejs
-  npm
 )
 
 if [[ "${EUID}" -eq 0 ]]; then

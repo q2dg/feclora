@@ -6,280 +6,100 @@ title: Build and validate the live ISO
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
-# Build and validate the live ISO
+# Build and validate the Live ISO
 
-This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance from the `@core` package group plus Feclora's explicit runtime packages, and how to validate it in disposable QEMU virtual machines.
-It is a runbook, not evidence that the build or boot tests have passed.
+This runbook covers the Fedora 45 x86_64 Textual appliance. Static checks and
+unit tests do not establish that an ISO builds or boots; keep BIOS, UEFI and
+physical-hardware acceptance results separate from automated test results.
 
-> **Implementation status:** the reproducible build pipeline, application-payload integration, and operator runbook are implemented. Executing the build and BIOS/UEFI boot acceptance remains an operator validation step; this document is not evidence that those tests have passed. Do not distribute an image as tested until the checks below have been executed and recorded.
+## Build host
 
-## 1. Scope and build host
-
-The initial build target is Fedora 45 on an x86_64 host. The build uses
-Anaconda/Kickstart through Lorax `livemedia-creator`, with QEMU virtualization.
-The script intentionally does not use `--no-virt`.
-
-Use a dedicated build machine or VM with:
-
-- Fedora 45 x86_64 and working Fedora package repositories.
-- Hardware virtualization enabled in firmware and KVM available to the host.
-- Enough free disk space for the source DVD, augmented installer ISO,
-  intermediate build tree, logs, and final ISO. Allow tens of GiB rather than
-  planning around the final ISO size alone.
-- A graphical session for the interactive QEMU smoke tests, or a separately
-  configured display/serial workflow.
-- A Fedora 45 x86_64 DVD installer ISO.
-
-Fedora releases have finite support windows. Fedora 45 is the project's
-initial baseline, not a promise that it will remain a supported build host.
-If Fedora 45 repositories are no longer available, do not silently substitute
-another release: first update and test the project baseline and build inputs.
-
-## 2. Prepare the host
-
-Clone the repository and enter its working tree:
-
-```bash
-git clone https://github.com/q2dg/feclora.git
-cd feclora
-git checkout main
-```
-
-Install the build dependencies:
+Use Fedora 45 x86_64 with working Fedora repositories, KVM access, QEMU,
+Lorax, xorriso and enough free space for the installer ISO and build tree.
+Install dependencies with:
 
 ```bash
 make deps
 ```
 
-This invokes `build/install-host-deps.sh`, which installs the Fedora packages
-`lorax`, `lorax-lmc-virt`, `qemu-kvm`, `edk2-ovmf`, `xorriso`, `dracut`,
-`nodejs` and `npm`. Node.js and npm compile the React/PatternFly Cockpit
-package; xorriso and dracut inspect and validate the generated bootable ISO.
-
-Check the host architecture, virtualization device, and available space:
-
-```bash
-uname -m
-test -c /dev/kvm && echo "KVM device available" || echo "KVM unavailable"
-df -h .
-```
-
-The expected host is Fedora 45 on `x86_64`. If `/dev/kvm` is unavailable,
-fix host virtualization permissions/configuration before building; the normal
-build path requires QEMU virtualization.
-
-After setting `FEDORA_INSTALL_ISO` in the next section, run the automated
-preflight before the build:
-
-```bash
-make preflight FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
-```
-
-The preflight checks the Fedora release, architecture, input files, required
-commands, KVM access, and free space on the output filesystem. It reserves a
-conservative default minimum of 20 GiB; override this with
-`FECLORA_MIN_FREE_GIB` only after checking the actual space requirements for
-the selected installer ISO and build workload. Passing preflight does not
-guarantee that the build will fit or complete.
-
-## 3. Obtain and verify the Fedora installer ISO
-
-Download the Fedora 45 x86_64 DVD installer ISO from an official Fedora
-distribution mirror. Verify its SHA-256 digest against the checksum published
-by Fedora for that exact image before using it.
-
-For example:
-
-```bash
-sha256sum Fedora-45-x86_64-DVD.iso
-```
-
-Compare the result manually with the official published checksum. Do not
-treat a checksum calculated locally, without comparison to the published
-value, as authenticity verification.
-
-Set the path to the verified ISO:
+Obtain the official Fedora 45 x86_64 DVD ISO and verify its SHA-256 against
+Fedora's published checksum. Then set the input path:
 
 ```bash
 export FEDORA_INSTALL_ISO="$PWD/Fedora-45-x86_64-DVD.iso"
 test -f "$FEDORA_INSTALL_ISO"
 ```
 
-The build script also accepts an absolute path elsewhere on the host.
+The project intentionally does not switch Fedora baselines automatically.
+Update and test the baseline before substituting a different release.
 
-## 4. Run static checks and unit tests
+## Validate and build
 
-Before building:
+Install the pinned UI-test dependency in a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-test.txt
+```
+
+Then run validation and tests from the activated environment:
 
 ```bash
 make validate
 make test
 make preflight FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
-```
-
-These checks cover shell syntax/project validation and hardware-independent
-Python unit tests. They do not build an ISO, exercise Anaconda, or prove that
-the image boots.
-
-## 5. Build the ISO
-
-Run the Makefile target:
-
-```bash
 make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
-### SELinux boot mode
+The build stages the Python application, adds it to a temporary installer ISO,
+and runs `livemedia-creator` with QEMU virtualization. The resulting
+`out/feclora-live.iso` is checked for BIOS and UEFI GRUB entries and the
+Feclora Plymouth theme in the shipped boot initramfs. The Live image installs
+Textual and boots directly to its unprivileged keyboard-first interface on
+tty1; No browser, web server, graphical compositor or desktop is installed.
 
-The Live ISO defaults to SELinux permissive mode. SELinux continues auditing
-AVC denials but does not enforce them. To build an enforcing image:
+SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
+to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
+enforcing image; permissive mode audits denials but does not enforce them.
+Review AVC denials before selecting enforcing mode for release.
 
-```bash
-sudo env FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO" \
-  FECLORA_SELINUX_PERMISSIVE=0 make build
-```
+## BIOS and UEFI smoke test
 
-Permissive mode adds `enforcing=0` to the BIOS and UEFI boot arguments. It
-does not change the on-disk SELinux configuration. Review AVC denials and
-select enforcing mode explicitly when building release images.
-
-The target invokes `build/build-iso.sh` with root privileges. The script:
-
-1. Runs the host preflight before doing build work: checks Fedora 45,
-   x86_64, the input ISO, Kickstart, application source, required executables
-   (including npm), KVM access, and a configurable minimum of free output space.
-2. Builds the React/PatternFly Cockpit frontend with `build/build-webui.sh`.
-3. Creates a temporary staging tree under the output directory's parent and
-   stages the Python application and frontend build there. The staging tree is
-   removed automatically when the build script exits.
-4. Uses `mkksiso --add` to add the complete application payload and Kickstart
-   to a temporary installer ISO in that same temporary work directory.
-5. Runs `livemedia-creator --make-iso` against the augmented installer ISO,
-   using QEMU virtualization and the project's Kickstart.
-6. Requests the final image as `out/feclora-live.iso` and verifies the actual
-   BIOS and UEFI GRUB entries and Plymouth theme, renderer and logo in the
-   shipped boot initramfs. The build fails if any of these checks fail and
-   writes the evidence to `out/boot-initrd-plymouth-check.txt`.
-
-The expected final artifact is:
-
-```text
-out/feclora-live.iso
-```
-
-The ISO build now fails if either BIOS or UEFI boot entries omit `rhgb`, or
-if the shipped initramfs lacks the Feclora Plymouth theme, script renderer or
-generated logo. This verifies the actual ISO payload; it does not replace the
-BIOS and UEFI QEMU boot checks in the [VM smoke procedure](../tests/VM-SMOKE-TEST.md).
-
-If the build fails, preserve the complete terminal output and the contents of
-`out/` (especially Lorax/Anaconda logs) before cleaning or retrying. Do not
-delete the output directory until the failure has been diagnosed.
-
-## 6. Inspect the generated artifact
-
-After a successful build command:
+With QEMU and OVMF installed, run:
 
 ```bash
-test -s out/feclora-live.iso
-file out/feclora-live.iso
-ls -lh out/feclora-live.iso
-sha256sum out/feclora-live.iso
+python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
-Record the checksum and file size with the test results. A successful build
-process and a non-empty ISO are necessary but not sufficient acceptance
-criteria: the image must still boot in both firmware modes.
+This headless test verifies that both firmware variants boot and the
+`feclora-tui.service` readiness helper reports startup over a test-only
+virtio-serial channel. It does **not** capture the terminal display or prove
+that a human can use every workflow. Manually boot both firmware modes with a
+visible QEMU display and verify the terminal, keyboard navigation, Plymouth
+handoff and service recovery.
 
-## Runtime behavior
+## Manual boot acceptance
 
-The Kickstart selects Fedora's `@core` package group rather than the broader
-Server product environment, then adds Feclora's explicit runtime package set.
-Weston and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
-general-purpose desktop or display manager is installed. On each fresh Live boot the Firefox kiosk opens the local Feclora Cockpit
-application directly through a loopback-only Cockpit `--local-session` service.
-The first Feclora screen lets the operator select the interface language and
-keyboard layout, apply the keyboard mapping, or open the root terminal.
-Continuing opens the Feclora operations app. The kiosk does not request an
-interactive login. The `feclora` administrator account is created with its
-password locked. A separate temporary diagnostic account, `pepe`, is created
-with a password for console troubleshooting and must be removed before a
-release image is published. The dedicated Cockpit local-session service owns
-loopback port 9090;
-the standard authenticated `cockpit.socket` is masked and is not used. The local
-CA/certificate is generated and trusted for the kiosk endpoint.
+- [ ] BIOS and UEFI select the first GRUB entry without a visible menu.
+- [ ] Plymouth displays the Feclora logo during boot, then yields to the TUI
+      without a persistent black screen.
+- [ ] `feclora-tui.service` runs on tty1 as the locked, unprivileged `feclora`
+      account; no graphical stack or login prompt is installed there.
+- [ ] The initial screen accepts keyboard input and allows language selection
+      and keyboard-layout configuration.
+- [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
+      implemented control, including long and scrollable forms.
+- [ ] The root terminal action opens tty2; exiting the shell returns the
+      display to tty1.
+- [ ] The TUI reaches the fixed allowlisted helper through sudo; no general
+      passwordless shell or unrestricted root command is available to `feclora`.
+- [ ] Server/PXE preflight, local storage confirmation and error states are
+      visible without relying on mouse input.
+- [ ] A reboot recovers unfinished local operations as interrupted and starts
+      the Textual interface directly.
+- [ ] Kernel command line, firmware details, ISO checksum and test results are
+      recorded.
 
-The Live root is intentionally ephemeral. The local CA private key and
-temporary Feclora configuration are session-local and reset on reboot. Each boot begins a new session; this is
-the intended operating model, not a missing persistence feature. Images,
-manifests and other data that must survive are written to repositories or
-storage explicitly selected by the operator. Never select a potential restore
-target disk implicitly.
-
-## 7. Boot-test BIOS and UEFI
-
-Follow [the VM smoke-test procedure](../tests/VM-SMOKE-TEST.md). Run the BIOS
-and UEFI tests separately. Use disposable virtual storage only; do not attach
-host block devices.
-
-At minimum, verify:
-
-- BIOS and UEFI boot select the first GRUB entry automatically without displaying the menu, then reach the Firefox kiosk on tty1 without a desktop or console login prompt.
-- Firefox opens `http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html`
-  directly, without a login or password prompt. The first visible control is
-  the Feclora interface-language selector.
-- `feclora-cockpit-kiosk.service` owns `127.0.0.1:9090` in `--local-session`
-  mode; `cockpit.socket` is masked and inactive.
-- `systemctl status cockpit.socket feclora-cockpit-certificate.service
-  feclora-cockpit-kiosk.service feclora-kiosk.service` shows expected states.
-- `test -s /usr/share/cockpit/feclora/index.html` succeeds and Cockpit
-  displays storage inventory and the local Operations wizard.
-- `/usr/share/feclora/python/feclora` contains the Python application.
-- Firefox `WebsiteFilter` blocks external URLs and systemd cgroup IP filters
-  deny all kiosk network destinations except loopback.
-- The kiosk account is not in `wheel`; tty1 is reserved for the graphical kiosk
-  (`getty@tty1` is unmasked but conflicts with the kiosk service), tty2 remains
-  available for the temporary diagnostic console account, and getty on tty3–tty6
-  is masked. There is no autologin configuration or NOPASSWD sudo rule.
-- Firefox and Weston restart after terminating the kiosk process.
-- The local kiosk opens directly on every boot without an interactive login.
-  The `feclora` administrator account remains password-locked; the temporary
-  `pepe` diagnostic account is not permitted in a release image.
-
-The passwordless kiosk endpoint is loopback-only and must not be exposed through
-QEMU port forwarding or the LAN. Do not forward port 9090; it is the local
-single-user kiosk endpoint, not an authenticated remote administration service.
-
-The local Cockpit bridge runs with system privileges; this is an intentionally local, single-user appliance interface, not a safe multi-user host service. Remote Server/Client deployment is integrated through the persistent service and authenticated TLS control path. The unattended PXE answer workflow publishes a validated JSON answer and answer-specific script through Caddy; the Live client resolves the repository ID through its normal SSHFS, NFS, SMB/CIFS or S3 repository manager and invokes the guarded whole-disk restore engine. Repository credentials are not placed in the answer file. This workflow is distinct from Server-authenticated Remote jobs and does not provide Server-side operation-result reconciliation. Consult the [feature matrix](FEATURE-MATRIX.md) for exact scope and limitations.
-
-### Kiosk operator acceptance (pending)
-
-The kiosk implementation is now present in source and Kickstart. It is not
-accepted until BIOS and UEFI cold boots, Firefox enterprise policy behavior,
-Cockpit local-session startup, service restart and physical
-keyboard/TTY escape behavior have been exercised on disposable VMs and
-representative hardware. Follow [the VM smoke-test procedure](../tests/VM-SMOKE-TEST.md)
-and record results; do not infer hardware acceptance from static validation.
-
-A successful Cockpit page load does not validate destructive workflows.
-Verify capture/restore/clone only with disposable virtual disks and follow
-the dedicated imaging acceptance checks.
-
-## 8. Record results
-
-For every build/test run, record:
-
-- Git commit ID and build date.
-- Host Fedora release, architecture, and kernel.
-- Input DVD ISO filename and verified SHA-256.
-- Build command and whether `livemedia-creator` completed successfully.
-- Final ISO filename, size, and SHA-256.
-- QEMU version and whether KVM acceleration was enabled.
-- BIOS and UEFI firmware details (including OVMF file paths/versions).
-- BIOS boot result, UEFI boot result, launcher result, and inventory result.
-- Relevant logs and any deviations or failures.
-
-Do not mark the live-image milestone complete until the ISO build, BIOS boot,
-UEFI boot, payload/launcher, and virtual-device inventory checks have all
-passed. A VM boot test does not validate disk imaging or restoration; those
-require separate tests using disposable virtual disks.
+Only use disposable virtual disks for destructive-workflow acceptance.
+Never attach a host system disk to a test VM.

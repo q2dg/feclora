@@ -1,4 +1,4 @@
-# Explicit Feclora runtime packages for the Fedora 45 Live kiosk appliance (x86_64).
+# Explicit Feclora runtime packages for the Fedora 45 Live Textual appliance (x86_64).
 # The Kickstart also selects @core; this file documents the additional runtime set.
 # Keep this list aligned with kickstart/feclora-live.ks.
 kernel
@@ -15,17 +15,10 @@ firewalld
 openssl
 ca-certificates
 
-# Cockpit transition UI and local Textual terminal interface
-cockpit
-cockpit-system
-cockpit-storaged
-cockpit-bridge
-cockpit-ws-selinux
+# Textual runs directly on tty1; no graphical desktop is installed.
 policycoreutils-python-utils
 
-# Minimal local graphical shell: Firefox kiosk only, no general-purpose desktop
-weston
-firefox
+# Plymouth branding and local shell utilities
 librsvg2-tools
 openssh-clients
 plymouth-scripts
@@ -56,7 +49,7 @@ xorriso
 
 # Storage and inspection
 python3-libguestfs
-# Remote image repository mounts (enabled only by explicit Cockpit action)
+# Remote image repository mounts (enabled only by explicit operator action)
 fuse-sshfs
 nfs-utils
 cifs-utils

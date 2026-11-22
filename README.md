@@ -1,8 +1,8 @@
 # Feclora
 
-Feclora is a Fedora Server-based Live appliance for disk and partition imaging,
-local and remote cloning, recovery and network deployment. It launches a
-Cockpit-based operator interface in a restricted Firefox kiosk.
+Feclora is a Fedora-based Live appliance for disk and partition imaging,
+local and remote cloning, recovery and network deployment. Its keyboard-first
+Textual interface runs directly on tty1 without a graphical desktop.
 
 ## What it does
 
@@ -52,9 +52,8 @@ generation and hardware/network acceptance are maintainer-run activities.
 
 ## Built on
 
-Fedora Server, Cockpit, Firefox, Weston, Partclone, LVM2, cryptsetup,
-NetworkManager, UDPcast, dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and
-QEMU/KVM.
+Fedora, Python, Textual, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
+dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and QEMU/KVM.
 
 ## License
 

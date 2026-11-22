@@ -30,14 +30,7 @@ KEYMAPS = {
     "zh": "us",
 }
 VCONSOLE_CONFIG = Path("/etc/vconsole.conf")
-KIOSK_KEYBOARD_CONFIG = Path("/etc/feclora/kiosk-keyboard.conf")
-XKB_LAYOUTS = {
-    "us": ("us", ""), "us-intl": ("us", "intl"),
-    "es": ("es", ""), "ca": ("es", "cat"), "gl": ("es", ""), "eu": ("es", ""), "fr": ("fr", ""), "de": ("de", ""),
-    "it": ("it", ""), "pt": ("pt", ""), "br": ("br", ""),
-    "ru": ("ru", ""), "tr": ("tr", ""), "ar": ("ara", ""),
-    "ja": ("jp", ""), "zh": ("cn", ""),
-}
+KEYBOARD_CONFIG = Path("/etc/feclora/keyboard-layout.conf")
 
 
 class KeyboardLayoutError(RuntimeError):
@@ -69,10 +62,10 @@ def get_keyboard_layout() -> dict[str, Any]:
     keymap = _read_keymap()
     selected = next((name for name, value in KEYMAPS.items() if value == keymap), None)
     try:
-        info = os.lstat(KIOSK_KEYBOARD_CONFIG)
+        info = os.lstat(KEYBOARD_CONFIG)
         if (stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode)
                 and info.st_uid == 0 and info.st_size <= 4096):
-            content = KIOSK_KEYBOARD_CONFIG.read_text(encoding="ascii")
+            content = KEYBOARD_CONFIG.read_text(encoding="ascii")
             for line in content.splitlines():
                 match = re.fullmatch(r"FECLORA_KEYBOARD_LAYOUT=([a-z-]{2,8})", line)
                 if match and match.group(1) in KEYMAPS:
@@ -81,25 +74,25 @@ def get_keyboard_layout() -> dict[str, Any]:
     except FileNotFoundError:
         pass
     except (OSError, UnicodeError) as exc:
-        raise KeyboardLayoutError(f"cannot read kiosk keyboard preference: {exc}") from exc
+        raise KeyboardLayoutError(f"cannot read keyboard preference: {exc}") from exc
     return {"layout": selected or keymap, "keymap": keymap, "supported": sorted(KEYMAPS)}
 
 
-def _write_kiosk_keyboard_config(path: Path, layout_id: str, layout: str, variant: str) -> None:
+def _write_keyboard_config(path: Path, layout_id: str) -> None:
     parent = path.parent
     parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     parent_info = os.lstat(parent)
     if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode):
-        raise KeyboardLayoutError("kiosk keyboard configuration directory is not a real directory")
+        raise KeyboardLayoutError("keyboard configuration directory is not a real directory")
     try:
         info = os.lstat(path)
     except FileNotFoundError:
         info = None
     if info is not None and (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
                              or info.st_size > 4096):
-        raise KeyboardLayoutError("kiosk keyboard configuration is not a safe regular file")
-    content = f"FECLORA_KEYBOARD_LAYOUT={layout_id}\nXKB_DEFAULT_LAYOUT={layout}\nXKB_DEFAULT_VARIANT={variant}\nXKB_DEFAULT_OPTIONS=\n"
-    fd, temporary = tempfile.mkstemp(prefix=".kiosk-keyboard-", dir=parent)
+        raise KeyboardLayoutError("keyboard configuration is not a safe regular file")
+    content = f"FECLORA_KEYBOARD_LAYOUT={layout_id}\n"
+    fd, temporary = tempfile.mkstemp(prefix=".keyboard-layout-", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as stream:
             stream.write(content)
@@ -120,47 +113,14 @@ def _write_kiosk_keyboard_config(path: Path, layout_id: str, layout: str, varian
         raise
 
 
-def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Path = KIOSK_KEYBOARD_CONFIG) -> dict[str, Any]:
+def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Path = KEYBOARD_CONFIG) -> dict[str, Any]:
     if set(params) != {"layout"}:
         raise KeyboardLayoutError("set_keyboard_layout requires exactly layout")
     layout = params["layout"]
     if not isinstance(layout, str) or layout not in KEYMAPS:
         raise KeyboardLayoutError("keyboard layout is not in the supported allowlist")
     keymap = KEYMAPS[layout]
-    xkb_layout, xkb_variant = XKB_LAYOUTS[layout]
     run = runner or subprocess.run
-
-    def available_values(command: list[str], label: str) -> set[str]:
-        try:
-            result = run(
-                command, stdin=subprocess.DEVNULL, capture_output=True,
-                text=True, check=False, timeout=15,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise KeyboardLayoutError(f"could not validate XKB {label}: {exc}") from exc
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "command failed").strip()[:256]
-            raise KeyboardLayoutError(f"could not validate XKB {label}: {detail}")
-        return {
-            match.group(1)
-            for line in (result.stdout or "").splitlines()
-            if (match := re.match(r"^\s*([A-Za-z0-9_-]+)(?:\s|$)", line))
-        }
-
-    layouts = available_values(
-        ["/usr/bin/localectl", "list-x11-keymap-layouts"], "layout availability",
-    )
-    if xkb_layout not in layouts:
-        raise KeyboardLayoutError(f"XKB layout {xkb_layout} is not installed on this Live image")
-    if xkb_variant:
-        variants = available_values(
-            ["/usr/bin/localectl", "list-x11-keymap-variants", xkb_layout],
-            f"variant availability for {xkb_layout}",
-        )
-        if xkb_variant not in variants:
-            raise KeyboardLayoutError(
-                f"XKB variant {xkb_layout}({xkb_variant}) is not installed on this Live image"
-            )
     commands = (
         ["/usr/bin/localectl", "set-keymap", keymap],
         ["/usr/bin/loadkeys", keymap],
@@ -177,19 +137,8 @@ def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Pat
             detail = (result.stderr or result.stdout or "command failed").strip()[:256]
             raise KeyboardLayoutError(f"could not apply keyboard layout {layout}: {detail}")
     try:
-        _write_kiosk_keyboard_config(config_path, layout, xkb_layout, xkb_variant)
-        restart = run(
-            ["/usr/bin/systemd-run", "--unit=feclora-keyboard-restart",
-             "--on-active=2s", "--collect", "/usr/bin/systemctl", "restart",
-             "feclora-kiosk.service"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=15,
-        )
+        _write_keyboard_config(config_path, layout)
     except (OSError, subprocess.SubprocessError, KeyboardLayoutError) as exc:
-        raise KeyboardLayoutError(f"could not configure graphical keyboard layout: {exc}") from exc
-    if restart.returncode != 0:
-        detail = (restart.stderr or restart.stdout or "systemd could not schedule the kiosk restart").strip()[:256]
-        raise KeyboardLayoutError(f"keyboard saved but graphical kiosk restart was not scheduled: {detail}")
-    return {"layout": layout, "keymap": keymap, "xkb_layout": xkb_layout,
-            "xkb_variant": xkb_variant, "applied": True,
-            "scope": "persistent Linux console and Weston/Wayland XKB; kiosk session restarts shortly"}
+        raise KeyboardLayoutError(f"could not save keyboard preference: {exc}") from exc
+    return {"layout": layout, "keymap": keymap, "applied": True,
+            "scope": "Linux virtual console"}

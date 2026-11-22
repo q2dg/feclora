@@ -265,7 +265,7 @@ def _wait_for_age_passphrase(
     *,
     timeout: float = 300.0,
 ) -> str:
-    """Wait for a one-shot passphrase submitted through the local Cockpit API."""
+    """Wait for a one-shot passphrase submitted through the local privileged API."""
     import time
 
     path = Path(secret_path)
@@ -314,7 +314,7 @@ def _wait_for_age_passphrase(
             if (not value or any(char in value for char in "\r\n\x00")):
                 raise PXEAnswerClientError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
             return value
-        raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
+        raise PXEAnswerClientError("timed out waiting for the age passphrase in the Live interface")
     finally:
         for stale in (path, marker):
             try:
@@ -324,7 +324,7 @@ def _wait_for_age_passphrase(
 
 
 def _clear_stale_age_passphrase_files(directory: str | os.PathLike[str] = "/run/feclora/pxe") -> None:
-    """Remove one-shot secret files left by an interrupted Cockpit/API process."""
+    """Remove one-shot secret files left by an interrupted helper process."""
     root = Path(directory)
     for candidate in [root / "age-passphrase", root / "age-passphrase-needed", *root.glob(".age-passphrase-*")]:
         try:

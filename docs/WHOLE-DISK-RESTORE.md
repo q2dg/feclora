@@ -10,7 +10,7 @@ title: Whole-disk restore
 
 # Whole-disk restore
 
-**Status: implemented in Cockpit.**
+**Status: implemented in Textual.**
 
 Feclora restores one verified raw whole-disk image to a whole-disk block
 device. The destination is overwritten. A restore is not reversible and an
@@ -35,7 +35,7 @@ interruption can leave the destination partially written.
 
 Never use a production disk as a test target.
 
-## Cockpit procedure
+## Textual procedure
 
 1. Open **Operations** and choose whole-disk restore.
 2. Select the repository containing the image.
@@ -46,7 +46,7 @@ Never use a production disk as a test target.
    writable disk, is smaller than the image, has a different logical sector
    size, or fails the target-safety checks.
 6. Read the destructive warning and type the exact confirmation requested:
-   `ERASE /dev/DEVICE`, using the destination path displayed by Cockpit.
+   `ERASE /dev/DEVICE`, using the destination path displayed by Textual.
 7. Start the operation. Do not disconnect the target or power off the system
    while the write and read-back verification are running.
 8. Wait for the terminal result. A successful operation includes an
@@ -95,7 +95,7 @@ logs and documentation.
 
 - Whole-disk restore accepts raw disk-image artifacts only.
 - The standard restore destination must be equal to or larger than the source.
-  Smaller-disk restore is a separate Cockpit proportional workflow, limited to
+  Smaller-disk restore is a separate Textual proportional workflow, limited to
   supported GPT layouts whose final partition uses ext2/3/4 or NTFS.
 - Extra capacity is not automatically assigned to a partition or filesystem.
 - A larger GPT target requires `sgdisk` for backup-header relocation and

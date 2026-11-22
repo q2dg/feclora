@@ -10,7 +10,7 @@ description: Fedora Live disk imaging, cloning, recovery and network deployment.
 <a class="brand" href="{{ '/' | relative_url }}" aria-label="Feclora home"><picture><source media="(prefers-color-scheme: dark)" srcset="{{ '/assets/feclora-logo-dark.svg' | relative_url }}"><img src="{{ '/assets/feclora-logo.svg' | relative_url }}" alt="Feclora"></picture></a>
 <p class="eyebrow">FEDORA LIVE · DISK IMAGING · DEPLOYMENT</p>
 <h1>Capture, restore and clone disks — locally or across a network.</h1>
-<p class="lead">Feclora is a Fedora Live appliance with a Cockpit interface for creating manifest-backed disk images, restoring compatible targets and coordinating network deployments.</p>
+<p class="lead">Feclora is a Fedora Live appliance with a keyboard-first Textual interface for creating manifest-backed disk images, restoring compatible targets and coordinating network deployments.</p>
 <div class="hero-actions"><a class="button button-primary" href="./GETTING-STARTED.html">Start with the safe first steps</a><a class="button button-secondary" href="./GUIDES.html">Browse all operator guides</a></div>
 </header>
 <section class="section" aria-labelledby="workflow-title"><p class="eyebrow">CHOOSE A TASK</p><h2 id="workflow-title">What would you like to do?</h2><div class="feature-grid">

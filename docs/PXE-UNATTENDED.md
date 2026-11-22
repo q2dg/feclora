@@ -38,7 +38,7 @@ Unattended execution is independent of the boot method. The same schema-v1 Deplo
 
 The Live answer downloader submits schema-v1 jobs to the persistent authenticated Client runtime rather than restoring directly. For multicast, each Live Client independently resolves its local interface route to the shared multicast group, validates its own MAC-to-WWN/serial target binding, stages and verifies the same image artifacts, then invokes the shared manifest-backed restore dispatcher at `src/feclora/deployment/restore_execution.py`. The Server starts the single multicast transmission automatically only after every authorized Client is READY. Once the cohort is armed, a Client that fails START or loses its control session while receiving the offer is marked failed independently; it does not cancel peers that accepted the offer. The same manifest and artifact stream are sent once to the remaining receivers, and UDPcast requires at least one receiver rather than the original cohort size. A sender/repository-wide error still fails the active receivers because they share the same unavailable source stream. Terminal results and progress are collected concurrently per Client, so a stalled or disconnected control session does not delay recording the other Clients' outcomes. PXE is only an optional Live boot transport; answer discovery also works from ISO/USB through DHCP option 224. The Server sends image data directly to multicast receivers.
 
-The Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The ISO/Client deployment panel can import the same schema-v1 document from a local file, HTTP(S), a mounted and verified repository, S3, or SCP through saved SSH credentials. Both import paths validate the document with `DeploymentJob.from_dict()` before the operator reviews and creates or publishes the job. The legacy schema-v2 PXE answer remains readable for compatibility and retains its original local unicast restore path. New schema-v1 PXE jobs use the shared authenticated deployment control plane and support whole-disk unicast or multicast restore. All clients fetch the same published JSON; `target_bindings` is a shared MAC-to-stable-disk map, not a set of per-client answer files.
+The Textual PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The ISO/Client deployment panel can import the same schema-v1 document from a local file, HTTP(S), a mounted and verified repository, S3, or SCP through saved SSH credentials. Both import paths validate the document with `DeploymentJob.from_dict()` before the operator reviews and creates or publishes the job. The legacy schema-v2 PXE answer remains readable for compatibility and retains its original local unicast restore path. New schema-v1 PXE jobs use the shared authenticated deployment control plane and support whole-disk unicast or multicast restore. All clients fetch the same published JSON; `target_bindings` is a shared MAC-to-stable-disk map, not a set of per-client answer files.
 
 The Feclora PXE Server is the single deployment component containing DHCP,
 Caddy and the services needed to distribute Live boot assets and publish
@@ -66,7 +66,7 @@ and limits only.
 
 ## Deployment preparation
 
-The Cockpit Server setup accepts a prewritten JSON answer from three
+The Textual Server setup accepts a prewritten JSON answer from three
 sources: a local file upload, an HTTP/HTTPS URL, or a path inside an already
 configured image repository. For HTTP/HTTPS, the Server downloads the document
 directly, verifies TLS certificates, rejects redirects and embedded URL
@@ -122,8 +122,8 @@ ambiguous matches fail closed.
 
 An answer file can authorize a destructive operation, so it must not be
 treated as harmless configuration. It is published only after administrator
-action through Cockpit, is scoped to one generated job UUID, and can currently
-be revoked explicitly from the same Cockpit form. A new PXE session clears
+action through Textual, is scoped to one generated job UUID, and can currently
+be revoked explicitly from the same Textual form. A new PXE session clears
 stale published answer directories. Successful explicit deployment-job
 cancellation revokes its answer. Answers do not expire automatically and can
 be reused until revoked or cleared by a new PXE session. Clients validate the
@@ -134,7 +134,7 @@ server's published file can alter the instructions. The answer is served over HT
 not the answer JSON or HTTP transport.
 
 The PXE Server can register the MAC address supplied by iPXE on the first
-unattended boot request. In Cockpit, the administrator may configure a maximum
+unattended boot request. In Textual, the administrator may configure a maximum
 number of distinct MAC addresses, a serving-time deadline, or both. Both fields
 are empty by default: no client-count or time limit is imposed unless the
 administrator explicitly enters one. Repeated requests from a MAC already
@@ -168,7 +168,7 @@ restoration are performed by the Client itself. The Client sends best-effort
 start, progress and terminal events to the Server's /pxe/report/<job-uuid>
 endpoint. The Server stores these in the private
 /var/lib/feclora/pxe/remote-reports.jsonl journal and includes them in
-Cockpit's Operation history. A failed or unavailable report transport never
+Textual's Operation history. A failed or unavailable report transport never
 interrupts the disk restore. The Client also retains its local operation
 journal.
 
@@ -201,15 +201,15 @@ image-set download path. The PXE Server never accesses these repositories.
       from the Live NetworkManager lease on ISO boots.
 - [x] Resolve the repository ID using the normal managed repository managers, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
-- [x] Add one Cockpit JSON answer-file upload control; the repository ID is
+- [x] Add one Textual JSON answer-file upload control; the repository ID is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
 - [x] Register unique iPXE MAC addresses in a persistent Server-side admission ledger; enforce configurable distinct-client and/or elapsed-time limits, and deny direct static access to the boot script.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
 - [x] Connect the normal SSHFS, NFS, SMB/CIFS and S3 repository managers to the shared whole-disk restore engine.
-- [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
-- [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
+- [x] Support age symmetric decryption with one-shot Textual passphrase handoff on the Live client.
+- [x] Support symmetric age passphrase encryption for whole-disk capture through Textual; partition and logical-volume capture remain recipient-based.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine.
 - [ ] Execute the automated repository-manager integration tests and add Live acceptance coverage for private credentials, provider mount failures and interrupted restore cleanup.
@@ -218,7 +218,7 @@ image-set download path. The PXE Server never accesses these repositories.
 
 Each Live PXE restore writes start, progress and terminal events to
 `/var/lib/feclora/pxe/operations.jsonl` and sends best-effort copies to the
-Server. Cockpit's Operation history shows Server-received remote Client
+Server. Textual's Operation history shows Server-received remote Client
 events alongside local operations. Remote records include the job UUID and
 reported MAC address. Because the transport is plain HTTP and the MAC is
 client-reported, these records are operational telemetry, not authenticated

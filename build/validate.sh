@@ -18,42 +18,48 @@ require_text() {
   grep -Eq -- "$pattern" "$ROOT_DIR/$file" || fail "$message"
 }
 
-# Core build inputs and application payload.
 for file in \
-  build/build-iso.sh build/build-webui.sh build/preflight.sh \
-  kickstart/feclora-live.ks webui/package.json webui/package-lock.json \
-  webui/src/App.jsx webui/src/api.js webui/src/i18n.js \
-  src/feclora/webapi.py src/feclora/tui.py src/feclora/tui_api.py \
-  src/feclora/data/feclora-api src/feclora/data/feclora-cockpit-kiosk.service \
-  src/feclora/data/feclora-kiosk.service src/feclora/data/feclora-kiosk-launch \
-  src/feclora/data/feclora-kiosk.pam build/validate-boot-visuals.sh \
-  requirements-test.txt \
-  src/feclora/data/feclora-kiosk-firefox-policies.json \
-  src/feclora/data/feclora-root-terminal.service \
-  src/feclora/data/feclora-kiosk-return.service \
+  build/build-iso.sh build/preflight.sh kickstart/feclora-live.ks \
+  packages/base.txt requirements-test.txt src/feclora/tui.py \
+  src/feclora/tui_api.py src/feclora/webapi.py \
+  src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
+  src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
+  src/feclora/data/feclora-local-operation-recovery.service \
   src/feclora/data/plymouth/feclora.plymouth \
-  src/feclora/data/plymouth/feclora.script \
+  src/feclora/data/plymouth/feclora.script build/validate-boot-visuals.sh \
   build/check_docs.py; do
   require_file "$file"
 done
 
-# Validate the supported Fedora baseline and reproducible build configuration.
 require_text '^#version=F45$' kickstart/feclora-live.ks "Kickstart must target Fedora 45."
-require_text '^chown -R root:root "\$TARGET_ROOT/usr/share/cockpit/feclora"$' kickstart/feclora-live.ks "Installed Cockpit application files must be owned by root."
-require_text '^GRUB_DEFAULT=0$' kickstart/feclora-live.ks "GRUB must select the first entry."
-require_text '^GRUB_TIMEOUT_STYLE=hidden$' kickstart/feclora-live.ks "GRUB menu must be hidden."
-require_text 'FECLORA_BUILD_RAM' build/build-iso.sh "ISO build RAM must be configurable."
-require_text 'FECLORA_BUILD_VCPUS' build/build-iso.sh "ISO build vCPU count must be configurable."
-require_text 'LOCK_FINGERPRINT' build/build-webui.sh "Frontend build must fingerprint locked dependencies."
-require_text 'npm ci --no-audit --no-fund' build/build-webui.sh "Frontend build must use reproducible npm ci."
-require_text '^textual==8\.1\.1$' requirements-test.txt "Textual tests must use the runtime framework version."
-require_text '^python3-textual$' packages/base.txt "The Live image must install Textual from Fedora's package set."
-require_text 'create_subprocess_exec' src/feclora/tui_api.py "Textual must invoke the privileged helper without a shell."
+require_text '^python3-textual$' packages/base.txt "The Live image must install Textual."
+require_text '^textual==8\.1\.1$' requirements-test.txt "TUI tests must use the runtime Textual version."
+require_text 'create_subprocess_exec' src/feclora/tui_api.py "The TUI must invoke the API helper without a shell."
 if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
-  fail "Textual API requests must not use a command shell."
+  fail "TUI API requests must not use a command shell."
 fi
 
-# Keep the explicit package manifest identical to the Kickstart package set.
+require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The TUI must run as its unprivileged appliance user."
+require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "tty1 must launch the Textual application."
+require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The TUI unit must report the QEMU smoke-test readiness event."
+require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
+  fail "The TUI service must allow its scoped sudo helper to perform privileged appliance operations."
+fi
+require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The default boot target must not require a graphical desktop."
+require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must be reserved for the Textual interface."
+require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
+require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-recovery.service "Durable operations must recover before the TUI starts."
+require_text 'FECLORA_SELINUX_PERMISSIVE:-1' build/build-iso.sh "SELinux permissive mode must remain the diagnostic build default."
+
+if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox)([[:space:]]|$)' \
+  "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "The Live image package set must not include Cockpit, Weston or Firefox."
+fi
+if grep -Eiq 'cockpit|weston|firefox|webui' "$ROOT_DIR/build/build-iso.sh"; then
+  fail "ISO construction must stage only the Textual application."
+fi
+
 if ! python3 - "$ROOT_DIR" <<'PY'
 from pathlib import Path
 import re
@@ -61,72 +67,42 @@ import sys
 
 root = Path(sys.argv[1])
 base = {
-    line.strip()
-    for line in (root / "packages/base.txt").read_text(encoding="utf-8").splitlines()
+    line.strip() for line in (root / "packages/base.txt").read_text(encoding="utf-8").splitlines()
     if line.strip() and not line.lstrip().startswith("#")
 }
 kickstart = (root / "kickstart/feclora-live.ks").read_text(encoding="utf-8")
 match = re.search(r"(?ms)^%packages[^\n]*\n(.*?)^%end\s*$", kickstart)
 if match is None:
     raise SystemExit("Kickstart %packages block was not found.")
-ks_packages = {
-    line.strip()
-    for line in match.group(1).splitlines()
-    if line.strip() and not line.lstrip().startswith("#")
-    and not line.lstrip().startswith("@")
+ks = {
+    line.strip() for line in match.group(1).splitlines()
+    if line.strip() and not line.lstrip().startswith(("#", "@"))
 }
-missing = sorted(ks_packages - base)
-extra = sorted(base - ks_packages)
-if missing or extra:
-    if missing:
-        print("Missing from packages/base.txt: " + ", ".join(missing), file=sys.stderr)
-    if extra:
-        print("Only in packages/base.txt: " + ", ".join(extra), file=sys.stderr)
-    raise SystemExit(1)
-if "openssh-clients" not in ks_packages:
-    raise SystemExit("Kickstart must install openssh-clients for SCP support.")
+if base != ks:
+    raise SystemExit(
+        f"Package manifests differ. Missing from base.txt: {sorted(ks - base)}; "
+        f"only in base.txt: {sorted(base - ks)}"
+    )
+if "openssh-clients" not in ks:
+    raise SystemExit("Kickstart must install openssh-clients.")
 PY
 then
-  fail "Explicit package manifest and Kickstart package set are not synchronized."
+  fail "The package manifest and Kickstart package set must match."
 fi
 
-# Keep the kiosk local-only and unprivileged, while Cockpit's local session is
-# deliberately isolated on IPv4 loopback.
-require_text '^ExecStart=/usr/libexec/cockpit-ws --address 127\.0\.0\.1 --port 9090 --local-session /usr/bin/cockpit-bridge$' src/feclora/data/feclora-cockpit-kiosk.service "Passwordless Cockpit must use the loopback-only local session."
-require_text '^IPAddressDeny=any$' src/feclora/data/feclora-kiosk.service "Firefox kiosk must deny non-loopback network access."
-require_text '^IPAddressAllow=127\.0\.0\.1/32$' src/feclora/data/feclora-kiosk.service "Firefox kiosk must allow IPv4 loopback."
-require_text '^IPAddressAllow=::1/128$' src/feclora/data/feclora-kiosk.service "Firefox kiosk must allow IPv6 loopback."
-require_text 'http://127\.0\.0\.1:9090/cockpit/@localhost/feclora/index\.html' src/feclora/data/feclora-kiosk-firefox-policies.json "Managed Firefox homepage must open the local Feclora Cockpit application."
-require_text '"StartPage": "homepage"' src/feclora/data/feclora-kiosk-firefox-policies.json "Firefox must start directly on its locked Feclora homepage."
-require_text 'languageConfirmed' webui/src/App.jsx "The first visible screen must be the language selector."
-require_text 'open_root_terminal' webui/src/App.jsx "Language selector must expose the root-terminal action."
-require_text 'open_root_terminal' webui/src/api.js "Frontend API must expose the root-terminal action."
-require_text 'open_root_terminal' src/feclora/data/feclora-api "Installed shared API helper must allow the root-terminal action."
-require_text 'open_root_terminal' src/feclora/webapi.py "Privileged API must implement the root-terminal action."
-require_text 'feclora-root-terminal\.service' src/feclora/webapi.py "Privileged API must request only the fixed root-terminal unit."
-require_text 'feclora-kiosk-return\.service' src/feclora/data/feclora-root-terminal.service "Root shell exit must restore the kiosk."
-require_text '^User=root$' src/feclora/data/feclora-root-terminal.service "Root terminal must run as root."
-require_text '^TTYPath=/dev/tty1$' src/feclora/data/feclora-root-terminal.service "Root terminal must use the physical kiosk display."
-require_text '^Conflicts=feclora-cockpit-kiosk\.service feclora-kiosk\.service$' src/feclora/data/feclora-root-terminal.service "Root terminal must stop the graphical kiosk while active."
-
-# Validate the complete Plymouth and graphical-session handoff configuration.
 if ! bash "$ROOT_DIR/build/validate-boot-visuals.sh"; then
-  fail "Boot visual and kiosk session validation failed."
+  fail "Textual boot and Plymouth validation failed."
 fi
 
-# Shell syntax and Python correctness.
 while IFS= read -r -d '' script; do
   bash -n "$script" || fail "Bash syntax check failed: $script"
 done < <(find "$ROOT_DIR/build" -maxdepth 1 -type f -name '*.sh' -print0)
-bash -n "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher has invalid Bash syntax."
-bash -n "$ROOT_DIR/src/feclora/data/feclora-api" || fail "Shared privileged API helper has invalid Bash syntax."
+bash -n "$ROOT_DIR/src/feclora/data/feclora-api" || fail "Privileged API helper has invalid shell syntax."
 python3 -m compileall -q "$ROOT_DIR/src" "$ROOT_DIR/tests" || fail "Python compilation failed."
 
-# Run the complete test suite once; do not report success if any test fails.
 if ! PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_*.py'; then
   fail "Python unit tests failed."
 fi
-
 if ! python3 "$ROOT_DIR/build/check_docs.py"; then
   fail "Documentation links and guide assets failed validation."
 fi
@@ -135,5 +111,4 @@ if (( ERRORS > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$ERRORS" >&2
   exit 1
 fi
-
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'

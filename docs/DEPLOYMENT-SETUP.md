@@ -53,13 +53,13 @@ The Server UI creates either a one-client unicast save/restore job or a multi-cl
 
 Install /etc/feclora/deployment-client.json on each Client:
 
-## Cockpit walkthrough and screenshots
+## Textual walkthrough and screenshots
 
 Illustrations may be real screenshots from a version-matched build or clearly labeled mockups. Mockups must not be presented as runtime evidence; follow the [screenshot and mockup policy](assets/screenshots/README.md).
 
 ## Scope and safety limits
 
-For a multi-Client restore, the Cockpit job form can select either the local
+For a multi-Client restore, the Textual job form can select either the local
 Server image repository or a mounted, verified SSHFS/NFS/SMB repository. The
 job journal stores only the managed repository ID, not a path. The Server
 resolves that ID again when the persistent deployment service starts, validates
@@ -75,7 +75,7 @@ image-manifest checks; NFS root-squash may prevent this.
 
 The embedded PXE stack boots the same Fedora Live kernel, initramfs and
 squashfs used by the Feclora ISO. The interactive PXE entry opens the normal
-Live Cockpit interface; operators do not need to boot the ISO manually.
+Live Textual interface; operators do not need to boot the ISO manually.
 
 ### Destructive-operation security boundary
 

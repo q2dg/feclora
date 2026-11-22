@@ -11,13 +11,11 @@ The image build uses Lorax `livemedia-creator` with QEMU virtualization and
 deliberately avoids `--no-virt`, which bypasses the isolated virtualized build
 path.
 
-## Faster repeated builds
+## Repeated builds
 
-The frontend build now reuses `webui/node_modules` when its fingerprint still
-matches both `package.json` and `package-lock.json`. A lockfile change or a
-missing dependency directory triggers a fresh, reproducible `npm ci`. Frontend
-tests and the production build still run on every invocation. npm's own download
-cache is also retained by npm between builds.
+The Live interface is implemented in Python with Textual. There is no separate
+frontend build or JavaScript runtime dependency; `build/build-iso.sh` stages the
+Python package directly.
 
 QEMU resources are selected from the build host by default: up to 8 vCPUs and
 approximately half of host RAM (bounded to 4–16 GiB). Override them when
@@ -67,12 +65,11 @@ Run the repository checks before building:
 ```bash
 make validate
 make test
-make webui
 ```
 
-GitHub Actions runs frontend compilation, Bash syntax checks, project-input
-validation, ShellCheck, Python compilation and hardware-independent unit
-tests. A passing CI run does not prove that an ISO can be built or booted.
+GitHub Actions runs Bash syntax checks, project-input validation, ShellCheck,
+Python compilation and hardware-independent unit tests. A passing CI run does
+not prove that an ISO can be built or booted.
 
 ## Build host
 
@@ -90,10 +87,9 @@ against Fedora's published checksum. Then run:
 sudo env FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso make build
 ```
 
-The script compiles and tests the Cockpit frontend, runs host preflight, stages
-the Python package and frontend into the installer media, and invokes Lorax.
-Results and logs are written under `out/`; inspect the complete result
-directory before treating the build as successful.
+The script runs host preflight, stages the Python package into the installer
+media, and invokes Lorax. Results and logs are written under `out/`; inspect
+the complete result directory before treating the build as successful.
 
 ## Generate the one shared unattended answer
 
@@ -126,7 +122,7 @@ refuses to overwrite an existing answer. The answer contains no credentials.
 
 This is a separate consumer of the answer file, not an extension of the
 answer generator. First create the shared answer with
-`build/generate-shared-answer.py` (or prepare it in Cockpit). Then pass that
+`build/generate-shared-answer.py` (or prepare it in the Textual interface). Then pass that
 existing file to the bundle coordinator. The coordinator builds the generic
 Live ISO, selects or captures a Feclora whole-disk image, validates the answer
 against those inputs, and publishes the versioned bundle. It never generates
@@ -165,14 +161,14 @@ Whole-disk images may use either the native RAW artifact format or QCOW2; both
 are manifest-backed and can be selected directly for local or coordinated
 restore.
 
-This is a build-host workflow, not a Live Cockpit ISO builder. The Cockpit
+This is a build-host workflow, not a Live ISO builder. The Textual interface's
 bundle operation remains available for assembling already-built inputs. ISO
 boot, target hardware, repository-provider and real multicast acceptance are
 still maintainer-run tasks.
 
 ## Important limitations
 
-- The Recovery ISO workflow is exposed in Cockpit and runs as a durable local
+- The Recovery ISO workflow is exposed in Textual and runs as a durable local
   operation. The Live image installs and enables
   `feclora-recovery-boot.service`; at boot it discovers exactly one mounted
   `/FECLORA/RECOVERY` payload, rejects symlinked or ambiguous payload
@@ -181,7 +177,7 @@ still maintainer-run tasks.
   El Torito metadata and publishes a separate ISO to a local or mounted
   filesystem repository. BIOS/UEFI and destructive-media acceptance remain
   operator responsibilities. See [Recovery ISO operator procedure](../docs/RECOVERY-ISO.md).
-- Cockpit restore profiles create, list and explicitly execute single-use
+- Textual restore profiles create, list and explicitly execute single-use
   whole-disk restore authorizations from a mounted persistent filesystem
   repository. Execution requires a typed destructive confirmation, stable
   WWN/serial identity and read-back verification.

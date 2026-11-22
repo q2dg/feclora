@@ -9,9 +9,9 @@ for the repository owner.
 ## Product model
 
 Feclora is a Fedora-based minimal Live appliance built from the `@core` package
-group and Feclora's explicit runtime packages. Weston kiosk-shell launches Firefox
-in kiosk mode and opens the Feclora application in Cockpit; there is no
-general-purpose desktop. The Live session is intentionally ephemeral: each
+group and Feclora's explicit runtime packages. The Textual application starts
+directly on tty1; there is no browser or graphical desktop. The Live session is
+intentionally ephemeral: each
 boot creates fresh local credentials, certificates and temporary configuration.
 Durable images and manifests belong in repositories explicitly selected by the
 operator. Persistent Live-session storage is not a product requirement.
@@ -24,19 +24,19 @@ services and does not provision or administer them.
 
 ## Implemented in source
 
-The current source and Cockpit application include local whole-disk and
+The current source and Textual application include local whole-disk and
 partition capture, restore and cloning; eligible logical-volume capture and
 restore; storage inventory and operation history; optional age encryption;
 SSHFS/NFS/SMB and S3 repositories; persistent Server/Client jobs over
 authenticated TLS; UDPcast multicast restore; remote disk/partition cloning;
 P2V conversion/export; interactive PXE; and a shared-answer unattended restore
 workflow usable from ISO/USB Live or optional PXE boot. A coordinated ISO+image+
-answer bundle workflow now has a build-host coordinator that builds the generic Live ISO, optionally captures an offline disk or selects an existing Feclora image, and atomically packages it with one validated shared unattended DeploymentJob answer. Cockpit also has a durable assembly operation for prebuilt inputs. The answer JSON is still prepared separately; direct job generation in the bundle wizard, removable-media answer discovery, and full end-to-end deployment failure injection remain planned.
+answer bundle workflow now has a build-host coordinator that builds the generic Live ISO, optionally captures an offline disk or selects an existing Feclora image, and atomically packages it with one validated shared unattended DeploymentJob answer. Textual also has a durable assembly operation for prebuilt inputs. The answer JSON is still prepared separately; direct job generation in the bundle wizard, removable-media answer discovery, and full end-to-end deployment failure injection remain planned.
 
 Keep the PXE and deployment contracts distinct:
 
 - **Interactive PXE** boots the same Feclora Live runtime used by the ISO and
-  opens the normal Cockpit interface. The operator selects the repository,
+  opens the normal Textual interface. The operator selects the repository,
   image and target Clients in the usual deployment workflow.
 - **Unattended PXE** is a separate answer-file workflow with its own admission,
   target-binding and operation limitations. Its repository ID is resolved by
@@ -71,7 +71,7 @@ authenticated transport form the trust boundary. Age encryption is optional.
   interrupted publication, cleanup and service restart. Do not conflate
   provider integration with acceptance against live services.
 - **PXE and multi-Client deployment:** preserve the separate interactive
-  Live/Cockpit, unattended answer-file and multicast deployment workflows.
+  Live/Textual, unattended answer-file and multicast deployment workflows.
   Expand unattended answer failure-path tests and Server-side result
   reconciliation only where the product contract requires it. The Live Client
   keeps its operation history and sends best-effort operational telemetry to
@@ -89,11 +89,9 @@ authenticated transport form the trust boundary. Age encryption is optional.
   verifies that a journal left RUNNING is refused on restart and never resumed;
   live service-restart and real two-host receiver-loss acceptance remain
   maintainer-owned (see [the acceptance checklist](MAINTAINER-ACCEPTANCE.md)).
-- **Quality and distribution:** frontend direct dependencies and the
-  transitive dependency graph are pinned in `webui/package.json` and
-  `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.
-  CI now verifies that every frontend API action is allowed by the installed
-  Kickstart wrapper and implemented by backend dispatch. CI and GitHub Pages
+- **Quality and distribution:** the Live UI is packaged as a Python application
+  and uses Fedora's `python3-textual`; UI tests use the pinned test dependency.
+  CI verifies the helper allowlist and backend dispatch. CI and GitHub Pages
   also validate local documentation links/assets and illustrated guide cards.
   Remaining work is to resolve scanner findings, finish locale coverage, and
   maintain the backup/upgrade/rollback and release evidence runbook.
@@ -103,7 +101,7 @@ authenticated transport form the trust boundary. Age encryption is optional.
 The repository owner builds the ISO using the documented procedure. The
 project work here is to keep that procedure accurate and reproducible; this
 assistant does not build or boot the ISO. The owner must then record BIOS and
-UEFI boots, Cockpit/kiosk behavior on VMs and hardware, restores on disposable
+UEFI boots, Textual behavior on VMs and hardware, restores on disposable
 real disks, live remote-provider behavior, multi-Client deployment, and
 interactive/unattended PXE on an isolated network. The public operator guides now include task-specific, explicitly labeled
 SVG mockups for partition capture/restore, local cloning, repository setup,

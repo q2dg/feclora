@@ -2,7 +2,6 @@
 Description=Feclora self-contained Recovery ISO restore
 Documentation=https://github.com/q2dg/feclora/blob/main/docs/RECOVERY-ISO.md
 After=local-fs.target
-Before=cockpit.service
 
 [Service]
 Type=oneshot

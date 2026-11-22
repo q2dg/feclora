@@ -21,7 +21,7 @@ credentials, transfer, integrity and failure handling.
 ## Supported filesystem repositories
 
 SSHFS, NFS and SMB/CIFS are implemented as mounted filesystem providers.
-Their lifecycle is managed by the Server and exposed through Cockpit.
+Their lifecycle is managed by the Server and exposed through Textual.
 
 | Provider | Client mechanism | Authentication |
 |---|---|---|
@@ -34,7 +34,7 @@ mounted source, filesystem type and access mode before returning a repository
 to image operations. A verified mount identity is not a live connectivity or
 read/write health check.
 
-Cockpit image inventory holds a shared repository usage lease for the entire manifest scan. The lease prevents unmount, definition changes or removal from racing with the scan; it is released on both success and failure. S3 inventory similarly holds its object-repository usage lease while listing committed image sets. Inventory is a real remote read operation, not a connectivity probe, and may still fail or block according to the remote provider's behavior. Directory enumeration, manifest metadata and manifest-read I/O errors fail the inventory request rather than being presented as a successful partial or empty inventory; invalid manifest content and non-root-owned/non-regular manifest files remain excluded.
+Textual image inventory holds a shared repository usage lease for the entire manifest scan. The lease prevents unmount, definition changes or removal from racing with the scan; it is released on both success and failure. S3 inventory similarly holds its object-repository usage lease while listing committed image sets. Inventory is a real remote read operation, not a connectivity probe, and may still fail or block according to the remote provider's behavior. Directory enumeration, manifest metadata and manifest-read I/O errors fail the inventory request rather than being presented as a successful partial or empty inventory; invalid manifest content and non-root-owned/non-regular manifest files remain excluded.
 
 The image engine publishes immutable artifacts and a manifest commit marker.
 Local publication uses no-overwrite links and publishes the manifest last.
@@ -44,7 +44,7 @@ distribution model is one publisher per image and multiple concurrent readers.
 
 ## S3-compatible object repositories
 
-S3 is an object-store integration, not a filesystem mount. The object adapter, separate root-managed repository registry, encrypted credentials, API and Cockpit configuration are implemented. Local capture, inventory, verified download, inspection, verification, extraction and restore use private temporary staging; the adapter uses
+S3 is an object-store integration, not a filesystem mount. The object adapter, separate root-managed repository registry, encrypted credentials, API and Textual configuration are implemented. Local capture, inventory, verified download, inspection, verification, extraction and restore use private temporary staging; the adapter uses
 the S3 HTTPS API directly and will not require FUSE. The same provider
 configuration is intended to work with AWS S3, Cloudflare R2, Garage and
 other services implementing the required S3 API operations.
@@ -52,7 +52,7 @@ other services implementing the required S3 API operations.
 Each repository consists of an endpoint URL, region, bucket, optional key
 prefix and a dedicated access-key pair. Access is scoped to the bucket/prefix;
 credentials are stored using the host's encrypted credential mechanism and
-are never returned to Cockpit.
+are never returned to Textual.
 
 The object layout preserves the image engine's manifest model:
 
@@ -75,7 +75,7 @@ supported merely because it accepts basic S3 uploads.
 
 ### Distributed deployment jobs
 
-The persistent Cockpit deployment service can use an S3 repository for both
+The persistent Textual deployment service can use an S3 repository for both
 unicast/multicast restore sources and unicast Client capture destinations.
 For restore, the Server acquires a repository usage lease, downloads the
 committed image into a private temporary directory, verifies every artifact,
@@ -90,7 +90,7 @@ the S3 manifest last. The job is not reported successful if S3 publication
 fails. Temporary staging is removed when the service exits. Repository
 update/removal is blocked while a deployment holds its usage lease.
 
-The Cockpit deployment form allows S3 selection as a restore source or as a
+The Textual deployment form allows S3 selection as a restore source or as a
 writable Client-capture destination. A read-only S3 definition may be used
 only as a restore source. The current network capture path remains whole-disk
 and unicast; the existing restore transports retain their own target and
@@ -145,4 +145,4 @@ permissions.
 Feclora does not create buckets, configure remote permissions, manage TLS
 certificates on remote hosts, or administer storage servers. The operator
 must provision the endpoint, bucket/export/share, access policy, network
-reachability and backups before adding the repository in Cockpit.
+reachability and backups before adding the repository in Textual.

@@ -25,7 +25,7 @@ scopes it to the job but is not a credential.
 
 ## Network preparation
 
-On both machines, configure an active IPv4 interface/address using Cockpit's
+On both machines, configure an active IPv4 interface/address using Textual's
 Network tab. The Server job stores the selected Linux interface. The Client
 operator selects a local IPv4 interface/address and uses Test connectivity
 and inspect job. Feclora checks the route and binds the TCP connection to the

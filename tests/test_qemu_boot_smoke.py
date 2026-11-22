@@ -13,7 +13,7 @@ SMOKE_TEST = ROOT / "tests" / "vm" / "run-boot-smoke.py"
 
 
 class QemuBootSmokeTests(unittest.TestCase):
-    def test_runs_bios_and_uefi_and_accepts_guest_readiness_event(self):
+    def test_runs_bios_and_uefi_and_accepts_tui_readiness_event(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fake_qemu = root / "fake-qemu"

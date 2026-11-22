@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+CHANNEL=/dev/virtio-ports/org.feclora.boot-smoke
+if [ -c "$CHANNEL" ] && [ -w "$CHANNEL" ]; then
+  printf 'FECLORA_BOOT_SMOKE ready\n' > "$CHANNEL"
+fi

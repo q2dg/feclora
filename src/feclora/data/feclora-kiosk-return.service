@@ -1,7 +1,0 @@
-[Unit]
-Description=Restore Feclora graphical kiosk after the root terminal exits
-After=feclora-root-terminal.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/systemctl start feclora-cockpit-kiosk.service feclora-kiosk.service

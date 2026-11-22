@@ -1,4 +1,4 @@
-"""Cockpit helpers for public age-recipient export."""
+"""Public age-recipient export to removable media."""
 from __future__ import annotations
 
 import hashlib
@@ -12,18 +12,18 @@ CONFIG = "/etc/feclora/deployment-server.json"
 PKI = "/etc/feclora/pki"
 
 
-class CockpitEnrollmentError(RuntimeError):
+class RecipientInventoryError(RuntimeError):
     """A removable-media security artifact could not be safely handled."""
 
 
 def _media_directory(value: object, label: str) -> str:
     if not isinstance(value, str) or not os.path.isabs(value) or len(value) > 512:
-        raise CockpitEnrollmentError(f"{label} must be an absolute removable-media directory")
+        raise RecipientInventoryError(f"{label} must be an absolute removable-media directory")
     path = Path(value)
     resolved = Path(os.path.realpath(path))
     allowed = (Path("/run/media"), Path("/media"), Path("/mnt"))
     if not any(resolved.is_relative_to(root) for root in allowed):
-        raise CockpitEnrollmentError(f"{label} must be under /run/media, /media or /mnt")
+        raise RecipientInventoryError(f"{label} must be under /run/media, /media or /mnt")
     try:
         mountinfo = Path("/proc/self/mountinfo").read_text(encoding="utf-8")
         mounted = False
@@ -38,18 +38,18 @@ def _media_directory(value: object, label: str) -> str:
                 mounted = True
                 break
         if not mounted:
-            raise CockpitEnrollmentError(f"{label} must be on a mounted removable-media filesystem")
+            raise RecipientInventoryError(f"{label} must be on a mounted removable-media filesystem")
         info = os.lstat(path)
     except OSError as exc:
-        raise CockpitEnrollmentError(f"{label} is unavailable: {exc}") from exc
+        raise RecipientInventoryError(f"{label} is unavailable: {exc}") from exc
     if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
-        raise CockpitEnrollmentError(f"{label} must be a real directory, not a symlink")
+        raise RecipientInventoryError(f"{label} must be a real directory, not a symlink")
     return str(path)
 
 
 def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]:
     if set(params) != {"export_directory"}:
-        raise CockpitEnrollmentError("export_server_age_recipients requires exactly export_directory")
+        raise RecipientInventoryError("export_server_age_recipients requires exactly export_directory")
     directory = _media_directory(params["export_directory"], "Age recipient export directory")
     source = os.path.join(PKI, "age-recipients.txt")
     source_fd = -1
@@ -57,23 +57,23 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         info = os.fstat(source_fd)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_size > 65536:
-            raise CockpitEnrollmentError("Server age recipient inventory must be a root-owned regular file within 64 KiB")
+            raise RecipientInventoryError("Server age recipient inventory must be a root-owned regular file within 64 KiB")
         payload = os.read(source_fd, 65537)
         if len(payload) != info.st_size:
-            raise CockpitEnrollmentError("Server age recipient inventory changed while being read")
+            raise RecipientInventoryError("Server age recipient inventory changed while being read")
     except OSError as exc:
-        raise CockpitEnrollmentError(f"cannot read Server age recipient inventory: {exc}") from exc
+        raise RecipientInventoryError(f"cannot read Server age recipient inventory: {exc}") from exc
     finally:
         if source_fd >= 0:
             os.close(source_fd)
     try:
         recipients = [line.strip() for line in payload.decode("ascii").splitlines() if line.strip()]
     except UnicodeError as exc:
-        raise CockpitEnrollmentError("Server age recipient inventory is not valid ASCII") from exc
+        raise RecipientInventoryError("Server age recipient inventory is not valid ASCII") from exc
     if not recipients or len(recipients) != len(set(recipients)) or any(
         not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
     ):
-        raise CockpitEnrollmentError("Server age recipient inventory is empty, duplicated or malformed")
+        raise RecipientInventoryError("Server age recipient inventory is empty, duplicated or malformed")
     destination = os.path.join(directory, "age-recipients.txt")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     directory_fd = -1
@@ -95,9 +95,9 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
                 pass
             raise
     except FileExistsError as exc:
-        raise CockpitEnrollmentError("age-recipients.txt already exists on the removable media; refusing to overwrite it") from exc
+        raise RecipientInventoryError("age-recipients.txt already exists on the removable media; refusing to overwrite it") from exc
     except OSError as exc:
-        raise CockpitEnrollmentError(f"cannot export age recipient inventory: {exc}") from exc
+        raise RecipientInventoryError(f"cannot export age recipient inventory: {exc}") from exc
     finally:
         if directory_fd >= 0:
             os.close(directory_fd)

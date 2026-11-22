@@ -50,7 +50,7 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
 - `target_type`: `disk`, `partition` or `logical_volume`. Logical-volume
   targets are supported for save and restore. Save supports whole disks and
   logical volumes; clone supports whole disks or partitions over unicast,
-  and whole disks only over multicast. A Client (interactive or persistent Cockpit mode) selects its own local destination device
+  and whole disks only over multicast. A Client (interactive or persistent Textual mode) selects its own local destination device
   locally; the job never carries a Client device path.
   Raw LUKS2 container images use the same `partition` target type: unicast
   and multicast Clients dispatch them to the partition restore engine, which
@@ -61,7 +61,7 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   age identity. No passphrase or keyslot material is sent as a deployment
   control field. Opened-mapping plaintext images and LUKS2-on-LV remain
   unsupported. The persistent service
-  and Cockpit API independently validate the selected LV against healthy local
+  and Textual API independently validate the selected LV against healthy local
   LVM topology before reporting READY.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
   MAC is the operational identifier used to select and track each Client in the job.
@@ -72,7 +72,7 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   The Client compares every supplied identifier with its own current device
   inventory before READY. A mismatch or missing identifier rejects the
   selected device. These hardware fields reduce accidental mis-targeting;
-  they are not cryptographic device attestation and may be spoofable. The Server Cockpit whole-disk restore workflow can collect a binding
+  they are not cryptographic device attestation and may be spoofable. The Server Textual whole-disk restore workflow can collect a binding
   for each selected Client; partition- and logical-volume target bindings are not currently
   supported because those targets require local topology-aware selection. The
   unattended answer workflow uses these bindings to resolve each whole-disk
@@ -143,7 +143,7 @@ The answer is served through Caddy over the existing HTTP service, without
 per-Client answer variants or credentials. The Live downloader, repository
 resolution, target preflight and pre-write identity revalidation feed the
 existing whole-disk restore engine.
-Other repository providers, replay/expiry controls and Cockpit result reconciliation
+Other repository providers, replay/expiry controls and Textual result reconciliation
 remain software backlog; physical/network acceptance is optional. Do not infer authorization from PXE boot,
 a DHCP lease, a URL or a job UUID.
 
@@ -157,7 +157,7 @@ Server startup resolves the same ID again and verifies the image trust policy
 before accepting the job. The selected mount must remain available for the
 lifetime of the restore.
 
-Cockpit's remote restore workflow exposes mounted, verified repositories.
+Textual's remote restore workflow exposes mounted, verified repositories.
 Unicast and UDPcast multicast restore use the same selected repository. Save
 and direct clone jobs do not accept `repository_id`; Client captures continue
 to use the Server's configured repository.

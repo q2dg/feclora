@@ -1,4 +1,4 @@
-"""Persistent Cockpit-driven Client job runtime."""
+"""Persistent Textual-driven Client job runtime."""
 from __future__ import annotations
 
 import argparse

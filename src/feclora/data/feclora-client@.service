@@ -27,4 +27,4 @@ RestrictSUIDSGID=true
 ReadWritePaths=/var/lib/feclora /etc/feclora /run/feclora
 
 [Install]
-# Intentionally not enabled at boot; Cockpit starts an explicitly approved Client job.
+# Intentionally not enabled at boot; the interface starts an explicitly approved Client job.

@@ -1,7 +1,7 @@
 #version=F45
-# Feclora Fedora 45 Live kiosk Kickstart for x86_64.
+# Feclora Fedora 45 Live TUI Kickstart for x86_64.
 # Use Fedora's core package group, not the full Server product environment.
-# Live boot is retained; Weston/Firefox is the only local interactive shell.
+# Live boot is retained; Textual is the only local interactive interface.
 
 url --url=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
 
@@ -51,18 +51,8 @@ firewalld
 openssl
 ca-certificates
 
-# Cockpit web interface; primary operator entry point
-cockpit
-cockpit-system
-cockpit-storaged
 policycoreutils-python-utils
-cockpit-ws-selinux
-cockpit-bridge
 openssh-clients
-
-# Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
-weston
-firefox
 
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
 # dnsmasq provides DHCP/ProxyDHCP, PXE and read-only TFTP; Caddy serves HTTP boot assets
@@ -93,7 +83,7 @@ xorriso
 
 # Storage and inspection tools
 python3-libguestfs
-# Remote image repository mounts (enabled only by explicit Cockpit action)
+# Remote image repository mounts (enabled only by explicit operator action)
 fuse-sshfs
 nfs-utils
 cifs-utils
@@ -123,15 +113,7 @@ lshw
 
 %post --erroronfail
 systemctl --root=/ enable NetworkManager
-systemctl --root=/ mask cockpit.socket
 
-# The Live image is assembled from an overlay; explicitly apply RPM SELinux file contexts.
-restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge
-
-# Temporary local console account for diagnostics; remove before the official release.
-groupadd --system feclora-logs
-useradd --create-home --groups feclora-logs,systemd-journal --shell /bin/bash pepe
-printf '%s\n' 'pepe:1234' | chpasswd
 # Keep the firewall enabled; no remote administration service is installed.
 systemctl --root=/ enable firewalld.service
 
@@ -144,16 +126,15 @@ GRUB_SAVEDEFAULT=false
 EOF
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
-# The administrator account remains locked in the passwordless local kiosk profile.
-useradd --create-home --groups wheel --shell /bin/bash feclora
+# The local interface runs unprivileged; root actions are restricted to the API helper.
+useradd --create-home --shell /sbin/nologin feclora
 passwd --lock feclora
 
-# Firefox runs as a separate unprivileged account, never as the administrator.
-useradd --system --no-create-home --home-dir /var/lib/feclora-kiosk \
-  --shell /sbin/nologin --user-group feclora-kiosk
-install -d -o feclora-kiosk -g feclora-kiosk -m 0700 /var/lib/feclora-kiosk
-usermod --append --groups feclora-logs feclora-kiosk
-install -d -o feclora-kiosk -g feclora-logs -m 2750 /var/log/feclora-kiosk
+install -d -m 0750 /etc/sudoers.d
+printf '%s\n' 'feclora ALL=(root) NOPASSWD: /usr/libexec/feclora/feclora-api *' \
+  > /etc/sudoers.d/feclora-api
+chmod 0440 /etc/sudoers.d/feclora-api
+visudo -c -f /etc/sudoers.d/feclora-api
 
 # Anaconda writes the installation disk UUID into fstab and kernel cmdline.
 # Neither belongs in the generated LiveOS overlay: the ISO boots via root=live.
@@ -171,18 +152,12 @@ rm -f /etc/kernel/cmdline
 %post --nochroot --erroronfail
 set -eu
 APP_SOURCE=/run/install/repo/feclora-app/src/feclora
-WEB_SOURCE=/run/install/repo/feclora-app/webui/dist
 TARGET_ROOT=/mnt/sysroot
 
 if [ ! -d "$APP_SOURCE" ]; then
   echo "feclora application payload not found: $APP_SOURCE" >&2
   exit 1
 fi
-if [ ! -s "$WEB_SOURCE/index.html" ] || [ ! -s "$WEB_SOURCE/manifest.json" ]; then
-  echo "Feclora Cockpit frontend payload is missing or incomplete: $WEB_SOURCE" >&2
-  exit 1
-fi
-
 install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
 PLYMOUTH_SOURCE="$APP_SOURCE/data/plymouth"
 PLYMOUTH_TARGET="$TARGET_ROOT/usr/share/plymouth/themes/feclora"
@@ -195,22 +170,14 @@ install -m 0644 "$PLYMOUTH_SOURCE/feclora.plymouth" "$PLYMOUTH_TARGET/feclora.pl
 install -m 0644 "$PLYMOUTH_SOURCE/feclora.script" "$PLYMOUTH_TARGET/feclora.script"
 install -m 0644 "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" "$PLYMOUTH_TARGET/feclora-logo-dark.svg"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
-install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
+install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora"
 install -d "$TARGET_ROOT/usr/share/feclora"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-diagnostic.html" "$TARGET_ROOT/usr/share/feclora/kiosk-diagnostic.html"
 install -d "$TARGET_ROOT/usr/lib/tmpfiles.d"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-image-browser-cache.conf" "$TARGET_ROOT/usr/lib/tmpfiles.d/feclora-image-browser-cache.conf"
-cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
-# The build host may own files in Vite dist; Cockpit packages must be root-owned.
-chown -R root:root "$TARGET_ROOT/usr/share/cockpit/feclora"
-# Files copied from the installer DVD retain its iso9660_t label unless relabeled.
 chroot "$TARGET_ROOT" /usr/sbin/restorecon -RF \
-  /usr/share/cockpit/feclora \
-  /usr/share/feclora/kiosk-diagnostic.html \
   /usr/share/feclora/python/feclora
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-api" "$TARGET_ROOT/usr/libexec/feclora/feclora-api"
-ln -s feclora-api "$TARGET_ROOT/usr/libexec/feclora/cockpit-api"
-chroot "$TARGET_ROOT" /usr/sbin/restorecon -F /usr/libexec/feclora/feclora-api /usr/libexec/feclora/cockpit-api
+chroot "$TARGET_ROOT" /usr/sbin/restorecon -F /usr/libexec/feclora/feclora-api
 cat > "$TARGET_ROOT/usr/local/bin/feclora-restore-profile" <<'EOF'
 #!/bin/sh
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
@@ -225,20 +192,9 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-depl
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-client@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate" "$TARGET_ROOT/usr/libexec/feclora/feclora-cockpit-certificate"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-launch"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-display" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-display"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-firefox-launch"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-diagnostics" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-diagnostics"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-certificate.service"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk.service"
-install -d -m 0755 "$TARGET_ROOT/etc/pam.d"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.pam" "$TARGET_ROOT/etc/pam.d/feclora-kiosk"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-kiosk.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service" "$TARGET_ROOT/etc/systemd/system/feclora-tui.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-root-terminal.service" "$TARGET_ROOT/etc/systemd/system/feclora-root-terminal.service"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-return.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk-return.service"
-install -d -m 0755 "$TARGET_ROOT/etc/firefox/policies"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-policies.json" "$TARGET_ROOT/etc/firefox/policies/policies.json"
+install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe" "$TARGET_ROOT/var/lib/feclora/client-jobs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
@@ -246,11 +202,9 @@ chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 chown root:root "$TARGET_ROOT/var/lib/feclora/client-jobs"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/client-jobs"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
-systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service
-# Start the graphical kiosk during diagnostic boot so Weston/Firefox can be tested.
-systemctl --root="$TARGET_ROOT" enable feclora-kiosk.service
-systemctl --root="$TARGET_ROOT" unmask getty@tty1.service
-systemctl --root="$TARGET_ROOT" set-default graphical.target
+systemctl --root="$TARGET_ROOT" enable feclora-tui.service
+systemctl --root="$TARGET_ROOT" mask getty@tty1.service
+systemctl --root="$TARGET_ROOT" set-default multi-user.target
 systemctl --root="$TARGET_ROOT" mask getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
 chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"

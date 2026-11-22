@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot the Feclora ISO in BIOS and UEFI QEMU guests and verify kiosk readiness."""
+"""Boot the Feclora ISO in BIOS and UEFI QEMU guests and verify TUI startup."""
 from __future__ import annotations
 
 import argparse
@@ -152,19 +152,11 @@ def _run_guest(
                             last_event = event
                             if event == "FECLORA_BOOT_SMOKE ready":
                                 print(
-                                    f"{firmware}: Cockpit HTTP 200, Wayland socket and Firefox are ready."
+                                    f"{firmware}: Textual service started and tty1 readiness was reported."
                                 )
                                 return
-                            if event.startswith("FECLORA_BOOT_SMOKE fallback-ready-http-"):
-                                status = event.removeprefix(
-                                    "FECLORA_BOOT_SMOKE fallback-ready-http-"
-                                )
-                                raise RuntimeError(
-                                    f"{firmware} Cockpit returned HTTP {status}; "
-                                    "the local diagnostic screen, Wayland and Firefox are ready."
-                                )
                     raise TimeoutError(
-                        f"{firmware} guest did not reach kiosk readiness within {timeout}s.\n"
+                        f"{firmware} guest did not report TUI service startup within {timeout}s.\n"
                         f"Last guest status: {last_event}\n{_tail(log)}"
                     )
             finally:

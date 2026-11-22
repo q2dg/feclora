@@ -6,12 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from feclora.deployment.cockpit_client import (
-    CockpitEnrollmentError, refresh_client_age_recipients,
+from feclora.deployment.recipient_inventory_refresh import (
+    RecipientInventoryError, refresh_client_age_recipients,
 )
 
 
-class CockpitClientTests(unittest.TestCase):
+class RecipientInventoryRefreshTests(unittest.TestCase):
     def test_refresh_client_age_recipients_verifies_own_identity_and_atomically_installs(self):
         recipient = "age1" + "a" * 40
         with tempfile.TemporaryDirectory() as directory:
@@ -34,10 +34,10 @@ class CockpitClientTests(unittest.TestCase):
                 if os.fspath(path) == str(root):
                     return SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
                 return real_lstat(path)
-            with patch("feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)), patch(
-                "feclora.deployment.cockpit_client.load_client_runtime_config", return_value=config
-            ), patch("feclora.deployment.cockpit_client.os.lstat", side_effect=lstat), patch(
-                "feclora.deployment.cockpit_client.subprocess.run",
+            with patch("feclora.deployment.recipient_inventory_refresh._mounted_media_directory", return_value=str(media)), patch(
+                "feclora.deployment.recipient_inventory_refresh.load_client_runtime_config", return_value=config
+            ), patch("feclora.deployment.recipient_inventory_refresh.os.lstat", side_effect=lstat), patch(
+                "feclora.deployment.recipient_inventory_refresh.subprocess.run",
                 return_value=SimpleNamespace(returncode=0, stdout=recipient + "\n"),
             ):
                 result = refresh_client_age_recipients({"inventory_path": str(source)})
@@ -46,13 +46,13 @@ class CockpitClientTests(unittest.TestCase):
             self.assertEqual(result["recipient_count"], 1)
             self.assertEqual(identity.read_text(encoding="ascii"), "private identity stays local")
             source.write_text("age1" + "b" * 40 + "\n", encoding="ascii")
-            with patch("feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)), patch(
-                "feclora.deployment.cockpit_client.load_client_runtime_config", return_value=config
-            ), patch("feclora.deployment.cockpit_client.os.lstat", side_effect=lstat), patch(
-                "feclora.deployment.cockpit_client.subprocess.run",
+            with patch("feclora.deployment.recipient_inventory_refresh._mounted_media_directory", return_value=str(media)), patch(
+                "feclora.deployment.recipient_inventory_refresh.load_client_runtime_config", return_value=config
+            ), patch("feclora.deployment.recipient_inventory_refresh.os.lstat", side_effect=lstat), patch(
+                "feclora.deployment.recipient_inventory_refresh.subprocess.run",
                 return_value=SimpleNamespace(returncode=0, stdout=recipient + "\n"),
             ):
-                with self.assertRaisesRegex(CockpitEnrollmentError, "does not contain this Client"):
+                with self.assertRaisesRegex(RecipientInventoryError, "does not contain this Client"):
                     refresh_client_age_recipients({"inventory_path": str(source)})
             self.assertEqual(destination.read_text(encoding="ascii"), recipient + "\n")
 

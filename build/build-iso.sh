@@ -62,12 +62,8 @@ if [[ -e "${RESULT_DIR}" ]]; then
 fi
 
 SECONDS=0
-echo "[1/4] Checking build host..."
+echo "[1/3] Checking build host..."
 bash "${ROOT_DIR}/build/preflight.sh"
-
-echo "[2/4] Building Cockpit frontend..."
-bash "${ROOT_DIR}/build/build-webui.sh"
-echo "Frontend phase: ${SECONDS}s"
 
 # Scale QEMU resources to the build host, while retaining conservative bounds.
 HOST_CPUS="$(nproc)"
@@ -88,10 +84,10 @@ mkdir -p "$(dirname -- "${RESULT_DIR}")"
 WORK_DIR="$(mktemp -d "$(dirname -- "${RESULT_DIR}")/.feclora-build.XXXXXX")"
 trap 'rm -rf -- "${WORK_DIR}"' EXIT
 
-echo "[3/4] Preparing augmented installer ISO..."
+echo "[2/3] Preparing augmented installer ISO..."
 APP_STAGE="${WORK_DIR}/feclora-app"
 AUGMENTED_ISO="${WORK_DIR}/feclora-installer.iso"
-mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist"
+mkdir -p "${APP_STAGE}/src"
 
 # Lorax builds the ISO boot menus from its own templates, independently of
 # /etc/default/grub in the installed Live filesystem. Override both firmware
@@ -115,11 +111,10 @@ for grub_cfg in \
   fi
 done
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
-cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
 
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
-echo "[4/4] Creating Live ISO with ${BUILD_VCPUS} vCPUs and ${BUILD_RAM} MiB RAM..."
+echo "[3/3] Creating Live ISO with ${BUILD_VCPUS} vCPUs and ${BUILD_RAM} MiB RAM..."
 BOOT_ARGS=(rhgb quiet vt.global_cursor_default=0)
 if [[ "$SELINUX_PERMISSIVE" == 1 ]]; then
   echo "WARNING: Building an ISO with SELinux permissive; review security before release."

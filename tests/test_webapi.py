@@ -269,6 +269,22 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "status", "params": {"command": "id"}})
 
+    def test_service_state_reports_the_textual_systemd_unit(self):
+        from feclora.webapi import _service_state
+
+        with patch("feclora.webapi.subprocess.run", side_effect=[
+            SimpleNamespace(returncode=0, stdout="active\n"),
+            SimpleNamespace(returncode=0, stdout=""),
+            SimpleNamespace(returncode=0, stdout=""),
+        ]) as run:
+            services = _service_state()
+
+        self.assertEqual(services["Textual interface"], "active")
+        self.assertEqual(
+            run.call_args_list[0].args[0],
+            ["/usr/bin/systemctl", "is-active", "feclora-tui.service"],
+        )
+
     def test_remote_clone_source_lookup_finds_nested_partition(self):
         inventory = {
             "devices": [{
@@ -699,13 +715,13 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result, accepted)
 
     def test_age_recipient_export_and_refresh_actions_are_allowlisted(self):
-        with patch("feclora.deployment.cockpit_enrollment.export_server_age_recipients",
+        with patch("feclora.deployment.recipient_inventory_export.export_server_age_recipients",
                    return_value={"recipient_count": 2}) as export:
             self.assertEqual(dispatch({"action": "export_server_age_recipients", "params": {
                 "export_directory": "/run/media/usb",
             }}), {"recipient_count": 2})
         export.assert_called_once_with({"export_directory": "/run/media/usb"})
-        with patch("feclora.deployment.cockpit_client.refresh_client_age_recipients",
+        with patch("feclora.deployment.recipient_inventory_refresh.refresh_client_age_recipients",
                    return_value={"recipient_count": 2}) as refresh:
             self.assertEqual(dispatch({"action": "refresh_client_age_recipients", "params": {
                 "inventory_path": "/run/media/usb/age-recipients.txt",
@@ -2114,7 +2130,7 @@ class CaptureFilesystemPreflightAPITests(unittest.TestCase):
             })
 
 
-class RestoreProfileCockpitAPITests(unittest.TestCase):
+class RestoreProfileAPITests(unittest.TestCase):
     def test_create_restore_profile_binds_unique_disk_and_saves_single_use_policy(self):
         from feclora.webapi import _create_restore_profile
         manifest = SimpleNamespace(

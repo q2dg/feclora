@@ -1,6 +1,6 @@
 """Root-only provisioning of local credential files for remote repositories.
 
-This is an administrative primitive, not a Cockpit API: callers must
+This is an administrative primitive, not a TUI API: callers must
 obtain secret material through a trusted local channel. Secret bytes are never
 returned by this store or written to the repository registry.
 """

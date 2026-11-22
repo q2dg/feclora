@@ -12,7 +12,7 @@ reimplementing storage and network protocols.
 | SMB/CIFS | `mount.cifs` | SMB 3.1.1, protocol signing/encryption options and protected credentials |
 | S3 | S3-compatible object API | SigV4, scoped credentials, multipart transfer and manifest-last publication; not a filesystem mount |
 
-S3 is implemented as an object repository through an HTTPS API, not a FUSE mount. The repository manager, protected credential handling, API and Cockpit workflows are integrated.
+S3 is implemented as an object repository through an HTTPS API, not a FUSE mount. The repository manager, protected credential handling, API and Textual workflows are integrated.
 Self-hosted Garage and managed S3-compatible services can expose the same API.
 The endpoint, bucket and prefix are configured per repository.
 
@@ -37,12 +37,7 @@ their upstream documentation or project home pages.
 | Component | Role in Feclora | Upstream |
 |---|---|---|
 | Fedora Server | Base Live userspace and package environment | [fedoraproject.org/server](https://fedoraproject.org/server/) |
-| Cockpit | Primary browser-based administration interface | [cockpit-project.org](https://cockpit-project.org/) |
-| Firefox | Restricted kiosk browser | [mozilla.org/firefox](https://www.mozilla.org/firefox/) |
-| Weston | Wayland kiosk compositor with kiosk-shell | [wayland.freedesktop.org](https://wayland.freedesktop.org/) |
-| React | Cockpit application UI | [react.dev](https://react.dev/) |
-| PatternFly | UI component system | [patternfly.org](https://www.patternfly.org/) |
-| Vite | Frontend build tooling | [vite.dev](https://vite.dev/) |
+| Textual | Keyboard-first terminal UI framework | [textual.textualize.io](https://textual.textualize.io/) |
 | Partclone | Filesystem-aware image capture and restore | [partclone.org](https://partclone.org/) |
 | util-linux (lsblk, findmnt, losetup) | Block-device inventory and safe storage inspection | [github.com/util-linux](https://github.com/util-linux/util-linux) |
 | LVM2 | Logical-volume inventory and supported LV operations | [sourceware.org/lvm2](https://sourceware.org/lvm2/) |

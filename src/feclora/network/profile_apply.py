@@ -102,7 +102,7 @@ def apply_ipv4_profile(
         uuid=uuid, interface=interface, method=method, address=address,
         prefix_length=prefix_length, gateway=gateway, dns=dns,
     )
-    # Limit the checkpoint to the selected interface; an unresponsive Cockpit
+    # Limit the checkpoint to the selected interface; an unresponsive TUI
     # client cannot prevent NetworkManager's timed automatic rollback.
     device = _run(
         [nmcli, "-g", "GENERAL.DBUS-PATH", "device", "show", interface],

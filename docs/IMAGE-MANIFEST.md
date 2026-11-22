@@ -8,9 +8,9 @@ It is not an executable restore plan and never authorizes a target write.
 
 | Manifest image type | Meaning | Capture status | Restore status |
 |---|---|---|---|
-| `disk` | Complete block-device image plus partition-table metadata | Implemented in local Cockpit workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
-| `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Cockpit workflow; requires current storage inventory | Implemented for an existing partition target |
-| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Cockpit workflow for uniquely identified, non-hidden, non-snapshot LVs | Not implemented |
+| `disk` | Complete block-device image plus partition-table metadata | Implemented in local Textual workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
+| `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Textual workflow; requires current storage inventory | Implemented for an existing partition target |
+| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Textual workflow for uniquely identified, non-hidden, non-snapshot LVs | Not implemented |
 
 These are **image source types/layers**, not repository types. A repository is
 the explicitly selected local or remote destination holding the image files.
