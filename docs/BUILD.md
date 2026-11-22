@@ -52,9 +52,9 @@ make deps
 ```
 
 This invokes `build/install-host-deps.sh`, which installs the Fedora packages
-`lorax`, `lorax-lmc-virt`, `qemu-kvm`, `edk2-ovmf`, `xorriso`, `nodejs` and `npm`.
-Node.js and npm compile the React/PatternFly Cockpit package; xorriso is used
-to inspect and validate the generated bootable ISO.
+`lorax`, `lorax-lmc-virt`, `qemu-kvm`, `edk2-ovmf`, `xorriso`, `dracut`,
+`nodejs` and `npm`. Node.js and npm compile the React/PatternFly Cockpit
+package; xorriso and dracut inspect and validate the generated bootable ISO.
 
 Check the host architecture, virtualization device, and available space:
 
@@ -142,15 +142,21 @@ The target invokes `build/build-iso.sh` with root privileges. The script:
    to a temporary installer ISO in that same temporary work directory.
 5. Runs `livemedia-creator --make-iso` against the augmented installer ISO,
    using QEMU virtualization and the project's Kickstart.
-6. Requests the final image as `out/feclora-live.iso` and writes
-   `out/boot-initrd-plymouth-check.txt`, recording whether the boot initramfs
-   inside the ISO contains the configured Feclora Plymouth theme and assets.
+6. Requests the final image as `out/feclora-live.iso` and verifies the actual
+   BIOS and UEFI GRUB entries and Plymouth theme, renderer and logo in the
+   shipped boot initramfs. The build fails if any of these checks fail and
+   writes the evidence to `out/boot-initrd-plymouth-check.txt`.
 
 The expected final artifact is:
 
 ```text
 out/feclora-live.iso
 ```
+
+The ISO build now fails if either BIOS or UEFI boot entries omit `rhgb`, or
+if the shipped initramfs lacks the Feclora Plymouth theme, script renderer or
+generated logo. This verifies the actual ISO payload; it does not replace the
+BIOS and UEFI QEMU boot checks in the [VM smoke procedure](../tests/VM-SMOKE-TEST.md).
 
 If the build fails, preserve the complete terminal output and the contents of
 `out/` (especially Lorax/Anaconda logs) before cleaning or retrying. Do not

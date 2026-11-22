@@ -53,7 +53,7 @@ if [[ "$EUID" -ne 0 ]]; then
   fail "Run preflight as root, for example: sudo -E make preflight FEDORA_INSTALL_ISO=..."
 fi
 
-for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm sha256sum; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm sha256sum xorriso lsinitrd; do
   command -v "$cmd" >/dev/null 2>&1 || fail "Required command not found: $cmd (install make deps)."
 done
 

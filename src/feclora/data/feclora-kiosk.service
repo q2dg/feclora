@@ -35,7 +35,8 @@ ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
 # but before Weston asks logind for an active DRM session. Delaying chvt until
 # the Wayland socket exists deadlocks: Weston cannot create it before activation.
 ExecStartPre=+/usr/bin/chvt 1
-ExecStartPost=+/usr/bin/bash -c 'for attempt in {1..30}; do if compgen -G "/run/feclora-kiosk/wayland-*" >/dev/null; then break; fi; sleep 1; done; for attempt in {1..30}; do if /usr/bin/pgrep -u feclora-kiosk -x firefox >/dev/null; then break; fi; sleep 1; done; sleep 2; /usr/bin/plymouth quit --retain-splash || true; /usr/libexec/feclora/feclora-kiosk-diagnostics post-start || true'
+ExecStartPre=+/usr/libexec/feclora/feclora-kiosk-display preflight
+ExecStartPost=+/usr/libexec/feclora/feclora-kiosk-display handoff
 ExecStopPost=+/usr/libexec/feclora/feclora-kiosk-diagnostics stop
 Restart=always
 RestartSec=5

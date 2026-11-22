@@ -7,6 +7,7 @@ packages=(
   qemu-kvm
   edk2-ovmf
   xorriso
+  dracut
   nodejs
   npm
 )

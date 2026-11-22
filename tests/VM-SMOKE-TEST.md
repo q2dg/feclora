@@ -51,6 +51,21 @@ If the installed files use different names or reside elsewhere, set
 Never modify the packaged VARS image; make a fresh writable copy for each
 independent test run. Remove the temporary copy after the test.
 
+## Automated BIOS/UEFI boot readiness
+
+After building the ISO, run the headless QEMU smoke test:
+
+```bash
+python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
+```
+
+It boots both BIOS and UEFI guests without attaching host disks or networking
+and waits for the guest to confirm HTTP 200 from the Feclora page, a Wayland
+socket, and a running Firefox process. The optional virtio-serial channel
+carries status only and is absent on physical systems. This checks boot
+readiness, not the rendered splash image; visually inspect both firmware modes
+below.
+
 ## Boot acceptance
 
 - [ ] ISO boots in BIOS mode; GRUB does not display its menu and automatically selects the first entry.
@@ -63,6 +78,7 @@ independent test run. Remove the temporary copy after the test.
 - [ ] `feclora-cockpit-kiosk.service` owns `127.0.0.1:9090` using `--local-session`.
 - [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html` with no login or password prompt.
 - [ ] The Feclora Cockpit app page returns successfully and does not display Cockpit's “Not found” page.
+- [ ] Firefox opens a normal (non-private) kiosk window.
 - [ ] The first Feclora screen is the interface-language selector; selecting a language and continuing opens the Feclora operations menu.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9090`.
 - [ ] No separate authenticated Cockpit socket or second listener is active.

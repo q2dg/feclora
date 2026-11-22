@@ -22,7 +22,6 @@
     "DisableFormHistory": true,
     "OfferToSaveLogins": false,
     "PasswordManagerEnabled": false,
-    "DisablePrivateBrowsing": false,
     "DisableTelemetry": true,
     "DisableDeveloperTools": true,
     "DisableSafeMode": true,

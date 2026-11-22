@@ -44,7 +44,7 @@ fi
 [[ "$(uname -m)" == "x86_64" ]] || { echo "This initial build target is x86_64; host is $(uname -m)." >&2; exit 2; }
 [[ "${EUID}" -eq 0 ]] || { echo "Run as root (for example: sudo -E $0)." >&2; exit 2; }
 
-for cmd in livemedia-creator mkksiso qemu-system-x86_64 sha256sum; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64 sha256sum xorriso lsinitrd; do
   command -v "${cmd}" >/dev/null 2>&1 || { echo "Required command not found: ${cmd}. Install the build dependencies first." >&2; exit 127; }
 done
 
@@ -134,37 +134,9 @@ if [[ -n "${BUILD_PROXY}" ]]; then
 fi
 livemedia-creator "${LMC_ARGS[@]}"
 
-# Inspect the initramfs actually shipped in the ISO, not only /boot inside
-# the installed Live root. Keep the report beside the artifact for offline
-# diagnosis; do not claim the splash is present unless its assets are listed.
 ISO_FILE="${RESULT_DIR}/feclora-live.iso"
-INITRD_TMP="${WORK_DIR}/iso-boot-initrd.img"
 REPORT="${RESULT_DIR}/boot-initrd-plymouth-check.txt"
-{
-  echo "ISO: ${ISO_FILE}"
-  echo "Boot initramfs path: /images/pxeboot/initrd.img"
-  echo "--- GRUB kernel command lines ---"
-  for grub_cfg in /boot/grub2/grub.cfg /EFI/BOOT/grub.cfg /EFI/fedora/grub.cfg; do
-    grub_tmp="${WORK_DIR}/$(basename "${grub_cfg}").${RANDOM}"
-    if xorriso -osirrox on -indev "${ISO_FILE}" -extract "${grub_cfg}" "${grub_tmp}" >/dev/null 2>&1 && [[ -s "${grub_tmp}" ]]; then
-      echo "GRUB config: ${grub_cfg}"
-      grep -E '^[[:space:]]*(linux|linuxefi)[[:space:]]' "${grub_tmp}" || true
-    fi
-    rm -f "${grub_tmp}"
-  done
-  if xorriso -osirrox on -indev "${ISO_FILE}" -extract /images/pxeboot/initrd.img "${INITRD_TMP}" >/dev/null 2>&1 && [[ -s "${INITRD_TMP}" ]]; then
-    echo "ISO initramfs extraction: OK"
-    echo "--- dracut modules ---"
-    lsinitrd -m "${INITRD_TMP}" 2>&1 || true
-    echo "--- Plymouth theme/config/assets ---"
-    lsinitrd "${INITRD_TMP}" 2>&1 | grep -Ei 'plymouth|feclora|script\.so' || true
-    echo "--- embedded Plymouth configuration ---"
-    lsinitrd -f /etc/plymouth/plymouthd.conf "${INITRD_TMP}" 2>&1 || true
-  else
-    echo "ISO initramfs extraction failed at /images/pxeboot/initrd.img."
-    echo "List candidate initrds with: xorriso -indev out/feclora-live.iso -find / -name initrd.img -print"
-  fi
-} > "${REPORT}"
-rm -f "${INITRD_TMP}"
+[[ -s "$ISO_FILE" ]] || { echo "ISO build did not create $ISO_FILE." >&2; exit 1; }
+bash "${ROOT_DIR}/build/verify-iso-boot-visuals.sh" "$ISO_FILE" "$REPORT"
 
 printf 'Build command completed in %ss. Inspect the ISO and logs under: %s\n' "${SECONDS}" "${RESULT_DIR}"
