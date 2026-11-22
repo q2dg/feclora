@@ -26,13 +26,14 @@ done
 if (( present == 0 )); then
   work=$(mktemp -d "$ROOT/.generate.XXXXXX")
   trap 'rm -rf "$work"' EXIT
-  "$OPENSSL" req -x509 -newkey rsa:3072 -nodes -sha256 -days 3650 \
+  # ECDSA P-256 keeps first-boot key generation fast on low-memory kiosk hardware.
+  "$OPENSSL" req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -sha256 -days 3650 \
     -keyout "$work/ca.key" -out "$work/ca.crt" \
     -subj "/CN=Feclora Local Cockpit CA" \
     -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
     -addext "keyUsage=critical,keyCertSign,cRLSign" \
     -addext "subjectKeyIdentifier=hash"
-  "$OPENSSL" req -new -newkey rsa:3072 -nodes \
+  "$OPENSSL" req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
     -keyout "$work/server.key" -out "$work/server.csr" \
     -subj "/CN=localhost"
   cat > "$work/server.ext" <<'EOF'
