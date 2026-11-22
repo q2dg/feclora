@@ -19,7 +19,7 @@ selected by the operator.
 
 ## Important scope limits
 
-Feclora supports Ext4, XFS, NTFS, FAT32, exFAT and F2FS, plus single-device
+Feclora supports ext2/3/4, XFS, NTFS, FAT12/16/32, exFAT and F2FS, plus single-device
 Btrfs partitions, subject to the feature matrix. LVM logical volumes and raw
 LUKS2 containers have documented restrictions. Stratis is inventoried but is
 not a fully supported imaging target. Coordinated multi-device/snapshot Btrfs
