@@ -169,7 +169,8 @@ class LocalControlServer:
 
     def _serve(self) -> None:
         listener = self._listener
-        assert listener is not None
+        if listener is None:
+            return
         while not self._stop.is_set():
             try:
                 connection, _ = listener.accept()
