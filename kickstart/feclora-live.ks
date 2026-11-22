@@ -197,6 +197,8 @@ install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TAR
 install -d "$TARGET_ROOT/usr/lib/tmpfiles.d"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-image-browser-cache.conf" "$TARGET_ROOT/usr/lib/tmpfiles.d/feclora-image-browser-cache.conf"
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
+# The build host may own files in Vite dist; Cockpit packages must be root-owned.
+chown -R root:root "$TARGET_ROOT/usr/share/cockpit/feclora"
 cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu
