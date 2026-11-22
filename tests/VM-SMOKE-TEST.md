@@ -60,11 +60,11 @@ independent test run. Remove the temporary copy after the test.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is masked and inactive.
 - [ ] `feclora-cockpit-kiosk.service` owns `127.0.0.1:9090` using `--local-session`.
-- [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9090/` with no login or password prompt.
+- [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html` with no login prompt.
 - [ ] The first Feclora screen is the interface-language selector; selecting a language and continuing opens the Feclora operations menu.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9090`.
 - [ ] No separate authenticated Cockpit socket or second listener is active.
-- [ ] The `feclora` administrator account remains locked; no password is created.
+- [ ] The `feclora` administrator account exists with its password locked; the temporary `pepe` diagnostic account is present only in diagnostic builds and is removed from release images.
 - [ ] Certificate, local Cockpit kiosk and Firefox kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
 - [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
@@ -88,7 +88,7 @@ port 9090. The standard Cockpit socket is masked; do not forward this port.
 - [ ] systemd cgroup IP filters deny non-loopback destinations for Firefox and
   the local Cockpit kiosk endpoint while allowing loopback traffic.
 - [ ] Killing Firefox or Weston causes the systemd kiosk service to restart it.
-- [ ] getty@tty1–tty6 are masked and no autologin/passwordless-sudo setup exists.
+- [ ] tty1 is reserved for the graphical kiosk (`getty@tty1` is unmasked but conflicts with the kiosk service); tty2 remains available for the diagnostic console; getty@tty3–tty6 are masked; no autologin or NOPASSWD sudo setup exists.
 - [ ] The `feclora-kiosk` account has no login shell and is not in `wheel`.
 - [ ] The local Cockpit kiosk can perform the Feclora operations expected by the UI; the endpoint is only reachable from guest loopback.
 - [ ] Record keyboard/VT escape behavior on the actual target hardware.
