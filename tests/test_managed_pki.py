@@ -1,9 +1,7 @@
 import os
 import tempfile
-import hashlib
 from pathlib import Path
 import unittest
-from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -25,7 +23,7 @@ class ManagedPKITests(unittest.TestCase):
                 with open(path, "w", encoding="ascii") as stream:
                     stream.write("existing " + name)
                 os.chmod(path, 0o600 if name.endswith(".key") else 0o644)
-            original_key = open(paths["server.key"], "rb").read()
+            original_key = Path(paths["server.key"]).read_bytes()
             calls = []
 
             def fake_run(argv, _runner=None):
