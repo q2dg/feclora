@@ -237,6 +237,7 @@ and record results; do not infer hardware acceptance from static validation.
 A successful Cockpit page load does not validate destructive workflows.
 Verify capture/restore/clone only with disposable virtual disks and follow
 the dedicated imaging acceptance checks.
+
 ## 8. Record results
 
 For every build/test run, record:
