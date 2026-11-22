@@ -22,36 +22,31 @@ image sources/layers. SSHFS, NFS and SMB/CIFS are mounted-repository providers;
 S3 is a separate object-storage provider. Feclora consumes external storage
 services and does not provision or administer them.
 
-## Implemented in source
+## Implemented capabilities and workflow boundaries
 
-The current source and Textual application include local whole-disk and
-partition capture, restore and cloning; eligible logical-volume capture and
-restore; storage inventory and operation history; optional age encryption;
-SSHFS/NFS/SMB and S3 repositories; persistent Server/Client jobs over
-authenticated TLS; UDPcast multicast restore; remote disk/partition cloning;
-P2V conversion/export; interactive PXE; and a shared-answer unattended restore
-workflow usable from ISO/USB Live or optional PXE boot. A coordinated ISO+image+
-answer bundle workflow now has a build-host coordinator that builds the generic Live ISO, optionally captures an offline disk or selects an existing Feclora image, and atomically packages it with one validated shared unattended DeploymentJob answer. Textual also has a durable assembly operation for prebuilt inputs. The answer JSON is still prepared separately; direct job generation in the bundle wizard, removable-media answer discovery, and full end-to-end deployment failure injection remain planned.
+The implemented capability inventory and its verification status live in the
+[feature matrix](FEATURE-MATRIX.md). This roadmap avoids repeating that
+inventory; the following product boundaries are important when assessing
+remaining work:
 
-Keep the PXE and deployment contracts distinct:
+- **Interactive PXE** boots the standard Feclora Live runtime and opens the
+  normal Textual workflow. PXE is a boot transport, not an image-data proxy.
+- **Unattended PXE** is a separate answer-file workflow with narrower admission,
+  target-binding and operation semantics. The Live Client resolves the
+  repository through its normal repository managers.
+- **Multicast deployment** is a separate Server/Client transport and
+  coordinator. The unattended PXE adapter is not a multicast implementation.
+- **RAW and QCOW2** are formats of the same manifest-backed whole-disk image.
+  QCOW2 validation and conversion do not repair guest drivers, initramfs,
+  bootloader or firmware configuration, and do not prove guest bootability.
+- **Recovery ISO** embeds an image and target-bound answer for guarded boot-time
+  restore. It is distinct from the coordinated generic ISO + image + shared
+  answer deployment bundle.
 
-- **Interactive PXE** boots the same Feclora Live runtime used by the ISO and
-  opens the normal Textual interface. The operator selects the repository,
-  image and target Clients in the usual deployment workflow.
-- **Unattended PXE** is a separate answer-file workflow with its own admission,
-  target-binding and operation limitations. Its repository ID is resolved by
-  the Live Client through the normal repository managers; the PXE Server does
-  not proxy image data.
-- **Multicast deployment** remains its own Server/Client deployment transport
-  and coordinator path. The unattended PXE adapter is not a multicast
-  implementation and must not be described as one.
-
-Whole-disk capture now offers RAW and QCOW2 as formats of the same manifest-backed disk image. QCOW2 capture records the same logical sector geometry and partition-table snapshot as RAW capture; local and coordinated restore verify the QCOW2 container, reject external backing/data-file dependencies, convert it to private RAW staging and then use the normal verified disk writer. Older standalone QCOW2 plus `.p2v.json` files remain supported by the compatibility `import_p2v` path, but new P2V captures no longer need an import step. Neither conversion nor restore repairs guest boot dependencies or proves VM bootability. A single-disk capture does not coordinate a multi-device Btrfs filesystem; LUKS/LVM sectors are preserved but opened mappings, key provisioning and initramfs integration are not repaired. The separate recovery-ISO builder embeds an image and target-bound answer; `feclora-recovery-boot.service` discovers the mounted payload at Live boot, validates it and dispatches the shared guarded restore engine after WWN/serial revalidation. Firmware boot and destructive-media acceptance remain maintainer-owned. Neither is the coordinated generic ISO + restorable image + shared-answer bundle workflow. See [deployment artifact bundle](DEPLOYMENT-ARTIFACT-BUNDLE.md).
-
-These are source/integration statements, not a claim of production acceptance.
-Image artifacts record byte count and SHA-256. The digest detects artifact
-corruption relative to the manifest; repository access controls and
-authenticated transport form the trust boundary. Age encryption is optional.
+These are source/integration boundaries, not a claim of production acceptance.
+Image artifacts record byte counts and SHA-256 digests; the digest detects
+corruption relative to the manifest, while repository access controls and
+authenticated transport provide the trust boundary. Age encryption is optional.
 
 ## Remaining engineering work
 
