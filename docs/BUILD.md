@@ -21,8 +21,6 @@ The script intentionally does not use `--no-virt`.
 
 Use a dedicated build machine or VM with:
 
-- Node.js and npm (the build-host dependency installer provides both) to compile the React/PatternFly Cockpit package.
-
 - Fedora 45 x86_64 and working Fedora package repositories.
 - Hardware virtualization enabled in firmware and KVM available to the host.
 - Enough free disk space for the source DVD, augmented installer ISO,
@@ -54,7 +52,9 @@ make deps
 ```
 
 This invokes `build/install-host-deps.sh`, which installs the Fedora packages
-`lorax`, `lorax-lmc-virt`, `qemu-kvm`, and `edk2-ovmf`.
+`lorax`, `lorax-lmc-virt`, `qemu-kvm`, `edk2-ovmf`, `xorriso`, `nodejs` and `npm`.
+Node.js and npm compile the React/PatternFly Cockpit package; xorriso is used
+to inspect and validate the generated bootable ISO.
 
 Check the host architecture, virtualization device, and available space:
 
@@ -135,13 +135,16 @@ The target invokes `build/build-iso.sh` with root privileges. The script:
    Kickstart, application source, required executables, KVM access, and a
    configurable minimum of free output space.
 2. Builds the React/PatternFly Cockpit frontend with `build/build-webui.sh`.
-3. Stages the Python application at `out/feclora-app/src/feclora` and the
-   frontend build at `out/feclora-app/webui/dist`.
+3. Creates a temporary staging tree under the output directory's parent and
+   stages the Python application and frontend build there. The staging tree is
+   removed automatically when the build script exits.
 4. Uses `mkksiso --add` to add the complete application payload and Kickstart
-   to a temporary installer ISO named `out/feclora-installer.iso`.
+   to a temporary installer ISO in that same temporary work directory.
 5. Runs `livemedia-creator --make-iso` against the augmented installer ISO,
    using QEMU virtualization and the project's Kickstart.
-6. Requests the final image as `out/feclora-live.iso`.
+6. Requests the final image as `out/feclora-live.iso` and writes
+   `out/boot-initrd-plymouth-check.txt`, recording whether the boot initramfs
+   inside the ISO contains the configured Feclora Plymouth theme and assets.
 
 The expected final artifact is:
 
@@ -175,9 +178,7 @@ Server product environment, then adds Feclora's explicit runtime package set.
 Weston and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
 general-purpose desktop or display manager is installed. On each fresh Live boot the Firefox kiosk opens the local Feclora Cockpit
 application directly through a loopback-only Cockpit `--local-session` service.
-The first Feclora screen asks the operator to select the interface language; continuing opens the operations menu. No user
-password is created or requested; the `feclora` administrator account remains
-locked. The dedicated Cockpit local-session service owns loopback port 9090;
+The first Feclora screen asks the operator to select the interface language; continuing opens the operations menu. The kiosk does not request an interactive login. The `feclora` administrator account is created with its password locked. A separate temporary diagnostic account, `pepe`, is created with a password for console troubleshooting and must be removed before a release image is published. The dedicated Cockpit local-session service owns loopback port 9090;
 the standard authenticated `cockpit.socket` is masked and is not used. The local
 CA/certificate is generated and trusted for the kiosk endpoint.
 
@@ -209,11 +210,14 @@ At minimum, verify:
 - `/usr/share/feclora/python/feclora` contains the Python application.
 - Firefox `WebsiteFilter` blocks external URLs and systemd cgroup IP filters
   deny all kiosk network destinations except loopback.
-- The kiosk account is not in `wheel`; getty@tty1–tty6 are masked; there is
-  no autologin configuration or NOPASSWD sudo rule.
+- The kiosk account is not in `wheel`; tty1 is reserved for the graphical kiosk
+  (`getty@tty1` is unmasked but conflicts with the kiosk service), tty2 remains
+  available for the temporary diagnostic console account, and getty on tty3–tty6
+  is masked. There is no autologin configuration or NOPASSWD sudo rule.
 - Firefox and Weston restart after terminating the kiosk process.
-- The local kiosk opens directly on every boot. No user password is created
-  or requested; the `feclora` administrator account remains locked.
+- The local kiosk opens directly on every boot without an interactive login.
+  The `feclora` administrator account remains password-locked; the temporary
+  `pepe` diagnostic account is not permitted in a release image.
 
 The passwordless kiosk endpoint is loopback-only and must not be exposed through
 QEMU port forwarding or the LAN. Do not forward port 9090; it is the local
