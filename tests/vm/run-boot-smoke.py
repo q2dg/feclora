@@ -155,6 +155,14 @@ def _run_guest(
                                     f"{firmware}: Cockpit HTTP 200, Wayland socket and Firefox are ready."
                                 )
                                 return
+                            if event.startswith("FECLORA_BOOT_SMOKE fallback-ready-http-"):
+                                status = event.removeprefix(
+                                    "FECLORA_BOOT_SMOKE fallback-ready-http-"
+                                )
+                                raise RuntimeError(
+                                    f"{firmware} Cockpit returned HTTP {status}; "
+                                    "the local diagnostic screen, Wayland and Firefox are ready."
+                                )
                     raise TimeoutError(
                         f"{firmware} guest did not reach kiosk readiness within {timeout}s.\n"
                         f"Last guest status: {last_event}\n{_tail(log)}"

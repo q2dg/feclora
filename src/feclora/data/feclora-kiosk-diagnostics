@@ -73,6 +73,10 @@ TMP="$REPORT.tmp"
   echo "Weston XDG_RUNTIME_DIR: /run/feclora-kiosk"
   ls -ldZ /run/feclora-kiosk 2>&1 || true
   ls -la /run/feclora-kiosk 2>&1 || true
+  if [ -r /run/feclora-kiosk/cockpit-unavailable ]; then
+    printf 'Cockpit fallback HTTP status: '
+    cat /run/feclora-kiosk/cockpit-unavailable
+  fi
   ps -eo pid,ppid,user,stat,tty,comm,args 2>&1 | grep -E '(^ *PID|weston|firefox|Xwayland|cockpit-ws)' || true
   lsmod 2>&1 || true
 

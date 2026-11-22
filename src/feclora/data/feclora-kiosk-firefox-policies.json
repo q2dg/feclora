@@ -50,7 +50,8 @@
         "http://localhost/*",
         "https://localhost/*",
         "ws://localhost/*",
-        "wss://localhost/*"
+        "wss://localhost/*",
+        "file:///usr/share/feclora/kiosk-diagnostic.html*"
       ]
     },
     "Preferences": {

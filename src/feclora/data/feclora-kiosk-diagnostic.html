@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feclora no disponible</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      background: #101820;
+      color: #f3f6f8;
+    }
+
+    body {
+      box-sizing: border-box;
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+    }
+
+    main {
+      width: min(100%, 42rem);
+      padding: clamp(1.5rem, 5vw, 3rem);
+      border: 1px solid #536474;
+      border-radius: 1rem;
+      background: #192630;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: clamp(1.8rem, 5vw, 2.5rem);
+    }
+
+    p {
+      line-height: 1.6;
+    }
+
+    .status {
+      font-weight: 700;
+    }
+
+    a {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.85rem 1.2rem;
+      border-radius: 0.4rem;
+      background: #62c3a5;
+      color: #101820;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    a:focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 4px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Feclora todavía no está disponible</h1>
+    <p>La interfaz web local no respondió correctamente durante el arranque.</p>
+    <p class="status" role="status" aria-live="polite">
+      Último estado HTTP: <span id="http-status">desconocido</span>
+    </p>
+    <p>Comprueba el servicio y vuelve a intentarlo. Puedes usar Tab y Enter para navegar.</p>
+    <a href="http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html">Reintentar Feclora</a>
+    <p lang="en">Feclora is not ready yet. Use the keyboard to focus the retry link and press Enter.</p>
+  </main>
+  <script>
+    const status = new URLSearchParams(window.location.search).get("status");
+    if (status && /^[0-9]{3}$/.test(status)) {
+      document.getElementById("http-status").textContent = status;
+    }
+  </script>
+</body>
+</html>

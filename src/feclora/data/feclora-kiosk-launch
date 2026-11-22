@@ -20,6 +20,18 @@ ls -la /dev/input 2>&1 || true
 # --no-config prevents a system/user weston.ini from loading optional modules.
 # XWayland is deliberately not requested; Firefox is a native Wayland client.
 WESTON_ARGS=(--backend=drm-backend.so --shell=kiosk-shell.so --no-config)
+FIREFOX_ARGS=(--kiosk --new-instance)
+UNAVAILABLE_FILE=/run/feclora-kiosk/cockpit-unavailable
+if [[ -r "$UNAVAILABLE_FILE" ]]; then
+  http_status="$(<"$UNAVAILABLE_FILE")"
+  if [[ ! "$http_status" =~ ^[0-9]{3}$ ]]; then
+    http_status=unknown
+  fi
+  FIREFOX_ARGS+=("file:///usr/share/feclora/kiosk-diagnostic.html?status=$http_status")
+  echo "Cockpit is unavailable; opening the local diagnostic screen (HTTP $http_status)."
+else
+  FIREFOX_ARGS+=(http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html)
+fi
 # Force software rendering only on VirtualBox; physical machines autodetect.
 virt_vendor="$(systemd-detect-virt --vm 2>/dev/null || true)"
 if [[ "$virt_vendor" == "oracle" ]]; then
@@ -35,4 +47,4 @@ echo "Kiosk preflight elapsed: ${SECONDS}s."
 echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
 echo "Weston log: $LOG_DIR/weston.log"
 echo "Weston/Firefox exit status and stderr will be recorded below."
-exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --new-instance
+exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/libexec/feclora/feclora-kiosk-firefox-launch "${FIREFOX_ARGS[@]}"

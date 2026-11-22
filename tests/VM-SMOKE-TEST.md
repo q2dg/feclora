@@ -73,6 +73,7 @@ below.
 - [ ] Weston/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
 - [ ] Plymouth displays only the static centered Feclora logo, with no spinner or progress animation.
 - [ ] The screen does not remain black while Cockpit starts.
+- [ ] If Cockpit does not become ready, the local keyboard-operable diagnostic screen appears with its HTTP status and a retry link; it does not leave a blank display.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is masked and inactive.

@@ -29,6 +29,7 @@ grep -Fq 'max_parallel_downloads=3' "$KS" || fail "Anaconda DNF parallel downloa
 for package in plymouth plymouth-plugin-script librsvg2-tools weston firefox cockpit-ws-selinux policycoreutils-python-utils; do
   grep -Fxq "$package" "$KS" || fail "Required boot/kiosk package is missing: $package"
 done
+grep -Fxq python3-textual "$KS" || fail "Textual runtime package is missing from the Live image."
 if grep -Eiq '^[[:space:]]*xorg-x11-server-Xwayland([[:space:]]|$)' "$KS"; then
   fail "Pure Wayland kiosk image must not install XWayland."
 fi
@@ -46,6 +47,9 @@ fi
 [[ -s "$FIREFOX_LAUNCH" ]] || fail "Firefox kiosk client launcher and exit logger are missing."
 grep -Fq 'feclora-kiosk-display" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-display"' "$KS" || fail "Kickstart does not install the Plymouth and kiosk readiness handoff."
 grep -Fq 'feclora-kiosk-firefox-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-firefox-launch"' "$KS" || fail "Kickstart does not install the Firefox kiosk client launcher."
+grep -Fq 'feclora-api" "$TARGET_ROOT/usr/libexec/feclora/feclora-api"' "$KS" || fail "Kickstart does not install the shared allowlisted API helper."
+grep -Fq 'ln -s feclora-api "$TARGET_ROOT/usr/libexec/feclora/cockpit-api"' "$KS" || fail "Cockpit transition path does not use the shared API helper."
+grep -Fq 'open_root_terminal' "$ROOT_DIR/src/feclora/data/feclora-api" || fail "Shared API helper does not allow the root-terminal action."
 grep -Fq 'journalctl --boot' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture the current boot journal."
 grep -Fq 'lspci -nnk' "$DIAGNOSTICS" || fail "Diagnostics collector does not capture graphics hardware and drivers."
 grep -Fq 'diagnostics.tar.gz' "$DIAGNOSTICS" || fail "Diagnostics collector does not create a portable log archive."
@@ -141,7 +145,8 @@ grep -Fq 'WESTON_ARGS+=(--log="$LOG_DIR/weston.log")' "$LAUNCH" || fail "Weston 
 if grep -Eq -- '(^|[[:space:]])--xwayland([[:space:]]|$)|xwayland\.so' "$LAUNCH"; then fail "Pure Wayland kiosk must not enable or load XWayland."; fi
 grep -Fxq 'export XDG_RUNTIME_DIR=/run/feclora-kiosk' "$LAUNCH" || fail "Weston and Firefox must use the systemd-managed runtime directory."
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
-grep -Fq '/usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --new-instance' "$LAUNCH" || fail "Firefox must start directly in kiosk mode through the exit-logging wrapper."
+grep -Fq 'FIREFOX_ARGS=(--kiosk --new-instance)' "$LAUNCH" || fail "Firefox must start directly in kiosk mode through the exit-logging wrapper."
+grep -Fq 'feclora-kiosk-firefox-launch "${FIREFOX_ARGS[@]}"' "$LAUNCH" || fail "Firefox must receive the selected app or diagnostic URL through its exit-logging wrapper."
 if grep -Fq -- '--private-window' "$LAUNCH"; then fail "Firefox must not start in private browsing mode."; fi
 grep -Fq '"URL": "http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must open the locked Feclora homepage directly."
 grep -Fq '"browser.startup.page"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must start on its managed homepage rather than a restored tab."
@@ -150,6 +155,11 @@ grep -Fq '"browser.fullscreen.autohide"' "$ROOT_DIR/src/feclora/data/feclora-kio
 grep -Fq '"http://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox website filter must allow Cockpit localhost HTTP requests."
 grep -Fq '"ws://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox website filter must allow Cockpit localhost WebSocket requests."
 grep -Fq 'Kiosk preflight elapsed: ${SECONDS}s.' "$LAUNCH" || fail "Kiosk launcher must report startup preflight duration."
+[[ -s "$ROOT_DIR/src/feclora/data/feclora-kiosk-diagnostic.html" ]] || fail "Local kiosk diagnostic page is missing."
+grep -Fq 'kiosk-diagnostic.html' "$KS" || fail "Kickstart does not install the local kiosk diagnostic page."
+grep -Fq 'file:///usr/share/feclora/kiosk-diagnostic.html*' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox website filter must allow only the local kiosk diagnostic file."
+grep -Fq 'cockpit-unavailable' "$DISPLAY" || fail "Kiosk does not preserve the Cockpit failure status for the diagnostic page."
+grep -Fq 'fallback-ready-http-' "$DISPLAY" || fail "Kiosk does not report when the diagnostic display is visible."
 grep -Fq '"UserMessaging"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox onboarding and recommendation messages must be disabled for kiosk use."
 grep -Fq '"SkipOnboarding": true' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox first-run onboarding must be disabled."
 grep -Fq 'weston --version' "$DIAGNOSTICS" || fail "Diagnostics do not record the Weston version."
@@ -162,8 +172,8 @@ grep -Fq 'section "FIREFOX KIOSK CLIENT LOG"' "$DIAGNOSTICS" || fail "Diagnostic
 grep -Fq 'firefox.log' "$DIAGNOSTICS" || fail "Firefox log must be included in the portable diagnostic archive."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
 grep -Fq "write-out '%{http_code}'" "$DISPLAY" || fail "Kiosk must verify the Feclora Cockpit page's HTTP status."
-grep -Fq '[[ "$status" == 200 ]]' "$DISPLAY" || fail "Kiosk must refuse to open a missing or unavailable Cockpit page."
-grep -Fq 'return 1' "$DISPLAY" || fail "Kiosk must retry instead of displaying a Cockpit Not found page."
+grep -Fq '[[ "$status" == 200 ]]' "$DISPLAY" || fail "Kiosk must verify Cockpit readiness before opening the Feclora app."
+grep -Fq 'starting the local diagnostic screen instead' "$DISPLAY" || fail "Cockpit failure must show a local diagnostic screen instead of leaving a blank display."
 grep -Fq 'plymouth activate' "$DISPLAY" || fail "Kiosk must restore Plymouth after a failed graphical handoff."
 grep -Fxq 'Wants=feclora-cockpit-kiosk.service' "$SERVICE" || fail "Cockpit must be optional for the graphical kiosk."
 if grep -Fxq 'Requires=feclora-cockpit-kiosk.service' "$SERVICE"; then
@@ -191,13 +201,14 @@ if grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE"; then
   fail "Kiosk must not wait for Plymouth to disappear before starting Weston."
 fi
 grep -Fxq 'Before=plymouth-quit.service' "$SERVICE" || fail "Plymouth must not quit before the kiosk startup handoff."
-grep -Fq 'plymouth deactivate' "$DISPLAY" || fail "Plymouth must release DRM only after the Cockpit page responds."
+grep -Fq 'plymouth deactivate' "$DISPLAY" || fail "Plymouth must release DRM for the app or local diagnostic screen."
 grep -Fq 'pgrep -u feclora-kiosk -x firefox' "$DISPLAY" || fail "Plymouth splash must remain until the Firefox kiosk process starts."
 grep -Fq 'plymouth quit --retain-splash' "$DISPLAY" || fail "Plymouth must retain its final frame during the Firefox handoff."
 grep -Fq 'feclora-kiosk-diagnostics post-start' "$DISPLAY" || fail "A failed graphical handoff must save kiosk diagnostics."
 [[ -s "$QEMU_BOOT_SMOKE" ]] || fail "Automated BIOS/UEFI QEMU boot smoke test is missing."
 grep -Fq 'org.feclora.boot-smoke' "$QEMU_BOOT_SMOKE" || fail "QEMU smoke test must use the guest's read-only readiness channel."
 grep -Fq 'smoke_event ready' "$DISPLAY" || fail "Kiosk handoff does not report readiness to the QEMU smoke test."
+grep -Fq 'fallback-ready-http-' "$QEMU_BOOT_SMOKE" || fail "QEMU smoke test must distinguish a visible diagnostic screen from Cockpit readiness."
 bash -n "$DISPLAY" || fail "Plymouth and kiosk readiness handoff has invalid Bash syntax."
 bash -n "$ISO_VERIFY" || fail "Generated ISO boot verifier has invalid Bash syntax."
 grep -Fxq 'Wants=dbus.socket systemd-logind.service plymouth-start.service' "$SERVICE" || fail "Kiosk must pull in D-Bus, logind and Plymouth."
@@ -215,6 +226,7 @@ grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default targe
 grep -Fq 'unmask getty@tty1.service' "$KS" || fail "Diagnostic ISO must leave tty1 available for display isolation."
 grep -Fq 'mask getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service' "$KS" || fail "Only unused VTs 3-6 may have getty masked." 
 if grep -Fq 'mask getty@tty2.service' "$KS"; then fail "Diagnostic VT2 must remain available for the pepe console account."; fi
+grep -Fq '"$TARGET_ROOT/var/lib/feclora/client-jobs"' "$KS" || fail "PXE answer service writable client-jobs directory must exist before its mount namespace is created."
 grep -Fq 'SELINUX_PERMISSIVE="${FECLORA_SELINUX_PERMISSIVE:-1}"' "$BUILD" || fail "SELinux must default to permissive mode as requested."
 grep -Fq 'BOOT_ARGS+=(enforcing=0)' "$BUILD" || fail "Diagnostic SELinux permissive mode must be an explicit Live ISO boot argument."
 grep -Fq 'FECLORA_SELINUX_PERMISSIVE=0' "$BUILD" || fail "SELinux enforcing mode must remain available as an explicit build option."

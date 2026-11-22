@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 1 ]; then
+  echo '{"ok":false,"error":"one API command is required"}' >&2
+  exit 2
+fi
+
+case "$1" in
+  open_root_terminal|status|restore_profiles|create_restore_profile|get_keyboard_layout|set_keyboard_layout|check_capture_filesystem|verify_image|inspect_image_layout|browse_image|export_server_age_recipients|refresh_client_age_recipients|renew_server_certificate|rotate_server_keypair|provide_capture_passphrase|restore_logical_volume|export_p2v_s3|inventory|images|journals|operations|systemd_credentials|put_systemd_credential|remove_systemd_credential|s3_repositories|add_s3_repository|update_s3_repository|check_s3_repository|remove_s3_repository|s3_repository_images|remote_repositories|add_remote_repository|update_remote_repository|check_remote_repository|mount_remote_repository|unmount_remote_repository|remove_remote_repository|repository_images|initialize_security|network_interfaces|network_connection_profiles|apply_network_profile|bootstrap_server|deployment_jobs|import_deployment_job|create_deployment_job|reconcile_deployment_job|start_deployment_service|deployment_service_status|stop_deployment_service|arm_deployment_job|cancel_deployment_job|inspect_remote_job|start_client_job|client_job_status|validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status|publish_pxe_answer|revoke_pxe_answer|provide_pxe_age_passphrase|pxe_age_passphrase_status|submit_local_operation|local_operation_status|local_operations|cancel_local_operation|capture_disk|capture_partition|capture_logical_volume|capture_p2v|import_p2v|build_recovery_iso|build_deployment_bundle|restore_disk|restore_partition|restore_proportional_disk|execute_restore_profile|clone_disk|clone_partition|extract_partition_image) ;;
+  *) echo '{"ok":false,"error":"unsupported action"}' >&2; exit 2 ;;
+esac
+
+unset PYTHONHOME PYTHONPATH
+export PYTHONPATH=/usr/share/feclora/python
+exec /usr/bin/python3 -m feclora.webapi "$1"

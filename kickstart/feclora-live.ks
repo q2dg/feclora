@@ -42,6 +42,7 @@ tar
 sudo
 python3
 python3-boto3
+python3-textual
 kbd
 psmisc
 NetworkManager
@@ -195,6 +196,8 @@ install -m 0644 "$PLYMOUTH_SOURCE/feclora.script" "$PLYMOUTH_TARGET/feclora.scri
 install -m 0644 "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" "$PLYMOUTH_TARGET/feclora-logo-dark.svg"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
+install -d "$TARGET_ROOT/usr/share/feclora"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-diagnostic.html" "$TARGET_ROOT/usr/share/feclora/kiosk-diagnostic.html"
 install -d "$TARGET_ROOT/usr/lib/tmpfiles.d"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-image-browser-cache.conf" "$TARGET_ROOT/usr/lib/tmpfiles.d/feclora-image-browser-cache.conf"
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
@@ -203,18 +206,11 @@ chown -R root:root "$TARGET_ROOT/usr/share/cockpit/feclora"
 # Files copied from the installer DVD retain its iso9660_t label unless relabeled.
 chroot "$TARGET_ROOT" /usr/sbin/restorecon -RF \
   /usr/share/cockpit/feclora \
+  /usr/share/feclora/kiosk-diagnostic.html \
   /usr/share/feclora/python/feclora
-cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
-#!/bin/sh
-set -eu
-case "${1:-}" in
-  open_root_terminal|status|restore_profiles|create_restore_profile|get_keyboard_layout|set_keyboard_layout|check_capture_filesystem|verify_image|inspect_image_layout|browse_image|export_server_age_recipients|refresh_client_age_recipients|renew_server_certificate|rotate_server_keypair|provide_capture_passphrase|restore_logical_volume|export_p2v_s3|inventory|images|journals|operations|systemd_credentials|put_systemd_credential|remove_systemd_credential|s3_repositories|add_s3_repository|update_s3_repository|check_s3_repository|remove_s3_repository|s3_repository_images|remote_repositories|add_remote_repository|update_remote_repository|check_remote_repository|mount_remote_repository|unmount_remote_repository|remove_remote_repository|repository_images|initialize_security|network_interfaces|network_connection_profiles|apply_network_profile|bootstrap_server|deployment_jobs|import_deployment_job|create_deployment_job|reconcile_deployment_job|start_deployment_service|deployment_service_status|stop_deployment_service|arm_deployment_job|cancel_deployment_job|inspect_remote_job|start_client_job|client_job_status|validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status|publish_pxe_answer|revoke_pxe_answer|provide_pxe_age_passphrase|pxe_age_passphrase_status|submit_local_operation|local_operation_status|local_operations|cancel_local_operation|capture_disk|capture_partition|capture_logical_volume|capture_p2v|import_p2v|build_recovery_iso|build_deployment_bundle|restore_disk|restore_partition|restore_proportional_disk|execute_restore_profile|clone_disk|clone_partition|extract_partition_image) ;;
-  *) echo '{"ok":false,"error":"unsupported action"}' >&2; exit 2 ;;
-esac
-export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
-exec /usr/bin/python3 -m feclora.webapi "$1"
-EOF
-chmod 0755 "$TARGET_ROOT/usr/libexec/feclora/cockpit-api"
+install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-api" "$TARGET_ROOT/usr/libexec/feclora/feclora-api"
+ln -s feclora-api "$TARGET_ROOT/usr/libexec/feclora/cockpit-api"
+chroot "$TARGET_ROOT" /usr/sbin/restorecon -F /usr/libexec/feclora/feclora-api /usr/libexec/feclora/cockpit-api
 cat > "$TARGET_ROOT/usr/local/bin/feclora-restore-profile" <<'EOF'
 #!/bin/sh
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
@@ -244,9 +240,11 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kios
 install -d -m 0755 "$TARGET_ROOT/etc/firefox/policies"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-policies.json" "$TARGET_ROOT/etc/firefox/policies/policies.json"
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
-install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe"
+install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe" "$TARGET_ROOT/var/lib/feclora/client-jobs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
+chown root:root "$TARGET_ROOT/var/lib/feclora/client-jobs"
+chmod 0700 "$TARGET_ROOT/var/lib/feclora/client-jobs"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
 systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-cockpit-kiosk.service
 # Start the graphical kiosk during diagnostic boot so Weston/Firefox can be tested.

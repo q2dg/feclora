@@ -23,9 +23,11 @@ for file in \
   build/build-iso.sh build/build-webui.sh build/preflight.sh \
   kickstart/feclora-live.ks webui/package.json webui/package-lock.json \
   webui/src/App.jsx webui/src/api.js webui/src/i18n.js \
-  src/feclora/webapi.py src/feclora/data/feclora-cockpit-kiosk.service \
+  src/feclora/webapi.py src/feclora/tui.py src/feclora/tui_api.py \
+  src/feclora/data/feclora-api src/feclora/data/feclora-cockpit-kiosk.service \
   src/feclora/data/feclora-kiosk.service src/feclora/data/feclora-kiosk-launch \
   src/feclora/data/feclora-kiosk.pam build/validate-boot-visuals.sh \
+  requirements-test.txt \
   src/feclora/data/feclora-kiosk-firefox-policies.json \
   src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-kiosk-return.service \
@@ -44,6 +46,12 @@ require_text 'FECLORA_BUILD_RAM' build/build-iso.sh "ISO build RAM must be confi
 require_text 'FECLORA_BUILD_VCPUS' build/build-iso.sh "ISO build vCPU count must be configurable."
 require_text 'LOCK_FINGERPRINT' build/build-webui.sh "Frontend build must fingerprint locked dependencies."
 require_text 'npm ci --no-audit --no-fund' build/build-webui.sh "Frontend build must use reproducible npm ci."
+require_text '^textual==8\.1\.1$' requirements-test.txt "Textual tests must use the runtime framework version."
+require_text '^python3-textual$' packages/base.txt "The Live image must install Textual from Fedora's package set."
+require_text 'create_subprocess_exec' src/feclora/tui_api.py "Textual must invoke the privileged helper without a shell."
+if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
+  fail "Textual API requests must not use a command shell."
+fi
 
 # Keep the explicit package manifest identical to the Kickstart package set.
 if ! python3 - "$ROOT_DIR" <<'PY'
@@ -93,7 +101,7 @@ require_text '"StartPage": "homepage"' src/feclora/data/feclora-kiosk-firefox-po
 require_text 'languageConfirmed' webui/src/App.jsx "The first visible screen must be the language selector."
 require_text 'open_root_terminal' webui/src/App.jsx "Language selector must expose the root-terminal action."
 require_text 'open_root_terminal' webui/src/api.js "Frontend API must expose the root-terminal action."
-require_text 'open_root_terminal' kickstart/feclora-live.ks "Installed Cockpit API wrapper must allow the root-terminal action."
+require_text 'open_root_terminal' src/feclora/data/feclora-api "Installed shared API helper must allow the root-terminal action."
 require_text 'open_root_terminal' src/feclora/webapi.py "Privileged API must implement the root-terminal action."
 require_text 'feclora-root-terminal\.service' src/feclora/webapi.py "Privileged API must request only the fixed root-terminal unit."
 require_text 'feclora-kiosk-return\.service' src/feclora/data/feclora-root-terminal.service "Root shell exit must restore the kiosk."
@@ -111,6 +119,7 @@ while IFS= read -r -d '' script; do
   bash -n "$script" || fail "Bash syntax check failed: $script"
 done < <(find "$ROOT_DIR/build" -maxdepth 1 -type f -name '*.sh' -print0)
 bash -n "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher has invalid Bash syntax."
+bash -n "$ROOT_DIR/src/feclora/data/feclora-api" || fail "Shared privileged API helper has invalid Bash syntax."
 python3 -m compileall -q "$ROOT_DIR/src" "$ROOT_DIR/tests" || fail "Python compilation failed."
 
 # Run the complete test suite once; do not report success if any test fails.

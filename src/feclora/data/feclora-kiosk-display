@@ -19,7 +19,10 @@ smoke_event() {
   fi
 }
 
+UNAVAILABLE_FILE=/run/feclora-kiosk/cockpit-unavailable
+
 preflight() {
+  rm -f "$UNAVAILABLE_FILE"
   log "Restoring the Plymouth splash before checking Cockpit."
   if ! /usr/bin/plymouth --ping; then
     log "Plymouth is not running; restarting its boot service."
@@ -50,14 +53,21 @@ preflight() {
     sleep 1
   done
 
-  log "ERROR: Refusing to start Firefox; the Feclora Cockpit page did not return HTTP 200: $URL"
+  log "WARNING: Feclora Cockpit did not return HTTP 200; starting the local diagnostic screen instead: $URL"
   /usr/bin/systemctl --no-pager --full status feclora-cockpit-kiosk.service || true
-  return 1
+  printf '%s\n' "$status" >"$UNAVAILABLE_FILE"
+  chmod 0644 "$UNAVAILABLE_FILE"
+  if ! /usr/bin/plymouth deactivate; then
+    log "WARNING: Plymouth could not release the display for the diagnostic screen."
+  fi
+  smoke_event "fallback-http-$status"
+  return 0
 }
 
 handoff() {
   local wayland_ready=0
   local firefox_ready=0
+  local http_status
 
   for attempt in {1..30}; do
     wayland_ready=0
@@ -76,7 +86,13 @@ handoff() {
         fi
         log "Weston and Firefox are ready; Plymouth handoff completed."
         /usr/libexec/feclora/feclora-kiosk-diagnostics post-start
-        smoke_event ready
+        if [[ -r "$UNAVAILABLE_FILE" ]]; then
+          http_status="$(<"$UNAVAILABLE_FILE")"
+          log "The local diagnostic screen is visible; Cockpit last returned HTTP $http_status."
+          smoke_event "fallback-ready-http-$http_status"
+        else
+          smoke_event ready
+        fi
         return 0
       fi
       firefox_ready=0
