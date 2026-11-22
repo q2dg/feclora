@@ -3563,14 +3563,6 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             identifier = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             return {"images": S3RepositoryManager().repository(identifier).list_images()}
-        if action == "remote_credentials":
-            if params:
-                raise WebAPIError("remote_credentials does not accept parameters")
-            from feclora.storage.credential_store import CredentialStore
-            try:
-                return {"credentials": CredentialStore().list()}
-            except Exception as exc:
-                raise WebAPIError(f"remote credential inventory failed: {exc}") from exc
         if action == "remote_repositories":
             if params:
                 raise WebAPIError("remote_repositories does not accept parameters")
@@ -3998,7 +3990,7 @@ def dispatch(request: Any) -> dict[str, Any]:
             "security": _security_material(),
             "certificate_status": _certificate_status(),
         }
-    if action in {"remote_credentials", "systemd_credentials", "put_systemd_credential", "remove_systemd_credential"}:
+    if action in {"systemd_credentials", "put_systemd_credential", "remove_systemd_credential"}:
         return _remote_repository_action(action, params)
     if action in {"remote_repositories", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
         return _remote_repository_action(action, params)
