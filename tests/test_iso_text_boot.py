@@ -38,6 +38,8 @@ elif source in ("/boot/grub2/grub.cfg", "/EFI/BOOT/grub.cfg"):
     kernel_args = "console=tty0 rd.systemd.show_status=1 systemd.show_status=1"
     if os.environ.get("FAKE_RHGB"):
         kernel_args += " rhgb quiet"
+    if os.environ.get("FAKE_SELINUX_DISABLED"):
+        kernel_args += " selinux=0"
     if os.environ.get("FAKE_SELINUX_PERMISSIVE"):
         kernel_args += " enforcing=0"
     destination.write_text(f"menuentry test {{\\n linux /vmlinuz {kernel_args}\\n}}\\n")
@@ -92,6 +94,12 @@ else:
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("still enables or references a boot splash or quiet boot", result.stderr)
+
+    def test_rejects_disabling_selinux_in_the_generated_iso(self):
+        result = self._run_verifier(FAKE_SELINUX_DISABLED="1")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("disables SELinux completely", result.stderr)
 
     def test_rejects_plymouth_module_in_initramfs(self):
         self._write_tool(

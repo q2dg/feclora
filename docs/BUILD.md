@@ -65,6 +65,10 @@ to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
 enforcing image; permissive mode audits denials but does not enforce them.
 Review AVC denials before selecting enforcing mode for release.
 
+The temporary Anaconda installer VM is booted with `selinux=0` to avoid AVC
+noise from its privileged `%post` scripts. This does not alter SELinux in the
+generated Live image; the ISO verifier rejects `selinux=0` in its boot entries.
+
 ## BIOS and UEFI smoke test
 
 With QEMU and OVMF installed, run:

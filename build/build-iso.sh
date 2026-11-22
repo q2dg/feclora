@@ -114,7 +114,10 @@ for grub_cfg in \
 done
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 
-mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
+# The Anaconda build VM runs privileged %post scripts over the target root.
+# Disable SELinux only in this disposable installer VM to avoid expected AVC
+# audit noise; the generated Live ISO gets its own, separately verified args.
+mkksiso --cmdline selinux=0 --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
 echo "[3/3] Creating Live ISO with ${BUILD_VCPUS} vCPUs and ${BUILD_RAM} MiB RAM..."
 BOOT_ARGS=(console=tty0 rd.systemd.show_status=1 systemd.show_status=1 vt.global_cursor_default=0)

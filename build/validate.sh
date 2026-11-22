@@ -50,6 +50,7 @@ require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must be 
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-recovery.service "Durable operations must recover before the TUI starts."
 require_text 'FECLORA_SELINUX_PERMISSIVE:-1' build/build-iso.sh "SELinux permissive mode must remain the diagnostic build default."
+require_text 'mkksiso --cmdline selinux=0' build/build-iso.sh "Only the temporary Anaconda build VM may disable SELinux."
 
 if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox)([[:space:]]|$)' \
   "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
