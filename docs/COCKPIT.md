@@ -41,7 +41,9 @@ certificate and private key as separate files in
 `50-feclora.key`; private keys are root-only. Firefox does not bypass TLS
 warnings or accept an untrusted certificate interactively.
 
-Firefox runs with `--kiosk` and a managed enterprise policy. Firefox's
+Firefox starts with `--kiosk` and no URL argument; its locked enterprise
+homepage opens Feclora directly, preventing a temporary new-tab window.
+Fullscreen chrome auto-hides and crash-session restore is disabled. Firefox's
 `WebsiteFilter` blocks all URLs except the loopback Feclora Cockpit host. Firefox match patterns do not constrain port numbers, so these
 loopback hosts are allowed on any port. Independently, systemd's cgroup IP
 filters restrict the kiosk browser to IPv4/IPv6 loopback; the browser cannot

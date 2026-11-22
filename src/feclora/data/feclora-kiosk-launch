@@ -4,7 +4,6 @@ SECONDS=0
 LOG_DIR=/var/log/feclora-kiosk
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_DIR/launcher.log") 2>&1
-url=http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html
 export HOME=/var/lib/feclora-kiosk
 # systemd creates this directory before applying the service mount namespace.
 # PAM still registers the logind session and creates /run/user/980 independently.
@@ -36,4 +35,4 @@ echo "Kiosk preflight elapsed: ${SECONDS}s."
 echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
 echo "Weston log: $LOG_DIR/weston.log"
 echo "Weston/Firefox exit status and stderr will be recorded below."
-exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --new-instance "$url"
+exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --new-instance

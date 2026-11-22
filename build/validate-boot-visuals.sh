@@ -138,8 +138,12 @@ grep -Fq 'WESTON_ARGS+=(--log="$LOG_DIR/weston.log")' "$LAUNCH" || fail "Weston 
 if grep -Eq -- '(^|[[:space:]])--xwayland([[:space:]]|$)|xwayland\.so' "$LAUNCH"; then fail "Pure Wayland kiosk must not enable or load XWayland."; fi
 grep -Fxq 'export XDG_RUNTIME_DIR=/run/feclora-kiosk' "$LAUNCH" || fail "Weston and Firefox must use the systemd-managed runtime directory."
 grep -Fxq 'export MOZ_ENABLE_WAYLAND=1' "$LAUNCH" || fail "Firefox is not explicitly configured for native Wayland."
-grep -Fq '/usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --new-instance' "$LAUNCH" || fail "Firefox must start in normal kiosk mode through the exit-logging wrapper."
+grep -Fq '/usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --new-instance' "$LAUNCH" || fail "Firefox must start directly in kiosk mode through the exit-logging wrapper."
 if grep -Fq -- '--private-window' "$LAUNCH"; then fail "Firefox must not start in private browsing mode."; fi
+grep -Fq '"URL": "http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must open the locked Feclora homepage directly."
+grep -Fq '"browser.startup.page"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must start on its managed homepage rather than a restored tab."
+grep -Fq '"browser.newtabpage.enabled"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox must not show a new-tab page before the kiosk app."
+grep -Fq '"browser.fullscreen.autohide"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox chrome must remain hidden in kiosk mode."
 grep -Fq '"http://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox website filter must allow Cockpit localhost HTTP requests."
 grep -Fq '"ws://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" || fail "Firefox website filter must allow Cockpit localhost WebSocket requests."
 grep -Fq 'Kiosk preflight elapsed: ${SECONDS}s.' "$LAUNCH" || fail "Kiosk launcher must report startup preflight duration."

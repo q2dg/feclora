@@ -184,7 +184,14 @@ Server product environment, then adds Feclora's explicit runtime package set.
 Weston and Firefox provide the only local graphical shell. The kiosk starts on tty1; no
 general-purpose desktop or display manager is installed. On each fresh Live boot the Firefox kiosk opens the local Feclora Cockpit
 application directly through a loopback-only Cockpit `--local-session` service.
-The first Feclora screen asks the operator to select the interface language; continuing opens the operations menu. The kiosk does not request an interactive login. The `feclora` administrator account is created with its password locked. A separate temporary diagnostic account, `pepe`, is created with a password for console troubleshooting and must be removed before a release image is published. The dedicated Cockpit local-session service owns loopback port 9090;
+The first Feclora screen lets the operator select the interface language and
+keyboard layout, apply the keyboard mapping, or open the root terminal.
+Continuing opens the Feclora operations app. The kiosk does not request an
+interactive login. The `feclora` administrator account is created with its
+password locked. A separate temporary diagnostic account, `pepe`, is created
+with a password for console troubleshooting and must be removed before a
+release image is published. The dedicated Cockpit local-session service owns
+loopback port 9090;
 the standard authenticated `cockpit.socket` is masked and is not used. The local
 CA/certificate is generated and trusted for the kiosk endpoint.
 

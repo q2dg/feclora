@@ -71,15 +71,18 @@ below.
 - [ ] ISO boots in BIOS mode; GRUB does not display its menu and automatically selects the first entry.
 - [ ] ISO boots in UEFI mode; GRUB does not display its menu and automatically selects the first entry.
 - [ ] Weston/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
-- [ ] The Feclora Plymouth logo is visible during boot, and the screen does not remain black while Cockpit starts.
+- [ ] Plymouth displays only the static centered Feclora logo, with no spinner or progress animation.
+- [ ] The screen does not remain black while Cockpit starts.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is masked and inactive.
 - [ ] `feclora-cockpit-kiosk.service` owns `127.0.0.1:9090` using `--local-session`.
 - [ ] Firefox opens the Feclora Cockpit app directly on `http://127.0.0.1:9090/cockpit/@localhost/feclora/index.html` with no login or password prompt.
 - [ ] The Feclora Cockpit app page returns successfully and does not display Cockpit's “Not found” page.
-- [ ] Firefox opens a normal (non-private) kiosk window.
-- [ ] The first Feclora screen is the interface-language selector; selecting a language and continuing opens the Feclora operations menu.
+- [ ] Firefox opens its first window directly on Feclora in fullscreen kiosk mode, with no visible tabs or browser chrome.
+- [ ] Firefox uses a normal (non-private) session.
+- [ ] The first Feclora screen offers interface-language and keyboard-layout selection, a keyboard apply action, and the root-terminal button.
+- [ ] Continuing from initial setup opens the Feclora operations app.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9090`.
 - [ ] No separate authenticated Cockpit socket or second listener is active.
 - [ ] The `feclora` administrator account exists with its password locked; the current diagnostic image includes the temporary `pepe` console account, which must be removed before a release image is published.

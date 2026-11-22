@@ -1283,6 +1283,9 @@ export default function App() {
               {LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </div>
+          <div className="pf-v6-u-mb-lg">
+            <KeyboardPreferences language={language} />
+          </div>
           <div className="pf-v6-u-display-flex pf-v6-u-flex-wrap pf-v6-u-gap-md">
             <Button variant="primary" onClick={() => setLanguageConfirmed(true)}>{t("continue")}</Button>
             <Button variant="secondary" onClick={async () => {
@@ -2262,7 +2265,6 @@ export default function App() {
           </Tab>
           <Tab eventKey="system" title={t("system")}>
             <Stack hasGutter className="pf-v6-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("systemStatus")}</Title></StackItem>
-              <StackItem><KeyboardPreferences language={language} /></StackItem>
               <StackItem><Table aria-label={t("Feclora services")} variant="compact"><Thead><Tr><Th>{t("component")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
                 <Tr><Td>{t("Server deployment configuration")}</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>

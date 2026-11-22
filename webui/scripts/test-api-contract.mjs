@@ -5,8 +5,24 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const frontendSource = readFileSync(resolve(root, "webui/src/api.js"), "utf8");
+const appSource = readFileSync(resolve(root, "webui/src/App.jsx"), "utf8");
 const kickstartSource = readFileSync(resolve(root, "kickstart/feclora-live.ks"), "utf8");
 const backendSource = readFileSync(resolve(root, "src/feclora/webapi.py"), "utf8");
+
+const firstScreenStart = appSource.indexOf("if (!languageConfirmed) {");
+assert.notEqual(firstScreenStart, -1, "Could not find the initial setup screen");
+const firstScreenEnd = appSource.indexOf("\n\n  return (", firstScreenStart);
+assert.notEqual(firstScreenEnd, -1, "Could not find the app screen after initial setup");
+const firstScreen = appSource.slice(firstScreenStart, firstScreenEnd);
+assert.match(firstScreen, /feclora-first-language/, "Initial setup must select the interface language");
+assert.match(firstScreen, /KeyboardPreferences language=\{language\}/, "Initial setup must select the keyboard layout");
+assert.match(firstScreen, /open_root_terminal/, "Initial setup must offer root terminal access");
+assert.match(firstScreen, /setLanguageConfirmed\(true\)/, "Initial setup must continue to the Feclora app");
+assert.equal(
+  [...appSource.matchAll(/<KeyboardPreferences\b/g)].length,
+  1,
+  "Keyboard preferences must appear only on the initial setup screen"
+);
 
 const frontendBlock = frontendSource.match(/const ACTIONS = new Set\(\[([\s\S]*?)\]\);/);
 assert.ok(frontendBlock, "Could not find the frontend ACTIONS allowlist");
