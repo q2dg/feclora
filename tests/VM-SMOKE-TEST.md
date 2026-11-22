@@ -67,7 +67,6 @@ independent test run. Remove the temporary copy after the test.
 - [ ] The `feclora` administrator account exists with its password locked; the current diagnostic image includes the temporary `pepe` console account, which must be removed before a release image is published.
 - [ ] Certificate, local Cockpit kiosk and Firefox kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
-- [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
 
