@@ -44,7 +44,7 @@ fi
 [[ "$(uname -m)" == "x86_64" ]] || { echo "This initial build target is x86_64; host is $(uname -m)." >&2; exit 2; }
 [[ "${EUID}" -eq 0 ]] || { echo "Run as root (for example: sudo -E $0)." >&2; exit 2; }
 
-for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm sha256sum; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64 sha256sum; do
   command -v "${cmd}" >/dev/null 2>&1 || { echo "Required command not found: ${cmd}. Install the build dependencies first." >&2; exit 127; }
 done
 
@@ -56,12 +56,12 @@ if [[ -e "${RESULT_DIR}" ]]; then
 fi
 
 SECONDS=0
-echo "[1/4] Building Cockpit frontend..."
+echo "[1/4] Checking build host..."
+bash "${ROOT_DIR}/build/preflight.sh"
+
+echo "[2/4] Building Cockpit frontend..."
 bash "${ROOT_DIR}/build/build-webui.sh"
 echo "Frontend phase: ${SECONDS}s"
-
-echo "[2/4] Checking build host..."
-bash "${ROOT_DIR}/build/preflight.sh"
 
 # Scale QEMU resources to the build host, while retaining conservative bounds.
 HOST_CPUS="$(nproc)"
@@ -157,7 +157,7 @@ REPORT="${RESULT_DIR}/boot-initrd-plymouth-check.txt"
     echo "--- dracut modules ---"
     lsinitrd -m "${INITRD_TMP}" 2>&1 || true
     echo "--- Plymouth theme/config/assets ---"
-    lsinitrd "${INITRD_TMP}" 2>&1 | grep -Ei 'plymouth|feclora|script\\.so' || true
+    lsinitrd "${INITRD_TMP}" 2>&1 | grep -Ei 'plymouth|feclora|script\.so' || true
     echo "--- embedded Plymouth configuration ---"
     lsinitrd -f /etc/plymouth/plymouthd.conf "${INITRD_TMP}" 2>&1 || true
   else
