@@ -45,6 +45,43 @@ require_text 'FECLORA_BUILD_VCPUS' build/build-iso.sh "ISO build vCPU count must
 require_text 'LOCK_FINGERPRINT' build/build-webui.sh "Frontend build must fingerprint locked dependencies."
 require_text 'npm ci --no-audit --no-fund' build/build-webui.sh "Frontend build must use reproducible npm ci."
 
+# Keep the explicit package manifest identical to the Kickstart package set.
+if ! python3 - "$ROOT_DIR" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+root = Path(sys.argv[1])
+base = {
+    line.strip()
+    for line in (root / "packages/base.txt").read_text(encoding="utf-8").splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+}
+kickstart = (root / "kickstart/feclora-live.ks").read_text(encoding="utf-8")
+match = re.search(r"(?ms)^%packages[^\n]*\n(.*?)^%end\s*$", kickstart)
+if match is None:
+    raise SystemExit("Kickstart %packages block was not found.")
+ks_packages = {
+    line.strip()
+    for line in match.group(1).splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+    and not line.lstrip().startswith("@")
+}
+missing = sorted(ks_packages - base)
+extra = sorted(base - ks_packages)
+if missing or extra:
+    if missing:
+        print("Missing from packages/base.txt: " + ", ".join(missing), file=sys.stderr)
+    if extra:
+        print("Only in packages/base.txt: " + ", ".join(extra), file=sys.stderr)
+    raise SystemExit(1)
+if "openssh-clients" not in ks_packages:
+    raise SystemExit("Kickstart must install openssh-clients for SCP support.")
+PY
+then
+  fail "Explicit package manifest and Kickstart package set are not synchronized."
+fi
+
 # Keep the kiosk local-only and unprivileged, while Cockpit's local session is
 # deliberately isolated on IPv4 loopback.
 require_text '^ExecStart=/usr/libexec/cockpit-ws --address 127\.0\.0\.1 --port 9090 --local-session /usr/bin/cockpit-bridge$' src/feclora/data/feclora-cockpit-kiosk.service "Passwordless Cockpit must use the loopback-only local session."
