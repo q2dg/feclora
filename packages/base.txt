@@ -18,14 +18,9 @@ ca-certificates
 # Textual runs directly on tty1; no graphical desktop is installed.
 policycoreutils-python-utils
 
-# Plymouth branding and local shell utilities
-librsvg2-tools
+# Local shell utilities
 openssh-clients
-plymouth-scripts
-plymouth-plugin-two-step
 curl
-plymouth-plugin-script
-plymouth
 
 # Embedded Server-mode PXE stack (installed, never enabled by default)
 dnsmasq

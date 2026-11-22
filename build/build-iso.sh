@@ -90,8 +90,8 @@ AUGMENTED_ISO="${WORK_DIR}/feclora-installer.iso"
 mkdir -p "${APP_STAGE}/src"
 
 # Lorax builds the ISO boot menus from its own templates, independently of
-# /etc/default/grub in the installed Live filesystem. Override both firmware
-# variants so the first entry boots immediately without showing the menu.
+# /etc/default/grub in the installed Live filesystem. Remove inherited splash
+# and quiet arguments and boot the first text-console entry immediately.
 LORAX_TEMPLATE_SOURCE="${FECLORA_LORAX_TEMPLATES:-/usr/share/lorax/templates.d/99-generic}"
 LORAX_TEMPLATE_DIR="${WORK_DIR}/lorax-templates"
 [[ -d "${LORAX_TEMPLATE_SOURCE}/live/config_files/x86" ]] || {
@@ -103,7 +103,9 @@ for grub_cfg in \
   "${LORAX_TEMPLATE_DIR}/live/config_files/x86/grub2-bios.cfg" \
   "${LORAX_TEMPLATE_DIR}/live/config_files/x86/grub2-efi.cfg"; do
   [[ -f "${grub_cfg}" ]] || { echo "Required Lorax GRUB template missing: ${grub_cfg}" >&2; exit 1; }
-  sed -i -E 's/^set default=.*/set default="0"/; s/^set timeout=.*/set timeout=0/' "${grub_cfg}"
+  sed -i -E \
+    '/^[[:space:]]*linux(efi|16)?[[:space:]]/ { s/[[:space:]]+(rhgb|quiet|rd\.quiet|splash|[^[:space:]]*plymouth[^[:space:]]*)//g; s/[[:space:]]+$//; }; s/^set default=.*/set default="0"/; s/^set timeout=.*/set timeout=0/' \
+    "${grub_cfg}"
   if ! grep -q '^set timeout_style=' "${grub_cfg}"; then
     sed -i '/^set timeout=0$/a set timeout_style=hidden' "${grub_cfg}"
   else
@@ -115,7 +117,7 @@ cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
 echo "[3/3] Creating Live ISO with ${BUILD_VCPUS} vCPUs and ${BUILD_RAM} MiB RAM..."
-BOOT_ARGS=(rhgb quiet vt.global_cursor_default=0)
+BOOT_ARGS=(console=tty0 rd.systemd.show_status=1 systemd.show_status=1 vt.global_cursor_default=0)
 if [[ "$SELINUX_PERMISSIVE" == 1 ]]; then
   echo "WARNING: Building an ISO with SELinux permissive; review security before release."
   BOOT_ARGS+=(enforcing=0)
@@ -140,10 +142,10 @@ fi
 livemedia-creator "${LMC_ARGS[@]}"
 
 ISO_FILE="${RESULT_DIR}/feclora-live.iso"
-REPORT="${RESULT_DIR}/boot-initrd-plymouth-check.txt"
+REPORT="${RESULT_DIR}/boot-initrd-text-check.txt"
 [[ -s "$ISO_FILE" ]] || { echo "ISO build did not create $ISO_FILE." >&2; exit 1; }
 SELINUX_MODE=enforcing
 [[ "$SELINUX_PERMISSIVE" == 1 ]] && SELINUX_MODE=permissive
-bash "${ROOT_DIR}/build/verify-iso-boot-visuals.sh" "$ISO_FILE" "$REPORT" "$SELINUX_MODE"
+bash "${ROOT_DIR}/build/verify-iso-text-boot.sh" "$ISO_FILE" "$REPORT" "$SELINUX_MODE"
 
 printf 'Build command completed in %ss. Inspect the ISO and logs under: %s\n' "${SECONDS}" "${RESULT_DIR}"

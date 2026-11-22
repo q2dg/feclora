@@ -28,5 +28,5 @@ keyboard-navigation acceptance checks against the built image.
 
 Passing source tests does not establish that the package version in Fedora 45
 renders correctly on every supported terminal or hardware configuration.
-BIOS/UEFI startup, Plymouth handoff, keyboard navigation and display recovery
-remain separate maintainer acceptance tasks.
+BIOS/UEFI text-console startup, tty1 handoff, keyboard navigation and display
+recovery remain separate maintainer acceptance tasks.

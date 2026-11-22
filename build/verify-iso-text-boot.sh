@@ -45,10 +45,14 @@ check_grub_config() {
   report "--- $firmware kernel command lines ($iso_path) ---"
   for line in "${lines[@]}"; do
     report "$line"
-    grep -Eq '(^|[[:space:]])rhgb([[:space:]]|$)' <<<"$line" \
-      || fail "$firmware kernel entry does not enable the graphical Plymouth splash."
-    if grep -Eq '(^|[[:space:]])rd\.plymouth=0([[:space:]]|$)' <<<"$line"; then
-      fail "$firmware kernel entry disables Plymouth."
+    grep -Eq '(^|[[:space:]])console=tty0([[:space:]]|$)' <<<"$line" \
+      || fail "$firmware kernel entry does not select the visible text console."
+    grep -Eq '(^|[[:space:]])rd\.systemd\.show_status=1([[:space:]]|$)' <<<"$line" \
+      || fail "$firmware kernel entry does not enable initramfs status messages."
+    grep -Eq '(^|[[:space:]])systemd\.show_status=1([[:space:]]|$)' <<<"$line" \
+      || fail "$firmware kernel entry does not enable system status messages."
+    if grep -Eiq '(^|[[:space:]])(rhgb|quiet|rd\.quiet|splash|[^[:space:]]*plymouth[^[:space:]]*)([[:space:]]|$)' <<<"$line"; then
+      fail "$firmware kernel entry still enables or references a boot splash or quiet boot."
     fi
     if grep -Eq '(^|[[:space:]])selinux=0([[:space:]]|$)' <<<"$line"; then
       fail "$firmware kernel entry disables SELinux completely."
@@ -85,23 +89,15 @@ xorriso -osirrox on -indev "$ISO_FILE" -extract /images/pxeboot/initrd.img "$INI
 [[ -s "$INITRD" ]] || fail "The ISO boot initramfs is empty."
 
 modules="$(lsinitrd -m "$INITRD")" || fail "Could not inspect the ISO boot initramfs modules."
-grep -Fxq plymouth <<<"$modules" || fail "The ISO boot initramfs is missing the Plymouth dracut module."
-theme_config="$(lsinitrd -f /etc/plymouth/plymouthd.conf "$INITRD")" \
-  || fail "Could not read Plymouth configuration from the ISO boot initramfs."
-grep -Eq '^[[:space:]]*Theme=feclora$' <<<"$theme_config" \
-  || fail "The ISO boot initramfs does not select the Feclora Plymouth theme."
+if grep -Eq '^[[:space:]]*plymouth[[:space:]]*$' <<<"$modules"; then
+  fail "The ISO boot initramfs includes the Plymouth dracut module."
+fi
 
 listing="$(lsinitrd "$INITRD")" || fail "Could not list the ISO boot initramfs contents."
-for asset in \
-  usr/share/plymouth/themes/feclora/feclora.plymouth \
-  usr/share/plymouth/themes/feclora/feclora.script \
-  usr/share/plymouth/themes/feclora/feclora-logo.png \
-  usr/lib64/plymouth/script.so; do
-  grep -Fq "$asset" <<<"$listing" || fail "The ISO boot initramfs is missing Plymouth asset: $asset"
-done
+if grep -Eiq '(^|/)plymouth([/.-]|$)' <<<"$listing"; then
+  fail "The ISO boot initramfs still contains boot-splash resources."
+fi
 
-report "--- Plymouth initramfs verification ---"
-report "Dracut module: plymouth"
-report "$theme_config"
-report "Feclora theme, script, logo and script renderer are present."
-report "ISO boot visual artifacts verified."
+report "--- Text-only initramfs verification ---"
+report "Plymouth module and resources are absent."
+report "ISO text-mode boot artifacts verified."

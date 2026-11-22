@@ -19,7 +19,7 @@ preflight:
 
 validate:
 	bash build/validate.sh
-	bash build/validate-boot-visuals.sh
+	bash build/validate-text-boot.sh
 
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v

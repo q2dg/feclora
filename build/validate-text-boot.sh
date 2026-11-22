@@ -4,9 +4,9 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BASE="$ROOT_DIR/packages/base.txt"
+BUILD="$ROOT_DIR/build/build-iso.sh"
 TUI="$ROOT_DIR/src/feclora/data/feclora-tui.service"
 READY="$ROOT_DIR/src/feclora/data/feclora-tui-ready"
-PLYMOUTH="$ROOT_DIR/src/feclora/data/plymouth"
 ERRORS=0
 
 fail() {
@@ -14,14 +14,20 @@ fail() {
   ERRORS=$((ERRORS + 1))
 }
 
-for file in \
-  "$KS" "$BASE" "$TUI" "$READY" \
-  "$PLYMOUTH/feclora.plymouth" "$PLYMOUTH/feclora.script" \
-  "$PLYMOUTH/feclora-logo-dark.svg"; do
-  [[ -s "$file" ]] || fail "Required TUI/Plymouth boot file is missing: $file"
+for file in "$KS" "$BASE" "$BUILD" "$TUI" "$READY"; do
+  [[ -s "$file" ]] || fail "Required text-boot file is missing: $file"
 done
 
 grep -Fq 'python3-textual' "$KS" || fail "Kickstart does not install python3-textual."
+for package in plymouth plymouth-plugin-script plymouth-plugin-two-step plymouth-scripts; do
+  grep -Fxq -- "-$package" "$KS" \
+    || fail "Kickstart does not explicitly exclude the boot-splash package $package."
+done
+if grep -Eiq '^[[:space:]]*plymouth([[:space:]]|$)' "$KS"; then
+  fail "Kickstart explicitly installs the boot-splash package."
+fi
+[[ ! -e "$ROOT_DIR/src/feclora/data/plymouth" ]] \
+  || fail "Obsolete Feclora boot-splash assets remain in the application payload."
 grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service"' "$KS" \
   || fail "Kickstart does not install the Textual systemd service."
 grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready"' "$KS" \
@@ -38,12 +44,15 @@ grep -Fq 'feclora ALL=(root) NOPASSWD: /usr/libexec/feclora/feclora-api *' "$KS"
   || fail "The unprivileged interface lacks its restricted API authorization."
 grep -Fxq 'ExecStart=/usr/bin/python3 -m feclora.tui' "$TUI" \
   || fail "The tty1 service does not start Textual."
+if grep -Eiq 'plymouth|rhgb|quiet|splash' "$TUI"; then
+  fail "The TUI service still depends on boot-splash resources."
+fi
+grep -Fq 'console=tty0 rd.systemd.show_status=1 systemd.show_status=1' "$BUILD" \
+  || fail "The ISO does not force visible text-mode boot status on the virtual console."
 grep -Fxq 'RuntimeDirectory=feclora-tui' "$TUI" \
   || fail "The TUI service does not create its private startup marker directory."
-grep -Fxq 'ExecStartPost=-+/usr/bin/plymouth quit' "$TUI" \
-  || fail "Plymouth must be dismissed for the terminal interface."
 grep -Fxq 'ExecStartPost=+/usr/libexec/feclora/feclora-tui-ready' "$TUI" \
-  || fail "The TUI service must report boot readiness after Plymouth is dismissed."
+  || fail "The TUI service must report its initial rendered screen."
 grep -Fq 'FECLORA_BOOT_SMOKE ready' "$READY" \
   && fail "The readiness helper reports process startup instead of a rendered screen."
 grep -Fq 'FECLORA_BOOT_SMOKE rendered' "$READY" \
@@ -59,11 +68,10 @@ if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox)([[:space:]]|$
   fail "The boot package configuration still references the removed graphical stack."
 fi
 if grep -Eiq 'cockpit|weston|firefox|webui' "$KS" "$TUI"; then
-  fail "Textual boot configuration still references Cockpit, Weston, Firefox or the web UI."
+  fail "Textual boot configuration still references removed graphical or splash resources."
 fi
-
 if (( ERRORS > 0 )); then
   printf 'Textual boot configuration validation failed with %d error(s).\n' "$ERRORS" >&2
   exit 1
 fi
-printf 'Textual tty1 and Plymouth boot configuration checks passed.\n'
+printf 'Textual tty1 and text-only boot configuration checks passed.\n'

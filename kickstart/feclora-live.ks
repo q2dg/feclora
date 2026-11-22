@@ -62,12 +62,7 @@ caddy
 udpcast
 
 # Required live-media boot components
-plymouth
-plymouth-plugin-script
 curl
-plymouth-plugin-two-step
-plymouth-scripts
-librsvg2-tools
 dracut-config-generic
 dracut-network
 dracut-live
@@ -76,6 +71,12 @@ grub2-efi-x64-cdboot
 grub2-pc-modules
 shim-x64
 syslinux
+
+# Exclude splash packages that may otherwise be selected by @core.
+-plymouth
+-plymouth-plugin-script
+-plymouth-plugin-two-step
+-plymouth-scripts
 
 # Physical-to-virtual conversion and QCOW2 validation
 qemu-img
@@ -159,16 +160,6 @@ if [ ! -d "$APP_SOURCE" ]; then
   exit 1
 fi
 install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
-PLYMOUTH_SOURCE="$APP_SOURCE/data/plymouth"
-PLYMOUTH_TARGET="$TARGET_ROOT/usr/share/plymouth/themes/feclora"
-if [ ! -s "$PLYMOUTH_SOURCE/feclora.plymouth" ] || [ ! -s "$PLYMOUTH_SOURCE/feclora.script" ] || [ ! -s "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" ]; then
-  echo "Feclora Plymouth theme assets are missing: $PLYMOUTH_SOURCE" >&2
-  exit 1
-fi
-install -d "$PLYMOUTH_TARGET"
-install -m 0644 "$PLYMOUTH_SOURCE/feclora.plymouth" "$PLYMOUTH_TARGET/feclora.plymouth"
-install -m 0644 "$PLYMOUTH_SOURCE/feclora.script" "$PLYMOUTH_TARGET/feclora.script"
-install -m 0644 "$PLYMOUTH_SOURCE/feclora-logo-dark.svg" "$PLYMOUTH_TARGET/feclora-logo-dark.svg"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora"
 install -d "$TARGET_ROOT/usr/share/feclora"
@@ -213,21 +204,13 @@ chown root:root "$TARGET_ROOT/var/lib/feclora/images"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/images"
 %end
 
-# Build and select the branded Feclora Plymouth theme in both the real root
-# and every generated boot initramfs. The ISO kernel command line enables rhgb.
+# Ensure neither @core nor a dependency reintroduces boot-splash packages.
 %post --erroronfail
-PLYMOUTH_THEME_DIR=/usr/share/plymouth/themes/feclora
-rsvg-convert --width=640 --output="$PLYMOUTH_THEME_DIR/feclora-logo.png" "$PLYMOUTH_THEME_DIR/feclora-logo-dark.svg"
-test -s "$PLYMOUTH_THEME_DIR/feclora-logo.png"
-
-install -d /etc/dracut.conf.d
-cat > /etc/dracut.conf.d/feclora-plymouth.conf <<'EOF'
-add_dracutmodules+=" plymouth "
-install_items+=" /usr/share/plymouth/themes/feclora/feclora.plymouth /usr/share/plymouth/themes/feclora/feclora.script /usr/share/plymouth/themes/feclora/feclora-logo.png /usr/lib64/plymouth/script.so "
-EOF
-plymouth-set-default-theme feclora -R
-test "$(plymouth-set-default-theme)" = feclora
-grep -q '^[[:space:]]*Theme=feclora$' /etc/plymouth/plymouthd.conf
+plymouth_packages="$(rpm -qa --qf '%{NAME}\n' | grep -E '^plymouth' || true)"
+if [ -n "$plymouth_packages" ]; then
+  echo "Unexpected boot-splash packages installed: $plymouth_packages" >&2
+  exit 1
+done
 
 shopt -s nullglob
 initrds=()
@@ -243,31 +226,20 @@ for initrd in /boot/initramfs-*.img; do
 done
 
 if [ "${#initrds[@]}" -eq 0 ]; then
-  echo "No generated initramfs found after selecting the Feclora Plymouth theme." >&2
+  echo "No generated initramfs found while verifying text-mode boot." >&2
   exit 1
 fi
 for initrd in "${initrds[@]}"; do
-  listing="$(lsinitrd "$initrd")"
   modules="$(lsinitrd -m "$initrd")"
-  if ! grep -Eq '^plymouth$' <<<"$modules"; then
-    echo "The Plymouth dracut module is missing from initramfs $initrd." >&2
+  if grep -Eq '^[[:space:]]*plymouth[[:space:]]*$' <<<"$modules"; then
+    echo "The Plymouth dracut module is present in initramfs $initrd." >&2
     exit 1
   fi
-  theme_config="$(lsinitrd -f /etc/plymouth/plymouthd.conf "$initrd")"
-  if ! grep -Eq '^[[:space:]]*Theme=feclora$' <<<"$theme_config"; then
-    echo "Initramfs $initrd does not select the Feclora Plymouth theme." >&2
+  listing="$(lsinitrd "$initrd")"
+  if grep -Eiq '(^|/)plymouth([/.-]|$)' <<<"$listing"; then
+    echo "Plymouth resources are present in initramfs $initrd." >&2
     exit 1
   fi
-  for asset in \
-    usr/share/plymouth/themes/feclora/feclora.plymouth \
-    usr/share/plymouth/themes/feclora/feclora.script \
-    usr/share/plymouth/themes/feclora/feclora-logo.png \
-    usr/lib64/plymouth/script.so; do
-    if ! grep -Fq "$asset" <<<"$listing"; then
-      echo "Plymouth asset $asset is missing from initramfs $initrd." >&2
-      exit 1
-    fi
-  done
 done
 %end
 shutdown

@@ -2,7 +2,6 @@
 Description=Feclora Textual appliance interface on tty1
 After=systemd-logind.service systemd-user-sessions.service feclora-local-operation-recovery.service
 Requires=feclora-local-operation-recovery.service
-Before=plymouth-quit.service
 Conflicts=getty@tty1.service
 ConditionPathExists=/dev/tty0
 
@@ -26,7 +25,6 @@ UtmpIdentifier=tty1
 UtmpMode=user
 ExecStartPre=+/usr/bin/chvt 1
 ExecStart=/usr/bin/python3 -m feclora.tui
-ExecStartPost=-+/usr/bin/plymouth quit
 ExecStartPost=+/usr/libexec/feclora/feclora-tui-ready
 Restart=always
 RestartSec=2

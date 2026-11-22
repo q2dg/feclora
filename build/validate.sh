@@ -25,8 +25,7 @@ for file in \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
-  src/feclora/data/plymouth/feclora.plymouth \
-  src/feclora/data/plymouth/feclora.script build/validate-boot-visuals.sh \
+  build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
   require_file "$file"
 done
@@ -76,12 +75,24 @@ if match is None:
     raise SystemExit("Kickstart %packages block was not found.")
 ks = {
     line.strip() for line in match.group(1).splitlines()
-    if line.strip() and not line.lstrip().startswith(("#", "@"))
+    if line.strip() and not line.lstrip().startswith(("#", "@", "-"))
 }
 if base != ks:
     raise SystemExit(
         f"Package manifests differ. Missing from base.txt: {sorted(ks - base)}; "
         f"only in base.txt: {sorted(base - ks)}"
+    )
+exclusions = {
+    line.strip()[1:] for line in match.group(1).splitlines()
+    if line.strip().startswith("-")
+}
+expected_exclusions = {
+    "plymouth", "plymouth-plugin-script", "plymouth-plugin-two-step", "plymouth-scripts"
+}
+if exclusions != expected_exclusions:
+    raise SystemExit(
+        f"Kickstart splash-package exclusions differ. Expected {sorted(expected_exclusions)}; "
+        f"found {sorted(exclusions)}."
     )
 if "openssh-clients" not in ks:
     raise SystemExit("Kickstart must install openssh-clients.")
@@ -90,8 +101,8 @@ then
   fail "The package manifest and Kickstart package set must match."
 fi
 
-if ! bash "$ROOT_DIR/build/validate-boot-visuals.sh"; then
-  fail "Textual boot and Plymouth validation failed."
+if ! bash "$ROOT_DIR/build/validate-text-boot.sh"; then
+  fail "Text-only boot configuration validation failed."
 fi
 
 while IFS= read -r -d '' script; do

@@ -9,10 +9,10 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERIFIER = ROOT / "build" / "verify-iso-boot-visuals.sh"
+VERIFIER = ROOT / "build" / "verify-iso-text-boot.sh"
 
 
-class IsoBootVisualsTests(unittest.TestCase):
+class IsoTextBootTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -35,7 +35,9 @@ destination = Path(args[args.index("-extract") + 2])
 if source == "/images/pxeboot/initrd.img":
     destination.write_bytes(b"initrd")
 elif source in ("/boot/grub2/grub.cfg", "/EFI/BOOT/grub.cfg"):
-    kernel_args = "quiet" if os.environ.get("FAKE_NO_RHGB") else "rhgb quiet"
+    kernel_args = "console=tty0 rd.systemd.show_status=1 systemd.show_status=1"
+    if os.environ.get("FAKE_RHGB"):
+        kernel_args += " rhgb quiet"
     if os.environ.get("FAKE_SELINUX_PERMISSIVE"):
         kernel_args += " enforcing=0"
     destination.write_text(f"menuentry test {{\\n linux /vmlinuz {kernel_args}\\n}}\\n")
@@ -50,19 +52,9 @@ import os
 import sys
 
 if "-m" in sys.argv:
-    print("base\\nplymouth")
-elif "-f" in sys.argv:
-    print("Theme=feclora")
+    print("base")
 else:
-    assets = [
-        "usr/share/plymouth/themes/feclora/feclora.plymouth",
-        "usr/share/plymouth/themes/feclora/feclora.script",
-        "usr/share/plymouth/themes/feclora/feclora-logo.png",
-        "usr/lib64/plymouth/script.so",
-    ]
-    if os.environ.get("FAKE_MISSING_ASSET"):
-        assets.remove(os.environ["FAKE_MISSING_ASSET"])
-    print("\\n".join(assets))
+    print("usr/lib/dracut/hooks/cmdline/30-parse-root.sh")
 """,
         )
 
@@ -86,28 +78,46 @@ else:
             check=False,
         )
 
-    def test_accepts_iso_with_bios_uefi_and_feclora_plymouth_assets(self):
+    def test_accepts_text_mode_iso_without_plymouth_resources(self):
         result = self._run_verifier()
 
         self.assertEqual(result.returncode, 0, result.stderr)
         report = self.report.read_text(encoding="utf-8")
         self.assertIn("BIOS kernel command lines", report)
         self.assertIn("UEFI kernel command lines", report)
-        self.assertIn("ISO boot visual artifacts verified.", report)
+        self.assertIn("ISO text-mode boot artifacts verified.", report)
 
-    def test_rejects_bios_entry_without_plymouth_boot_argument(self):
-        result = self._run_verifier(FAKE_NO_RHGB="1")
+    def test_rejects_splash_or_quiet_kernel_arguments(self):
+        result = self._run_verifier(FAKE_RHGB="1")
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("does not enable the graphical Plymouth splash", result.stderr)
+        self.assertIn("still enables or references a boot splash or quiet boot", result.stderr)
 
-    def test_rejects_initramfs_missing_feclora_logo(self):
-        result = self._run_verifier(
-            FAKE_MISSING_ASSET="usr/share/plymouth/themes/feclora/feclora-logo.png"
+    def test_rejects_plymouth_module_in_initramfs(self):
+        self._write_tool(
+            "lsinitrd",
+            """#!/usr/bin/env python3
+import sys
+print("base\\nplymouth" if "-m" in sys.argv else "usr/share/plymouth/themes/default.plymouth")
+""",
         )
+        result = self._run_verifier()
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("missing Plymouth asset", result.stderr)
+        self.assertIn("includes the Plymouth dracut module", result.stderr)
+
+    def test_rejects_plymouth_files_without_the_module(self):
+        self._write_tool(
+            "lsinitrd",
+            """#!/usr/bin/env python3
+import sys
+print("base" if "-m" in sys.argv else "usr/share/plymouth/themes/default.plymouth")
+""",
+        )
+        result = self._run_verifier()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("still contains boot-splash resources", result.stderr)
 
     def test_accepts_permissive_mode_only_when_requested(self):
         env = os.environ.copy()

@@ -54,10 +54,11 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 
 The build stages the Python application, adds it to a temporary installer ISO,
 and runs `livemedia-creator` with QEMU virtualization. The resulting
-`out/feclora-live.iso` is checked for BIOS and UEFI GRUB entries and the
-Feclora Plymouth theme in the shipped boot initramfs. The Live image installs
-Textual and boots directly to its unprivileged keyboard-first interface on
-tty1; No browser, web server, graphical compositor or desktop is installed.
+`out/feclora-live.iso` is checked for BIOS and UEFI text-console arguments and
+absence of Plymouth from the shipped boot initramfs. The Live image installs
+Textual and boots with visible white-on-black system messages before starting
+its unprivileged keyboard-first interface on tty1. No browser, web server,
+graphical compositor, desktop or boot splash is installed.
 
 SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
 to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
@@ -76,14 +77,14 @@ This headless test verifies that both firmware variants boot and the TUI
 completes its initial terminal render, reported over a test-only virtio-serial
 channel. It does **not** capture the terminal display or prove that a human can
 use every workflow. Manually boot both firmware modes with a visible QEMU
-display and verify the terminal, keyboard navigation, Plymouth handoff and
-service recovery.
+display and verify white-on-black boot messages, the immediate tty1 handoff,
+keyboard navigation and service recovery.
 
 ## Manual boot acceptance
 
 - [ ] BIOS and UEFI select the first GRUB entry without a visible menu.
-- [ ] Plymouth displays the Feclora logo during boot, then yields to the TUI
-      without a persistent black screen.
+- [ ] White-on-black system boot messages remain visible until the TUI starts
+      on tty1; no splash or black-screen interval appears.
 - [ ] `feclora-tui.service` runs on tty1 as the locked, unprivileged `feclora`
       account; no graphical stack or login prompt is installed there.
 - [ ] The initial screen accepts keyboard input and allows language selection

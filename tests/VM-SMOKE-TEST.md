@@ -25,8 +25,8 @@ the visible manual checks below.
 ## Visible BIOS/UEFI boot acceptance
 
 - [ ] BIOS and UEFI boot the first GRUB entry without a visible menu.
-- [ ] Plymouth displays the Feclora logo and yields cleanly to the Textual
-      interface on tty1; the display does not stay black.
+- [ ] White-on-black boot messages remain visible until the Textual interface
+      starts on tty1; there is no splash or persistent black screen.
 - [ ] `feclora-tui.service` runs the Textual application as the locked,
       unprivileged `feclora` account on tty1.
 - [ ] The initial screen offers language and keyboard-layout selection.
