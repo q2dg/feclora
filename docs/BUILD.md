@@ -43,14 +43,19 @@ source .venv/bin/activate
 python -m pip install -r requirements-test.txt
 ```
 
-Then run validation and tests from the activated environment:
+Then run the complete hardware-independent validation suite and build
+preflight:
 
 ```bash
 make validate
-make test
 make preflight FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
+
+`make validate` includes static project checks, documentation-link and guide
+asset checks, Python compilation, Textual boot-configuration checks and the
+hardware-independent unit tests. Use `make test` when you want to rerun only
+the unit tests.
 
 The build stages the Python application, adds it to a temporary installer ISO,
 and runs `livemedia-creator` with QEMU virtualization. The resulting
