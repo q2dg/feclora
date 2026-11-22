@@ -150,13 +150,18 @@ def _run_guest(
                             if not event.startswith("FECLORA_BOOT_SMOKE "):
                                 continue
                             last_event = event
-                            if event == "FECLORA_BOOT_SMOKE ready":
+                            if event == "FECLORA_BOOT_SMOKE rendered":
                                 print(
-                                    f"{firmware}: Textual service started and tty1 readiness was reported."
+                                    f"{firmware}: Textual rendered its initial screen on tty1."
                                 )
                                 return
+                            if event == "FECLORA_BOOT_SMOKE ready":
+                                raise RuntimeError(
+                                    f"{firmware} ISO uses the old process-start signal; rebuild "
+                                    "it to test initial TUI rendering."
+                                )
                     raise TimeoutError(
-                        f"{firmware} guest did not report TUI service startup within {timeout}s.\n"
+                        f"{firmware} guest did not report its initial TUI render within {timeout}s.\n"
                         f"Last guest status: {last_event}\n{_tail(log)}"
                     )
             finally:

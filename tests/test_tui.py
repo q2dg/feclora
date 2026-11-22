@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 import importlib.util
 from unittest.mock import AsyncMock, patch
@@ -13,6 +14,27 @@ else:
 
 @unittest.skipIf(FecloraTUI is None, "Textual is not installed")
 class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
+    async def test_initial_screen_renders_while_keyboard_query_is_pending(self):
+        query_started = asyncio.Event()
+        finish_query = asyncio.Event()
+
+        async def api(action, params=None, on_event=None):
+            if action == "get_keyboard_layout":
+                query_started.set()
+                await finish_query.wait()
+                return {"layout": "us"}
+            raise AssertionError(f"unexpected API action: {action}")
+
+        with patch("feclora.tui.call_feclora", new=AsyncMock(side_effect=api)), \
+                patch.object(FecloraTUI, "_save_language"):
+            app = FecloraTUI()
+            async with app.run_test(size=(80, 25)) as pilot:
+                await asyncio.wait_for(query_started.wait(), timeout=2)
+                await pilot.pause()
+                self.assertTrue(app.query_one("#first-run").display)
+                self.assertGreater(app.query_one("#first-title").region.height, 0)
+                finish_query.set()
+
     async def test_keyboard_navigation_opens_inventory_and_renders_nested_devices(self):
         async def api(action, params=None, on_event=None):
             if action == "status":

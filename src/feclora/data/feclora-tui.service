@@ -13,6 +13,8 @@ Group=feclora
 Environment=HOME=/home/feclora
 Environment=PYTHONPATH=/usr/share/feclora/python
 Environment=TERM=linux
+RuntimeDirectory=feclora-tui
+RuntimeDirectoryMode=0700
 TTYPath=/dev/tty1
 StandardInput=tty-fail
 StandardOutput=tty

@@ -17,10 +17,9 @@ python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
 The headless test boots both firmware variants without attaching host disks or
-networking. It waits for the guest's `feclora-tui.service` to report startup
-through a test-only virtio-serial channel. This proves neither that the
-terminal rendered correctly nor that an operator can use every screen.
-Terminal display, keyboard interaction, Plymouth handoff and recovery require
+networking. It waits for the TUI to complete its first terminal render before
+reporting over a test-only virtio-serial channel. This does not prove that the
+display is visible to an operator or that every screen is usable; those require
 the visible manual checks below.
 
 ## Visible BIOS/UEFI boot acceptance

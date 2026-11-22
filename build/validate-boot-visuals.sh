@@ -32,16 +32,26 @@ grep -Fq 'systemctl --root="$TARGET_ROOT" set-default multi-user.target' "$KS" \
   || fail "The Live image does not select the text-mode systemd target."
 grep -Fq 'systemctl --root="$TARGET_ROOT" mask getty@tty1.service' "$KS" \
   || fail "The system login prompt is not masked from the appliance TUI."
+grep -Fq 'systemctl --root="$TARGET_ROOT" mask kmsconvt@tty1.service' "$KS" \
+  || fail "The KMS console must not compete with the appliance TUI on tty1."
 grep -Fq 'feclora ALL=(root) NOPASSWD: /usr/libexec/feclora/feclora-api *' "$KS" \
   || fail "The unprivileged interface lacks its restricted API authorization."
 grep -Fxq 'ExecStart=/usr/bin/python3 -m feclora.tui' "$TUI" \
   || fail "The tty1 service does not start Textual."
+grep -Fxq 'RuntimeDirectory=feclora-tui' "$TUI" \
+  || fail "The TUI service does not create its private startup marker directory."
 grep -Fxq 'ExecStartPost=-+/usr/bin/plymouth quit' "$TUI" \
   || fail "Plymouth must be dismissed for the terminal interface."
 grep -Fxq 'ExecStartPost=+/usr/libexec/feclora/feclora-tui-ready' "$TUI" \
   || fail "The TUI service must report boot readiness after Plymouth is dismissed."
 grep -Fq 'FECLORA_BOOT_SMOKE ready' "$READY" \
-  || fail "The readiness helper does not report a successful TUI service start."
+  && fail "The readiness helper reports process startup instead of a rendered screen."
+grep -Fq 'FECLORA_BOOT_SMOKE rendered' "$READY" \
+  || fail "The readiness helper does not report a rendered TUI screen."
+grep -Fq 'self.call_after_refresh(self._report_boot_rendered)' "$ROOT_DIR/src/feclora/tui.py" \
+  || fail "The TUI does not report readiness after its first render."
+grep -Fq 'RuntimeDirectoryMode=0700' "$TUI" \
+  || fail "The TUI startup marker directory is not private."
 grep -Fq 'org.feclora.boot-smoke' "$ROOT_DIR/tests/vm/run-boot-smoke.py" \
   || fail "The QEMU smoke test lacks its guest readiness channel."
 

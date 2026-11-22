@@ -484,6 +484,15 @@ class FecloraTUI(App[None]):
         self._apply_language()
         if self._settings_error:
             self.query_one("#setup-message", Static).update(self._settings_error)
+        self.run_worker(
+            self._load_startup_keyboard_layout(),
+            name="startup-keyboard-layout",
+            group="startup",
+        )
+        self._update_repository_fields()
+        self.call_after_refresh(self._report_boot_rendered)
+
+    async def _load_startup_keyboard_layout(self) -> None:
         try:
             current = await call_feclora("get_keyboard_layout")
             layout = current.get("layout")
@@ -492,7 +501,10 @@ class FecloraTUI(App[None]):
                 self.query_one("#keyboard-select", Select).value = layout
         except TUIAPIError as exc:
             self.query_one("#setup-message", Static).update(f"No se pudo leer el teclado actual: {exc}")
-        self._update_repository_fields()
+
+    def _report_boot_rendered(self) -> None:
+        if Path("/dev/virtio-ports/org.feclora.boot-smoke").exists():
+            Path("/run/feclora-tui/ready").write_text("rendered\n", encoding="ascii")
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "apply-keyboard":

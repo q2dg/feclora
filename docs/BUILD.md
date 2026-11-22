@@ -72,12 +72,12 @@ With QEMU and OVMF installed, run:
 python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
-This headless test verifies that both firmware variants boot and the
-`feclora-tui.service` readiness helper reports startup over a test-only
-virtio-serial channel. It does **not** capture the terminal display or prove
-that a human can use every workflow. Manually boot both firmware modes with a
-visible QEMU display and verify the terminal, keyboard navigation, Plymouth
-handoff and service recovery.
+This headless test verifies that both firmware variants boot and the TUI
+completes its initial terminal render, reported over a test-only virtio-serial
+channel. It does **not** capture the terminal display or prove that a human can
+use every workflow. Manually boot both firmware modes with a visible QEMU
+display and verify the terminal, keyboard navigation, Plymouth handoff and
+service recovery.
 
 ## Manual boot acceptance
 
