@@ -18,10 +18,20 @@ ca-certificates
 cockpit
 cockpit-system
 cockpit-storaged
+cockpit-bridge
+cockpit-ws-selinux
+policycoreutils-python-utils
 
 # Minimal local graphical shell: Firefox kiosk only, no general-purpose desktop
 weston
 firefox
+librsvg2-tools
+openssh-clients
+plymouth-scripts
+plymouth-plugin-two-step
+curl
+plymouth-plugin-script
+plymouth
 
 # Embedded Server-mode PXE stack (installed, never enabled by default)
 dnsmasq
@@ -34,6 +44,7 @@ dracut-config-generic
 dracut-network
 dracut-live
 grub2-efi-x64
+grub2-efi-x64-cdboot
 grub2-pc-modules
 shim-x64
 syslinux
