@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# make build invokes the ISO builder through sudo. Drop back to the
+# original caller for npm so node_modules, the npm cache and dist remain
+# writable by the developer instead of becoming root-owned.
+if [[ "${EUID}" -eq 0 && "${SUDO_UID:-}" =~ ^[1-9][0-9]* ]]; then
+  command -v runuser >/dev/null 2>&1 || {
+    echo "runuser is required to build the frontend as the invoking user." >&2
+    exit 127
+  }
+  USER_HOME="$(getent passwd "${SUDO_UID}" | cut -d: -f6)"
+  [[ -n "${USER_HOME}" ]] || {
+    echo "Could not determine the invoking user's home directory." >&2
+    exit 1
+  }
+  exec runuser -u "${SUDO_UID}" -- env HOME="${USER_HOME}" bash "${BASH_SOURCE[0]}" "$@"
+fi
 WEB_DIR="${ROOT_DIR}/webui"
 if ! command -v npm >/dev/null 2>&1; then
   echo "npm is required to build the Cockpit frontend. Install nodejs and npm." >&2
