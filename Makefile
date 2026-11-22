@@ -5,8 +5,8 @@ SHELL := /usr/bin/env bash
 help:
 	@echo 'deps     Install Fedora build-host dependencies'
 	@echo 'preflight Check host, KVM, input ISO and free space'
-	@echo 'validate Run static project and Bash syntax checks'
-	@echo 'test     Run hardware-independent Python unit tests'
+	@echo 'validate Run static project checks, documentation checks and unit tests'
+	@echo 'test     Run hardware-independent Python unit tests only'
 	@echo 'build    Build the ISO (requires FEDORA_INSTALL_ISO and root)'
 	@echo 'clean    Remove generated build output'
 
@@ -19,7 +19,6 @@ preflight:
 
 validate:
 	bash build/validate.sh
-	bash build/validate-text-boot.sh
 
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
