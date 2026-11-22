@@ -40,7 +40,7 @@ jobs:
       - name: Install ShellCheck
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck age
+          sudo apt-get install --yes shellcheck age zstd lz4
       - name: Check Bash syntax and project inputs
         run: |
           bash -n build/*.sh
