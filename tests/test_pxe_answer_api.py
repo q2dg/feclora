@@ -5,7 +5,7 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from feclora.webapi import WebAPIError, _import_deployment_job, _publish_pxe_answer, _provide_pxe_age_passphrase, _read_pxe_answer_source
+from feclora.api import APIError, _import_deployment_job, _publish_pxe_answer, _provide_pxe_age_passphrase, _read_pxe_answer_source
 
 
 class PXEAnswerAPITests(unittest.TestCase):
@@ -23,7 +23,7 @@ class PXEAnswerAPITests(unittest.TestCase):
         }).encode("utf-8")
 
     def test_rejects_invalid_base64_before_touching_pxe_services(self):
-        with self.assertRaisesRegex(WebAPIError, "valid base64"):
+        with self.assertRaisesRegex(APIError, "valid base64"):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
                 "source": "upload",
@@ -47,7 +47,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             "multicast_group": "239.10.10.10", "multicast_port": 9000,
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         }
-        with patch("feclora.webapi._read_pxe_answer_source",
+        with patch("feclora.api._read_pxe_answer_source",
                    return_value=json.dumps(job).encode("utf-8")) as reader:
             result = _import_deployment_job({
                 "source": "url", "url": "https://jobs.example.test/restore.json",
@@ -68,7 +68,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         }
         raw = json.dumps(job).encode("utf-8")
-        with patch("feclora.webapi._read_pxe_answer_source", return_value=raw):
+        with patch("feclora.api._read_pxe_answer_source", return_value=raw):
             result = _import_deployment_job({
                 "source": "upload",
                 "answer_base64": base64.b64encode(raw).decode("ascii"),
@@ -78,8 +78,8 @@ class PXEAnswerAPITests(unittest.TestCase):
     def test_remote_deployment_job_import_rejects_invalid_documents(self):
         for raw in (b"not-json", b'{"schema_version":1,"job_id":"invalid"}'):
             with self.subTest(raw=raw), patch(
-                "feclora.webapi._read_pxe_answer_source", return_value=raw,
-            ), self.assertRaisesRegex(WebAPIError, "import validation failed"):
+                "feclora.api._read_pxe_answer_source", return_value=raw,
+            ), self.assertRaisesRegex(APIError, "import validation failed"):
                 _import_deployment_job({"source": "url", "url": "https://jobs.example.test/job.json"})
 
     def test_shared_deployment_job_is_accepted_by_the_pxe_validator(self):
@@ -132,15 +132,15 @@ class PXEAnswerAPITests(unittest.TestCase):
         manager = MagicMock()
         manager.status.return_value = {"active": True, "interface": "enp1s0"}
         with tempfile.TemporaryDirectory() as directory, \
-             patch("feclora.webapi._read_pxe_answer_source", return_value=json.dumps(payload).encode()), \
-             patch("feclora.webapi._pxe_service_manager", return_value=manager), \
-             patch("feclora.webapi.Path.read_text", return_value=caddy), \
-             patch("feclora.webapi.os.lstat", side_effect=fake_lstat), \
-             patch("feclora.webapi._network_interfaces", return_value=[{"interface": "enp1s0", "address": "192.0.2.10"}]), \
+             patch("feclora.api._read_pxe_answer_source", return_value=json.dumps(payload).encode()), \
+             patch("feclora.api._pxe_service_manager", return_value=manager), \
+             patch("feclora.api.Path.read_text", return_value=caddy), \
+             patch("feclora.api.os.lstat", side_effect=fake_lstat), \
+             patch("feclora.api._network_interfaces", return_value=[{"interface": "enp1s0", "address": "192.0.2.10"}]), \
              patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=SimpleNamespace(bind_address="192.0.2.10")), \
-             patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
-             patch("feclora.webapi._create_deployment_job") as create_job, \
-             patch("feclora.webapi._start_deployment_service") as start_service, \
+             patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), \
+             patch("feclora.api._create_deployment_job") as create_job, \
+             patch("feclora.api._start_deployment_service") as start_service, \
              patch.object(DeploymentJournal, "inspect", return_value=SimpleNamespace(recovery_report=lambda: report)), \
              patch("feclora.network.pxe_answer_store.publish_pxe_answer", return_value={"answer_url": "http://192.0.2.10:8080/answers/" + self.JOB_ID + "/answer.json"}) as publish, \
              patch("feclora.network.boot_tree.publish_unattended_answer_ipxe_script") as publish_ipxe:
@@ -172,7 +172,7 @@ class PXEAnswerAPITests(unittest.TestCase):
     def test_http_source_rejects_credentials_and_non_http_schemes(self):
         for url in ("file:///etc/passwd", "https://user:secret@example.test/answer.json",
                     "https://example.test/answer.json#fragment"):
-            with self.subTest(url=url), self.assertRaises(WebAPIError):
+            with self.subTest(url=url), self.assertRaises(APIError):
                 _read_pxe_answer_source({
                     "job_id": self.JOB_ID, "source": "url", "url": url,
                 })
@@ -200,7 +200,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             (root / "answers" / "restore.json").write_bytes(raw)
             with patch("feclora.storage.s3_repository_manager.S3RepositoryManager",
                        return_value=FakeS3Manager()), \
-                 patch("feclora.webapi._remote_repository_manager",
+                 patch("feclora.api._remote_repository_manager",
                        return_value=FakeRemoteManager(root)):
                 result = _read_pxe_answer_source({
                     "job_id": self.JOB_ID, "source": "repository",
@@ -241,13 +241,13 @@ class PXEAnswerAPITests(unittest.TestCase):
 
         with patch("feclora.storage.s3_repository_manager.S3RepositoryManager",
                    return_value=FakeS3Manager()), \
-             patch("feclora.webapi._remote_repository_manager",
+             patch("feclora.api._remote_repository_manager",
                    return_value=FakeRemoteManager()), \
              patch("feclora.storage.repository_manager._repository", return_value=repo), \
              patch("feclora.storage.systemd_credential_store.SystemdCredentialStore",
                    return_value=FakeCredentialStore()), \
-             patch("feclora.webapi.shutil.which", return_value="/usr/bin/scp"), \
-             patch("feclora.webapi.subprocess.run", side_effect=run) as scp_run:
+             patch("feclora.api.shutil.which", return_value="/usr/bin/scp"), \
+             patch("feclora.api.subprocess.run", side_effect=run) as scp_run:
             result = _read_pxe_answer_source({
                 "job_id": self.JOB_ID, "source": "scp",
                 "repository_id": "ssh-backup", "source_path": "production/answer.json",
@@ -260,20 +260,20 @@ class PXEAnswerAPITests(unittest.TestCase):
         self.assertIn("deploy@ssh.example.test:/srv/answer-files/production/answer.json", command)
 
     def test_repository_source_rejects_parent_path_components(self):
-        with self.assertRaisesRegex(WebAPIError, "safe relative path"):
+        with self.assertRaisesRegex(APIError, "safe relative path"):
             _read_pxe_answer_source({
                 "job_id": self.JOB_ID, "source": "repository",
                 "repository_id": "nas-images", "source_path": "../answer.json",
             })
 
     def test_age_passphrase_requires_a_nonempty_single_line_secret(self):
-        with self.assertRaisesRegex(WebAPIError, "1-1024 UTF-8 bytes"):
+        with self.assertRaisesRegex(APIError, "1-1024 UTF-8 bytes"):
             _provide_pxe_age_passphrase({"passphrase": "bad\nsecret"})
-        with self.assertRaisesRegex(WebAPIError, "requires exactly passphrase"):
+        with self.assertRaisesRegex(APIError, "requires exactly passphrase"):
             _provide_pxe_age_passphrase({"passphrase": "secret", "job_id": self.JOB_ID})
 
     def test_rejects_unknown_or_missing_request_fields(self):
-        with self.assertRaisesRegex(WebAPIError, "requires job_id, source and answer_base64"):
+        with self.assertRaisesRegex(APIError, "requires job_id, source and answer_base64"):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
                 "source": "upload",

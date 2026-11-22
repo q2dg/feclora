@@ -1,8 +1,6 @@
 /out/
 /results/
 /.feclora-build.*/
-/webui/dist/
-/webui/node_modules/
 *.iso
 *.img
 *.raw

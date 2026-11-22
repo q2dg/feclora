@@ -156,6 +156,7 @@ PXE Server does not connect to, proxy or receive data from these repositories.
 - [ ] Run physical ISO/PXE acceptance with DHCP, repository credentials,
       target ambiguity/swap, interruption and post-write verification.
 
-Automated Python tests and frontend build run in GitHub Actions. These tests do
-not replace acceptance on real PXE firmware, physical NICs, repositories and
-block devices; no physical-device deployment has been claimed as tested.
+Automated Python tests, including Textual UI interaction tests, run in GitHub
+Actions. These tests do not replace acceptance on real PXE firmware, physical
+NICs, repositories and block devices; no physical-device deployment has been
+claimed as tested.

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from feclora.webapi import _operation_repository_context
+from feclora.api import _operation_repository_context
 
 
 class FakeRepositoryManager:
@@ -29,7 +29,7 @@ class FakeRepositoryManager:
 class RemoteRepositoryOperationLeaseTests(unittest.TestCase):
     def test_local_image_operation_holds_shared_repository_lease_for_entire_context(self):
         manager = FakeRepositoryManager()
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager), \
+        with patch("feclora.api._remote_repository_manager", return_value=manager), \
              patch("feclora.storage.s3_repository_manager.S3RepositoryManager") as s3_manager:
             s3_manager.return_value.list.return_value = []
             with _operation_repository_context({"repository_id": "nas"}, write=True) as path:
@@ -41,7 +41,7 @@ class RemoteRepositoryOperationLeaseTests(unittest.TestCase):
 
     def test_repository_lease_is_released_when_image_engine_fails(self):
         manager = FakeRepositoryManager()
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager), \
+        with patch("feclora.api._remote_repository_manager", return_value=manager), \
              patch("feclora.storage.s3_repository_manager.S3RepositoryManager") as s3_manager:
             s3_manager.return_value.list.return_value = []
             with self.assertRaisesRegex(RuntimeError, "engine failed"):

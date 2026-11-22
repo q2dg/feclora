@@ -221,7 +221,7 @@ def execute(operation_id: str) -> int:
     try:
         store.append(operation_id, "preflight", {"message": "Validating operation definition and device locks"})
         # Reuse the existing host-wide Server/Client/storage exclusion lock.
-        from feclora.webapi import _execute_operation, _storage_operation_lock
+        from feclora.api import _execute_operation, _storage_operation_lock
         execution_params = dict(definition["params"])
         if definition["action"] == "capture_disk" and execution_params.get("encrypt_passphrase"):
             from feclora.storage.capture_passphrase import consume

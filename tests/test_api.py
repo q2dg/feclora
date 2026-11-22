@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from feclora.webapi import WebAPIError, dispatch, _device, _find_inventory_device, _certificate_status, _renew_server_certificate
+from feclora.api import APIError, dispatch, _device, _find_inventory_device, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
 
 
@@ -20,7 +20,7 @@ class PXEOperationHistoryTests(unittest.TestCase):
         from pathlib import Path
         from types import SimpleNamespace
         from unittest.mock import patch
-        from feclora.webapi import _local_operations
+        from feclora.api import _local_operations
 
         operation_id = "8a6d1b3c-1e8e-4d4c-9a50-0f12e4a3b456"
         events = [
@@ -50,10 +50,10 @@ class PXEOperationHistoryTests(unittest.TestCase):
                 st_mode=stat.S_IFREG | 0o600, st_uid=0,
                 st_size=journal.stat().st_size,
             )
-            with patch("feclora.webapi._PXE_OPERATION_LOG_PATH", journal), \
-                 patch("feclora.webapi._local_operation_store", return_value=EmptyStore()), \
-                 patch("feclora.webapi.os.fstat", return_value=fake_stat), \
-                 patch("feclora.webapi.os.geteuid", return_value=0):
+            with patch("feclora.api._PXE_OPERATION_LOG_PATH", journal), \
+                 patch("feclora.api._local_operation_store", return_value=EmptyStore()), \
+                 patch("feclora.api.os.fstat", return_value=fake_stat), \
+                 patch("feclora.api.os.geteuid", return_value=0):
                 result = _local_operations({"limit": 10})
         self.assertEqual(len(result["operations"]), 1)
         item = result["operations"][0]
@@ -65,9 +65,9 @@ class PXEOperationHistoryTests(unittest.TestCase):
         self.assertEqual(item["events"][1]["details"]["bytes_done"], 4096)
 
 
-class WebAPITests(unittest.TestCase):
+class APITests(unittest.TestCase):
     def test_open_root_terminal_requests_only_the_fixed_local_systemd_unit(self):
-        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as runner:
+        with patch("feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as runner:
             result = dispatch({"action": "open_root_terminal", "params": {}})
         self.assertEqual(result, {"requested": True})
         args, kwargs = runner.call_args
@@ -76,15 +76,15 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(kwargs["check"] is False)
 
     def test_open_root_terminal_rejects_parameters_and_systemd_errors(self):
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "open_root_terminal", "params": {"command": "/bin/sh"}})
-        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="denied")):
-            with self.assertRaisesRegex(WebAPIError, "systemd rejected"):
+        with patch("feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="denied")):
+            with self.assertRaisesRegex(APIError, "systemd rejected"):
                 dispatch({"action": "open_root_terminal", "params": {}})
 
     def test_deployment_bundle_worker_uses_one_validated_shared_answer(self):
         from contextlib import contextmanager
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
 
         job = {
             "schema_version": 1, "job_id": "00000000-0000-4000-8000-000000000020",
@@ -120,18 +120,18 @@ class WebAPITests(unittest.TestCase):
                 self.assertEqual(answer["target_bindings"], job["target_bindings"])
                 return {"published": True, "output_directory": args[4]}
 
-            with patch("feclora.webapi._operation_repository_context", repository_context), \
-                 patch("feclora.webapi._image_manifest", return_value=manifest), \
+            with patch("feclora.api._operation_repository_context", repository_context), \
+                 patch("feclora.api._image_manifest", return_value=manifest), \
                  patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]), \
                  patch("feclora.storage.deployment_bundle.build_deployment_bundle", side_effect=build), \
-                 patch("feclora.webapi._emit"):
+                 patch("feclora.api._emit"):
                 result = _execute_operation("build_deployment_bundle", params, "bundle-operation")
         self.assertTrue(result["published"])
         self.assertTrue(result["output_directory"].endswith("fleet-bundle"))
 
     def test_browse_image_passes_verified_partition_selector_to_guestfs(self):
         from contextlib import contextmanager
-        from feclora.webapi import dispatch
+        from feclora.api import dispatch
 
         manifest_path = Path("/tmp/feclora-test-image.manifest.json")
         manifest = SimpleNamespace(
@@ -149,13 +149,13 @@ class WebAPITests(unittest.TestCase):
         def repository_context(*args, **kwargs):
             yield Path("/tmp")
 
-        with patch("feclora.webapi._operation_repository_context", repository_context), \
-             patch("feclora.webapi._image_manifest", return_value=manifest_path), \
+        with patch("feclora.api._operation_repository_context", repository_context), \
+             patch("feclora.api._image_manifest", return_value=manifest_path), \
              patch("pathlib.Path.read_text", return_value="{}"), \
-             patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
-             patch("feclora.webapi._inspect_image_layout_from_repository", return_value=layout), \
-             patch("feclora.webapi._security_material", return_value={"age_decryption_available": False}), \
-             patch("feclora.webapi._client_runtime_config", return_value=None), \
+             patch("feclora.api.ImageManifest.from_json", return_value=manifest), \
+             patch("feclora.api._inspect_image_layout_from_repository", return_value=layout), \
+             patch("feclora.api._security_material", return_value={"age_decryption_available": False}), \
+             patch("feclora.api._client_runtime_config", return_value=None), \
              patch("feclora.storage.image_browser.browse_image", return_value={"path": "/"}) as browse:
             result = dispatch({
                 "action": "browse_image",
@@ -173,7 +173,7 @@ class WebAPITests(unittest.TestCase):
             "compression": "zstd",
             "encrypt": False,
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "lv-capture"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "lv-capture"}) as submit:
             result = dispatch({"action": "capture_logical_volume", "params": params})
         self.assertEqual(result["operation_id"], "lv-capture")
         submit.assert_called_once_with({
@@ -186,7 +186,7 @@ class WebAPITests(unittest.TestCase):
             "image_id": "physical-native",
             "repository_id": "primary",
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "p2v-import"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "p2v-import"}) as submit:
             result = dispatch({"action": "import_p2v", "params": params})
         self.assertEqual(result["operation_id"], "p2v-import")
         submit.assert_called_once_with({
@@ -201,7 +201,7 @@ class WebAPITests(unittest.TestCase):
             "bundle_name": "fleet-bundle",
             "repository_id": "primary",
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "bundle-job"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "bundle-job"}) as submit:
             result = dispatch({"action": "build_deployment_bundle", "params": params})
         self.assertEqual(result["operation_id"], "bundle-job")
         submit.assert_called_once_with({
@@ -209,13 +209,13 @@ class WebAPITests(unittest.TestCase):
         })
 
     def test_recovery_iso_action_is_submitted_to_durable_worker(self):
-        from feclora.webapi import dispatch
+        from feclora.api import dispatch
         params = {
             "base_iso_path": "/home/feclora/live.iso", "image_id": "golden",
             "target_wwn": "naa.5000c50012345678", "target_serial": None,
             "confirm_build": "BUILD golden",
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "job"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "job"}) as submit:
             result = dispatch({"action": "build_recovery_iso", "params": params})
         self.assertEqual(result["operation_id"], "job")
         submit.assert_called_once_with({"operation": "build_recovery_iso", "operation_params": params})
@@ -223,7 +223,7 @@ class WebAPITests(unittest.TestCase):
     def test_recovery_iso_worker_engine_publishes_only_to_selected_repository(self):
         import tempfile
         from pathlib import Path
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
         with tempfile.TemporaryDirectory() as root:
             repository = Path(root)
             manifest = repository / "golden.manifest.json"
@@ -234,8 +234,8 @@ class WebAPITests(unittest.TestCase):
                 "sha256": "a" * 64, "verified": True, "boot_catalog_preserved": True,
             }
             with patch("feclora.storage.recovery_iso.build_recovery_iso", return_value=engine_result) as builder, \
-                 patch("feclora.webapi._operation_repository", return_value=repository), \
-                 patch("feclora.webapi._image_manifest", return_value=manifest):
+                 patch("feclora.api._operation_repository", return_value=repository), \
+                 patch("feclora.api._image_manifest", return_value=manifest):
                 result = _execute_operation("build_recovery_iso", {
                     "base_iso_path": "/home/feclora/live.iso", "image_id": "golden",
                     "target_wwn": "naa.5000c50012345678", "target_serial": None,
@@ -250,29 +250,29 @@ class WebAPITests(unittest.TestCase):
 
     def test_image_manifest_rejects_root_squash_anonymous_ownership(self):
         import stat
-        from feclora.webapi import _image_manifest
+        from feclora.api import _image_manifest
         # NFS root_squash commonly maps client-created root files to an
         # anonymous UID. Preserve the root-owned manifest trust boundary.
-        with patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
+        with patch("feclora.api.os.lstat", return_value=SimpleNamespace(
             st_mode=stat.S_IFREG | 0o644, st_uid=65534,
         )):
-            with self.assertRaisesRegex(WebAPIError, "not a root-owned regular file"):
+            with self.assertRaisesRegex(APIError, "not a root-owned regular file"):
                 _image_manifest("golden", Path("/mnt/nfs/images"))
 
     def test_rejects_unknown_or_extra_request_fields(self):
-        with self.assertRaisesRegex(WebAPIError, "action and optional params"):
+        with self.assertRaisesRegex(APIError, "action and optional params"):
             dispatch({"action": "status", "command": "id"})
-        with self.assertRaisesRegex(WebAPIError, "unsupported"):
+        with self.assertRaisesRegex(APIError, "unsupported"):
             dispatch({"action": "shell"})
 
     def test_rejects_parameters_for_read_only_actions(self):
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "status", "params": {"command": "id"}})
 
     def test_service_state_reports_the_textual_systemd_unit(self):
-        from feclora.webapi import _service_state
+        from feclora.api import _service_state
 
-        with patch("feclora.webapi.subprocess.run", side_effect=[
+        with patch("feclora.api.subprocess.run", side_effect=[
             SimpleNamespace(returncode=0, stdout="active\n"),
             SimpleNamespace(returncode=0, stdout=""),
             SimpleNamespace(returncode=0, stdout=""),
@@ -298,28 +298,28 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(matches[0]["read_only"])
 
     def test_inventory_action_returns_only_inventory(self):
-        with patch("feclora.webapi.collect_inventory", return_value={"devices": []}) as inventory:
+        with patch("feclora.api.collect_inventory", return_value={"devices": []}) as inventory:
             self.assertEqual(dispatch({"action": "inventory"}), {"devices": []})
         inventory.assert_called_once_with()
 
     def test_images_action_uses_manifest_inventory(self):
-        with patch("feclora.webapi._images", return_value=[{"image_id": "base"}]):
+        with patch("feclora.api._images", return_value=[{"image_id": "base"}]):
             self.assertEqual(dispatch({"action": "images"}), {"images": [{"image_id": "base"}]})
 
     def test_logical_volume_capture_operation_uses_manifest_backed_engine(self):
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
         manifest = SimpleNamespace(image_id="root-image", image_type="logical_volume")
         params = {
             "source": "/dev/vg/root", "image_id": "root-image",
             "compression": "none", "encrypt": False,
         }
-        with patch("feclora.webapi._device", return_value="/dev/vg/root"), \
-             patch("feclora.webapi._security_material", return_value={
+        with patch("feclora.api._device", return_value="/dev/vg/root"), \
+             patch("feclora.api._security_material", return_value={
                  "age_encryption_available": False,
              }), \
-             patch("feclora.webapi._capture_material", return_value=None), \
-             patch("feclora.webapi._operation_repository", return_value="/tmp/images"), \
-             patch("feclora.webapi._emit"), patch("feclora.webapi._progress"), \
+             patch("feclora.api._capture_material", return_value=None), \
+             patch("feclora.api._operation_repository", return_value="/tmp/images"), \
+             patch("feclora.api._emit"), patch("feclora.api._progress"), \
              patch("feclora.storage.inventory.collect_inventory", return_value={"devices": []}) as inventory, \
              patch("feclora.storage.logical_volume_image_capture.capture_logical_volume_image",
                    return_value=manifest) as capture:
@@ -331,18 +331,18 @@ class WebAPITests(unittest.TestCase):
 
     def test_operations_action_returns_durable_local_history(self):
         expected = [{"operation": "capture_disk", "status": "completed"}]
-        with patch("feclora.webapi._operations", return_value=expected):
+        with patch("feclora.api._operations", return_value=expected):
             self.assertEqual(dispatch({"action": "operations"}), {"operations": expected})
 
     def test_network_interfaces_action_returns_discovered_bindings(self):
         expected = [{"interface": "enp1s0", "address": "192.0.2.10", "prefix_length": 24,
                      "dhcp_server": None, "binding": "enp1s0|192.0.2.10|24"}]
-        with patch("feclora.webapi._network_interfaces", return_value=expected):
+        with patch("feclora.api._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
 
 
     def test_server_certificate_renewal_requires_exact_confirmation(self):
-        with self.assertRaisesRegex(WebAPIError, "RENEW SERVER CERTIFICATE"):
+        with self.assertRaisesRegex(APIError, "RENEW SERVER CERTIFICATE"):
             _renew_server_certificate({"confirmation": "renew it"})
 
     def test_server_certificate_renewal_refuses_active_deployment_service(self):
@@ -353,11 +353,11 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-server",
         )
         with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
-            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+            "feclora.api.subprocess.run", return_value=SimpleNamespace(
                 returncode=0, stdout="feclora-deployment@123.service active"
             )
         ), patch("feclora.deployment.managed_pki.renew_server_certificate") as renew:
-            with self.assertRaisesRegex(WebAPIError, "stop all active deployment jobs"):
+            with self.assertRaisesRegex(APIError, "stop all active deployment jobs"):
                 _renew_server_certificate({"confirmation": "RENEW SERVER CERTIFICATE"})
         renew.assert_not_called()
 
@@ -369,7 +369,7 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-server",
         )
         with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
-            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
+            "feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
         ), patch("feclora.deployment.managed_pki.renew_server_certificate", return_value={
             "certificate_file": "/etc/feclora/pki/server.crt", "ca_fingerprint": "a" * 64,
             "ca_expiry_days": 1200,
@@ -382,7 +382,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result["expiry_days"], 825)
 
     def test_server_keypair_rotation_requires_exact_confirmation_and_is_allowlisted(self):
-        with self.assertRaisesRegex(WebAPIError, "ROTATE SERVER TLS KEYPAIR"):
+        with self.assertRaisesRegex(APIError, "ROTATE SERVER TLS KEYPAIR"):
             dispatch({"action": "rotate_server_keypair", "params": {"confirmation": "rotate"}})
         config = SimpleNamespace(
             certificate_file="/etc/feclora/pki/server.crt",
@@ -391,7 +391,7 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-server",
         )
         with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
-            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
+            "feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
         ), patch(
             "feclora.deployment.managed_pki.rotate_server_keypair", return_value={
                 "certificate_file": "/etc/feclora/pki/server.crt",
@@ -418,11 +418,11 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-server",
         )
         with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
-            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+            "feclora.api.subprocess.run", return_value=SimpleNamespace(
                 returncode=0, stdout="feclora-deployment@123.service active"
             )
         ), patch("feclora.deployment.managed_pki.rotate_server_keypair") as rotate:
-            with self.assertRaisesRegex(WebAPIError, "stop all active deployment jobs"):
+            with self.assertRaisesRegex(APIError, "stop all active deployment jobs"):
                 dispatch({"action": "rotate_server_keypair", "params": {
                     "confirmation": "ROTATE SERVER TLS KEYPAIR",
                 }})
@@ -434,7 +434,7 @@ class WebAPITests(unittest.TestCase):
             ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
-        with patch("feclora.webapi.os.path.isfile", side_effect=lambda path: path == "/etc/feclora/deployment-server.json"), patch(
+        with patch("feclora.api.os.path.isfile", side_effect=lambda path: path == "/etc/feclora/deployment-server.json"), patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
         ), patch("feclora.deployment.managed_pki.certificate_expiry_days", side_effect=[12, 1200]):
             result = _certificate_status()
@@ -461,14 +461,14 @@ class WebAPITests(unittest.TestCase):
                 SimpleNamespace(role="disk-image", format="raw"), table_artifact,
             ],
         )
-        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
+        with patch("feclora.api._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
-        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
-            "feclora.webapi.os.path.isfile", return_value=False
-        ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
+        ), patch("feclora.api.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.api.os.path.isfile", return_value=False
+        ), patch("feclora.api._repository", return_value=Path("/repo")), patch(
             "feclora.storage.disk_restore._open_artifact", return_value=nullcontext(io.BytesIO(table))
         ), patch("feclora.storage.disk_restore._verify_stored_artifact"):
-            result = __import__("feclora.webapi", fromlist=["_inspect_image_layout"])._inspect_image_layout(
+            result = __import__("feclora.api", fromlist=["_inspect_image_layout"])._inspect_image_layout(
                 {"image_id": "source"}
             )
         self.assertEqual(result["partitions"][0]["selector"], "/dev/sda1")
@@ -482,20 +482,20 @@ class WebAPITests(unittest.TestCase):
             artifacts=[SimpleNamespace(encryption="none", role="disk-image", format="raw")],
         )
         extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition", artifacts=[])
-        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
+        with patch("feclora.api._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
-        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
-            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch("feclora.api.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.api.os.path.isfile", return_value=False
         ), patch(
-            "feclora.webapi._security_material",
+            "feclora.api._security_material",
             return_value={"age_decryption_available": False},
-        ), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
-            "feclora.webapi._capture_material", return_value=None
-        ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
+        ), patch("feclora.api._client_runtime_config", return_value=None), patch(
+            "feclora.api._capture_material", return_value=None
+        ), patch("feclora.api._repository", return_value=Path("/repo")), patch(
             "feclora.storage.disk_image_partition.extract_partition_image",
             return_value=(extracted, "source-part-abc123.manifest.json"),
         ) as extract:
-            result = __import__("feclora.webapi", fromlist=["_execute_operation"])._execute_operation(
+            result = __import__("feclora.api", fromlist=["_execute_operation"])._execute_operation(
                 "extract_partition_image", {"image_id": "source", "selector": "PARTUUID=abc"}, "operation-1"
             )
         self.assertEqual(result["image_id"], "source-part-abc123")
@@ -512,21 +512,21 @@ class WebAPITests(unittest.TestCase):
             image_id="source-part-abc123", image_type="partition",
             artifacts=[SimpleNamespace(encryption="age")],
         )
-        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
+        with patch("feclora.api._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
-        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
-            "feclora.webapi.os.path.isfile", return_value=False
-        ), patch("feclora.webapi._security_material", return_value={
+        ), patch("feclora.api.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.api.os.path.isfile", return_value=False
+        ), patch("feclora.api._security_material", return_value={
             "age_decryption_available": True, "age_encryption_available": True,
              
-        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
-            "feclora.webapi._capture_material",
+        }), patch("feclora.api._client_runtime_config", return_value=None), patch(
+            "feclora.api._capture_material",
             return_value=Path("/etc/feclora/pki/age-recipients.txt"),
-        ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
+        ), patch("feclora.api._repository", return_value=Path("/repo")), patch(
             "feclora.storage.disk_image_partition.extract_partition_image",
             return_value=(extracted, "source-part-abc123.manifest.json"),
         ) as extract:
-            result = __import__("feclora.webapi", fromlist=["_execute_operation"])._execute_operation(
+            result = __import__("feclora.api", fromlist=["_execute_operation"])._execute_operation(
                 "extract_partition_image", {"image_id": "source", "selector": "PARTUUID=abc"}, "operation-2"
             )
         self.assertTrue(result["encrypted"])
@@ -537,7 +537,7 @@ class WebAPITests(unittest.TestCase):
 
     def test_browse_image_is_exposed_as_read_only_action(self):
         expected = {"partition": "/dev/sda1", "filesystem": "ext4", "path": "/", "entries": []}
-        with patch("feclora.webapi._browse_image", return_value=expected) as browse:
+        with patch("feclora.api._browse_image", return_value=expected) as browse:
             result = dispatch({"action": "browse_image", "params": {
                 "image_id": "source", "partition_index": 1, "path": "/",
             }})
@@ -547,7 +547,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result, expected)
 
     def test_inspect_image_layout_is_exposed_as_read_only_action(self):
-        with patch("feclora.webapi._inspect_image_layout", return_value={"partitions": []}) as inspect:
+        with patch("feclora.api._inspect_image_layout", return_value={"partitions": []}) as inspect:
             result = dispatch({"action": "inspect_image_layout", "params": {"image_id": "source"}})
         inspect.assert_called_once_with({"image_id": "source"})
         self.assertEqual(result, {"partitions": []})
@@ -564,19 +564,19 @@ class WebAPITests(unittest.TestCase):
             image_id="verified", image_type="disk", source_size_bytes=4,
             artifacts=[artifact],
         )
-        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/verified.manifest.json")), patch(
+        with patch("feclora.api._image_manifest", return_value=Path("/repo/verified.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
-        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
-            "feclora.webapi.os.path.isfile", return_value=False
-        ), patch("feclora.webapi._security_material", return_value={
+        ), patch("feclora.api.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.api.os.path.isfile", return_value=False
+        ), patch("feclora.api._security_material", return_value={
              "age_decryption_available": False,
-        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
-            "feclora.webapi._repository", return_value=Path("/repo")
+        }), patch("feclora.api._client_runtime_config", return_value=None), patch(
+            "feclora.api._repository", return_value=Path("/repo")
         ), patch(
             "feclora.storage.disk_restore._verified_artifact_stream",
             return_value=nullcontext(io.BytesIO(b"data")),
         ), patch("feclora.storage.disk_restore._decoded_stream", side_effect=lambda stream, _compression: stream):
-            report = __import__("feclora.webapi", fromlist=["_verify_image"])._verify_image(
+            report = __import__("feclora.api", fromlist=["_verify_image"])._verify_image(
                 {"image_id": "verified"}
             )
         self.assertTrue(report["verified"])
@@ -595,32 +595,32 @@ class WebAPITests(unittest.TestCase):
             image_id="wrong-size", image_type="disk", source_size_bytes=4,
             artifacts=[artifact],
         )
-        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/wrong-size.manifest.json")), patch(
+        with patch("feclora.api._image_manifest", return_value=Path("/repo/wrong-size.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
-        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
-            "feclora.webapi.os.path.isfile", return_value=False
-        ), patch("feclora.webapi._security_material", return_value={
+        ), patch("feclora.api.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.api.os.path.isfile", return_value=False
+        ), patch("feclora.api._security_material", return_value={
              "age_decryption_available": False,
-        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
-            "feclora.webapi._repository", return_value=Path("/repo")
+        }), patch("feclora.api._client_runtime_config", return_value=None), patch(
+            "feclora.api._repository", return_value=Path("/repo")
         ), patch(
             "feclora.storage.disk_restore._verified_artifact_stream",
             return_value=nullcontext(io.BytesIO(b"bad")),
         ), patch("feclora.storage.disk_restore._decoded_stream", side_effect=lambda stream, _compression: stream):
             with self.assertRaisesRegex(Exception, "decoded disk artifact size mismatch"):
-                __import__("feclora.webapi", fromlist=["_verify_image"])._verify_image(
+                __import__("feclora.api", fromlist=["_verify_image"])._verify_image(
                     {"image_id": "wrong-size"}
                 )
 
     def test_partition_extraction_runs_through_the_durable_local_journal(self):
         from contextlib import nullcontext
-        from feclora.webapi import _run_operation
+        from feclora.api import _run_operation
 
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
-        with patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), patch(
+        with patch("feclora.api._storage_operation_lock", return_value=nullcontext()), patch(
             "feclora.storage.operation_log.operation_record"
         ) as record, patch(
-            "feclora.webapi._execute_operation", return_value={"image_id": "whole-disk-part-123"}
+            "feclora.api._execute_operation", return_value={"image_id": "whole-disk-part-123"}
         ) as execute:
             record.return_value.__enter__.return_value = "operation-123"
             result = _run_operation("extract_partition_image", params)
@@ -640,7 +640,7 @@ class WebAPITests(unittest.TestCase):
             "params": {"encrypt_passphrase": True},
         }
         store.status.return_value = {"state": "running"}
-        with patch("feclora.webapi._local_operation_store", return_value=store), \
+        with patch("feclora.api._local_operation_store", return_value=store), \
              patch("feclora.storage.capture_passphrase.provide") as provide:
             result = dispatch({"action": "provide_capture_passphrase", "params": {
                 "operation_id": operation_id, "passphrase": "capture secret",
@@ -655,8 +655,8 @@ class WebAPITests(unittest.TestCase):
             "params": {"encrypt_passphrase": True},
         }
         store.status.return_value = {"state": "running"}
-        with patch("feclora.webapi._local_operation_store", return_value=store):
-            with self.assertRaisesRegex(WebAPIError, "not awaiting a passphrase-encrypted disk capture"):
+        with patch("feclora.api._local_operation_store", return_value=store):
+            with self.assertRaisesRegex(APIError, "not awaiting a passphrase-encrypted disk capture"):
                 dispatch({"action": "provide_capture_passphrase", "params": {
                     "operation_id": "00000000-0000-4000-8000-000000000001",
                     "passphrase": "capture secret",
@@ -667,8 +667,8 @@ class WebAPITests(unittest.TestCase):
         store = Mock()
         store.status.return_value = {"state": "running"}
         stopped = SimpleNamespace(returncode=0, stdout="", stderr="")
-        with patch("feclora.webapi._local_operation_store", return_value=store), \
-             patch("feclora.webapi.subprocess.run", return_value=stopped) as run:
+        with patch("feclora.api._local_operation_store", return_value=store), \
+             patch("feclora.api.subprocess.run", return_value=stopped) as run:
             result = dispatch({"action": "cancel_local_operation", "params": {
                 "operation_id": operation_id,
             }})
@@ -684,7 +684,7 @@ class WebAPITests(unittest.TestCase):
         operation_id = "00000000-0000-4000-8000-000000000001"
         store = Mock()
         store.status.return_value = {"state": "queued"}
-        with patch("feclora.webapi._local_operation_store", return_value=store):
+        with patch("feclora.api._local_operation_store", return_value=store):
             result = dispatch({"action": "cancel_local_operation", "params": {
                 "operation_id": operation_id,
             }})
@@ -698,8 +698,8 @@ class WebAPITests(unittest.TestCase):
         operation_id = "00000000-0000-4000-8000-000000000001"
         store = Mock()
         store.status.return_value = {"state": "completed"}
-        with patch("feclora.webapi._local_operation_store", return_value=store):
-            with self.assertRaisesRegex(WebAPIError, "cannot be cancelled"):
+        with patch("feclora.api._local_operation_store", return_value=store):
+            with self.assertRaisesRegex(APIError, "cannot be cancelled"):
                 dispatch({"action": "cancel_local_operation", "params": {
                     "operation_id": operation_id,
                 }})
@@ -707,7 +707,7 @@ class WebAPITests(unittest.TestCase):
     def test_partition_extraction_is_submitted_to_the_durable_worker(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
         accepted = {"operation_id": "00000000-0000-4000-8000-000000000001", "state": "queued"}
-        with patch("feclora.webapi._submit_local_operation", return_value=accepted) as submit:
+        with patch("feclora.api._submit_local_operation", return_value=accepted) as submit:
             result = dispatch({"action": "extract_partition_image", "params": params})
         submit.assert_called_once_with({
             "operation": "extract_partition_image", "operation_params": params,
@@ -729,7 +729,7 @@ class WebAPITests(unittest.TestCase):
         refresh.assert_called_once_with({"inventory_path": "/run/media/usb/age-recipients.txt"})
 
     def test_bootstrap_server_requires_exact_parameters(self):
-        with self.assertRaisesRegex(WebAPIError, "requires interface"):
+        with self.assertRaisesRegex(APIError, "requires interface"):
             dispatch({"action": "bootstrap_server", "params": {"address": "192.0.2.10"}})
 
     def test_bootstrap_server_initializes_only_an_assigned_address(self):
@@ -750,11 +750,11 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result["bind_address"], "192.0.2.10")
 
     def test_bootstrap_server_validates_address_and_prefix_before_bootstrap(self):
-        with self.assertRaisesRegex(WebAPIError, "prefix_length"):
+        with self.assertRaisesRegex(APIError, "prefix_length"):
             dispatch({"action": "bootstrap_server", "params": {
                 "interface": "enp1s0", "address": "192.0.2.10", "prefix_length": True
             }})
-        with self.assertRaisesRegex(WebAPIError, "IPv4"):
+        with self.assertRaisesRegex(APIError, "IPv4"):
             dispatch({"action": "bootstrap_server", "params": {
                 "interface": "enp1s0", "address": "2001:db8::1", "prefix_length": 24
             }})
@@ -779,7 +779,7 @@ class WebAPITests(unittest.TestCase):
     def test_validate_pxe_profile_rejects_existing_dhcp_for_isolated_mode(self):
         with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), \
              patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value="192.0.2.254"):
-            with self.assertRaisesRegex(WebAPIError, "existing DHCP server"):
+            with self.assertRaisesRegex(APIError, "existing DHCP server"):
                 dispatch({"action": "validate_pxe_profile", "params": {
                     "interface": "enp1s0", "address": "192.0.2.1", "prefix_length": 24,
                     "mode": "isolated", "pool_start": "192.0.2.100", "pool_end": "192.0.2.180",
@@ -837,26 +837,26 @@ class WebAPITests(unittest.TestCase):
         self.assertIn("shutdown is incomplete", result["message"])
 
     def test_stop_pxe_services_rejects_parameters(self):
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "stop_pxe_services", "params": {"interface": "enp1s0"}})
 
     def test_validate_pxe_profile_rejects_unknown_fields(self):
-        with self.assertRaisesRegex(WebAPIError, "complete PXE profile"):
+        with self.assertRaisesRegex(APIError, "complete PXE profile"):
             dispatch({"action": "validate_pxe_profile", "params": {"mode": "proxy"}})
 
     def test_deployment_jobs_returns_empty_before_first_job_exists(self):
-        with patch("feclora.webapi.os.path.lexists", return_value=False):
+        with patch("feclora.api.os.path.lexists", return_value=False):
             self.assertEqual(dispatch({"action": "deployment_jobs"}), {"jobs": []})
 
     def test_deployment_jobs_action_is_read_only(self):
         expected = [{"job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"}]
-        with patch("feclora.webapi._deployment_jobs", return_value=expected):
+        with patch("feclora.api._deployment_jobs", return_value=expected):
             self.assertEqual(dispatch({"action": "deployment_jobs"}), {"jobs": expected})
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "deployment_jobs", "params": {"x": 1}})
 
     def test_create_deployment_job_requires_exact_job_envelope(self):
-        with self.assertRaisesRegex(WebAPIError, "exactly one job object"):
+        with self.assertRaisesRegex(APIError, "exactly one job object"):
             dispatch({"action": "create_deployment_job", "params": {"job": {}, "extra": True}})
 
     def test_create_deployment_job_validates_job_before_server_configuration(self):
@@ -868,7 +868,7 @@ class WebAPITests(unittest.TestCase):
             "multicast_group": None, "multicast_port": None,
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         }
-        with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
+        with self.assertRaisesRegex(APIError, "job_id must be a UUID"):
             dispatch({"action": "create_deployment_job", "params": {"job": invalid_job}})
 
     def test_start_deployment_service_accepts_fresh_multicast_restore_journal(self):
@@ -880,12 +880,12 @@ class WebAPITests(unittest.TestCase):
         })
         status = {"job_id": job_id, "job_state": "created", "worker_active": False}
         with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.webapi._active_deployment_service_status", return_value=None
+            "feclora.api._active_deployment_service_status", return_value=None
         ), patch(
-            "feclora.webapi._deployment_journal_directory", return_value=Path(directory)
+            "feclora.api._deployment_journal_directory", return_value=Path(directory)
         ), patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal), patch(
-            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")
-        ) as runner, patch("feclora.webapi._deployment_service_status", return_value=status):
+            "feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")
+        ) as runner, patch("feclora.api._deployment_service_status", return_value=status):
             result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
         self.assertEqual(result, status)
         self.assertEqual(runner.call_args.args[0], [
@@ -895,8 +895,8 @@ class WebAPITests(unittest.TestCase):
     def test_start_deployment_service_reconnects_to_active_job_without_revalidating_freshness(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         status = {"job_id": job_id, "job_state": "running", "worker_active": True}
-        with patch("feclora.webapi._active_deployment_service_status", return_value=status), patch(
-            "feclora.webapi.subprocess.run"
+        with patch("feclora.api._active_deployment_service_status", return_value=status), patch(
+            "feclora.api.subprocess.run"
         ) as run:
             result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
         self.assertEqual(result, status)
@@ -916,7 +916,7 @@ class WebAPITests(unittest.TestCase):
             "feclora.deployment.runtime_config.load_server_runtime_config",
             side_effect=RuntimeConfigError("test Server config"),
         ):
-            with self.assertRaisesRegex(WebAPIError, "configure the Feclora Server"):
+            with self.assertRaisesRegex(APIError, "configure the Feclora Server"):
                 dispatch({"action": "create_deployment_job", "params": {"job": payload}})
 
     def test_create_deployment_job_persists_valid_definition_without_starting_io(self):
@@ -933,9 +933,9 @@ class WebAPITests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=server_config), patch(
-                "feclora.webapi.socket.if_nameindex", return_value=[(2, "enp1s0")]
-            ), patch("feclora.webapi._images", return_value=[]), patch(
-                "feclora.webapi._deployment_journal_directory", return_value=Path(directory)
+                "feclora.api.socket.if_nameindex", return_value=[(2, "enp1s0")]
+            ), patch("feclora.api._images", return_value=[]), patch(
+                "feclora.api._deployment_journal_directory", return_value=Path(directory)
             ):
                 result = dispatch({"action": "create_deployment_job", "params": {"job": payload}})
                 from feclora.deployment.journal import DeploymentJournal
@@ -969,11 +969,11 @@ class WebAPITests(unittest.TestCase):
                 "timestamp": "2026-11-08T12:00:00+00:00", "job_id": job_id,
                 "event": "service_started", "job_state": "created",
             })
-            with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
-                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+            with patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), \
+                 patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
                      returncode=0, stdout="inactive",
                  )):
-                with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
+                with self.assertRaisesRegex(APIError, "confirmation does not match"):
                     dispatch({"action": "reconcile_deployment_job", "params": {
                         "job_id": job_id, "confirmation": "RECONCILE wrong",
                     }})
@@ -991,10 +991,10 @@ class WebAPITests(unittest.TestCase):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         for state in ("active", "activating", "deactivating", "reloading"):
             with self.subTest(state=state), patch(
-                "feclora.webapi.subprocess.run",
+                "feclora.api.subprocess.run",
                 return_value=SimpleNamespace(returncode=0, stdout=state),
             ):
-                with self.assertRaisesRegex(WebAPIError, "stop the active deployment service"):
+                with self.assertRaisesRegex(APIError, "stop the active deployment service"):
                     dispatch({"action": "reconcile_deployment_job", "params": {
                         "job_id": job_id, "confirmation": "RECONCILE " + job_id,
                     }})
@@ -1002,16 +1002,16 @@ class WebAPITests(unittest.TestCase):
     def test_reconcile_fails_closed_when_systemd_state_cannot_be_verified(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         with patch(
-            "feclora.webapi.subprocess.run",
+            "feclora.api.subprocess.run",
             return_value=SimpleNamespace(returncode=1, stdout=""),
         ):
-            with self.assertRaisesRegex(WebAPIError, "reconciliation is blocked"):
+            with self.assertRaisesRegex(APIError, "reconciliation is blocked"):
                 dispatch({"action": "reconcile_deployment_job", "params": {
                     "job_id": job_id, "confirmation": "RECONCILE " + job_id,
                 }})
 
     def test_reconcile_deployment_job_rejects_extra_parameters(self):
-        with self.assertRaisesRegex(WebAPIError, "exactly job_id and confirmation"):
+        with self.assertRaisesRegex(APIError, "exactly job_id and confirmation"):
             dispatch({"action": "reconcile_deployment_job", "params": {
                 "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
                 "confirmation": "RECONCILE f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -1021,11 +1021,11 @@ class WebAPITests(unittest.TestCase):
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
-            with self.subTest(invalid=invalid), self.assertRaises(WebAPIError):
+            with self.subTest(invalid=invalid), self.assertRaises(APIError):
                 _device(invalid, "target")
 
     def test_destructive_action_requires_exact_parameter_set(self):
-        with self.assertRaisesRegex(WebAPIError, "parameters do not match"):
+        with self.assertRaisesRegex(APIError, "parameters do not match"):
             dispatch({"action": "clone_disk", "params": {"source": "/dev/sda", "target": "/dev/sdb"}})
 
     def test_start_deployment_service_uses_validated_systemd_instance(self):
@@ -1037,11 +1037,11 @@ class WebAPITests(unittest.TestCase):
         })
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / f"{job_id}.jsonl").write_text("journal\n", encoding="utf-8")
-            with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
+            with patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), \
                  patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal), \
-                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                 patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
                      returncode=0, stdout="", stderr="",
-                 )) as runner, patch("feclora.webapi._deployment_service_status", return_value={
+                 )) as runner, patch("feclora.api._deployment_service_status", return_value={
                      "job_id": job_id, "job_state": "created",
                  }):
                 result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
@@ -1051,7 +1051,7 @@ class WebAPITests(unittest.TestCase):
         ])
 
     def test_deployment_service_status_requires_canonical_uuid(self):
-        with self.assertRaisesRegex(WebAPIError, "canonical UUID"):
+        with self.assertRaisesRegex(APIError, "canonical UUID"):
             dispatch({"action": "deployment_service_status", "params": {"job_id": "../bad"}})
 
     def test_arm_deployment_job_uses_root_local_ipc(self):
@@ -1082,17 +1082,17 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.deployment.local_control.local_control_request", return_value={
             "job_id": job_id, "accepted": True,
         }), patch("feclora.network.pxe_answer_store.revoke_pxe_answer", side_effect=OSError("disk error")):
-            with self.assertRaisesRegex(WebAPIError, "cancellation was accepted.*could not be revoked"):
+            with self.assertRaisesRegex(APIError, "cancellation was accepted.*could not be revoked"):
                 dispatch({"action": "cancel_deployment_job", "params": {
                     "job_id": job_id, "confirmation": "CANCEL " + job_id,
                 }})
 
     def test_stop_deployment_service_refuses_active_worker(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.webapi._deployment_service_status", return_value={
+        with patch("feclora.api._deployment_service_status", return_value={
             "job_id": job_id, "job_state": "running", "worker_active": True, "clients": [],
-        }), patch("feclora.webapi.subprocess.run") as runner:
-            with self.assertRaisesRegex(WebAPIError, "while a deployment worker"):
+        }), patch("feclora.api.subprocess.run") as runner:
+            with self.assertRaisesRegex(APIError, "while a deployment worker"):
                 dispatch({"action": "stop_deployment_service", "params": {"job_id": job_id}})
         runner.assert_not_called()
 
@@ -1115,8 +1115,8 @@ class WebAPITests(unittest.TestCase):
             DeploymentCoordinator(DeploymentJob.from_dict(payload), event_sink=journal)
             journal({"timestamp": "2026-11-08T12:00:00+00:00", "job_id": job_id,
                      "event": "service_started", "job_state": "created"})
-            with patch("feclora.webapi.os.path.lexists", return_value=True), \
-                 patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
+            with patch("feclora.api.os.path.lexists", return_value=True), \
+                 patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), \
                  patch("feclora.deployment.local_control.local_control_request", return_value={"job_id": job_id}):
                 jobs = dispatch({"action": "deployment_jobs"})["jobs"]
         self.assertFalse(jobs[0]["interrupted"])
@@ -1124,10 +1124,10 @@ class WebAPITests(unittest.TestCase):
 
     def test_reconcile_rejects_a_job_owned_by_the_live_service(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+        with patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
             returncode=0, stdout="active",
         )):
-            with self.assertRaisesRegex(WebAPIError, "stop the active deployment service"):
+            with self.assertRaisesRegex(APIError, "stop the active deployment service"):
                 dispatch({"action": "reconcile_deployment_job", "params": {
                     "job_id": job_id, "confirmation": "RECONCILE " + job_id,
                 }})
@@ -1142,7 +1142,7 @@ class WebAPITests(unittest.TestCase):
             "multicast_group": None, "multicast_port": None,
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         }
-        with self.assertRaisesRegex(WebAPIError, "exactly one Client"):
+        with self.assertRaisesRegex(APIError, "exactly one Client"):
             dispatch({"action": "create_deployment_job", "params": {"job": job}})
 
     def test_pxe_start_refuses_to_replace_active_deployment_firewall_zone(self):
@@ -1153,12 +1153,12 @@ class WebAPITests(unittest.TestCase):
             "http_port": 8080, "authoritative_confirmed": False,
             "max_clients": 20, "max_duration_seconds": None,
         }
-        with patch("feclora.webapi._validate_pxe_profile"), \
+        with patch("feclora.api._validate_pxe_profile"), \
              patch("feclora.network.pxe_config.PXENetworkConfig", return_value=SimpleNamespace(interface="enp1s0")), \
-             patch("feclora.webapi._active_deployment_service_status", return_value={
+             patch("feclora.api._active_deployment_service_status", return_value={
                  "network_interface": "enp1s0",
-             }), patch("feclora.webapi._pxe_service_manager") as manager:
-            with self.assertRaisesRegex(WebAPIError, "active deployment service"):
+             }), patch("feclora.api._pxe_service_manager") as manager:
+            with self.assertRaisesRegex(APIError, "active deployment service"):
                 dispatch({"action": "start_pxe_services", "params": params})
         manager.assert_not_called()
 
@@ -1166,11 +1166,11 @@ class WebAPITests(unittest.TestCase):
         manager = SimpleNamespace(status=lambda: {
             "active": True, "interface": "enp1s0",
         }, stop=Mock())
-        with patch("feclora.webapi._pxe_service_manager", return_value=manager), \
-             patch("feclora.webapi._active_deployment_service_status", return_value={
+        with patch("feclora.api._pxe_service_manager", return_value=manager), \
+             patch("feclora.api._active_deployment_service_status", return_value={
                  "network_interface": "enp1s0",
              }):
-            with self.assertRaisesRegex(WebAPIError, "stop the deployment service"):
+            with self.assertRaisesRegex(APIError, "stop the deployment service"):
                 dispatch({"action": "stop_pxe_services"})
         manager.stop.assert_not_called()
 
@@ -1226,14 +1226,14 @@ class WebAPITests(unittest.TestCase):
                     }],
                 }]},
             }
-            with patch("feclora.webapi._inspect_remote_job", return_value={
+            with patch("feclora.api._inspect_remote_job", return_value={
                 "host": "192.0.2.10", "server_identity": "URI:server",
                 "job": {"job_id": job_id, "operation": "restore", "target_type": "logical_volume", "transport": "unicast"},
-            }), patch("feclora.webapi._client_job_directory", return_value=root), \
+            }), patch("feclora.api._client_job_directory", return_value=root), \
                  patch("feclora.storage.inventory.collect_inventory", return_value=inventory), \
-                 patch("feclora.webapi.os.stat", side_effect=lambda path: block_info if os.fspath(path) == "/dev/vg0/data" else real_stat(path)), \
-                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")), \
-                 patch("feclora.webapi._client_job_status", return_value={"job_id": job_id, "phase": "connecting"}):
+                 patch("feclora.api.os.stat", side_effect=lambda path: block_info if os.fspath(path) == "/dev/vg0/data" else real_stat(path)), \
+                 patch("feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")), \
+                 patch("feclora.api._client_job_status", return_value={"job_id": job_id, "phase": "connecting"}):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/vg0/data",
                     "confirmation": "ERASE /dev/vg0/data", "compression": "gzip",
@@ -1253,16 +1253,16 @@ class WebAPITests(unittest.TestCase):
             root = Path(directory)
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
             real_stat = os.stat
-            with patch("feclora.webapi._inspect_remote_job", return_value={
+            with patch("feclora.api._inspect_remote_job", return_value={
                 "host": "192.0.2.10", "server_identity": "URI:server",
                 "job": {"job_id": job_id, "operation": "restore", "target_type": "disk", "transport": "unicast"},
-            }), patch("feclora.webapi._client_job_directory", return_value=root), \
+            }), patch("feclora.api._client_job_directory", return_value=root), \
                  patch("feclora.storage.inventory.collect_inventory", return_value={
                      "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
-                 }), patch("feclora.webapi.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == "/dev/sda" else real_stat(path, *args, **kwargs)), \
-                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                 }), patch("feclora.api.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == "/dev/sda" else real_stat(path, *args, **kwargs)), \
+                 patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
                      returncode=0, stdout="", stderr="",
-                 )) as runner, patch("feclora.webapi._client_job_status", return_value={
+                 )) as runner, patch("feclora.api._client_job_status", return_value={
                      "job_id": job_id, "phase": "connecting",
                  }):
                 result = dispatch({"action": "start_client_job", "params": {
@@ -1283,11 +1283,11 @@ class WebAPITests(unittest.TestCase):
 
     def test_start_client_job_rejects_image_protection_flags_for_restore(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.webapi._inspect_remote_job", return_value={
+        with patch("feclora.api._inspect_remote_job", return_value={
             "host": "192.0.2.10", "server_identity": "URI:server",
             "job": {"job_id": job_id, "operation": "restore", "target_type": "disk", "transport": "unicast"},
         }):
-            with self.assertRaisesRegex(WebAPIError, "valid only for Client save jobs"):
+            with self.assertRaisesRegex(APIError, "valid only for Client save jobs"):
                 dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
                     "confirmation": "ERASE /dev/sda", "compression": "gzip",
@@ -1307,21 +1307,21 @@ class WebAPITests(unittest.TestCase):
             root = Path(directory)
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
             real_stat = os.stat
-            with patch("feclora.webapi._inspect_remote_job", return_value={
+            with patch("feclora.api._inspect_remote_job", return_value={
                 "host": "192.0.2.10", "server_identity": "URI:server",
                 "job": {"job_id": job_id, "operation": "save", "target_type": "disk", "transport": "unicast"},
             }), patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), patch(
-                "feclora.webapi.os.path.isfile", return_value=True
-            ), patch("feclora.webapi.shutil.which", return_value="/usr/bin/tool"), patch(
-                "feclora.webapi._client_job_directory", return_value=root
+                "feclora.api.os.path.isfile", return_value=True
+            ), patch("feclora.api.shutil.which", return_value="/usr/bin/tool"), patch(
+                "feclora.api._client_job_directory", return_value=root
             ), patch("feclora.storage.inventory.collect_inventory", return_value={
                 "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
             }), patch(
-                "feclora.webapi.os.stat",
+                "feclora.api.os.stat",
                 side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == "/dev/sda" else real_stat(path, *args, **kwargs),
-            ), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+            ), patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
                 returncode=0, stdout="", stderr="",
-            )), patch("feclora.webapi._client_job_status", return_value={
+            )), patch("feclora.api._client_job_status", return_value={
                 "job_id": job_id, "phase": "connecting",
             }):
                 result = dispatch({"action": "start_client_job", "params": {
@@ -1347,22 +1347,22 @@ class WebAPITests(unittest.TestCase):
                 interface="enp1s0", ipv4_address="192.0.2.20",
                 warnings=("Verify IGMP snooping and querier.",),
             )
-            with patch("feclora.webapi._inspect_remote_job", return_value={
+            with patch("feclora.api._inspect_remote_job", return_value={
                 "host": "192.0.2.10", "server_identity": "URI:server",
                 "job": {
                     "job_id": job_id, "operation": "restore", "target_type": "disk",
                     "transport": "multicast", "multicast_group": "239.10.10.10",
                 },
-            }), patch("feclora.webapi.socket.if_nameindex", return_value=[(2, "enp1s0")]), \
+            }), patch("feclora.api.socket.if_nameindex", return_value=[(2, "enp1s0")]), \
                  patch("feclora.network.multicast_preflight.inspect_multicast_interface", return_value=preflight) as inspect, \
-                 patch("feclora.webapi._client_job_directory", return_value=root), \
+                 patch("feclora.api._client_job_directory", return_value=root), \
                  patch("feclora.storage.inventory.collect_inventory", return_value={
                      "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
-                 }), patch("feclora.webapi.os.stat",
+                 }), patch("feclora.api.os.stat",
                            side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == "/dev/sda" else real_stat(path, *args, **kwargs)), \
-                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                 patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
                      returncode=0, stdout="", stderr="",
-                 )), patch("feclora.webapi._client_job_status", return_value={
+                 )), patch("feclora.api._client_job_status", return_value={
                      "job_id": job_id, "phase": "connecting",
                  }):
                 result = dispatch({"action": "start_client_job", "params": {
@@ -1379,10 +1379,10 @@ class WebAPITests(unittest.TestCase):
 
     def test_client_job_status_marks_nonterminal_inactive_service_interrupted(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.webapi._client_job_paths", return_value=(Path("/tmp/request"), Path("/tmp/status"))), \
-             patch("feclora.webapi._read_client_job_status", return_value={
+        with patch("feclora.api._client_job_paths", return_value=(Path("/tmp/request"), Path("/tmp/status"))), \
+             patch("feclora.api._read_client_job_status", return_value={
                  "job_id": job_id, "phase": "running",
-             }), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=3)):
+             }), patch("feclora.api.subprocess.run", return_value=SimpleNamespace(returncode=3)):
             result = dispatch({"action": "client_job_status", "params": {"job_id": job_id}})
         self.assertFalse(result["unit_active"])
         self.assertTrue(result["interrupted"])
@@ -1407,7 +1407,7 @@ class WebAPITests(unittest.TestCase):
         expected = [{"uuid": "12345678-1234-1234-1234-123456789abc", "name": "LAN"}]
         with patch("feclora.network.connection_profiles.list_connection_profiles", return_value=expected):
             self.assertEqual(dispatch({"action": "network_connection_profiles"}), {"profiles": expected})
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "network_connection_profiles", "params": {"password": "secret"}})
 
 
@@ -1421,20 +1421,20 @@ class WebAPITests(unittest.TestCase):
         read_source.assert_called_once_with("/root/nas.key")
         put.assert_called_once_with("nas", "ssh-key", b"private-key-bytes", replace=False)
         self.assertEqual(result, {"credential": stored})
-        with self.assertRaisesRegex(WebAPIError, "replace must be boolean"):
+        with self.assertRaisesRegex(APIError, "replace must be boolean"):
             dispatch({"action": "put_systemd_credential", "params": {
                 "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": "yes",
             }})
 
     def test_systemd_credential_removal_rejects_saved_repository_reference(self):
         with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore._path", return_value="/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"):
-            with patch("feclora.webapi._remote_repository_manager") as manager:
+            with patch("feclora.api._remote_repository_manager") as manager:
                 manager.return_value.credential_is_referenced.return_value = True
-                with self.assertRaisesRegex(WebAPIError, "still referenced by a saved repository"):
+                with self.assertRaisesRegex(APIError, "still referenced by a saved repository"):
                     dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
 
     def test_systemd_credential_api_removes_by_reference_only(self):
-        with patch("feclora.webapi._remote_repository_manager") as manager:
+        with patch("feclora.api._remote_repository_manager") as manager:
             manager.return_value.credential_is_referenced.return_value = False
             with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.remove") as remove:
                 result = dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
@@ -1445,7 +1445,7 @@ class WebAPITests(unittest.TestCase):
         expected = [{"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"}]
         with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.list", return_value=expected):
             self.assertEqual(dispatch({"action": "systemd_credentials"}), {"credentials": expected})
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+        with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "systemd_credentials", "params": {"secret": "must-not-be-accepted"}})
 
 
@@ -1463,7 +1463,7 @@ class WebAPITests(unittest.TestCase):
             "known_hosts_file": "/etc/feclora/known_hosts", "port": 22,
             "read_only": True,
         }
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager), \
+        with patch("feclora.api._remote_repository_manager", return_value=manager), \
              patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]):
             self.assertEqual(dispatch({"action": "remote_repositories"}), {
                 "repositories": [{"id": "images", "mounted": False}],
@@ -1493,7 +1493,7 @@ class WebAPITests(unittest.TestCase):
             "credential_file": None, "identity_file": None, "known_hosts_file": None,
             "port": None, "read_only": True,
         }
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager), \
+        with patch("feclora.api._remote_repository_manager", return_value=manager), \
              patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]):
             self.assertEqual(dispatch({"action": "update_remote_repository", "params": definition}),
                              {"id": "images", "updated": True})
@@ -1503,31 +1503,31 @@ class WebAPITests(unittest.TestCase):
         manager.check.assert_called_once_with("images")
 
     def test_remote_repository_add_rejects_extra_fields(self):
-        with patch("feclora.webapi._remote_repository_manager"):
-            with self.assertRaisesRegex(WebAPIError, "missing or unknown fields"):
+        with patch("feclora.api._remote_repository_manager"):
+            with self.assertRaisesRegex(APIError, "missing or unknown fields"):
                 dispatch({"action": "add_remote_repository", "params": {"id": "x", "password": "secret"}})
 
 
     def test_repository_images_action_lists_only_selected_verified_repository(self):
         expected = [{"image_id": "golden", "image_type": "disk"}]
-        with patch("feclora.webapi._images", return_value=expected) as images:
+        with patch("feclora.api._images", return_value=expected) as images:
             self.assertEqual(dispatch({"action": "repository_images", "params": {"repository_id": "nas-images"}}), {"images": expected})
         images.assert_called_once_with("nas-images")
 
 
     def test_remote_manifest_inventory_propagates_directory_io_failure(self):
-        from feclora.webapi import _filesystem_images
-        with patch("feclora.webapi.os.scandir", side_effect=OSError("stale NFS handle")):
+        from feclora.api import _filesystem_images
+        with patch("feclora.api.os.scandir", side_effect=OSError("stale NFS handle")):
             with self.assertRaisesRegex(OSError, "stale NFS handle"):
                 _filesystem_images(Path("/mnt/feclora/nas-images"))
 
     def test_local_manifest_inventory_allows_missing_repository_directory(self):
-        from feclora.webapi import _filesystem_images
-        with patch("feclora.webapi.os.scandir", side_effect=FileNotFoundError("missing")):
+        from feclora.api import _filesystem_images
+        with patch("feclora.api.os.scandir", side_effect=FileNotFoundError("missing")):
             self.assertEqual(_filesystem_images(Path("/var/lib/feclora/images"), missing_ok=True), [])
 
     def test_remote_repository_inventory_holds_shared_lease_through_manifest_scan(self):
-        from feclora.webapi import _images
+        from feclora.api import _images
         expected = [{"image_id": "golden", "image_type": "disk"}]
         manager = Mock()
         manager.acquire_usage_lock.return_value = 123
@@ -1535,9 +1535,9 @@ class WebAPITests(unittest.TestCase):
         with patch(
             "feclora.storage.s3_repository_manager.S3RepositoryManager",
             return_value=SimpleNamespace(list=lambda: []),
-        ), patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
-            "feclora.webapi._filesystem_images", return_value=expected,
-        ) as scan, patch("feclora.webapi.os.close") as close:
+        ), patch("feclora.api._remote_repository_manager", return_value=manager), patch(
+            "feclora.api._filesystem_images", return_value=expected,
+        ) as scan, patch("feclora.api.os.close") as close:
             self.assertEqual(_images("nas-images"), expected)
         manager.acquire_usage_lock.assert_called_once_with("nas-images")
         manager.resolve.assert_called_once_with("nas-images", write=False)
@@ -1545,22 +1545,22 @@ class WebAPITests(unittest.TestCase):
         close.assert_called_once_with(123)
 
     def test_remote_repository_inventory_releases_lease_when_scan_fails(self):
-        from feclora.webapi import _images
+        from feclora.api import _images
         manager = Mock()
         manager.acquire_usage_lock.return_value = 456
         manager.resolve.return_value = "/mnt/feclora/nas-images"
         with patch(
             "feclora.storage.s3_repository_manager.S3RepositoryManager",
             return_value=SimpleNamespace(list=lambda: []),
-        ), patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
-            "feclora.webapi._filesystem_images", side_effect=OSError("remote read failed"),
-        ), patch("feclora.webapi.os.close") as close:
-            with self.assertRaisesRegex(WebAPIError, "remote image inventory failed"):
+        ), patch("feclora.api._remote_repository_manager", return_value=manager), patch(
+            "feclora.api._filesystem_images", side_effect=OSError("remote read failed"),
+        ), patch("feclora.api.os.close") as close:
+            with self.assertRaisesRegex(APIError, "remote image inventory failed"):
                 _images("nas-images")
         close.assert_called_once_with(456)
 
     def test_s3_repository_inventory_holds_shared_lease(self):
-        from feclora.webapi import _images
+        from feclora.api import _images
         expected = [{"image_id": "golden", "image_type": "disk"}]
         object_repository = SimpleNamespace(list_images=Mock(return_value=expected))
         manager = SimpleNamespace(
@@ -1570,7 +1570,7 @@ class WebAPITests(unittest.TestCase):
         )
         with patch(
             "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager,
-        ), patch("feclora.webapi.os.close") as close:
+        ), patch("feclora.api.os.close") as close:
             self.assertEqual(_images("s3-archive"), expected)
         manager.acquire_usage_lock.assert_called_once_with("s3-archive")
         manager.repository.assert_called_once_with("s3-archive")
@@ -1579,23 +1579,23 @@ class WebAPITests(unittest.TestCase):
 
 
     def test_operation_repository_resolves_only_verified_remote_mount(self):
-        from feclora.webapi import _operation_repository
+        from feclora.api import _operation_repository
         manager = Mock()
         manager.resolve.return_value = "/var/lib/feclora/repositories/images"
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager):
+        with patch("feclora.api._remote_repository_manager", return_value=manager):
             result = _operation_repository({"repository_id": "images"}, write=True)
         self.assertEqual(str(result), "/var/lib/feclora/repositories/images")
         manager.resolve.assert_called_once_with("images", write=True)
 
     def test_operation_repository_rejects_invalid_repository_id(self):
-        from feclora.webapi import _operation_repository
-        with self.assertRaisesRegex(WebAPIError, "repository_id is invalid"):
+        from feclora.api import _operation_repository
+        with self.assertRaisesRegex(APIError, "repository_id is invalid"):
             _operation_repository({"repository_id": "../images"}, write=False)
 
     def test_local_disk_clone_persists_progress_in_operation_journal(self):
-        from feclora.webapi import _clone_disk_progress
+        from feclora.api import _clone_disk_progress
         with patch("feclora.storage.operation_log.record_progress") as record, patch(
-            "feclora.webapi._emit"
+            "feclora.api._emit"
         ) as emit:
             _clone_disk_progress(4096, 8192, "Copied data")
         record.assert_called_once_with(4096, 8192)
@@ -1607,7 +1607,7 @@ class WebAPITests(unittest.TestCase):
 
 
     def test_plain_restore_uses_tls_transport_authentication(self):
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             manifest_path = root / "plain.manifest.json"
@@ -1622,24 +1622,24 @@ class WebAPITests(unittest.TestCase):
                 "image_id": "plain", "target": "/dev/sdb",
                 "confirmation": "ERASE /dev/sdb",
             }
-            with patch("feclora.webapi._repository", return_value=root), \
-                 patch("feclora.webapi._operation_repository", return_value=root), \
-                 patch("feclora.webapi._image_manifest", return_value=manifest_path), \
-                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.webapi._security_material", return_value={
+            with patch("feclora.api._repository", return_value=root), \
+                 patch("feclora.api._operation_repository", return_value=root), \
+                 patch("feclora.api._image_manifest", return_value=manifest_path), \
+                 patch("feclora.api.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.api._security_material", return_value={
                      "age_decryption_available": False,
                      
                  }), \
-                 patch("feclora.webapi._client_runtime_config", return_value=client), \
+                 patch("feclora.api._client_runtime_config", return_value=client), \
                  patch("feclora.storage.disk_restore.restore_disk") as restore, \
-                 patch("feclora.webapi._emit"):
+                 patch("feclora.api._emit"):
                 result = _execute_operation("restore_disk", params, "restore-plain")
             restore.assert_called_once()
             self.assertTrue(result["verified"])
 
 
     def test_security_initialization_does_not_require_optional_image_tools(self):
-        from feclora.webapi import _initialize_security
+        from feclora.api import _initialize_security
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             availability = {
@@ -1648,11 +1648,11 @@ class WebAPITests(unittest.TestCase):
                 
                 
             }
-            with patch("feclora.webapi.Path", side_effect=lambda _value: root), \
+            with patch("feclora.api.Path", side_effect=lambda _value: root), \
                  patch("feclora.deployment.managed_pki.initialize_server_pki") as initialize_tls, \
-                 patch("feclora.webapi._security_material", return_value=availability), \
-                 patch("feclora.webapi.shutil.which", return_value=None), \
-                 patch("feclora.webapi.subprocess.run") as run:
+                 patch("feclora.api._security_material", return_value=availability), \
+                 patch("feclora.api.shutil.which", return_value=None), \
+                 patch("feclora.api.subprocess.run") as run:
                 result = _initialize_security()
             initialize_tls.assert_called_once_with(root)
             run.assert_not_called()
@@ -1673,26 +1673,26 @@ class WebAPITests(unittest.TestCase):
             image_id="wrong-partition-size", image_type="partition", source_size_bytes=4,
             artifacts=[artifact],
         )
-        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/wrong-partition-size.manifest.json")), patch(
+        with patch("feclora.api._image_manifest", return_value=Path("/repo/wrong-partition-size.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
-        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
-            "feclora.webapi.os.path.isfile", return_value=False
-        ), patch("feclora.webapi._security_material", return_value={
+        ), patch("feclora.api.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.api.os.path.isfile", return_value=False
+        ), patch("feclora.api._security_material", return_value={
              "age_decryption_available": False,
-        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
-            "feclora.webapi._operation_repository", return_value=Path("/repo")
+        }), patch("feclora.api._client_runtime_config", return_value=None), patch(
+            "feclora.api._operation_repository", return_value=Path("/repo")
         ), patch(
             "feclora.storage.disk_restore._verified_artifact_stream",
             return_value=nullcontext(io.BytesIO(b"bad")),
         ), patch("feclora.storage.disk_restore._decoded_stream", side_effect=lambda stream, _compression: stream):
             with self.assertRaisesRegex(Exception, "decoded raw partition artifact size mismatch"):
-                __import__("feclora.webapi", fromlist=["_verify_image"])._verify_image(
+                __import__("feclora.api", fromlist=["_verify_image"])._verify_image(
                     {"image_id": "wrong-partition-size"}
                 )
 
 
     def test_optional_image_keypair_publication_rolls_back_partial_pair(self):
-        from feclora.webapi import _publish_generated_keypair
+        from feclora.api import _publish_generated_keypair
         with tempfile.TemporaryDirectory() as root:
             pki = Path(root) / "pki"
             staging = Path(root) / "staging"
@@ -1703,7 +1703,7 @@ class WebAPITests(unittest.TestCase):
             first_stage.write_text("first key", encoding="ascii")
             second_stage.write_text("second key", encoding="ascii")
             second_final.write_text("pre-existing", encoding="ascii")
-            with self.assertRaisesRegex(WebAPIError, "atomically publish"):
+            with self.assertRaisesRegex(APIError, "atomically publish"):
                 _publish_generated_keypair(
                     (first_stage, second_stage), (first_final, second_final),
                 )
@@ -1711,7 +1711,7 @@ class WebAPITests(unittest.TestCase):
             self.assertEqual(second_final.read_text(encoding="ascii"), "pre-existing")
 
     def test_optional_image_keypair_publication_commits_both_files(self):
-        from feclora.webapi import _publish_generated_keypair
+        from feclora.api import _publish_generated_keypair
         with tempfile.TemporaryDirectory() as root:
             pki = Path(root) / "pki"
             staging = Path(root) / "staging"
@@ -1738,9 +1738,9 @@ class WebAPITests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory, patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+        ), patch("feclora.api.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=s3_manager
-        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
+        ), patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), patch(
             "feclora.deployment.journal.DeploymentJournal"
         ), patch(
             "feclora.deployment.coordinator.DeploymentCoordinator",
@@ -1759,9 +1759,9 @@ class WebAPITests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory, patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+        ), patch("feclora.api.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=s3_manager
-        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
+        ), patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), patch(
             "feclora.deployment.journal.DeploymentJournal"
         ), patch(
             "feclora.deployment.coordinator.DeploymentCoordinator",
@@ -1777,10 +1777,10 @@ class WebAPITests(unittest.TestCase):
         s3_manager = SimpleNamespace(list=lambda: [{"id": "s3-archive", "read_only": True}])
         with patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+        ), patch("feclora.api.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=s3_manager
         ):
-            with self.assertRaisesRegex(WebAPIError, "read-only"):
+            with self.assertRaisesRegex(APIError, "read-only"):
                 dispatch({"action": "create_deployment_job", "params": {"job": payload}})
 
     def _valid_deployment_payload(self, *, operation="restore", transport="unicast"):
@@ -1813,11 +1813,11 @@ class WebAPITests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory, patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
-            "feclora.webapi._image_manifest", return_value=Path(directory) / "optional-crypto-image.manifest.json"
+        ), patch("feclora.api.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+            "feclora.api._image_manifest", return_value=Path(directory) / "optional-crypto-image.manifest.json"
         ), patch("pathlib.Path.read_text", return_value="{}"), patch(
-            "feclora.webapi.ImageManifest.from_json", return_value=manifest
-        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
+            "feclora.api.ImageManifest.from_json", return_value=manifest
+        ), patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), patch(
             "feclora.deployment.journal.DeploymentJournal"
         ), patch(
             "feclora.deployment.coordinator.DeploymentCoordinator",
@@ -1836,9 +1836,9 @@ class WebAPITests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory, patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
-            "feclora.webapi._images", return_value=[]
-        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
+        ), patch("feclora.api.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+            "feclora.api._images", return_value=[]
+        ), patch("feclora.api._deployment_journal_directory", return_value=Path(directory)), patch(
             "feclora.deployment.journal.DeploymentJournal"
         ), patch(
             "feclora.deployment.coordinator.DeploymentCoordinator",
@@ -1881,7 +1881,7 @@ class WebAPITests(unittest.TestCase):
             certificate_file="/pki/server.crt", ca_file="/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
-        with patch("feclora.webapi.os.path.isfile", return_value=True), patch(
+        with patch("feclora.api.os.path.isfile", return_value=True), patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=server
         ), patch(
             "feclora.deployment.managed_pki.certificate_expiry_days",
@@ -1893,7 +1893,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result[0]["ca_status"], "valid")
 
     def test_filesystem_inventory_lists_only_digest_verified_p2v_images(self):
-        from feclora.webapi import _filesystem_images
+        from feclora.api import _filesystem_images
         with tempfile.TemporaryDirectory() as root:
             repository = Path(root)
             payload = b"verified-qcow2"
@@ -1921,11 +1921,11 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class P2VWebAPITests(unittest.TestCase):
+class P2VAPITests(unittest.TestCase):
     def test_p2v_import_operation_uses_selected_filesystem_repository(self):
         from contextlib import contextmanager
         from types import SimpleNamespace
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
 
         params = {
             "source_image_id": "physical-source",
@@ -1942,7 +1942,7 @@ class P2VWebAPITests(unittest.TestCase):
                 self.assertEqual(kwargs.get("image_id"), "physical-source")
                 yield Path(directory)
 
-            with patch("feclora.webapi._operation_repository_context", repository_context), \
+            with patch("feclora.api._operation_repository_context", repository_context), \
                  patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]), \
                  patch("feclora.storage.p2v_import.import_p2v_qcow2", return_value=manifest) as importer:
                 result = _execute_operation("import_p2v", params, "p2v-import-test")
@@ -1951,7 +1951,7 @@ class P2VWebAPITests(unittest.TestCase):
         importer.assert_called_once_with(Path(directory), "physical-source", "physical-native")
 
     def test_p2v_operation_publishes_qcow2_and_metadata_to_filesystem_repository(self):
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
         with tempfile.TemporaryDirectory() as root:
             repository = Path(root)
             def fake_convert(source, output):
@@ -1961,7 +1961,7 @@ class P2VWebAPITests(unittest.TestCase):
                     "virtual_size_bytes": 8192, "logical_sector_size": 4096,
                     "file_size_bytes": 13, "verified": True,
                 }
-            with patch("feclora.webapi._operation_repository", return_value=repository), patch(
+            with patch("feclora.api._operation_repository", return_value=repository), patch(
                 "feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert
             ):
                 result = _execute_operation(
@@ -1974,7 +1974,7 @@ class P2VWebAPITests(unittest.TestCase):
             self.assertEqual(metadata["virtual_size_bytes"], 8192)
 
     def test_p2v_publication_rolls_back_both_files_when_directory_sync_fails(self):
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
         from feclora.storage.image_publication import ImagePublicationError
         with tempfile.TemporaryDirectory() as root:
             repository = Path(root)
@@ -1992,7 +1992,7 @@ class P2VWebAPITests(unittest.TestCase):
                 if stat.S_ISDIR(os.fstat(fd).st_mode):
                     raise OSError("sync failed")
                 return real_fsync(fd)
-            with patch("feclora.webapi._operation_repository", return_value=repository), \
+            with patch("feclora.api._operation_repository", return_value=repository), \
                  patch("feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert), \
                  patch("feclora.storage.image_publication.os.fsync", side_effect=fail_directory_sync):
                 with self.assertRaises(ImagePublicationError):
@@ -2003,19 +2003,19 @@ class P2VWebAPITests(unittest.TestCase):
             self.assertFalse((repository / "vm-disk.p2v.json").exists())
 
 
-class P2VS3ExportWebAPITests(unittest.TestCase):
+class P2VS3ExportAPITests(unittest.TestCase):
     def test_s3_export_action_is_submitted_to_durable_worker(self):
         params = {
             "image_id": "vm-disk", "source_repository_id": "s3-archive",
             "destination_repository_id": "nfs-images",
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "job"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "job"}) as submit:
             result = dispatch({"action": "export_p2v_s3", "params": params})
         self.assertEqual(result["operation_id"], "job")
         submit.assert_called_once_with({"operation": "export_p2v_s3", "operation_params": params})
 
     def test_s3_p2v_export_verifies_then_publishes_metadata_sidecar_last(self):
-        from feclora.webapi import _export_p2v_from_s3
+        from feclora.api import _export_p2v_from_s3
         class FakeS3Repository:
             def download_p2v(self, image_id, destination):
                 payload = b"verified qcow2"
@@ -2033,8 +2033,8 @@ class P2VS3ExportWebAPITests(unittest.TestCase):
         manager.repository.return_value = FakeS3Repository()
         with tempfile.TemporaryDirectory() as root:
             with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager), \
-                 patch("feclora.webapi._repository", return_value=Path(root)), \
-                 patch("feclora.webapi.os.close"):
+                 patch("feclora.api._repository", return_value=Path(root)), \
+                 patch("feclora.api.os.close"):
                 result = _export_p2v_from_s3({
                     "image_id": "vm-disk", "source_repository_id": "s3-archive",
                 })
@@ -2045,7 +2045,7 @@ class P2VS3ExportWebAPITests(unittest.TestCase):
             self.assertEqual(json.loads((output / "vm-disk.p2v.json").read_text())["image_id"], "vm-disk")
 
     def test_s3_p2v_export_never_overwrites_existing_destination(self):
-        from feclora.webapi import _export_p2v_from_s3
+        from feclora.api import _export_p2v_from_s3
         class FakeS3Repository:
             def download_p2v(self, image_id, destination):
                 payload = b"verified qcow2"
@@ -2061,18 +2061,18 @@ class P2VS3ExportWebAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             (Path(root) / "vm-disk.qcow2").write_bytes(b"existing")
             with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager), \
-                 patch("feclora.webapi._repository", return_value=Path(root)), \
-                 patch("feclora.webapi.os.close"):
-                with self.assertRaisesRegex(WebAPIError, "refuses to overwrite"):
+                 patch("feclora.api._repository", return_value=Path(root)), \
+                 patch("feclora.api.os.close"):
+                with self.assertRaisesRegex(APIError, "refuses to overwrite"):
                     _export_p2v_from_s3({
                         "image_id": "vm-disk", "source_repository_id": "s3-archive",
                     })
             self.assertEqual((Path(root) / "vm-disk.qcow2").read_bytes(), b"existing")
 
     def test_export_p2v_s3_worker_dispatches_to_verified_export_engine(self):
-        from feclora.webapi import _execute_operation
+        from feclora.api import _execute_operation
         params = {"image_id": "vm-disk", "source_repository_id": "s3-archive"}
-        with patch("feclora.webapi._export_p2v_from_s3", return_value={"verified": True}) as export:
+        with patch("feclora.api._export_p2v_from_s3", return_value={"verified": True}) as export:
             result = _execute_operation("export_p2v_s3", params, "operation-1")
         self.assertTrue(result["verified"])
         export.assert_called_once_with(params)
@@ -2103,7 +2103,7 @@ class CaptureFilesystemPreflightAPITests(unittest.TestCase):
 
     def test_rejects_unsupported_filesystem_without_running_checker(self):
         with patch("feclora.storage.filesystem_probe.probe_ext_minimum_size") as probe:
-            with self.assertRaises(WebAPIError):
+            with self.assertRaises(APIError):
                 dispatch({
                     "action": "check_capture_filesystem",
                     "params": {"source": "/dev/sdb2", "filesystem": "xfs"},
@@ -2123,7 +2123,7 @@ class CaptureFilesystemPreflightAPITests(unittest.TestCase):
         self.assertTrue(result["read_only"])
 
     def test_rejects_extra_parameters(self):
-        with self.assertRaisesRegex(WebAPIError, "exactly source and filesystem"):
+        with self.assertRaisesRegex(APIError, "exactly source and filesystem"):
             dispatch({
                 "action": "check_capture_filesystem",
                 "params": {"source": "/dev/sdb2", "filesystem": "ext4", "repair": True},
@@ -2132,7 +2132,7 @@ class CaptureFilesystemPreflightAPITests(unittest.TestCase):
 
 class RestoreProfileAPITests(unittest.TestCase):
     def test_create_restore_profile_binds_unique_disk_and_saves_single_use_policy(self):
-        from feclora.webapi import _create_restore_profile
+        from feclora.api import _create_restore_profile
         manifest = SimpleNamespace(
             image_id="golden", image_type="disk", source_size_bytes=10_000_000,
             logical_sector_size=512, artifacts=[SimpleNamespace(role="disk-image", format="raw", encryption="none")],
@@ -2145,13 +2145,13 @@ class RestoreProfileAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             profile_dir = Path(root) / "profiles"
             profile_dir.mkdir()
-            with patch("feclora.webapi._profile_repository", return_value=Path(root)), \
-                 patch("feclora.webapi._image_manifest", return_value=Path(root) / "golden.manifest.json"), \
+            with patch("feclora.api._profile_repository", return_value=Path(root)), \
+                 patch("feclora.api._image_manifest", return_value=Path(root) / "golden.manifest.json"), \
                  patch("pathlib.Path.read_text", return_value="{}"), \
-                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.webapi.collect_inventory", return_value=inventory), \
+                 patch("feclora.api.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.api.collect_inventory", return_value=inventory), \
                  patch("feclora.storage.source_safety.check_capture_source_safe", return_value=None), \
-                 patch("feclora.webapi._restore_profile_directory", return_value=profile_dir), \
+                 patch("feclora.api._restore_profile_directory", return_value=profile_dir), \
                  patch("feclora.storage.restore_profile.save_unattended_restore_profile", side_effect=lambda profile, path: path) as save:
                 result = _create_restore_profile({
                     "name": "Lab image", "image_id": "golden",
@@ -2166,7 +2166,7 @@ class RestoreProfileAPITests(unittest.TestCase):
         self.assertEqual(profile.target.wwn, "naa.5000c50012345678")
 
     def test_create_restore_profile_rejects_ambiguous_target(self):
-        from feclora.webapi import _create_restore_profile
+        from feclora.api import _create_restore_profile
         manifest = SimpleNamespace(
             image_id="golden", image_type="disk", source_size_bytes=10_000_000,
             logical_sector_size=512, artifacts=[SimpleNamespace(role="disk-image", format="raw", encryption="none")],
@@ -2176,13 +2176,13 @@ class RestoreProfileAPITests(unittest.TestCase):
             {"path": "/dev/sdb", "type": "disk", "serial": "DUPLICATE", "size_bytes": 20_000_000, "logical_sector_size": 512, "mountpoints": [], "children": []},
         ]}
         with tempfile.TemporaryDirectory() as root:
-            with patch("feclora.webapi._profile_repository", return_value=Path(root)), \
-                 patch("feclora.webapi._image_manifest", return_value=Path(root) / "golden.manifest.json"), \
+            with patch("feclora.api._profile_repository", return_value=Path(root)), \
+                 patch("feclora.api._image_manifest", return_value=Path(root) / "golden.manifest.json"), \
                  patch("pathlib.Path.read_text", return_value="{}"), \
-                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.webapi.collect_inventory", return_value=inventory), \
+                 patch("feclora.api.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.api.collect_inventory", return_value=inventory), \
                  patch("feclora.storage.restore_profile.save_unattended_restore_profile") as save:
-                with self.assertRaisesRegex(WebAPIError, "exactly one detected whole disk"):
+                with self.assertRaisesRegex(APIError, "exactly one detected whole disk"):
                     _create_restore_profile({
                         "name": "Lab image", "image_id": "golden",
                         "target_wwn": None, "target_serial": "DUPLICATE",
@@ -2191,12 +2191,12 @@ class RestoreProfileAPITests(unittest.TestCase):
         save.assert_not_called()
 
     def test_restore_profiles_action_lists_empty_directory(self):
-        with patch("feclora.webapi._restore_profile_directory", return_value=Path("/tmp/nonexistent-profiles")):
+        with patch("feclora.api._restore_profile_directory", return_value=Path("/tmp/nonexistent-profiles")):
             with patch("pathlib.Path.glob", return_value=[]):
                 self.assertEqual(dispatch({"action": "restore_profiles"}), {"profiles": [], "storage_available": False})
 
     def test_restore_profile_actions_reject_unexpected_parameters(self):
-        with self.assertRaisesRegex(WebAPIError, "mounted filesystem repository_id"):
+        with self.assertRaisesRegex(APIError, "mounted filesystem repository_id"):
             dispatch({"action": "restore_profiles", "params": {"path": "/etc/passwd"}})
 
 
@@ -2208,7 +2208,7 @@ class ProportionalRestoreDispatchTests(unittest.TestCase):
             "source_major_minor": "8:0", "target_major_minor": "8:16",
             "confirmation": "ERASE /dev/sdb",
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "queued"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "queued"}) as submit:
             result = dispatch({"action": "restore_proportional_disk", "params": params})
         self.assertEqual(result, {"operation_id": "queued"})
         submit.assert_called_once_with({
@@ -2224,7 +2224,7 @@ class RestoreProfileExecutionDispatchTests(unittest.TestCase):
             "target": "/dev/sdb", "confirmation": "ERASE /dev/sdb",
             "repository_id": "backup",
         }
-        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "queued"}) as submit:
+        with patch("feclora.api._submit_local_operation", return_value={"operation_id": "queued"}) as submit:
             result = dispatch({"action": "execute_restore_profile", "params": params})
         self.assertEqual(result, {"operation_id": "queued"})
         submit.assert_called_once_with({
@@ -2232,11 +2232,11 @@ class RestoreProfileExecutionDispatchTests(unittest.TestCase):
         })
 
     def test_restore_profile_storage_rejects_live_root_filesystem(self):
-        from feclora.webapi import _persistent_repository
+        from feclora.api import _persistent_repository
         with tempfile.TemporaryDirectory() as directory:
-            with patch("feclora.webapi.shutil.which", return_value="/usr/bin/findmnt"), patch(
-                "feclora.webapi.subprocess.run",
+            with patch("feclora.api.shutil.which", return_value="/usr/bin/findmnt"), patch(
+                "feclora.api.subprocess.run",
                 return_value=SimpleNamespace(stdout="ext4 /\n"),
             ):
-                with self.assertRaisesRegex(WebAPIError, "dedicated persistent"):
+                with self.assertRaisesRegex(APIError, "dedicated persistent"):
                     _persistent_repository(Path(directory))

@@ -13,4 +13,4 @@ esac
 
 unset PYTHONHOME PYTHONPATH
 export PYTHONPATH=/usr/share/feclora/python
-exec /usr/bin/python3 -m feclora.webapi "$1"
+exec /usr/bin/python3 -m feclora.api "$1"

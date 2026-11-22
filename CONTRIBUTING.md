@@ -1,7 +1,7 @@
 # Contributing to Feclora
 
 This document describes the engineering and review expectations for
-contributions to Feclora. The project is a Fedora Live rescue environment:
+contributions to Feclora. The project is a Fedora Live appliance:
 correctness and storage safety take priority over feature count.
 
 ## Before changing code
@@ -9,9 +9,9 @@ correctness and storage safety take priority over feature count.
 - Read the relevant operator documentation and the current
   [roadmap](docs/ROADMAP.md) and [feature matrix](docs/FEATURE-MATRIX.md).
 - Check the relevant architecture and protocol documentation before changing persisted formats, trust boundaries or wire behavior.
-- Keep Cockpit as the primary operator interface. Privileged operations belong
-  behind the allowlisted Python API; browser code must not execute privileged
-  commands or construct arbitrary shell commands.
+- Keep the keyboard-first Textual interface as the primary operator interface.
+  Privileged operations belong behind the allowlisted API helper; UI code must
+  not execute privileged commands or construct arbitrary shell commands.
 - Preserve compatibility deliberately. If a persisted journal, manifest,
   configuration, or wire protocol changes, document its schema and migration
   behavior and add regression tests.
@@ -32,7 +32,7 @@ correctness and storage safety take priority over feature count.
   and other transports accurately.
 - Prefer small, independently testable modules. Avoid unrelated refactors and
   preserve historical ADRs.
-- Update the Cockpit UI, API validation, automated tests, operator docs,
+- Update the Textual UI, API validation, automated tests, operator docs,
   feature matrix, and roadmap together when a feature crosses those layers.
 
 ## Validation
@@ -42,17 +42,14 @@ Run the hardware-independent checks from the repository root:
 ```bash
 make validate
 make test
-make webui
 ```
 
-The Python tests use the standard-library unittest runner. The frontend build
-uses the exact direct dependency versions in `webui/package.json` and the
-committed transitive dependency graph in `webui/package-lock.json`. CI and
-the build script use `npm ci`; keep the lockfile synchronized with manifest
-changes and verify clean-checkout installs.
+The tests use the standard-library `unittest` runner. UI tests require the
+pinned Textual dependency from `requirements-test.txt`; install it in a virtual
+environment as described in [the build guide](docs/BUILD.md).
 
 Changes to shell scripts must pass Bash syntax validation and ShellCheck.
-Changes to the frontend must compile successfully. CI must pass on the exact
+Changes to the TUI must pass its interaction tests. CI must pass on the exact
 commit being proposed.
 
 ## Storage and deployment safety
@@ -72,7 +69,7 @@ commit being proposed.
 
 Document new operator-visible behavior, prerequisites, warnings, recovery
 procedures, and limitations. Mark a roadmap item complete only when its
-implementation, Cockpit integration where applicable, and automated
+implementation, Textual integration where applicable, and automated
 non-destructive validation are complete. Keep hardware acceptance explicitly
 separate.
 

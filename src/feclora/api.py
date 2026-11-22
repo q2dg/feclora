@@ -34,7 +34,7 @@ REPOSITORY = Path("/var/lib/feclora/images")
 MAX_REQUEST = 128 * 1024
 
 
-class WebAPIError(RuntimeError):
+class APIError(RuntimeError):
     """An API request was invalid or could not be fulfilled."""
 
 
@@ -47,7 +47,7 @@ def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
         if key in result:
-            raise WebAPIError(f"duplicate request field: {key}")
+            raise APIError(f"duplicate request field: {key}")
         result[key] = value
     return result
 
@@ -59,10 +59,10 @@ def _repository(*, create: bool = False) -> Path:
     try:
         parent_info = os.lstat(parent)
     except OSError as exc:
-        raise WebAPIError("Feclora state directory is unavailable") from exc
+        raise APIError("Feclora state directory is unavailable") from exc
     if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
             or parent_info.st_uid != 0 or parent_info.st_mode & 0o077):
-        raise WebAPIError("Feclora state directory must be a private root-owned real directory")
+        raise APIError("Feclora state directory must be a private root-owned real directory")
     if create:
         REPOSITORY.mkdir(mode=0o700, exist_ok=True)
     try:
@@ -71,7 +71,7 @@ def _repository(*, create: bool = False) -> Path:
         return REPOSITORY
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != os.geteuid() or info.st_mode & 0o077):
-        raise WebAPIError("Feclora image repository must be a private root-owned real directory")
+        raise APIError("Feclora image repository must be a private root-owned real directory")
     if create:
         os.chmod(REPOSITORY, 0o700)
     return REPOSITORY
@@ -79,14 +79,14 @@ def _repository(*, create: bool = False) -> Path:
 
 def _image_manifest(image_id: str, repository: Path | None = None) -> Path:
     if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
-        raise WebAPIError("image identifier is invalid")
+        raise APIError("image identifier is invalid")
     path = (repository or _repository()) / f"{image_id}.manifest.json"
     try:
         info = os.lstat(path)
     except OSError as exc:
-        raise WebAPIError("selected image manifest does not exist") from exc
+        raise APIError("selected image manifest does not exist") from exc
     if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
-        raise WebAPIError("selected image manifest is not a root-owned regular file")
+        raise APIError("selected image manifest is not a root-owned regular file")
     return path
 
 
@@ -97,11 +97,11 @@ def _operation_repository(params: dict[str, Any], *, write: bool, create_local: 
         return _repository(create=create_local)
     if (not isinstance(repository_id, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
-        raise WebAPIError("repository_id is invalid")
+        raise APIError("repository_id is invalid")
     try:
         return Path(_remote_repository_manager().resolve(repository_id, write=write))
     except Exception as exc:
-        raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
+        raise APIError(f"selected image repository is not safely available: {exc}") from exc
 
 
 @contextmanager
@@ -117,7 +117,7 @@ def _operation_repository_context(
         return
     if (not isinstance(repository_id, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
-        raise WebAPIError("repository_id is invalid")
+        raise APIError("repository_id is invalid")
     from feclora.storage.s3_repository_manager import S3RepositoryManager
     manager = S3RepositoryManager()
     s3_definition = next((item for item in manager.list() if item["id"] == repository_id), None)
@@ -130,7 +130,7 @@ def _operation_repository_context(
         except Exception as exc:
             if lease_fd is not None:
                 os.close(lease_fd)
-            raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
+            raise APIError(f"selected image repository is not safely available: {exc}") from exc
         try:
             yield repository
         finally:
@@ -139,11 +139,11 @@ def _operation_repository_context(
     try:
         s3_usage_fd = manager.acquire_usage_lock(repository_id)
     except Exception as exc:
-        raise WebAPIError(f"selected S3 repository is not safely available: {exc}") from exc
+        raise APIError(f"selected S3 repository is not safely available: {exc}") from exc
     try:
         object_repository = manager.repository(repository_id, progress=_progress)
         if write and object_repository.config.read_only:
-            raise WebAPIError("S3 repository is configured read-only")
+            raise APIError("S3 repository is configured read-only")
         with tempfile.TemporaryDirectory(prefix="feclora-s3-operation-") as temporary:
             root = Path(temporary)
             os.chmod(root, 0o700)
@@ -164,13 +164,13 @@ def _operation_repository_context(
                         if item.is_file() and item.name[:-len(".manifest.json")] not in original_ids
                     )
                     if not new_ids:
-                        raise WebAPIError("S3 operation produced no new image manifest to publish")
+                        raise APIError("S3 operation produced no new image manifest to publish")
                     for new_id in new_ids:
                         object_repository.upload_image_set(root, new_id)
-    except WebAPIError:
+    except APIError:
         raise
     except Exception as exc:
-        raise WebAPIError(f"S3 object repository operation failed: {exc}") from exc
+        raise APIError(f"S3 object repository operation failed: {exc}") from exc
     finally:
         os.close(s3_usage_fd)
 
@@ -198,7 +198,7 @@ def _device(value: Any, field: str) -> str:
             or not re.fullmatch(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}", value)
             or ".." in Path(value).parts
             or os.path.normpath(value) != value):
-        raise WebAPIError(f"{field} must be a normalized /dev block-device path")
+        raise APIError(f"{field} must be a normalized /dev block-device path")
     return value
 
 
@@ -206,9 +206,9 @@ def _text(params: dict[str, Any], key: str, *, default: str | None = None,
           pattern: str | None = None, maximum: int = 128) -> str:
     value = params.get(key, default)
     if not isinstance(value, str) or not value or len(value) > maximum:
-        raise WebAPIError(f"{key} must be a non-empty string of at most {maximum} characters")
+        raise APIError(f"{key} must be a non-empty string of at most {maximum} characters")
     if pattern and not re.fullmatch(pattern, value):
-        raise WebAPIError(f"{key} contains unsupported characters")
+        raise APIError(f"{key} contains unsupported characters")
     return value
 
 
@@ -275,19 +275,19 @@ def _security_material() -> dict[str, bool]:
 
 def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"confirmation"} or params.get("confirmation") != "RENEW SERVER CERTIFICATE":
-        raise WebAPIError("explicit confirmation required: RENEW SERVER CERTIFICATE")
+        raise APIError("explicit confirmation required: RENEW SERVER CERTIFICATE")
     config_path = "/etc/feclora/deployment-server.json"
     try:
         from feclora.deployment.runtime_config import load_server_runtime_config
         config = load_server_runtime_config(config_path)
     except Exception as exc:
-        raise WebAPIError(f"managed Server identity is unavailable: {exc}") from exc
+        raise APIError(f"managed Server identity is unavailable: {exc}") from exc
     if os.path.realpath(config.certificate_file) != "/etc/feclora/pki/server.crt" or os.path.realpath(
         config.private_key_file
     ) != "/etc/feclora/pki/server.key" or os.path.realpath(config.ca_file) != "/etc/feclora/pki/ca.crt":
-        raise WebAPIError("Server PKI paths differ from the managed renewal locations; refusing to replace an untracked certificate")
+        raise APIError("Server PKI paths differ from the managed renewal locations; refusing to replace an untracked certificate")
     if config.local_identity != "URI:feclora-server":
-        raise WebAPIError("Server runtime identity is not the managed Feclora Server identity")
+        raise APIError("Server runtime identity is not the managed Feclora Server identity")
     try:
         active = subprocess.run(
             ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
@@ -296,17 +296,17 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
             check=False, timeout=5,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise WebAPIError(f"cannot establish whether a deployment service is active: {exc}") from exc
+        raise APIError(f"cannot establish whether a deployment service is active: {exc}") from exc
     if active.returncode != 0:
-        raise WebAPIError("cannot establish whether a deployment service is active; Server certificate renewal is blocked")
+        raise APIError("cannot establish whether a deployment service is active; Server certificate renewal is blocked")
     if active.stdout.strip():
-        raise WebAPIError("stop all active deployment jobs before renewing the Server TLS certificate")
+        raise APIError("stop all active deployment jobs before renewing the Server TLS certificate")
     try:
         from feclora.deployment.managed_pki import renew_server_certificate, certificate_expiry_days
         renewed = renew_server_certificate("/etc/feclora/pki")
         days = certificate_expiry_days(renewed["certificate_file"])
     except Exception as exc:
-        raise WebAPIError(f"Server TLS certificate renewal failed: {exc}") from exc
+        raise APIError(f"Server TLS certificate renewal failed: {exc}") from exc
     return {
         "renewed": True, "identity": config.local_identity,
         "certificate_file": renewed["certificate_file"],
@@ -319,17 +319,17 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
 
 def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"confirmation"} or params.get("confirmation") != "ROTATE SERVER TLS KEYPAIR":
-        raise WebAPIError("explicit confirmation required: ROTATE SERVER TLS KEYPAIR")
+        raise APIError("explicit confirmation required: ROTATE SERVER TLS KEYPAIR")
     try:
         from feclora.deployment.runtime_config import load_server_runtime_config
         config = load_server_runtime_config("/etc/feclora/deployment-server.json")
     except Exception as exc:
-        raise WebAPIError(f"managed Server identity is unavailable: {exc}") from exc
+        raise APIError(f"managed Server identity is unavailable: {exc}") from exc
     if (os.path.realpath(config.certificate_file) != "/etc/feclora/pki/server.crt"
             or os.path.realpath(config.private_key_file) != "/etc/feclora/pki/server.key"
             or os.path.realpath(config.ca_file) != "/etc/feclora/pki/ca.crt"
             or config.local_identity != "URI:feclora-server"):
-        raise WebAPIError("Server PKI paths or identity differ from the managed rotation locations")
+        raise APIError("Server PKI paths or identity differ from the managed rotation locations")
     try:
         active = subprocess.run(
             ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
@@ -338,17 +338,17 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
             check=False, timeout=5,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise WebAPIError(f"cannot establish whether a deployment service is active: {exc}") from exc
+        raise APIError(f"cannot establish whether a deployment service is active: {exc}") from exc
     if active.returncode != 0:
-        raise WebAPIError("cannot establish whether a deployment service is active; Server key rotation is blocked")
+        raise APIError("cannot establish whether a deployment service is active; Server key rotation is blocked")
     if active.stdout.strip():
-        raise WebAPIError("stop all active deployment jobs before rotating the Server TLS keypair")
+        raise APIError("stop all active deployment jobs before rotating the Server TLS keypair")
     try:
         from feclora.deployment.managed_pki import rotate_server_keypair, certificate_expiry_days
         rotated = rotate_server_keypair("/etc/feclora/pki")
         days = certificate_expiry_days(rotated["certificate_file"])
     except Exception as exc:
-        raise WebAPIError(f"Server TLS keypair rotation failed: {exc}") from exc
+        raise APIError(f"Server TLS keypair rotation failed: {exc}") from exc
     return {
         "rotated": True, "identity": config.local_identity,
         "certificate_file": rotated["certificate_file"],
@@ -362,10 +362,10 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
 def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tuple[Path, ...]) -> None:
     """Publish an optional keypair without leaving half of it on failure."""
     if not staged_paths or len(staged_paths) != len(final_paths):
-        raise WebAPIError("generated image-security keypair is incomplete")
+        raise APIError("generated image-security keypair is incomplete")
     parent = final_paths[0].parent
     if any(path.parent != parent for path in final_paths):
-        raise WebAPIError("generated image-security keypair must share one destination directory")
+        raise APIError("generated image-security keypair must share one destination directory")
     directory_fd = None
     published: list[str] = []
     try:
@@ -374,13 +374,13 @@ def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tupl
         )
         info = os.fstat(directory_fd)
         if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
-            raise WebAPIError("Feclora PKI directory is unsafe for image-security key publication")
+            raise APIError("Feclora PKI directory is unsafe for image-security key publication")
         for staged, final in zip(staged_paths, final_paths):
             staged_fd = os.open(staged, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
             try:
                 staged_info = os.fstat(staged_fd)
                 if not stat.S_ISREG(staged_info.st_mode) or staged_info.st_size <= 0:
-                    raise WebAPIError("generated image-security key must be a non-empty regular non-symlink file")
+                    raise APIError("generated image-security key must be a non-empty regular non-symlink file")
                 os.fsync(staged_fd)
             finally:
                 os.close(staged_fd)
@@ -398,9 +398,9 @@ def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tupl
                 os.fsync(directory_fd)
             except OSError:
                 pass
-        if isinstance(exc, WebAPIError):
+        if isinstance(exc, APIError):
             raise
-        raise WebAPIError(f"could not atomically publish optional image-security keys: {exc}") from exc
+        raise APIError(f"could not atomically publish optional image-security keys: {exc}") from exc
     finally:
         if directory_fd is not None:
             os.close(directory_fd)
@@ -423,7 +423,7 @@ def _initialize_security() -> dict[str, Any]:
     age_identity = pki / "server.age"
     age_recipients = pki / "age-recipients.txt"
     if os.path.lexists(age_identity) != os.path.lexists(age_recipients):
-        raise WebAPIError("partial age identity exists; refusing to regenerate trust material")
+        raise APIError("partial age identity exists; refusing to regenerate trust material")
     age_keygen = shutil.which("age-keygen")
     if not os.path.lexists(age_identity) and age_keygen:
         with tempfile.TemporaryDirectory(prefix=".feclora-age-keys-", dir=pki) as staging:
@@ -435,7 +435,7 @@ def _initialize_security() -> dict[str, Any]:
                 check=False, timeout=60,
             )
             if generated.returncode != 0 or not staged_identity.is_file():
-                raise WebAPIError("age-keygen failed while creating the optional local image identity")
+                raise APIError("age-keygen failed while creating the optional local image identity")
             public = subprocess.run(
                 [age_keygen, "-y", str(staged_identity)],
                 stdin=subprocess.DEVNULL, capture_output=True, text=True,
@@ -443,7 +443,7 @@ def _initialize_security() -> dict[str, Any]:
             )
             recipient = public.stdout.strip()
             if public.returncode != 0 or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
-                raise WebAPIError("age-keygen did not return a valid recipient")
+                raise APIError("age-keygen did not return a valid recipient")
             fd = os.open(staged_recipients, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w", encoding="ascii") as stream:
                 stream.write(recipient + "\n")
@@ -545,11 +545,11 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
         not isinstance(destination_id, str)
         or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", destination_id)
     ):
-        raise WebAPIError("destination_repository_id is invalid")
+        raise APIError("destination_repository_id is invalid")
     from feclora.storage.s3_repository_manager import S3RepositoryManager
     s3_manager = S3RepositoryManager()
     if not any(item["id"] == source_id for item in s3_manager.list()):
-        raise WebAPIError("source_repository_id must identify a configured S3 object repository")
+        raise APIError("source_repository_id must identify a configured S3 object repository")
     source_lease = destination_lease = None
     try:
         source_lease = s3_manager.acquire_usage_lock(source_id)
@@ -569,15 +569,15 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
             directory_info = os.lstat(destination)
             if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
                     or (destination_id is None and directory_info.st_uid != os.geteuid())):
-                raise WebAPIError("P2V export destination must be a real, safely resolved directory")
+                raise APIError("P2V export destination must be a real, safely resolved directory")
             target_qcow2 = destination / f"{image_id}.qcow2"
             target_sidecar = destination / f"{image_id}.p2v.json"
             if os.path.lexists(target_qcow2) or os.path.lexists(target_sidecar):
-                raise WebAPIError("P2V export refuses to overwrite an existing destination object")
+                raise APIError("P2V export refuses to overwrite an existing destination object")
             metadata = json.loads(sidecar.read_text(encoding="utf-8"))
             if (metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
                     or metadata.get("format") != "qcow2" or metadata.get("verified") is not True):
-                raise WebAPIError("verified S3 P2V metadata failed local export validation")
+                raise APIError("verified S3 P2V metadata failed local export validation")
 
             def stage_in_destination(source_path: Path) -> tuple[Path, int, str]:
                 fd, temporary_name = tempfile.mkstemp(prefix=".feclora-p2v-export-", dir=destination)
@@ -608,11 +608,11 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
             try:
                 if (copied_size != metadata.get("file_size_bytes")
                         or copied_digest != metadata.get("qcow2_sha256")):
-                    raise WebAPIError("staged P2V QCOW2 failed size or SHA-256 verification")
+                    raise APIError("staged P2V QCOW2 failed size or SHA-256 verification")
                 staged_sidecar, sidecar_size, sidecar_digest = stage_in_destination(sidecar)
                 original_sidecar_digest = hashlib.sha256(sidecar.read_bytes()).hexdigest()
                 if sidecar_size != sidecar.stat().st_size or sidecar_digest != original_sidecar_digest:
-                    raise WebAPIError("staged P2V metadata sidecar failed integrity verification")
+                    raise APIError("staged P2V metadata sidecar failed integrity verification")
                 os.link(staged_qcow2, target_qcow2, follow_symlinks=False)
                 published_qcow2 = True
                 # Metadata is the commit marker and is always published last.
@@ -645,10 +645,10 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
                 "destination_repository_id": destination_id, "output_path": str(target_qcow2),
                 "format": "qcow2", "verified": True, "metadata_committed": True,
             }
-    except WebAPIError:
+    except APIError:
         raise
     except Exception as exc:
-        raise WebAPIError(f"P2V S3 export failed safely: {exc}") from exc
+        raise APIError(f"P2V S3 export failed safely: {exc}") from exc
     finally:
         if destination_lease is not None:
             os.close(destination_lease)
@@ -667,7 +667,7 @@ def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
             lease_fd = manager.acquire_usage_lock(repository_id)
             return manager.repository(repository_id).list_images()
         except Exception as exc:
-            raise WebAPIError(f"S3 image inventory failed: {exc}") from exc
+            raise APIError(f"S3 image inventory failed: {exc}") from exc
         finally:
             if lease_fd is not None:
                 os.close(lease_fd)
@@ -679,7 +679,7 @@ def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
         path = Path(manager.resolve(repository_id, write=False))
         return _filesystem_images(path)
     except Exception as exc:
-        raise WebAPIError(f"remote image inventory failed: {exc}") from exc
+        raise APIError(f"remote image inventory failed: {exc}") from exc
     finally:
         if lease_fd is not None:
             os.close(lease_fd)
@@ -693,26 +693,26 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
 
 def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Path) -> dict[str, Any]:
     if set(params) not in ({"image_id"}, {"image_id", "repository_id"}):
-        raise WebAPIError("inspect_image_layout requires image_id and optional repository_id")
+        raise APIError("inspect_image_layout requires image_id and optional repository_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
     manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
-        raise WebAPIError(f"cannot read selected image manifest: {exc}") from exc
+        raise APIError(f"cannot read selected image manifest: {exc}") from exc
     if manifest.image_id != image_id:
-        raise WebAPIError("selected image manifest identifier does not match its repository name")
+        raise APIError("selected image manifest identifier does not match its repository name")
     if manifest.image_type != "disk":
-        raise WebAPIError("layout inspection requires a whole-disk image")
+        raise APIError("layout inspection requires a whole-disk image")
     disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
     if len(disk_artifacts) != 1 or disk_artifacts[0].format not in {"raw", "qcow2"}:
-        raise WebAPIError("whole-disk image must contain exactly one raw or QCOW2 disk-image artifact")
+        raise APIError("whole-disk image must contain exactly one raw or QCOW2 disk-image artifact")
     table_artifacts = [item for item in manifest.artifacts if item.role == "partition-table"]
     if len(table_artifacts) != 1 or table_artifacts[0].format != "raw":
-        raise WebAPIError("whole-disk image must contain exactly one raw partition-table artifact")
+        raise APIError("whole-disk image must contain exactly one raw partition-table artifact")
     table_artifact = table_artifacts[0]
     if table_artifact.encryption != "none" or table_artifact.compression != "none":
-        raise WebAPIError("partition-table metadata must be stored unencrypted and uncompressed")
+        raise APIError("partition-table metadata must be stored unencrypted and uncompressed")
     from feclora.storage.disk_restore import DiskRestoreError, _open_artifact, _verify_stored_artifact
     from feclora.storage.partition_range import PartitionRangeError, parse_sfdisk_dump, partition_ranges
     try:
@@ -720,7 +720,7 @@ def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Pa
             _verify_stored_artifact(stream, table_artifact)
             raw = stream.read(1024 * 1024 + 1)
         if len(raw) > 1024 * 1024:
-            raise WebAPIError("partition-table metadata exceeds 1 MiB")
+            raise APIError("partition-table metadata exceeds 1 MiB")
         table = parse_sfdisk_dump(
             raw.decode("utf-8"), image_size_bytes=manifest.source_size_bytes,
             default_sector_size=manifest.logical_sector_size,
@@ -730,7 +730,7 @@ def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Pa
             sector_size=manifest.logical_sector_size,
         )
     except (DiskRestoreError, OSError, UnicodeError, PartitionRangeError) as exc:
-        raise WebAPIError(f"partition-table verification or parsing failed: {exc}") from exc
+        raise APIError(f"partition-table verification or parsing failed: {exc}") from exc
     raw_parts = table["partitiontable"]["partitions"]
     partitions = []
     for item, part in zip(ranges, raw_parts):
@@ -755,34 +755,34 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
     required = {"image_id", "partition_index", "path"}
     optional = {"repository_id", "download", "session_id"}
     if not required.issubset(params) or set(params) - required - optional:
-        raise WebAPIError("browse_image requires image_id, partition_index and path, with optional repository_id, download and session_id")
+        raise APIError("browse_image requires image_id, partition_index and path, with optional repository_id, download and session_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
     partition_index = params.get("partition_index")
     if isinstance(partition_index, bool) or not isinstance(partition_index, int) or not 1 <= partition_index <= 256:
-        raise WebAPIError("partition_index must be an integer between 1 and 256")
+        raise APIError("partition_index must be an integer between 1 and 256")
     guest_path = params.get("path")
     if not isinstance(guest_path, str) or len(guest_path) > 4096 or "\x00" in guest_path:
-        raise WebAPIError("path must be a string of at most 4096 characters")
+        raise APIError("path must be a string of at most 4096 characters")
     session_id = params.get("session_id")
     if session_id is not None and (
         not isinstance(session_id, str)
         or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", session_id)
     ):
-        raise WebAPIError("session_id must be a canonical UUID")
+        raise APIError("session_id must be a canonical UUID")
     download = params.get("download", False)
     if not isinstance(download, bool):
-        raise WebAPIError("download must be boolean")
+        raise APIError("download must be boolean")
     with _operation_repository_context(params, write=False, image_id=image_id) as repository:
         manifest_path = _image_manifest(image_id, repository)
         try:
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         except Exception as exc:
-            raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+            raise APIError(f"cannot read selected disk image manifest: {exc}") from exc
         if manifest.image_id != image_id or manifest.image_type != "disk":
-            raise WebAPIError("image browsing requires the selected whole-disk image")
+            raise APIError("image browsing requires the selected whole-disk image")
         verified_layout = _inspect_image_layout_from_repository({"image_id": image_id}, repository)
         if partition_index > len(verified_layout["partitions"]):
-            raise WebAPIError("selected partition index is not present in the verified partition table")
+            raise APIError("selected partition index is not present in the verified partition table")
         partition_selector = verified_layout["partitions"][partition_index - 1]["selector"]
         encrypted = any(item.role == "disk-image" and item.encryption == "age" for item in manifest.artifacts)
         identity_paths: list[Path] = []
@@ -794,7 +794,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
         if client_config and client_config.age_identity_file:
             identity_paths.append(Path(client_config.age_identity_file))
         if encrypted and not identity_paths:
-            raise WebAPIError("age-encrypted image requires a configured age identity")
+            raise APIError("age-encrypted image requires a configured age identity")
         identity_context = tempfile.TemporaryDirectory(prefix="feclora-image-browser-identities-") if encrypted and len(identity_paths) > 1 else None
         try:
             if identity_context:
@@ -817,7 +817,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
                     session_id=session_id,
                 )
             except ImageBrowserError as exc:
-                raise WebAPIError(str(exc)) from exc
+                raise APIError(str(exc)) from exc
         finally:
             if identity_context:
                 identity_context.cleanup()
@@ -832,15 +832,15 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
 def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> dict[str, Any]:
     """Read-only, end-to-end verification of every stored image artifact."""
     if set(params) not in ({"image_id"}, {"image_id", "repository_id"}):
-        raise WebAPIError("verify_image requires image_id and optional repository_id")
+        raise APIError("verify_image requires image_id and optional repository_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
     manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
-        raise WebAPIError(f"cannot read selected image manifest: {exc}") from exc
+        raise APIError(f"cannot read selected image manifest: {exc}") from exc
     if manifest.image_id != image_id:
-        raise WebAPIError("selected image manifest identifier does not match its repository name")
+        raise APIError("selected image manifest identifier does not match its repository name")
 
     encrypted = any(item.encryption == "age" for item in manifest.artifacts)
     security = _security_material()
@@ -852,7 +852,7 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
     if client_config and client_config.age_identity_file:
         identities.append(Path(client_config.age_identity_file))
     if encrypted and not identities:
-        raise WebAPIError("image contains age-encrypted artifacts but no local age identity is available")
+        raise APIError("image contains age-encrypted artifacts but no local age identity is available")
 
     from feclora.storage.disk_restore import (
         _decoded_stream, _verified_artifact_stream,
@@ -877,7 +877,7 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
             if artifact.format == "qcow2":
                 qemu_img = shutil.which("qemu-img")
                 if not qemu_img or artifact.role != "disk-image":
-                    raise WebAPIError("qemu-img is required to verify a QCOW2 whole-disk artifact")
+                    raise APIError("qemu-img is required to verify a QCOW2 whole-disk artifact")
                 with tempfile.TemporaryDirectory(prefix="feclora-verify-qcow2-") as temporary:
                     staged = Path(temporary) / "image.qcow2"
                     with _verified_artifact_stream(
@@ -890,11 +890,11 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
                         check=False, timeout=60,
                     )
                     if info_result.returncode != 0:
-                        raise WebAPIError("qemu-img info could not inspect the QCOW2 artifact")
+                        raise APIError("qemu-img info could not inspect the QCOW2 artifact")
                     try:
                         info = json.loads(info_result.stdout)
                     except (TypeError, json.JSONDecodeError) as exc:
-                        raise WebAPIError("qemu-img returned invalid QCOW2 metadata") from exc
+                        raise APIError("qemu-img returned invalid QCOW2 metadata") from exc
                     format_specific = info.get("format-specific") if isinstance(info, dict) else None
                     format_data = format_specific.get("data", {}) if isinstance(format_specific, dict) else {}
                     external_data_file = info.get("data-file") if isinstance(info, dict) else None
@@ -907,14 +907,14 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
                             or info.get("backing-filename") or info.get("full-backing-filename")
                             or external_data_file or info.get("encrypted") is True
                             or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
-                        raise WebAPIError("QCOW2 dependencies or virtual capacity disagree with the manifest")
+                        raise APIError("QCOW2 dependencies or virtual capacity disagree with the manifest")
                     check = subprocess.run(
                         [qemu_img, "check", "-f", "qcow2", str(staged)],
                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
                         check=False, timeout=24 * 60 * 60,
                     )
                     if check.returncode != 0:
-                        raise WebAPIError("qemu-img check rejected the QCOW2 artifact")
+                        raise APIError("qemu-img check rejected the QCOW2 artifact")
                 decoded_bytes = manifest.source_size_bytes
             else:
                 with _verified_artifact_stream(
@@ -937,7 +937,7 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
                 or (artifact.role == "partition-image" and artifact.format == "raw")
             ) and decoded_bytes != manifest.source_size_bytes:
                 label = "disk" if artifact.role == "disk-image" else "raw partition"
-                raise WebAPIError(
+                raise APIError(
                     f"decoded {label} artifact size mismatch: expected {manifest.source_size_bytes}, got {decoded_bytes}"
                 )
             total_decoded += decoded_bytes
@@ -950,7 +950,7 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
                 "format": artifact.format,
             })
         except Exception as exc:
-            raise WebAPIError(f"artifact verification failed for {artifact.filename}: {exc}") from exc
+            raise APIError(f"artifact verification failed for {artifact.filename}: {exc}") from exc
         finally:
             if identity_context:
                 identity_context.cleanup()
@@ -971,9 +971,9 @@ def _operations() -> list[dict[str, Any]]:
     except FileNotFoundError:
         return []
     if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
-        raise WebAPIError("operation journal must be a private root-owned regular file")
+        raise APIError("operation journal must be a private root-owned regular file")
     if info.st_size > 2 * 1024 * 1024:
-        raise WebAPIError("operation journal exceeds the API read limit")
+        raise APIError("operation journal exceeds the API read limit")
     records = []
     for line in path.read_text(encoding="utf-8").splitlines()[-200:]:
         try:
@@ -1040,7 +1040,7 @@ def _service_state() -> dict[str, str]:
 def _apply_network_profile(params: dict[str, Any]) -> dict[str, Any]:
     required = {"uuid", "interface", "method", "address", "prefix_length", "gateway", "dns"}
     if not required.issubset(params) or set(params) - required - {"rollback_timeout"}:
-        raise WebAPIError("apply_network_profile requires uuid, interface, method, address, prefix_length, gateway and dns")
+        raise APIError("apply_network_profile requires uuid, interface, method, address, prefix_length, gateway and dns")
     timeout = params.get("rollback_timeout", 120)
     from feclora.network.profile_apply import NetworkApplyError, apply_ipv4_profile
     try:
@@ -1051,7 +1051,7 @@ def _apply_network_profile(params: dict[str, Any]) -> dict[str, Any]:
             dns=params["dns"], rollback_timeout=timeout,
         )
     except NetworkApplyError as exc:
-        raise WebAPIError(str(exc)) from exc
+        raise APIError(str(exc)) from exc
 
 
 def _network_connection_profiles() -> list[dict[str, Any]]:
@@ -1061,7 +1061,7 @@ def _network_connection_profiles() -> list[dict[str, Any]]:
     try:
         return list_connection_profiles()
     except NetworkProfileError as exc:
-        raise WebAPIError(str(exc)) from exc
+        raise APIError(str(exc)) from exc
 
 
 def _network_interfaces() -> list[dict[str, Any]]:
@@ -1071,7 +1071,7 @@ def _network_interfaces() -> list[dict[str, Any]]:
 
     executable = shutil.which("ip")
     if not executable:
-        raise WebAPIError("iproute is required for network interface discovery")
+        raise APIError("iproute is required for network interface discovery")
     try:
         result = subprocess.run(
             [executable, "-j", "-4", "address", "show"],
@@ -1080,9 +1080,9 @@ def _network_interfaces() -> list[dict[str, Any]]:
         )
         rows = json.loads(result.stdout)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
-        raise WebAPIError(f"cannot inspect network interfaces: {exc}") from exc
+        raise APIError(f"cannot inspect network interfaces: {exc}") from exc
     if not isinstance(rows, list):
-        raise WebAPIError("ip returned an invalid interface inventory")
+        raise APIError("ip returned an invalid interface inventory")
     interfaces = []
     dhcp_cache: dict[str, str | None] = {}
     for row in rows:
@@ -1110,18 +1110,18 @@ def _network_interfaces() -> list[dict[str, Any]]:
 
 def _bootstrap_server(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"interface", "address", "prefix_length"}:
-        raise WebAPIError("bootstrap_server requires interface, address and prefix_length")
+        raise APIError("bootstrap_server requires interface, address and prefix_length")
     interface = _text(params, "interface", pattern=r"[A-Za-z0-9_.:-]{1,15}", maximum=15)
     address = _text(params, "address", maximum=45)
     prefix = params["prefix_length"]
     if isinstance(prefix, bool) or not isinstance(prefix, int) or not 1 <= prefix <= 30:
-        raise WebAPIError("prefix_length must be an integer between 1 and 30")
+        raise APIError("prefix_length must be an integer between 1 and 30")
     try:
         parsed = ipaddress.ip_address(address)
     except ValueError as exc:
-        raise WebAPIError("Server address must be a valid IPv4 address") from exc
+        raise APIError("Server address must be a valid IPv4 address") from exc
     if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast or parsed.is_loopback:
-        raise WebAPIError("Server address must be a concrete unicast IPv4 address")
+        raise APIError("Server address must be a concrete unicast IPv4 address")
 
     from feclora.network.interface_discovery import (
         discover_interface_addresses, validate_selected_address,
@@ -1135,7 +1135,7 @@ def _bootstrap_server(params: dict[str, Any]) -> dict[str, Any]:
         created = ensure_server_deployment_config(str(parsed))
         config = load_server_runtime_config("/etc/feclora/deployment-server.json")
     except Exception as exc:
-        raise WebAPIError(f"Server identity initialization failed: {exc}") from exc
+        raise APIError(f"Server identity initialization failed: {exc}") from exc
     return {
         "created": created,
         "configured": True,
@@ -1157,7 +1157,7 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
         "authoritative_confirmed", "max_clients", "max_duration_seconds",
     }
     if set(params) != required:
-        raise WebAPIError("validate_pxe_profile requires the complete PXE profile field set")
+        raise APIError("validate_pxe_profile requires the complete PXE profile field set")
     interface = _text(params, "interface", pattern=r"[A-Za-z0-9_.:-]{1,15}", maximum=15)
     address = _text(params, "address", maximum=45)
     mode = _text(params, "mode", pattern=r"(?:proxy|isolated)", maximum=16)
@@ -1165,22 +1165,22 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
     port = params["http_port"]
     authoritative = params["authoritative_confirmed"]
     if isinstance(prefix, bool) or not isinstance(prefix, int) or not 1 <= prefix <= 30:
-        raise WebAPIError("prefix_length must be an integer between 1 and 30")
+        raise APIError("prefix_length must be an integer between 1 and 30")
     if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-        raise WebAPIError("http_port must be an integer between 1 and 65535")
+        raise APIError("http_port must be an integer between 1 and 65535")
     if not isinstance(authoritative, bool):
-        raise WebAPIError("authoritative_confirmed must be boolean")
+        raise APIError("authoritative_confirmed must be boolean")
     max_clients = params["max_clients"]
     max_duration_seconds = params["max_duration_seconds"]
     if max_clients is not None and (isinstance(max_clients, bool) or not isinstance(max_clients, int) or not 1 <= max_clients <= 4096):
-        raise WebAPIError("max_clients must be an integer from 1 to 4096 or null")
+        raise APIError("max_clients must be an integer from 1 to 4096 or null")
     if max_duration_seconds is not None and (isinstance(max_duration_seconds, bool) or not isinstance(max_duration_seconds, int) or not 60 <= max_duration_seconds <= 604800):
-        raise WebAPIError("max_duration_seconds must be an integer from 60 to 604800 or null")
+        raise APIError("max_duration_seconds must be an integer from 60 to 604800 or null")
     optional = {}
     for key in ("pool_start", "pool_end", "gateway", "dns_server"):
         value = params[key]
         if value is not None and (not isinstance(value, str) or not value or len(value) > 45):
-            raise WebAPIError(f"{key} must be an IPv4 address or null")
+            raise APIError(f"{key} must be an IPv4 address or null")
         optional[key] = value
     lease = _text(params, "lease_time", pattern=r"[1-9][0-9]*(?:s|m|h|d|w)", maximum=16)
 
@@ -1205,7 +1205,7 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
         validate_pxe_configuration(config)
         dhcp_server = detect_existing_dhcp_server(interface)
     except Exception as exc:
-        raise WebAPIError(f"PXE preflight failed: {exc}") from exc
+        raise APIError(f"PXE preflight failed: {exc}") from exc
     warnings = []
     if dhcp_server:
         warnings.append(
@@ -1213,7 +1213,7 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
             "Use ProxyDHCP unless the network is a deliberately isolated Feclora DHCP segment."
         )
         if mode == "isolated":
-            raise WebAPIError(
+            raise APIError(
                 "An existing DHCP server is reported on this interface; isolated authoritative DHCP is blocked. "
                 "Use ProxyDHCP or move Feclora to a verified isolated network."
             )
@@ -1254,7 +1254,7 @@ def _active_deployment_service_status() -> dict[str, Any] | None:
     except (FileNotFoundError, ConnectionRefusedError):
         return None
     except (OSError, LocalControlError) as exc:
-        raise WebAPIError(f"cannot verify active deployment service ownership: {exc}") from exc
+        raise APIError(f"cannot verify active deployment service ownership: {exc}") from exc
 
 
 def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
@@ -1273,13 +1273,13 @@ def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
     )
     active_service = _active_deployment_service_status()
     if active_service and active_service.get("network_interface") == config.interface:
-        raise WebAPIError("stop the active deployment service before activating PXE on the same interface")
+        raise APIError("stop the active deployment service before activating PXE on the same interface")
     try:
         manager = _pxe_service_manager()
         manager.start(config)
         status = manager.status()
     except Exception as exc:
-        raise WebAPIError(f"PXE service activation failed: {exc}") from exc
+        raise APIError(f"PXE service activation failed: {exc}") from exc
     return {
         "active": status["active"], "interface": status["interface"],
         "services": status["services"],
@@ -1294,11 +1294,11 @@ def _stop_pxe_services() -> dict[str, Any]:
         active_service = _active_deployment_service_status()
         if (current.get("active") and active_service
                 and current.get("interface") == active_service.get("network_interface")):
-            raise WebAPIError("stop the deployment service before stopping PXE on the same interface")
+            raise APIError("stop the deployment service before stopping PXE on the same interface")
         manager.stop()
         status = manager.status()
     except Exception as exc:
-        raise WebAPIError(f"PXE service shutdown failed: {exc}") from exc
+        raise APIError(f"PXE service shutdown failed: {exc}") from exc
     return {
         "active": status["active"], "interface": status["interface"],
         "services": status["services"],
@@ -1321,21 +1321,21 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
     source = params.get("source")
     if source == "upload":
         if set(params) != {"job_id", "source", "answer_base64"}:
-            raise WebAPIError("upload source requires job_id, source and answer_base64")
+            raise APIError("upload source requires job_id, source and answer_base64")
         encoded = _text(params, "answer_base64", maximum=90_000)
         try:
             raw = base64.b64decode(encoded, validate=True)
         except (ValueError, base64.binascii.Error) as exc:
-            raise WebAPIError("answer must be valid base64 data") from exc
+            raise APIError("answer must be valid base64 data") from exc
     elif source == "url":
         if set(params) != {"job_id", "source", "url"}:
-            raise WebAPIError("URL source requires job_id, source and url")
+            raise APIError("URL source requires job_id, source and url")
         url = _text(params, "url", maximum=4096)
         parsed = urlsplit(url)
         if (parsed.scheme not in {"http", "https"} or not parsed.hostname
                 or parsed.username is not None or parsed.password is not None
                 or parsed.fragment or any(ord(char) < 32 for char in url)):
-            raise WebAPIError("answer URL must be an HTTP or HTTPS URL without embedded credentials or a fragment")
+            raise APIError("answer URL must be an HTTP or HTTPS URL without embedded credentials or a fragment")
         class _NoRedirect(HTTPRedirectHandler):
             def redirect_request(self, req, fp, code, msg, headers, newurl):
                 return None
@@ -1347,25 +1347,25 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
             opener = build_opener(_NoRedirect)
             with opener.open(request, timeout=10.0) as response:
                 if response.status != 200:
-                    raise WebAPIError(f"answer server returned HTTP {response.status}")
+                    raise APIError(f"answer server returned HTTP {response.status}")
                 length = response.headers.get("Content-Length")
                 if length is not None and (not length.isdigit() or int(length) > MAX_ANSWER_BYTES):
-                    raise WebAPIError("remote answer exceeds the 64 KiB size limit")
+                    raise APIError("remote answer exceeds the 64 KiB size limit")
                 raw = response.read(MAX_ANSWER_BYTES + 1)
-        except WebAPIError:
+        except APIError:
             raise
         except Exception as exc:
-            raise WebAPIError(f"cannot download answer from the supplied HTTP(S) URL: {exc}") from exc
+            raise APIError(f"cannot download answer from the supplied HTTP(S) URL: {exc}") from exc
     elif source in {"repository", "scp"}:
         if set(params) != {"job_id", "source", "repository_id", "source_path"}:
-            raise WebAPIError("repository/SCP source requires job_id, source, repository_id and source_path")
+            raise APIError("repository/SCP source requires job_id, source, repository_id and source_path")
         repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
         source_path = _text(params, "source_path", maximum=1024)
         parts = source_path.split("/")
         if (source_path.startswith("/") or "\\" in source_path or "\x00" in source_path
                 or any(part in {"", ".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.@+=-]{1,128}", part)
                        for part in parts)):
-            raise WebAPIError("repository answer path must be a safe relative path")
+            raise APIError("repository answer path must be a safe relative path")
         try:
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             s3_manager = S3RepositoryManager()
@@ -1384,7 +1384,7 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
                 try:
                     definition = manager._load().get(repository_id)
                     if not isinstance(definition, dict) or definition.get("provider") != "sshfs":
-                        raise WebAPIError("SCP source requires an existing SSHFS repository definition")
+                        raise APIError("SCP source requires an existing SSHFS repository definition")
                     from feclora.storage.repository_manager import _repository
                     repo = _repository(repository_id, definition)
                     from feclora.storage.systemd_credential_store import SystemdCredentialStore
@@ -1405,14 +1405,14 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
                             if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
                                     or info.st_mode & (0o077 if private else 0o022)
                                     or info.st_size > 1024 * 1024):
-                                raise WebAPIError("SSH credential file is unsafe")
+                                raise APIError("SSH credential file is unsafe")
                             return os.read(fd, 1024 * 1024 + 1)
                         finally:
                             os.close(fd)
 
                     scp = shutil.which("scp")
                     if not scp:
-                        raise WebAPIError("OpenSSH scp is required for this source")
+                        raise APIError("OpenSSH scp is required for this source")
                     key_bytes = read_ssh_material(repo.identity_file, "ssh-key", private=True)
                     known_hosts_bytes = read_ssh_material(repo.known_hosts_file, "known-hosts", private=False)
                     with tempfile.TemporaryDirectory(prefix="feclora-pxe-scp-") as temporary:
@@ -1440,10 +1440,10 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
                         )
                         if result.returncode != 0:
                             detail = result.stderr.decode("utf-8", errors="replace")[:512]
-                            raise WebAPIError(f"SCP answer download failed: {detail or 'remote copy failed'}")
+                            raise APIError(f"SCP answer download failed: {detail or 'remote copy failed'}")
                         info = output_path.lstat()
                         if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= MAX_ANSWER_BYTES:
-                            raise WebAPIError("SCP answer must be a regular file between 1 byte and 64 KiB")
+                            raise APIError("SCP answer must be a regular file between 1 byte and 64 KiB")
                         raw = output_path.read_bytes()
                 finally:
                     os.close(lease_fd)
@@ -1469,7 +1469,7 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
                         try:
                             info = os.fstat(file_fd)
                             if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= MAX_ANSWER_BYTES:
-                                raise WebAPIError("repository answer must be a regular file between 1 byte and 64 KiB")
+                                raise APIError("repository answer must be a regular file between 1 byte and 64 KiB")
                             chunks = []
                             remaining = MAX_ANSWER_BYTES + 1
                             while remaining:
@@ -1485,14 +1485,14 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
                         os.close(directory_fd)
                 finally:
                     os.close(lease_fd)
-        except WebAPIError:
+        except APIError:
             raise
         except Exception as exc:
-            raise WebAPIError(f"cannot read answer from the selected managed repository: {exc}") from exc
+            raise APIError(f"cannot read answer from the selected managed repository: {exc}") from exc
     else:
-        raise WebAPIError("source must be upload, url or repository")
+        raise APIError("source must be upload, url or repository")
     if not 1 <= len(raw) <= MAX_ANSWER_BYTES:
-        raise WebAPIError("answer file must be between 1 byte and 64 KiB")
+        raise APIError("answer file must be between 1 byte and 64 KiB")
     return raw
 
 
@@ -1500,10 +1500,10 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
 def _import_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     """Fetch and validate a shared DeploymentJob document from a remote source."""
     if not isinstance(params, dict) or "source" not in params:
-        raise WebAPIError("import_deployment_job requires a source")
+        raise APIError("import_deployment_job requires a source")
     source = params.get("source")
     if source not in {"upload", "url", "repository", "scp"}:
-        raise WebAPIError("DeploymentJob import supports upload, HTTP(S), repository or SCP sources")
+        raise APIError("DeploymentJob import supports upload, HTTP(S), repository or SCP sources")
     # Reuse the same bounded, redirect-free, credential-safe readers as PXE
     # publication. The synthetic UUID is only an internal reader parameter;
     # the actual UUID is parsed and validated from the document itself.
@@ -1513,60 +1513,60 @@ def _import_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     try:
         document = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicates)
         job = DeploymentJob.from_dict(document)
-    except (UnicodeDecodeError, json.JSONDecodeError, JobValidationError, WebAPIError) as exc:
-        raise WebAPIError(f"DeploymentJob import validation failed: {exc}") from exc
+    except (UnicodeDecodeError, json.JSONDecodeError, JobValidationError, APIError) as exc:
+        raise APIError(f"DeploymentJob import validation failed: {exc}") from exc
     return {"job": job.to_dict(), "message": "DeploymentJob downloaded and validated. Review all fields before creating the job."}
 
 def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(params, dict) or "job_id" not in params or "source" not in params:
-        raise WebAPIError("publish_pxe_answer requires job_id and source")
+        raise APIError("publish_pxe_answer requires job_id and source")
     job_id = _text(params, "job_id", maximum=36)
     raw_answer = _read_pxe_answer_source(params)
     from feclora.network.pxe_answer import parse_pxe_answer, PXEAnswerError
     try:
         validated_answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
-        raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
+        raise APIError(f"PXE answer validation failed: {exc}") from exc
     manager = _pxe_service_manager()
     status = manager.status()
     if status.get("active") is not True or not status.get("interface"):
-        raise WebAPIError("start and verify the PXE services before publishing an unattended answer")
+        raise APIError("start and verify the PXE services before publishing an unattended answer")
     config_file = Path("/run/feclora/pxe/Caddyfile")
     try:
         info = os.lstat(config_file)
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_size > 8192:
-            raise WebAPIError("active Caddy configuration is not a safe root-owned regular file")
+            raise APIError("active Caddy configuration is not a safe root-owned regular file")
         caddy_config = config_file.read_text(encoding="utf-8")
     except OSError as exc:
-        raise WebAPIError("active Caddy configuration is unavailable") from exc
+        raise APIError("active Caddy configuration is unavailable") from exc
     match = re.match(r'^http://([0-9.]+):([0-9]+) \{\n    root \* "(/srv/feclora/http)"\n', caddy_config)
     if not match:
-        raise WebAPIError("active Caddy configuration does not use the expected Feclora HTTP document root")
+        raise APIError("active Caddy configuration does not use the expected Feclora HTTP document root")
     address, port_text, http_root = match.groups()
     try:
         port = int(port_text)
         parsed_address = ipaddress.ip_address(address)
     except ValueError as exc:
-        raise WebAPIError("active Caddy listener address is invalid") from exc
+        raise APIError("active Caddy listener address is invalid") from exc
     if parsed_address.version != 4 or not any(
         item["interface"] == status["interface"] and item["address"] == address
         for item in _network_interfaces()
     ):
-        raise WebAPIError("active Caddy address is no longer assigned to the PXE interface")
+        raise APIError("active Caddy address is no longer assigned to the PXE interface")
     if validated_answer.get("start_policy") == "automatic":
         from feclora.deployment.runtime_config import load_server_runtime_config
         try:
             server_config = load_server_runtime_config("/etc/feclora/deployment-server.json")
         except Exception as exc:
-            raise WebAPIError(f"cannot load Server control endpoint configuration: {exc}") from exc
+            raise APIError(f"cannot load Server control endpoint configuration: {exc}") from exc
         if server_config.bind_address != address:
-            raise WebAPIError(
+            raise APIError(
                 "shared PXE deployment requires the authenticated Server control listener "
                 "to use the same address as the PXE answer service"
             )
     if validated_answer.get("start_policy") == "automatic":
         if validated_answer.get("job_id") != job_id:
-            raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
+            raise APIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
         # A shared answer is also the canonical Server job definition. Persist
         # it once and start the existing authenticated control service before
         # publishing the answer that Clients will consume.
@@ -1576,7 +1576,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             try:
                 report = DeploymentJournal.inspect(journal_path).recovery_report()
             except (OSError, DeploymentJournalError) as exc:
-                raise WebAPIError(f"cannot inspect existing shared deployment job: {exc}") from exc
+                raise APIError(f"cannot inspect existing shared deployment job: {exc}") from exc
             stored = report.get("job")
             incoming = dict(validated_answer)
             stored_compare = dict(stored) if isinstance(stored, dict) else {}
@@ -1584,9 +1584,9 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             stored_compare.pop("staging_required_bytes", None)
             incoming_compare.pop("staging_required_bytes", None)
             if stored_compare != incoming_compare:
-                raise WebAPIError("published shared answer does not match the existing Server DeploymentJob")
+                raise APIError("published shared answer does not match the existing Server DeploymentJob")
             if report.get("job_state") != "created" or report.get("interrupted"):
-                raise WebAPIError("shared DeploymentJob is not fresh and cannot be started for unattended clients")
+                raise APIError("shared DeploymentJob is not fresh and cannot be started for unattended clients")
         else:
             _create_deployment_job({"job": validated_answer})
         _start_deployment_service({"job_id": job_id})
@@ -1597,7 +1597,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
                 validated_answer, sort_keys=True, separators=(",", ":"),
             ) + "\n").encode("utf-8")
         except Exception as exc:
-            raise WebAPIError(f"cannot reload canonical shared DeploymentJob for publication: {exc}") from exc
+            raise APIError(f"cannot reload canonical shared DeploymentJob for publication: {exc}") from exc
     from feclora.network.pxe_answer_store import publish_pxe_answer, revoke_pxe_answer
     from feclora.network.boot_tree import (
         publish_unattended_answer_ipxe_script, revoke_unattended_answer_ipxe_script,
@@ -1624,7 +1624,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
                 revoke_pxe_answer(http_root, job_id)
             except Exception:
                 pass
-        raise WebAPIError(f"PXE answer/boot publication failed: {exc}") from exc
+        raise APIError(f"PXE answer/boot publication failed: {exc}") from exc
     return {
         "job_id": job_id,
         "answer_url": published["answer_url"],
@@ -1638,11 +1638,11 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 def _pxe_age_passphrase_status(params: dict[str, Any]) -> dict[str, Any]:
     if params:
-        raise WebAPIError("pxe_age_passphrase_status does not accept parameters")
+        raise APIError("pxe_age_passphrase_status does not accept parameters")
     try:
         cmdline = Path("/proc/cmdline").read_text(encoding="ascii")
     except OSError as exc:
-        raise WebAPIError("cannot verify PXE Live boot mode") from exc
+        raise APIError("cannot verify PXE Live boot mode") from exc
     if "feclora.pxe_mode=unattended-answer" not in cmdline.split():
         return {"available": False, "waiting": False, "submitted": False}
     directory = Path("/run/feclora/pxe")
@@ -1651,13 +1651,13 @@ def _pxe_age_passphrase_status(params: dict[str, Any]) -> dict[str, Any]:
         root_info = os.lstat(directory)
         if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
                 or root_info.st_uid != 0 or root_info.st_mode & 0o077):
-            raise WebAPIError("PXE Live runtime directory is not secure")
+            raise APIError("PXE Live runtime directory is not secure")
         marker_info = os.lstat(marker)
     except FileNotFoundError:
         return {"available": True, "waiting": False, "submitted": False}
     if (not stat.S_ISREG(marker_info.st_mode) or stat.S_ISLNK(marker_info.st_mode)
             or marker_info.st_uid != 0 or marker_info.st_mode & 0o077):
-        raise WebAPIError("PXE age passphrase request marker is unsafe")
+        raise APIError("PXE age passphrase request marker is unsafe")
     try:
         os.lstat(directory / "age-passphrase")
         submitted = True
@@ -1669,18 +1669,18 @@ def _pxe_age_passphrase_status(params: dict[str, Any]) -> dict[str, Any]:
 def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
     """Submit a one-shot symmetric age passphrase to the local PXE Live worker."""
     if set(params) != {"passphrase"}:
-        raise WebAPIError("provide_pxe_age_passphrase requires exactly passphrase")
+        raise APIError("provide_pxe_age_passphrase requires exactly passphrase")
     passphrase = params.get("passphrase")
     if (not isinstance(passphrase, str) or not passphrase
             or len(passphrase.encode("utf-8")) > 1024
             or any(char in passphrase for char in "\r\n\x00")):
-        raise WebAPIError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
+        raise APIError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
     try:
         cmdline = Path("/proc/cmdline").read_text(encoding="ascii")
     except OSError as exc:
-        raise WebAPIError("cannot verify PXE Live boot mode") from exc
+        raise APIError("cannot verify PXE Live boot mode") from exc
     if "feclora.pxe_mode=unattended-answer" not in cmdline.split():
-        raise WebAPIError("age passphrases can only be submitted on an unattended PXE Live client")
+        raise APIError("age passphrases can only be submitted on an unattended PXE Live client")
     directory = Path("/run/feclora/pxe")
     marker = directory / "age-passphrase-needed"
     temporary = None
@@ -1688,11 +1688,11 @@ def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
         info = os.lstat(directory)
         if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
                 or info.st_uid != 0 or info.st_mode & 0o077):
-            raise WebAPIError("PXE Live runtime directory is not secure")
+            raise APIError("PXE Live runtime directory is not secure")
         marker_info = os.lstat(marker)
         if (not stat.S_ISREG(marker_info.st_mode) or stat.S_ISLNK(marker_info.st_mode)
                 or marker_info.st_uid != 0 or marker_info.st_mode & 0o077):
-            raise WebAPIError("PXE Live worker is not waiting for an age passphrase")
+            raise APIError("PXE Live worker is not waiting for an age passphrase")
         secret = directory / "age-passphrase"
         fd, temporary = tempfile.mkstemp(prefix=".age-passphrase-", dir=directory)
         os.fchmod(fd, 0o600)
@@ -1705,13 +1705,13 @@ def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
         temporary = None
         return {"submitted": True, "message": "Passphrase delivered once to the waiting PXE restore worker."}
     except FileExistsError as exc:
-        raise WebAPIError("an age passphrase is already pending; wait for the restore worker") from exc
+        raise APIError("an age passphrase is already pending; wait for the restore worker") from exc
     except FileNotFoundError as exc:
-        raise WebAPIError("the PXE restore worker is not currently waiting for an age passphrase") from exc
-    except WebAPIError:
+        raise APIError("the PXE restore worker is not currently waiting for an age passphrase") from exc
+    except APIError:
         raise
     except OSError as exc:
-        raise WebAPIError(f"cannot submit age passphrase to PXE Live: {exc}") from exc
+        raise APIError(f"cannot submit age passphrase to PXE Live: {exc}") from exc
     finally:
         if temporary is not None:
             try:
@@ -1722,7 +1722,7 @@ def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
 
 def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job_id"}:
-        raise WebAPIError("revoke_pxe_answer requires exactly job_id")
+        raise APIError("revoke_pxe_answer requires exactly job_id")
     job_id = _text(params, "job_id", maximum=36)
     from feclora.network.pxe_answer_store import revoke_pxe_answer
     from feclora.network.boot_tree import revoke_unattended_answer_ipxe_script
@@ -1730,7 +1730,7 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         revoke_unattended_answer_ipxe_script("/srv/feclora/http", job_id)
         revoked = revoke_pxe_answer("/srv/feclora/http", job_id)
     except Exception as exc:
-        raise WebAPIError(f"PXE answer revocation failed: {exc}") from exc
+        raise APIError(f"PXE answer revocation failed: {exc}") from exc
     return {
         "job_id": job_id,
         "revoked": revoked,
@@ -1760,7 +1760,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "build_deployment_bundle": {"base_iso_path", "image_id", "deployment_job", "bundle_name", "repository_id"},
     }
     if action not in allowed:
-        raise WebAPIError("operation parameters do not match the selected operation")
+        raise APIError("operation parameters do not match the selected operation")
     allowed_params = allowed[action]
     if action == "export_p2v_s3":
         accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
@@ -1772,7 +1772,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             item - {"age_passphrase", "encrypt_passphrase"} for item in accepted_params
         )
     if set(params) not in accepted_params:
-        raise WebAPIError("operation parameters do not match the selected operation")
+        raise APIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
     if action == "build_deployment_bundle":
@@ -1784,18 +1784,18 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if (not isinstance(base_iso, str) or not os.path.isabs(base_iso)
                 or os.path.normpath(base_iso) != base_iso or len(base_iso) > 4096
                 or not base_iso.lower().endswith(".iso")):
-            raise WebAPIError("base_iso_path must be an absolute path to a Live .iso file")
+            raise APIError("base_iso_path must be an absolute path to a Live .iso file")
         try:
             job = DeploymentJob.from_dict(params.get("deployment_job"))
         except JobValidationError as exc:
-            raise WebAPIError(f"deployment_job is invalid: {exc}") from exc
+            raise APIError(f"deployment_job is invalid: {exc}") from exc
         repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
         if (job.operation != "restore" or job.image_id != image_id
                 or job.repository_id != repository_id or job.start_policy != "automatic"):
-            raise WebAPIError("deployment_job must be an automatic restore for the selected image and repository")
+            raise APIError("deployment_job must be an automatic restore for the selected image and repository")
         from feclora.storage.s3_repository_manager import S3RepositoryManager
         if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-            raise WebAPIError("deployment bundles require a writable filesystem repository; S3 object storage is not supported")
+            raise APIError("deployment bundles require a writable filesystem repository; S3 object storage is not supported")
         params = dict(params)
         params["repository_id"] = repository_id
         with _operation_repository_context(params, write=True, image_id=image_id) as repository:
@@ -1822,27 +1822,27 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if (not isinstance(base_iso, str) or not os.path.isabs(base_iso)
                 or os.path.normpath(base_iso) != base_iso or len(base_iso) > 4096
                 or not base_iso.lower().endswith(".iso")):
-            raise WebAPIError("base_iso_path must be an absolute path to a Live .iso file")
+            raise APIError("base_iso_path must be an absolute path to a Live .iso file")
         if params.get("confirm_build") != f"BUILD {image_id}":
-            raise WebAPIError("recovery ISO build confirmation does not match the selected image")
+            raise APIError("recovery ISO build confirmation does not match the selected image")
         target_wwn = params.get("target_wwn")
         target_serial = params.get("target_serial")
         if target_wwn is not None and (not isinstance(target_wwn, str) or not target_wwn or len(target_wwn) > 128):
-            raise WebAPIError("target_wwn is invalid")
+            raise APIError("target_wwn is invalid")
         if target_serial is not None and (not isinstance(target_serial, str) or not target_serial or len(target_serial) > 128):
-            raise WebAPIError("target_serial is invalid")
+            raise APIError("target_serial is invalid")
         if target_wwn is None and target_serial is None:
-            raise WebAPIError("recovery ISO requires a target WWN and/or serial selector")
+            raise APIError("recovery ISO requires a target WWN and/or serial selector")
         repository_id = params.get("repository_id")
         if repository_id is not None:
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-                raise WebAPIError("recovery ISO output requires a writable filesystem repository; S3 object storage is not supported")
+                raise APIError("recovery ISO output requires a writable filesystem repository; S3 object storage is not supported")
         repository = _operation_repository(params, write=True, create_local=True)
         manifest_path = _image_manifest(image_id, repository)
         output_path = repository / f"{image_id}.recovery.iso"
         if os.path.lexists(output_path):
-            raise WebAPIError("recovery ISO output already exists; choose another image identifier or move the existing file")
+            raise APIError("recovery ISO output already exists; choose another image identifier or move the existing file")
         answer = {
             "schema_version": 1, "operation": "restore", "image_id": image_id,
             "target": {"wwn": target_wwn, "serial": target_serial},
@@ -1872,27 +1872,27 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
         image_format = params.get("image_format", "raw")
         if not isinstance(image_format, str) or image_format not in {"raw", "qcow2"}:
-            raise WebAPIError("whole-disk image_format must be raw or qcow2")
+            raise APIError("whole-disk image_format must be raw or qcow2")
         encrypt = params["encrypt"]
         if not isinstance(encrypt, bool):
-            raise WebAPIError("encrypt must be a boolean value")
+            raise APIError("encrypt must be a boolean value")
         symmetric = params.get("encrypt_passphrase", False)
         if not isinstance(symmetric, bool) or (symmetric and not encrypt):
-            raise WebAPIError("encrypt_passphrase must be boolean and requires encrypt=true")
+            raise APIError("encrypt_passphrase must be boolean and requires encrypt=true")
         if image_format == "qcow2" and (compression != "none" or encrypt or symmetric):
-            raise WebAPIError("QCOW2 images cannot use separate compression or age encryption")
+            raise APIError("QCOW2 images cannot use separate compression or age encryption")
         security = _security_material()
         if encrypt and symmetric:
             if not shutil.which("age"):
-                raise WebAPIError("age executable is required for passphrase encryption")
+                raise APIError("age executable is required for passphrase encryption")
         elif encrypt and not security["age_encryption_available"]:
-            raise WebAPIError("initialize Feclora age recipient keys before enabling recipient encryption")
+            raise APIError("initialize Feclora age recipient keys before enabling recipient encryption")
         recipients_file = _capture_material()
         passphrase = params.get("age_passphrase")
         if symmetric and not isinstance(passphrase, str):
-            raise WebAPIError("the one-shot capture passphrase was not delivered to the worker")
+            raise APIError("the one-shot capture passphrase was not delivered to the worker")
         if not symmetric and passphrase is not None:
-            raise WebAPIError("unexpected passphrase for recipient-based encryption")
+            raise APIError("unexpected passphrase for recipient-based encryption")
         with _operation_repository_context(
             params, write=True, create_local=True, upload_image_id=image_id,
         ) as repository:
@@ -1919,10 +1919,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
         encrypt = params["encrypt"]
         if not isinstance(encrypt, bool):
-            raise WebAPIError("encrypt must be a boolean value")
+            raise APIError("encrypt must be a boolean value")
         security = _security_material()
         if encrypt and not security["age_encryption_available"]:
-            raise WebAPIError("initialize Feclora security keys before enabling age encryption")
+            raise APIError("initialize Feclora security keys before enabling age encryption")
         recipients_file = _capture_material()
         inventory = collect_inventory()
         with _operation_repository_context(
@@ -1942,10 +1942,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
         encrypt = params["encrypt"]
         if not isinstance(encrypt, bool):
-            raise WebAPIError("encrypt must be a boolean value")
+            raise APIError("encrypt must be a boolean value")
         security = _security_material()
         if encrypt and not security["age_encryption_available"]:
-            raise WebAPIError("initialize Feclora security keys before enabling age encryption")
+            raise APIError("initialize Feclora security keys before enabling age encryption")
         recipients_file = _capture_material()
         inventory = collect_inventory()
         with _operation_repository_context(
@@ -1968,7 +1968,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-                raise WebAPIError("P2V import requires a filesystem repository; S3 is not supported")
+                raise APIError("P2V import requires a filesystem repository; S3 is not supported")
         with _operation_repository_context(
             {"repository_id": repository_id}, write=True, image_id=source_image_id,
         ) as repository:
@@ -1993,11 +1993,11 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 s3_lease = s3_manager.acquire_usage_lock(repository_id)
                 s3_repository = s3_manager.repository(repository_id, progress=_progress)
                 if s3_repository.config.read_only:
-                    raise WebAPIError("S3 repository is configured read-only")
+                    raise APIError("S3 repository is configured read-only")
             except Exception as exc:
                 if s3_lease is not None:
                     os.close(s3_lease)
-                raise WebAPIError(f"selected S3 repository is not safely available: {exc}") from exc
+                raise APIError(f"selected S3 repository is not safely available: {exc}") from exc
             temporary_context = tempfile.TemporaryDirectory(prefix="feclora-p2v-s3-")
             repository = Path(temporary_context.name)
             os.chmod(repository, 0o700)
@@ -2010,7 +2010,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 temporary_context.cleanup()
             if s3_lease is not None:
                 os.close(s3_lease)
-            raise WebAPIError("P2V image identifier already exists in the selected repository")
+            raise APIError("P2V image identifier already exists in the selected repository")
         temporary_directory = tempfile.mkdtemp(prefix=".feclora-p2v-publish-", dir=repository)
         os.chmod(temporary_directory, 0o700)
         staged_output = Path(temporary_directory) / f"{image_id}.qcow2"
@@ -2071,9 +2071,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             try:
                 manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
             except Exception as exc:
-                raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+                raise APIError(f"cannot read selected disk image manifest: {exc}") from exc
             if manifest.image_id != image_id or manifest.image_type != "disk":
-                raise WebAPIError("partition extraction requires the selected disk image manifest")
+                raise APIError("partition extraction requires the selected disk image manifest")
             encrypted = any(item.encryption == "age" for item in manifest.artifacts)
             security = _security_material()
             pki = Path("/etc/feclora/pki")
@@ -2084,10 +2084,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if client_config and client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
             if encrypted and not identity_paths:
-                raise WebAPIError("age-encrypted disk image requires a configured Client age recipient or local Feclora age identity")
+                raise APIError("age-encrypted disk image requires a configured Client age recipient or local Feclora age identity")
             recipients_file = _capture_material()
             if encrypted and not security["age_encryption_available"]:
-                raise WebAPIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
+                raise APIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
             identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
             try:
                 if identity_context:
@@ -2106,7 +2106,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     progress_callback=_progress,
                 )
             except Exception as exc:
-                raise WebAPIError(f"partition extraction failed: {exc}") from exc
+                raise APIError(f"partition extraction failed: {exc}") from exc
             finally:
                 if identity_context:
                     identity_context.cleanup()
@@ -2131,12 +2131,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         target = _device(params["target"], "target")
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
-            raise WebAPIError(f"explicit confirmation required: {expected}")
+            raise APIError(f"explicit confirmation required: {expected}")
         inventory = collect_inventory()
         source_matches = _find_inventory_device(inventory, source, "disk")
         target_matches = _find_inventory_device(inventory, target, "disk")
         if len(source_matches) != 1 or len(target_matches) != 1:
-            raise WebAPIError("source and destination must each identify exactly one inventoried whole disk")
+            raise APIError("source and destination must each identify exactly one inventoried whole disk")
         source_disk, target_disk = source_matches[0], target_matches[0]
         try:
             source_identity, target_identity = require_distinct_block_devices(
@@ -2145,19 +2145,19 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 target_major_minor=params["target_major_minor"],
             )
         except ProportionalRestoreWorkflowError as exc:
-            raise WebAPIError(str(exc)) from exc
+            raise APIError(str(exc)) from exc
         if source_disk.get("major_minor") != params["source_major_minor"] or target_disk.get("major_minor") != params["target_major_minor"]:
-            raise WebAPIError("storage inventory changed since source and destination selection")
+            raise APIError("storage inventory changed since source and destination selection")
         if target_disk.get("read_only"):
-            raise WebAPIError("proportional restore destination is read-only")
+            raise APIError("proportional restore destination is read-only")
         source_size = source_disk.get("size_bytes")
         target_size = target_disk.get("size_bytes")
         if (isinstance(source_size, bool) or not isinstance(source_size, int) or source_size <= 0
                 or isinstance(target_size, bool) or not isinstance(target_size, int) or target_size <= 0
                 or target_size >= source_size):
-            raise WebAPIError("proportional restore requires valid capacities and a destination smaller than the source")
+            raise APIError("proportional restore requires valid capacities and a destination smaller than the source")
         if source_disk.get("logical_sector_size") != target_disk.get("logical_sector_size"):
-            raise WebAPIError("source and destination logical sector sizes must match")
+            raise APIError("source and destination logical sector sizes must match")
         check_capture_source_safe(source)
         check_capture_source_safe(target)
         with _operation_repository_context(params, write=False, image_id=image_id) as repository:
@@ -2165,15 +2165,15 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             try:
                 manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
             except Exception as exc:
-                raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+                raise APIError(f"cannot read selected disk image manifest: {exc}") from exc
             if manifest.image_id != image_id or manifest.image_type != "disk":
-                raise WebAPIError("proportional restore requires the selected whole-disk image")
+                raise APIError("proportional restore requires the selected whole-disk image")
             if not any(item.role == "disk-image" and item.format == "raw" for item in manifest.artifacts):
-                raise WebAPIError("proportional restore requires a RAW whole-disk artifact")
+                raise APIError("proportional restore requires a RAW whole-disk artifact")
             if manifest.logical_sector_size != source_disk.get("logical_sector_size"):
-                raise WebAPIError("image logical sector size differs from the selected source disk")
+                raise APIError("image logical sector size differs from the selected source disk")
             if manifest.source_size_bytes != source_disk.get("size_bytes"):
-                raise WebAPIError("selected source disk capacity differs from the verified image")
+                raise APIError("selected source disk capacity differs from the verified image")
             encrypted = any(item.encryption == "age" for item in manifest.artifacts)
             identity_paths = []
             server_identity = Path("/etc/feclora/pki/server.age")
@@ -2183,7 +2183,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if client_config and client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
             if encrypted and not identity_paths:
-                raise WebAPIError("age-encrypted image requires a configured Client or local age identity")
+                raise APIError("age-encrypted image requires a configured Client or local age identity")
             identity_context = tempfile.TemporaryDirectory(prefix="feclora-proportional-identities-") if encrypted and len(identity_paths) > 1 else None
             try:
                 if identity_context:
@@ -2211,9 +2211,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                         latest = collect_inventory()
                         found = _find_inventory_device(latest, source, "disk")
                         if len(found) != 1 or found[0].get("major_minor") != params["source_major_minor"]:
-                            raise WebAPIError("source disk identity changed before proportional restore write")
+                            raise APIError("source disk identity changed before proportional restore write")
                         if os.stat(source).st_rdev != source_identity:
-                            raise WebAPIError("source physical device changed before proportional restore write")
+                            raise APIError("source physical device changed before proportional restore write")
                         check_capture_source_safe(source)
                     digest = restore_staged_proportional_image(
                         prepared, target, sector_size=manifest.logical_sector_size,
@@ -2243,13 +2243,13 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         target = _device(params["target"], "target")
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
-            raise WebAPIError(f"explicit confirmation required: {expected}")
+            raise APIError(f"explicit confirmation required: {expected}")
         with _operation_repository_context(params, write=False, image_id=image_id) as repository:
             manifest_path = _image_manifest(image_id, repository)
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
             expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
             if manifest.image_type != expected_type:
-                raise WebAPIError(f"selected image is not a {expected_type} image")
+                raise APIError(f"selected image is not a {expected_type} image")
             security = _security_material()
             encrypted = any(item.encryption == "age" for item in manifest.artifacts)
             pki = Path("/etc/feclora/pki")
@@ -2260,7 +2260,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if client_config and client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
             if encrypted and not identity_paths:
-                raise WebAPIError("age-encrypted image requires a configured Client age recipient or local Feclora age identity")
+                raise APIError("age-encrypted image requires a configured Client age recipient or local Feclora age identity")
             identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
             try:
                 if identity_context:
@@ -2301,7 +2301,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source, target = _device(params["source"], "source"), _device(params["target"], "target")
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
-            raise WebAPIError(f"explicit confirmation required: {expected}")
+            raise APIError(f"explicit confirmation required: {expected}")
         copied = clone_disk(
             source, target, confirmation=expected,
             progress_callback=_clone_disk_progress,
@@ -2312,7 +2312,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source, target = _device(params["source"], "source"), _device(params["target"], "target")
         expected = f"ERASE {target} FROM {source}"
         if params["confirmation"] != expected:
-            raise WebAPIError(f"explicit confirmation required: {expected}")
+            raise APIError(f"explicit confirmation required: {expected}")
         copied = clone_partition(source, target, confirmation=expected, progress_callback=_progress)
         result = {"source": source, "target": target, "bytes_copied": copied}
     return {"operation_id": operation_id, "elapsed_seconds": round(time.monotonic() - started, 2),
@@ -2327,7 +2327,7 @@ def _storage_operation_lock():
         directory_info = os.lstat(runtime_directory)
         if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
                 or directory_info.st_uid != 0 or directory_info.st_mode & 0o022):
-            raise WebAPIError("deployment runtime directory is unsafe")
+            raise APIError("deployment runtime directory is unsafe")
         fd = os.open(
             runtime_directory / "deployment.lock",
             os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
@@ -2335,22 +2335,22 @@ def _storage_operation_lock():
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
             os.close(fd)
-            raise WebAPIError("deployment operation lock file is unsafe")
+            raise APIError("deployment operation lock file is unsafe")
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             os.close(fd)
-            raise WebAPIError("another Server, Client or local storage operation is active on this host") from exc
+            raise APIError("another Server, Client or local storage operation is active on this host") from exc
         try:
             from feclora.deployment.service import recover_stale_runtime_artifacts
             recover_stale_runtime_artifacts(lock_held=True)
         except Exception:
             os.close(fd)
             raise
-    except WebAPIError:
+    except APIError:
         raise
     except OSError as exc:
-        raise WebAPIError(f"cannot acquire host-wide storage operation lock: {exc}") from exc
+        raise APIError(f"cannot acquire host-wide storage operation lock: {exc}") from exc
     try:
         yield
     finally:
@@ -2364,10 +2364,10 @@ def _local_operation_store():
 
 def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"operation", "operation_params"}:
-        raise WebAPIError("submit_local_operation requires operation and operation_params")
+        raise APIError("submit_local_operation requires operation and operation_params")
     operation, operation_params = params["operation"], params["operation_params"]
     if not isinstance(operation, str) or not isinstance(operation_params, dict):
-        raise WebAPIError("operation must be a string and operation_params must be an object")
+        raise APIError("operation must be a string and operation_params must be an object")
     try:
         from uuid import uuid4
         from feclora.storage.local_operations import validate_definition
@@ -2378,7 +2378,7 @@ def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
         store = _local_operation_store()
         operation_id = store.submit(operation, operation_params)
     except Exception as exc:
-        raise WebAPIError(f"cannot persist local operation: {exc}") from exc
+        raise APIError(f"cannot persist local operation: {exc}") from exc
     unit = f"feclora-local-operation@{operation_id}.service"
     try:
         result = subprocess.run(
@@ -2391,23 +2391,23 @@ def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
             store.append(operation_id, "failed", {"error": f"cannot start worker: {str(exc)[:256]}"})
         except Exception:
             pass
-        raise WebAPIError(f"local operation was persisted but its worker could not be started: {exc}") from exc
+        raise APIError(f"local operation was persisted but its worker could not be started: {exc}") from exc
     if result.returncode != 0:
         message = (result.stderr or result.stdout or "systemd rejected the operation").strip()[:384]
         try:
             store.append(operation_id, "failed", {"error": message})
         except Exception:
             pass
-        raise WebAPIError(f"local operation was persisted but its worker could not be started: {message}")
+        raise APIError(f"local operation was persisted but its worker could not be started: {message}")
     return {"operation_id": operation_id, "state": "queued", "unit": unit}
 
 
 def _provide_capture_passphrase(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"operation_id", "passphrase"}:
-        raise WebAPIError("provide_capture_passphrase requires operation_id and passphrase")
+        raise APIError("provide_capture_passphrase requires operation_id and passphrase")
     operation_id = params["operation_id"]
     if not isinstance(operation_id, str):
-        raise WebAPIError("operation_id must be a UUID")
+        raise APIError("operation_id must be a UUID")
     try:
         store = _local_operation_store()
         definition = store.definition(operation_id)
@@ -2415,19 +2415,19 @@ def _provide_capture_passphrase(params: dict[str, Any]) -> dict[str, Any]:
         if (definition["action"] != "capture_disk"
                 or not definition["params"].get("encrypt_passphrase")
                 or report["state"] not in {"queued", "preflight", "running"}):
-            raise WebAPIError("operation is not awaiting a passphrase-encrypted disk capture")
+            raise APIError("operation is not awaiting a passphrase-encrypted disk capture")
         from feclora.storage.capture_passphrase import provide
         provide(operation_id, params["passphrase"])
         return {"operation_id": operation_id, "provided": True}
-    except WebAPIError:
+    except APIError:
         raise
     except Exception as exc:
-        raise WebAPIError(f"cannot deliver one-shot capture passphrase: {exc}") from exc
+        raise APIError(f"cannot deliver one-shot capture passphrase: {exc}") from exc
 
 
 def _cancel_local_operation(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"operation_id"} or not isinstance(params["operation_id"], str):
-        raise WebAPIError("cancel_local_operation requires one operation_id")
+        raise APIError("cancel_local_operation requires one operation_id")
     try:
         store = _local_operation_store()
         operation_id = params["operation_id"]
@@ -2436,7 +2436,7 @@ def _cancel_local_operation(params: dict[str, Any]) -> dict[str, Any]:
         if state == "cancelled":
             return {"operation_id": operation_id, "state": state, "requested": False}
         if state in {"completed", "failed", "interrupted", "verifying"}:
-            raise WebAPIError(f"operation in state {state} cannot be cancelled")
+            raise APIError(f"operation in state {state} cannot be cancelled")
         if state == "queued":
             try:
                 store.append(operation_id, "cancelled", {
@@ -2452,7 +2452,7 @@ def _cancel_local_operation(params: dict[str, Any]) -> dict[str, Any]:
                 if state == "cancelled":
                     return {"operation_id": operation_id, "state": state, "requested": False}
         if state not in {"preflight", "running"}:
-            raise WebAPIError(f"operation in state {state} cannot be cancelled")
+            raise APIError(f"operation in state {state} cannot be cancelled")
         unit = f"feclora-local-operation@{operation_id}.service"
         result = subprocess.run(
             ["/usr/bin/systemctl", "stop", "--no-block", unit],
@@ -2461,21 +2461,21 @@ def _cancel_local_operation(params: dict[str, Any]) -> dict[str, Any]:
         )
         if result.returncode != 0:
             message = (result.stderr or result.stdout or "systemd rejected the cancellation request").strip()[:384]
-            raise WebAPIError(f"cannot request operation cancellation: {message}")
+            raise APIError(f"cannot request operation cancellation: {message}")
         return {"operation_id": operation_id, "state": state, "requested": True}
-    except WebAPIError:
+    except APIError:
         raise
     except Exception as exc:
-        raise WebAPIError(f"cannot cancel local operation: {exc}") from exc
+        raise APIError(f"cannot cancel local operation: {exc}") from exc
 
 
 def _local_operation_status(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"operation_id"} or not isinstance(params["operation_id"], str):
-        raise WebAPIError("local_operation_status requires one operation_id")
+        raise APIError("local_operation_status requires one operation_id")
     try:
         return _local_operation_store().status(params["operation_id"])
     except Exception as exc:
-        raise WebAPIError(f"cannot read local operation status: {exc}") from exc
+        raise APIError(f"cannot read local operation status: {exc}") from exc
 
 
 _PXE_OPERATION_LOG_PATH = Path("/var/lib/feclora/pxe/operations.jsonl")
@@ -2492,18 +2492,18 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
     except FileNotFoundError:
         return []
     except OSError as exc:
-        raise WebAPIError(f"cannot safely open PXE operation journal: {exc}") from exc
+        raise APIError(f"cannot safely open PXE operation journal: {exc}") from exc
     try:
         info = os.fstat(fd)
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077):
-            raise WebAPIError("PXE operation journal must be a private service-owned regular file")
+            raise APIError("PXE operation journal must be a private service-owned regular file")
         if info.st_size > 2 * 1024 * 1024:
-            raise WebAPIError("PXE operation journal exceeds the API read limit")
+            raise APIError("PXE operation journal exceeds the API read limit")
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
             fd = None
             raw = stream.read(2 * 1024 * 1024 + 1)
         if len(raw.encode("utf-8")) > 2 * 1024 * 1024:
-            raise WebAPIError("PXE operation journal exceeds the API read limit")
+            raise APIError("PXE operation journal exceeds the API read limit")
     finally:
         if fd is not None:
             os.close(fd)
@@ -2567,12 +2567,12 @@ def _pxe_remote_operations(limit: int) -> list[dict[str, Any]]:
     except FileNotFoundError:
         return []
     except OSError as exc:
-        raise WebAPIError(f"cannot safely open PXE remote report journal: {exc}") from exc
+        raise APIError(f"cannot safely open PXE remote report journal: {exc}") from exc
     try:
         info = os.fstat(fd)
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
                 or info.st_mode & 0o077 or info.st_size > 8 * 1024 * 1024):
-            raise WebAPIError("PXE remote report journal is unsafe or exceeds 8 MiB")
+            raise APIError("PXE remote report journal is unsafe or exceeds 8 MiB")
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
             fd = None
             raw = stream.read(8 * 1024 * 1024 + 1)
@@ -2626,7 +2626,7 @@ def _pxe_remote_operations(limit: int) -> list[dict[str, Any]]:
 
 def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) - {"limit"}:
-        raise WebAPIError("local_operations accepts only an optional limit")
+        raise APIError("local_operations accepts only an optional limit")
     limit = params.get("limit", 100)
     try:
         operations = _local_operation_store().list(limit=limit)
@@ -2639,10 +2639,10 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
             reverse=True,
         )
         return {"operations": operations[:limit]}
-    except WebAPIError:
+    except APIError:
         raise
     except Exception as exc:
-        raise WebAPIError(f"cannot read local operation history: {exc}") from exc
+        raise APIError(f"cannot read local operation history: {exc}") from exc
 
 
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -2658,14 +2658,14 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
     }
     if action not in operation_fields:
-        raise WebAPIError("operation parameters do not match the selected operation")
+        raise APIError("operation parameters do not match the selected operation")
     allowed_params = operation_fields[action]
     if action == "export_p2v_s3":
         accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if set(params) not in accepted_params:
-        raise WebAPIError("operation parameters do not match the selected operation")
+        raise APIError("operation parameters do not match the selected operation")
     with _storage_operation_lock():
         return _run_operation_locked(action, params)
 
@@ -2683,14 +2683,14 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
     }
     if action not in operation_fields:
-        raise WebAPIError("operation parameters do not match the selected operation")
+        raise APIError("operation parameters do not match the selected operation")
     allowed_params = operation_fields[action]
     if action == "export_p2v_s3":
         accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if set(params) not in accepted_params:
-        raise WebAPIError("operation parameters do not match the selected operation")
+        raise APIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
 
     target = params.get("target") or params.get("source") or params.get("image_id") or "unspecified"
@@ -2709,51 +2709,51 @@ def _deployment_journal_directory(*, create: bool = False) -> Path:
     try:
         info = os.lstat(directory)
     except OSError as exc:
-        raise WebAPIError("deployment journal directory is unavailable") from exc
+        raise APIError("deployment journal directory is unavailable") from exc
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != 0 or info.st_mode & 0o077):
-        raise WebAPIError("deployment journal directory must be a private root-owned real directory")
+        raise APIError("deployment journal directory must be a private root-owned real directory")
     return directory
 
 
 def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
     allowed = ({"host", "job_id"}, {"host", "job_id", "network_interface", "source_address"})
     if set(params) not in allowed:
-        raise WebAPIError("remote job inspection requires host/job_id and an optional local interface/source address pair")
+        raise APIError("remote job inspection requires host/job_id and an optional local interface/source address pair")
     network_interface = params.get("network_interface")
     source_address = params.get("source_address")
     if (network_interface is None) != (source_address is None):
-        raise WebAPIError("network_interface and source_address must be supplied together")
+        raise APIError("network_interface and source_address must be supplied together")
     if network_interface is not None:
         from feclora.network.interface_discovery import discover_interface_addresses
         try:
             discovered = discover_interface_addresses(network_interface)
             matches = [item for item in discovered if item.address == source_address]
             if len(matches) != 1:
-                raise WebAPIError("selected source address is not assigned to the selected Client interface")
-        except WebAPIError:
+                raise APIError("selected source address is not assigned to the selected Client interface")
+        except APIError:
             raise
         except Exception as exc:
-            raise WebAPIError(f"cannot validate selected Client interface/address: {exc}") from exc
+            raise APIError(f"cannot validate selected Client interface/address: {exc}") from exc
     host = params["host"]
     job_id = params["job_id"]
     if not isinstance(job_id, str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
         job_id,
     ):
-        raise WebAPIError("job_id must be a canonical UUID")
+        raise APIError("job_id must be a canonical UUID")
     from feclora.deployment.runtime_config import load_client_runtime_config
     from feclora.deployment.control import DeploymentControlError, inspect_deployment_job
     from feclora.network.remote_clone_protocol import create_tls_context
     try:
         config = load_client_runtime_config("/etc/feclora/deployment-client.json")
     except Exception as exc:
-        raise WebAPIError(f"Client deployment identity is not configured: {exc}") from exc
+        raise APIError(f"Client deployment identity is not configured: {exc}") from exc
     if host == "":
         host = config.host
     if (not isinstance(host, str) or not host or len(host) > 253
             or any(ord(char) < 33 for char in host)):
-        raise WebAPIError("Server host must be a hostname or address without whitespace")
+        raise APIError("Server host must be a hostname or address without whitespace")
     try:
         context = create_tls_context("client", ca_file=config.ca_file)
         job = inspect_deployment_job(
@@ -2764,7 +2764,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
             network_interface=network_interface,
         )
     except (DeploymentControlError, OSError, ValueError) as exc:
-        raise WebAPIError(f"could not inspect Server job: {exc}") from exc
+        raise APIError(f"could not inspect Server job: {exc}") from exc
     return {
         "host": host,
         "port": config.port,
@@ -2788,10 +2788,10 @@ def _client_job_directory() -> Path:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         info = os.lstat(directory)
     except OSError as exc:
-        raise WebAPIError(f"cannot prepare private Client job directory: {exc}") from exc
+        raise APIError(f"cannot prepare private Client job directory: {exc}") from exc
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != 0 or info.st_mode & 0o077):
-        raise WebAPIError("Client job directory must be a private root-owned real directory")
+        raise APIError("Client job directory must be a private root-owned real directory")
     return directory
 
 
@@ -2800,14 +2800,14 @@ def _client_job_paths(job_id: str) -> tuple[Path, Path]:
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
         job_id,
     ):
-        raise WebAPIError("job_id must be a canonical UUID")
+        raise APIError("job_id must be a canonical UUID")
     directory = _client_job_directory()
     return directory / f"{job_id}.request.json", directory / f"{job_id}.status.json"
 
 
 def _write_client_job_request(path: Path, value: dict[str, Any]) -> None:
     if os.path.lexists(path):
-        raise WebAPIError("a Client job request already exists for this UUID")
+        raise APIError("a Client job request already exists for this UUID")
     fd, temporary = tempfile.mkstemp(prefix=".client-request-", dir=path.parent)
     try:
         os.fchmod(fd, 0o600)
@@ -2819,7 +2819,7 @@ def _write_client_job_request(path: Path, value: dict[str, Any]) -> None:
         try:
             os.link(temporary, path, follow_symlinks=False)
         except FileExistsError as exc:
-            raise WebAPIError("a Client job request already exists for this UUID") from exc
+            raise APIError("a Client job request already exists for this UUID") from exc
         os.unlink(temporary)
         directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
@@ -2839,10 +2839,10 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
     try:
         info = os.lstat(status_path)
     except FileNotFoundError as exc:
-        raise WebAPIError("Client job service has not published a status record yet") from exc
+        raise APIError("Client job service has not published a status record yet") from exc
     if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 16384):
-        raise WebAPIError("Client job status file is unsafe")
+        raise APIError("Client job status file is unsafe")
     try:
         fd = os.open(status_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
@@ -2850,17 +2850,17 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
             if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != 0
                     or opened.st_mode & 0o077
                     or (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino)):
-                raise WebAPIError("Client job status file changed during inspection")
+                raise APIError("Client job status file changed during inspection")
             value = json.loads(os.read(fd, 16385).decode("utf-8"))
         finally:
             os.close(fd)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise WebAPIError(f"cannot read Client job status: {exc}") from exc
+        raise APIError(f"cannot read Client job status: {exc}") from exc
     if (not isinstance(value, dict) or value.get("job_id") != job_id
             or value.get("schema_version") != 1
             or value.get("phase") not in {"connecting", "ready", "running", "completed", "failed", "cancelled", "interrupted"}
             or not isinstance(value.get("detail", ""), str)):
-        raise WebAPIError("Client job status has an invalid schema or does not match the requested UUID")
+        raise APIError("Client job status has an invalid schema or does not match the requested UUID")
     return value
 
 
@@ -2868,72 +2868,72 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
     optional = {"network_interface", "source_address", "igmp_confirmed", "image_encrypt"}
     if not required.issubset(params) or set(params) - required - optional:
-        raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation and compression, with optional network and per-image security choices")
+        raise APIError("start_client_job requires host, job_id, device_path, confirmation and compression, with optional network and per-image security choices")
     image_encrypt = params.get("image_encrypt", False)
     if not isinstance(image_encrypt, bool):
-        raise WebAPIError("per-image encryption choice must be boolean")
+        raise APIError("per-image encryption choice must be boolean")
     network_interface = params.get("network_interface")
     source_address = params.get("source_address")
     if source_address is not None and network_interface is None:
-        raise WebAPIError("source_address requires a selected network_interface")
+        raise APIError("source_address requires a selected network_interface")
     inspection_params = {"host": params["host"], "job_id": params["job_id"]}
     if network_interface is not None and source_address is not None:
         inspection_params.update(network_interface=network_interface, source_address=source_address)
     inspection = _inspect_remote_job(inspection_params)
     job = inspection["job"]
     if job["operation"] != "save" and image_encrypt:
-        raise WebAPIError("per-image encryption choice is valid only for Client save jobs")
+        raise APIError("per-image encryption choice is valid only for Client save jobs")
     if image_encrypt:
         from feclora.deployment.runtime_config import load_client_runtime_config
         config = load_client_runtime_config("/etc/feclora/deployment-client.json")
         if not config.age_recipients_file or not os.path.isfile(config.age_recipients_file) or not shutil.which("age"):
-            raise WebAPIError("age encryption was selected but this Client has no usable age recipient inventory or age executable")
+            raise APIError("age encryption was selected but this Client has no usable age recipient inventory or age executable")
     igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
     if job["transport"] == "unicast" and (network_interface is None or source_address is None):
-        raise WebAPIError("unicast Client jobs require a selected interface and source IPv4 address")
+        raise APIError("unicast Client jobs require a selected interface and source IPv4 address")
     if job["transport"] == "multicast":
         if igmp_confirmed is not True:
-            raise WebAPIError("explicitly confirm IGMP snooping and an active querier on the deployment VLAN")
+            raise APIError("explicitly confirm IGMP snooping and an active querier on the deployment VLAN")
         if job["operation"] != "restore":
-            raise WebAPIError("multicast Client execution supports restore jobs only")
+            raise APIError("multicast Client execution supports restore jobs only")
         if not isinstance(network_interface, str) or network_interface not in {
             name for _index, name in socket.if_nameindex()
         }:
-            raise WebAPIError("select a local multicast receive interface")
+            raise APIError("select a local multicast receive interface")
         from feclora.network.multicast_preflight import inspect_multicast_interface
         try:
             multicast_preflight = inspect_multicast_interface(
                 network_interface, job["multicast_group"], role="receiver",
             )
         except Exception as exc:
-            raise WebAPIError(f"multicast receive interface preflight failed: {exc}") from exc
+            raise APIError(f"multicast receive interface preflight failed: {exc}") from exc
     elif igmp_confirmed is not False:
-        raise WebAPIError("IGMP acknowledgement is only valid for multicast Client jobs")
+        raise APIError("IGMP acknowledgement is only valid for multicast Client jobs")
     device_path = params["device_path"]
     confirmation = params["confirmation"]
     compression = params["compression"]
     if (not isinstance(device_path, str) or not device_path.startswith("/dev/")
             or len(device_path) > 256 or os.path.normpath(device_path) != device_path):
-        raise WebAPIError("selected local target path is invalid")
+        raise APIError("selected local target path is invalid")
     if not isinstance(confirmation, str) or len(confirmation) > 512:
-        raise WebAPIError("local target confirmation is invalid")
+        raise APIError("local target confirmation is invalid")
     if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
-        raise WebAPIError("compression must be none, gzip or xz")
+        raise APIError("compression must be none, gzip or xz")
     expected_confirmation = (
         f"ERASE {device_path}"
         if job["operation"] == "restore"
         else f"READ {device_path}"
     )
     if confirmation != expected_confirmation:
-        raise WebAPIError("local typed confirmation does not match the selected device")
+        raise APIError("local typed confirmation does not match the selected device")
     from feclora.storage.inventory import collect_inventory
     inventory = collect_inventory()
     matches = []
     if job["target_type"] == "logical_volume":
         topology = inventory.get("volume_topology", {})
         if topology.get("status") != "available":
-            raise WebAPIError("local LVM topology is unavailable")
+            raise APIError("local LVM topology is unavailable")
         devices = []
 
         def visit(items: list[dict[str, Any]]) -> None:
@@ -2980,16 +2980,16 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
 
         visit_devices(inventory.get("devices", []))
     if len(matches) != 1:
-        raise WebAPIError("selected target is not uniquely present in the current local block-device inventory")
+        raise APIError("selected target is not uniquely present in the current local block-device inventory")
     try:
         device_info = os.stat(device_path)
     except OSError as exc:
-        raise WebAPIError(f"cannot inspect selected local target: {exc}") from exc
+        raise APIError(f"cannot inspect selected local target: {exc}") from exc
     if not stat.S_ISBLK(device_info.st_mode):
-        raise WebAPIError("selected local target is no longer a block device")
+        raise APIError("selected local target is no longer a block device")
     request_path, status_path = _client_job_paths(params["job_id"])
     if os.path.lexists(status_path):
-        raise WebAPIError("a status record already exists for this job; interrupted Client jobs are never restarted")
+        raise APIError("a status record already exists for this job; interrupted Client jobs are never restarted")
     _write_client_job_request(request_path, {
         "schema_version": 1, "job_id": params["job_id"], "host": inspection["host"],
         "device_path": device_path, "confirmation": confirmation,
@@ -3009,14 +3009,14 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
             request_path.unlink()
         except OSError:
             pass
-        raise WebAPIError(f"could not start persistent Client service: {exc}") from exc
+        raise APIError(f"could not start persistent Client service: {exc}") from exc
     if result.returncode != 0:
         try:
             request_path.unlink()
         except OSError:
             pass
         detail = (result.stderr or result.stdout or "").strip()
-        raise WebAPIError(f"Client service did not start: {detail or result.returncode}")
+        raise APIError(f"Client service did not start: {detail or result.returncode}")
     deadline = time.monotonic() + 10
     last_error = None
     while time.monotonic() < deadline:
@@ -3029,7 +3029,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
                     "warnings": list(multicast_preflight.warnings),
                 }
             return status
-        except WebAPIError as exc:
+        except APIError as exc:
             last_error = exc
             time.sleep(0.1)
     try:
@@ -3042,12 +3042,12 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
             request_path.unlink()
     except (OSError, subprocess.SubprocessError):
         pass
-    raise WebAPIError(f"Client service started but did not publish status: {last_error}")
+    raise APIError(f"Client service started but did not publish status: {last_error}")
 
 
 def _client_job_status(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job_id"}:
-        raise WebAPIError("client_job_status requires exactly job_id")
+        raise APIError("client_job_status requires exactly job_id")
     job_id = params["job_id"]
     _request_path, _status_path = _client_job_paths(job_id)
     status = _read_client_job_status(job_id)
@@ -3067,13 +3067,13 @@ def _client_job_status(params: dict[str, Any]) -> dict[str, Any]:
 
 def _deployment_service_job_id(params: dict[str, Any]) -> str:
     if set(params) != {"job_id"}:
-        raise WebAPIError("deployment service action requires exactly job_id")
+        raise APIError("deployment service action requires exactly job_id")
     job_id = params["job_id"]
     if not isinstance(job_id, str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
         job_id,
     ):
-        raise WebAPIError("job_id must be a canonical UUID")
+        raise APIError("job_id must be a canonical UUID")
     return job_id
 
 
@@ -3086,9 +3086,9 @@ def _deployment_service_status(job_id: str) -> dict[str, Any]:
     try:
         status = local_control_request("/run/feclora/deployment.sock", "status")
     except (OSError, LocalControlError) as exc:
-        raise WebAPIError(f"deployment service IPC is unavailable: {exc}") from exc
+        raise APIError(f"deployment service IPC is unavailable: {exc}") from exc
     if status.get("job_id") != job_id:
-        raise WebAPIError("the active deployment service belongs to a different job")
+        raise APIError("the active deployment service belongs to a different job")
     return status
 
 
@@ -3097,18 +3097,18 @@ def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
     active_service = _active_deployment_service_status()
     if active_service is not None:
         if active_service.get("job_id") != job_id:
-            raise WebAPIError("another deployment job already owns the Server control service")
+            raise APIError("another deployment job already owns the Server control service")
         return active_service
     from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
     journal_path = _deployment_journal_directory() / f"{job_id}.jsonl"
     try:
         report = DeploymentJournal.inspect(journal_path).recovery_report()
     except (OSError, DeploymentJournalError) as exc:
-        raise WebAPIError(f"cannot inspect the requested deployment job journal: {exc}") from exc
+        raise APIError(f"cannot inspect the requested deployment job journal: {exc}") from exc
     if report.get("job_id") != job_id:
-        raise WebAPIError("deployment journal UUID does not match the requested job")
+        raise APIError("deployment journal UUID does not match the requested job")
     if report.get("job_state") != "created" or report.get("interrupted"):
-        raise WebAPIError("only a fresh, unstarted deployment job can be started from the interface")
+        raise APIError("only a fresh, unstarted deployment job can be started from the interface")
     unit = _deployment_service_unit(job_id)
     try:
         result = subprocess.run(
@@ -3117,19 +3117,19 @@ def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
             check=False, timeout=30,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise WebAPIError(f"could not start persistent deployment service: {exc}") from exc
+        raise APIError(f"could not start persistent deployment service: {exc}") from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
-        raise WebAPIError(f"deployment service did not start: {detail or result.returncode}")
+        raise APIError(f"deployment service did not start: {detail or result.returncode}")
     deadline = time.monotonic() + 10
     last_error = None
     while time.monotonic() < deadline:
         try:
             return _deployment_service_status(job_id)
-        except WebAPIError as exc:
+        except APIError as exc:
             last_error = exc
             time.sleep(0.1)
-    raise WebAPIError(f"deployment service started but its local control socket did not become ready: {last_error}")
+    raise APIError(f"deployment service started but its local control socket did not become ready: {last_error}")
 
 
 def _stop_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
@@ -3139,9 +3139,9 @@ def _stop_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
     if status.get("worker_active") or status.get("job_state") == "running" or any(
         isinstance(client, dict) and client.get("state") == "running" for client in clients
     ):
-        raise WebAPIError("cannot stop the service while a deployment worker may be performing storage I/O")
+        raise APIError("cannot stop the service while a deployment worker may be performing storage I/O")
     if status.get("job_state") == "created" and clients:
-        raise WebAPIError("cancel the unarmed job before stopping its service while Clients are connected")
+        raise APIError("cancel the unarmed job before stopping its service while Clients are connected")
     try:
         result = subprocess.run(
             ["/usr/bin/systemctl", "stop", _deployment_service_unit(job_id)],
@@ -3149,26 +3149,26 @@ def _stop_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
             check=False, timeout=30,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise WebAPIError(f"could not stop persistent deployment service: {exc}") from exc
+        raise APIError(f"could not stop persistent deployment service: {exc}") from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
-        raise WebAPIError(f"deployment service did not stop cleanly: {detail or result.returncode}")
+        raise APIError(f"deployment service did not stop cleanly: {detail or result.returncode}")
     return {"job_id": job_id, "stopped": True,
             "message": "Deployment control service stopped. No interrupted job was resumed."}
 
 
 def _deployment_service_command(action: str, params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job_id", "confirmation"}:
-        raise WebAPIError(f"{action} requires exactly job_id and confirmation")
+        raise APIError(f"{action} requires exactly job_id and confirmation")
     job_id = params["job_id"]
     if not isinstance(job_id, str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
         job_id,
     ):
-        raise WebAPIError("job_id must be a canonical UUID")
+        raise APIError("job_id must be a canonical UUID")
     confirmation = params["confirmation"]
     if not isinstance(confirmation, str) or len(confirmation) > 512:
-        raise WebAPIError("operator confirmation is invalid")
+        raise APIError("operator confirmation is invalid")
     from feclora.deployment.local_control import LocalControlError, local_control_request
     try:
         result = local_control_request(
@@ -3176,14 +3176,14 @@ def _deployment_service_command(action: str, params: dict[str, Any]) -> dict[str
             {"job_id": job_id, "confirmation": confirmation},
         )
     except (OSError, LocalControlError) as exc:
-        raise WebAPIError(f"deployment service rejected the command: {exc}") from exc
+        raise APIError(f"deployment service rejected the command: {exc}") from exc
     if action == "cancel_deployment_job" and isinstance(result, dict) and result.get("accepted") is True:
         # A cancelled deployment must no longer expose its destructive PXE answer.
         try:
             from feclora.network.pxe_answer_store import revoke_pxe_answer
             revoked = revoke_pxe_answer("/srv/feclora/http", job_id)
         except Exception as exc:
-            raise WebAPIError(
+            raise APIError(
                 f"deployment cancellation was accepted, but its PXE answer could not be revoked: {exc}"
             ) from exc
         result["pxe_answer_revoked"] = revoked
@@ -3236,15 +3236,15 @@ def _deployment_unit_is_active(job_id: str) -> bool:
             check=False, timeout=5,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise WebAPIError(f"cannot establish deployment service state: {exc}") from exc
+        raise APIError(f"cannot establish deployment service state: {exc}") from exc
     if result.returncode != 0:
-        raise WebAPIError("cannot establish deployment service state; journal reconciliation is blocked")
+        raise APIError("cannot establish deployment service state; journal reconciliation is blocked")
     state = result.stdout.strip()
     if state in {"active", "activating", "deactivating", "reloading"}:
         return True
     if state in {"inactive", "failed"}:
         return False
-    raise WebAPIError(
+    raise APIError(
         f"deployment service has an unknown systemd state ({state or 'empty'}); "
         "journal reconciliation is blocked"
     )
@@ -3253,30 +3253,30 @@ def _deployment_unit_is_active(job_id: str) -> bool:
 def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
     if set(params) != {"job_id", "confirmation"}:
-        raise WebAPIError("reconcile_deployment_job requires exactly job_id and confirmation")
+        raise APIError("reconcile_deployment_job requires exactly job_id and confirmation")
     job_id = params["job_id"]
     confirmation = params["confirmation"]
     if not isinstance(job_id, str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
         job_id,
     ):
-        raise WebAPIError("job_id must be a canonical UUID")
+        raise APIError("job_id must be a canonical UUID")
     if not isinstance(confirmation, str) or len(confirmation) > 96:
-        raise WebAPIError("operator reconciliation confirmation is invalid")
+        raise APIError("operator reconciliation confirmation is invalid")
     if _deployment_unit_is_active(job_id):
-        raise WebAPIError("stop the active deployment service before reconciling its journal")
+        raise APIError("stop the active deployment service before reconciling its journal")
 
     directory = _deployment_journal_directory()
     journal_path = directory / f"{job_id}.jsonl"
     if not os.path.lexists(journal_path):
-        raise WebAPIError("deployment job journal does not exist")
+        raise APIError("deployment job journal does not exist")
     try:
         journal = DeploymentJournal.inspect(journal_path)
         if journal.job_id != job_id:
-            raise WebAPIError("deployment journal UUID does not match the requested job")
+            raise APIError("deployment journal UUID does not match the requested job")
         report = journal.reconcile_after_operator_inspection(confirmation)
     except DeploymentJournalError as exc:
-        raise WebAPIError(str(exc)) from exc
+        raise APIError(str(exc)) from exc
     return {
         "job_id": job_id,
         "job_state": report["job_state"],
@@ -3288,7 +3288,7 @@ def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
 
 def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job"} or not isinstance(params["job"], dict):
-        raise WebAPIError("create_deployment_job requires exactly one job object")
+        raise APIError("create_deployment_job requires exactly one job object")
     from feclora.deployment.job import DeploymentJob, JobValidationError
     from feclora.deployment.journal import DeploymentJournal
     from feclora.deployment.runtime_config import load_server_runtime_config, RuntimeConfigError
@@ -3296,24 +3296,24 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     try:
         job = DeploymentJob.from_dict(params["job"])
     except JobValidationError as exc:
-        raise WebAPIError(str(exc)) from exc
+        raise APIError(str(exc)) from exc
     if job.transport == "unicast" and len(job.authorized_clients) != 1 and job.operation != "clone":
-        raise WebAPIError("persistent unicast save/restore supports exactly one Client per job; clone supports multi-Client fan-out")
+        raise APIError("persistent unicast save/restore supports exactly one Client per job; clone supports multi-Client fan-out")
     if job.transport == "multicast" and len(job.authorized_clients) < 2:
-        raise WebAPIError("multicast restore requires at least two authorized Clients")
+        raise APIError("multicast restore requires at least two authorized Clients")
     config_path = "/etc/feclora/deployment-server.json"
     try:
         config = load_server_runtime_config(config_path)
     except RuntimeConfigError as exc:
-        raise WebAPIError(f"configure the Feclora Server before creating jobs: {exc}") from exc
+        raise APIError(f"configure the Feclora Server before creating jobs: {exc}") from exc
     if job.boot_method == "pxe" and job.network_interface == "auto":
         # PXE Live retains DHCP on each Client; the Server interface is resolved
         # from its configured bind address by DeploymentService.
         pass
     elif job.network_interface not in {name for _, name in socket.if_nameindex()}:
-        raise WebAPIError("selected network interface does not exist")
+        raise APIError("selected network interface does not exist")
     if job.transport == "multicast" and job.operation not in {"restore", "clone"}:
-        raise WebAPIError("multicast transport supports restore or whole-disk physical clone only")
+        raise APIError("multicast transport supports restore or whole-disk physical clone only")
     if job.operation == "save":
         if job.repository_id is None:
             existing_ids = {item["image_id"] for item in _images()}
@@ -3322,15 +3322,15 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
             s3_manager = S3RepositoryManager()
             definition = next((item for item in s3_manager.list() if item["id"] == job.repository_id), None)
             if definition is None:
-                raise WebAPIError("selected S3 repository does not exist")
+                raise APIError("selected S3 repository does not exist")
             if definition["read_only"]:
-                raise WebAPIError("selected S3 repository is read-only and cannot receive Client captures")
+                raise APIError("selected S3 repository is read-only and cannot receive Client captures")
             try:
                 existing_ids = {item["image_id"] for item in s3_manager.repository(job.repository_id).list_images()}
             except Exception as exc:
-                raise WebAPIError(f"cannot inspect selected S3 repository: {exc}") from exc
+                raise APIError(f"cannot inspect selected S3 repository: {exc}") from exc
         if job.image_id in existing_ids:
-            raise WebAPIError("capture image identifier already exists in the selected repository")
+            raise APIError("capture image identifier already exists in the selected repository")
     elif job.operation == "clone":
         source = _device(job.source_device, "source_device")
         inventory = collect_inventory()
@@ -3338,14 +3338,14 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         matches = _find_inventory_device(inventory, source, expected_source_type)
         if len(matches) != 1:
             label = "whole disk" if job.target_type == "disk" else "partition"
-            raise WebAPIError(f"clone source must be one {label} in the current block-device inventory")
+            raise APIError(f"clone source must be one {label} in the current block-device inventory")
         if matches[0].get("read_only") is not True:
-            raise WebAPIError(f"clone source {job.target_type} must already be marked read-only")
+            raise APIError(f"clone source {job.target_type} must already be marked read-only")
         from feclora.storage.source_safety import check_capture_source_safe, SourceSafetyError
         try:
             check_capture_source_safe(source)
         except (SourceSafetyError, OSError) as exc:
-            raise WebAPIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
+            raise APIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
         if job.transport == "multicast":
             try:
                 from feclora.network.physical_multicast import build_physical_device_record
@@ -3357,7 +3357,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                     ),
                 )
             except Exception as exc:
-                raise WebAPIError(
+                raise APIError(
                     f"physical multicast source lacks a complete stable kernel identity: {exc}"
                 ) from exc
     else:
@@ -3376,25 +3376,25 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                          if item["image_id"] == job.image_id), None,
                     )
                     if remote_image is None:
-                        raise WebAPIError("selected image is not available in the S3 repository")
+                        raise APIError("selected image is not available in the S3 repository")
                     expected_type = "disk" if job.target_type == "disk" else "partition"
                     if remote_image["image_type"] != expected_type:
-                        raise WebAPIError(f"selected image is not a {expected_type} image")
+                        raise APIError(f"selected image is not a {expected_type} image")
                     if job.transport == "multicast":
                         job = replace(job, staging_required_bytes=remote_image["artifact_bytes"])
-                except WebAPIError:
+                except APIError:
                     raise
                 except Exception as exc:
-                    raise WebAPIError(f"cannot validate S3 restore image: {exc}") from exc
+                    raise APIError(f"cannot validate S3 restore image: {exc}") from exc
             elif job.operation == "save":
-                raise WebAPIError("Client capture destination must be an S3 object repository")
+                raise APIError("Client capture destination must be an S3 object repository")
             else:
                 try:
                     image_repository = Path(_remote_repository_manager().resolve(
                         job.repository_id, write=False,
                     ))
                 except Exception as exc:
-                    raise WebAPIError(f"selected image repository is not mounted and verified: {exc}") from exc
+                    raise APIError(f"selected image repository is not mounted and verified: {exc}") from exc
                 manifest_path = _image_manifest(job.image_id, image_repository)
         else:
             image_repository = Path(config.repository)
@@ -3404,16 +3404,16 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                 manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
                 expected_type = "disk" if job.target_type == "disk" else "partition"
                 if manifest.image_type != expected_type:
-                    raise WebAPIError(f"selected image is not a {expected_type} image")
+                    raise APIError(f"selected image is not a {expected_type} image")
                 if job.transport == "multicast":
                     job = replace(
                         job,
                         staging_required_bytes=sum(item.size_bytes for item in manifest.artifacts),
                     )
-            except WebAPIError:
+            except APIError:
                 raise
             except Exception as exc:
-                raise WebAPIError(f"restore image manifest is invalid: {exc}") from exc
+                raise APIError(f"restore image manifest is invalid: {exc}") from exc
         image_is_encrypted = (
             remote_image["encrypted"] if remote_image is not None
             else any(item.encryption == "age" for item in manifest.artifacts)
@@ -3425,26 +3425,26 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                 pki_info = os.lstat(pki)
                 directory_info = os.lstat(recipients_directory)
             except OSError as exc:
-                raise WebAPIError("Server age-recipient registry is unavailable") from exc
+                raise APIError("Server age-recipient registry is unavailable") from exc
             if (not stat.S_ISDIR(pki_info.st_mode) or stat.S_ISLNK(pki_info.st_mode)
                     or pki_info.st_uid != 0 or pki_info.st_mode & 0o077
                     or not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
                     or directory_info.st_uid != 0 or directory_info.st_mode & 0o077):
-                raise WebAPIError("Server age-recipient registry directories are unsafe")
+                raise APIError("Server age-recipient registry directories are unsafe")
             for mac in job.authorized_clients:
                 mapping = recipients_directory / f"{mac.replace(':', '')}.txt"
                 try:
                     info = os.lstat(mapping)
                     recipient = mapping.read_text(encoding="ascii").strip()
                 except OSError as exc:
-                    raise WebAPIError(f"Client {mac} has no registered age recipient") from exc
+                    raise APIError(f"Client {mac} has no registered age recipient") from exc
                 if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
                         or info.st_mode & 0o077 or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient)):
-                    raise WebAPIError(f"Client {mac} age recipient mapping is unsafe")
+                    raise APIError(f"Client {mac} age recipient mapping is unsafe")
     directory = _deployment_journal_directory(create=True)
     journal_path = directory / f"{job.job_id}.jsonl"
     if os.path.lexists(journal_path):
-        raise WebAPIError("deployment job UUID already exists")
+        raise APIError("deployment job UUID already exists")
     try:
         journal = DeploymentJournal(journal_path, job.job_id)
         from feclora.deployment.coordinator import DeploymentCoordinator
@@ -3455,7 +3455,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                 journal_path.unlink()
         except OSError:
             pass
-        raise WebAPIError(f"could not persist deployment job: {exc}") from exc
+        raise APIError(f"could not persist deployment job: {exc}") from exc
     return {
         "job_id": job.job_id,
         "job_state": coordinator.state.value,
@@ -3472,7 +3472,7 @@ def _export_server_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
     try:
         return export_server_age_recipients(params)
     except Exception as exc:
-        raise WebAPIError(f"age recipient export failed: {exc}") from exc
+        raise APIError(f"age recipient export failed: {exc}") from exc
 
 
 def _refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
@@ -3480,7 +3480,7 @@ def _refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
     try:
         return refresh_client_age_recipients(params)
     except Exception as exc:
-        raise WebAPIError(f"Client age recipient refresh failed: {exc}") from exc
+        raise APIError(f"Client age recipient refresh failed: {exc}") from exc
 
 
 def _remote_repository_manager():
@@ -3492,12 +3492,12 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
     try:
         if action == "put_systemd_credential":
             if set(params) != {"id", "kind", "source_file", "replace"}:
-                raise WebAPIError("put_systemd_credential requires id, kind, source_file and replace")
+                raise APIError("put_systemd_credential requires id, kind, source_file and replace")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|s3", maximum=16)
             source_file = _text(params, "source_file", maximum=512)
             if not isinstance(params["replace"], bool):
-                raise WebAPIError("replace must be boolean")
+                raise APIError("replace must be boolean")
             from feclora.storage.credential_cli import read_source_file
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
             content = read_source_file(source_file)
@@ -3506,41 +3506,41 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             )}
         if action == "remove_systemd_credential":
             if set(params) != {"id", "kind"}:
-                raise WebAPIError("remove_systemd_credential requires id and kind")
+                raise APIError("remove_systemd_credential requires id and kind")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|s3", maximum=16)
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
             store = SystemdCredentialStore()
             if _remote_repository_manager().credential_is_referenced(str(store._path(identifier, kind))):
-                raise WebAPIError("credential is still referenced by a saved repository; update or remove that repository first")
+                raise APIError("credential is still referenced by a saved repository; update or remove that repository first")
             if kind == "s3":
                 from feclora.storage.s3_repository_manager import S3RepositoryManager
                 if S3RepositoryManager().credential_is_referenced(identifier):
-                    raise WebAPIError("credential is still referenced by a saved S3 repository; update or remove that repository first")
+                    raise APIError("credential is still referenced by a saved S3 repository; update or remove that repository first")
             store.remove(identifier, kind)
             return {"removed": True, "id": identifier, "kind": kind}
         if action == "systemd_credentials":
             if params:
-                raise WebAPIError("systemd_credentials does not accept parameters")
+                raise APIError("systemd_credentials does not accept parameters")
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
             try:
                 return {"credentials": SystemdCredentialStore().list()}
             except Exception as exc:
-                raise WebAPIError(f"encrypted credential inventory failed: {exc}") from exc
+                raise APIError(f"encrypted credential inventory failed: {exc}") from exc
         if action == "s3_repositories":
             if params:
-                raise WebAPIError("s3_repositories does not accept parameters")
+                raise APIError("s3_repositories does not accept parameters")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             return {"repositories": S3RepositoryManager().list()}
         if action in {"add_s3_repository", "update_s3_repository"}:
             required = {"id", "endpoint_url", "region", "bucket", "prefix", "credential_id", "read_only"}
             if set(params) != required:
-                raise WebAPIError("S3 repository definition has missing or unknown fields")
+                raise APIError("S3 repository definition has missing or unknown fields")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             definition = {key: params[key] for key in required - {"id"}}
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             if any(item["id"] == identifier for item in _remote_repository_manager().list()):
-                raise WebAPIError("repository ID is already used by a filesystem repository")
+                raise APIError("repository ID is already used by a filesystem repository")
             manager = S3RepositoryManager()
             if action == "add_s3_repository":
                 return manager.add(identifier, definition)
@@ -3548,25 +3548,25 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                 return manager.update(identifier, definition)
         if action == "check_s3_repository":
             if set(params) != {"id"}:
-                raise WebAPIError("check_s3_repository requires exactly id")
+                raise APIError("check_s3_repository requires exactly id")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             return S3RepositoryManager().check(_text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48))
         if action == "remove_s3_repository":
             if set(params) != {"id"}:
-                raise WebAPIError("remove_s3_repository requires exactly id")
+                raise APIError("remove_s3_repository requires exactly id")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             with _storage_operation_lock():
                 return S3RepositoryManager().remove(identifier)
         if action == "s3_repository_images":
             if set(params) != {"repository_id"}:
-                raise WebAPIError("s3_repository_images requires repository_id")
+                raise APIError("s3_repository_images requires repository_id")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             identifier = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             return {"images": S3RepositoryManager().repository(identifier).list_images()}
         if action == "remote_repositories":
             if params:
-                raise WebAPIError("remote_repositories does not accept parameters")
+                raise APIError("remote_repositories does not accept parameters")
             return {"repositories": _remote_repository_manager().list()}
         if action in {"add_remote_repository", "update_remote_repository"}:
             required = {
@@ -3575,7 +3575,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                 "port", "read_only",
             }
             if set(params) != required:
-                raise WebAPIError("remote repository definition has missing or unknown fields")
+                raise APIError("remote repository definition has missing or unknown fields")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             definition = {key: params[key] for key in required - {"id"}}
             for key in ("provider", "host", "remote_path"):
@@ -3585,63 +3585,63 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                     not isinstance(definition[key], str) or not definition[key]
                     or len(definition[key]) > 512
                 ):
-                    raise WebAPIError(f"{key} must be null or a non-empty path/value")
+                    raise APIError(f"{key} must be null or a non-empty path/value")
             if definition["port"] is not None and (
                 isinstance(definition["port"], bool) or not isinstance(definition["port"], int)
                 or not 1 <= definition["port"] <= 65535
             ):
-                raise WebAPIError("port must be null or an integer between 1 and 65535")
+                raise APIError("port must be null or an integer between 1 and 65535")
             if not isinstance(definition["read_only"], bool):
-                raise WebAPIError("read_only must be boolean")
+                raise APIError("read_only must be boolean")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             if any(item["id"] == identifier for item in S3RepositoryManager().list()):
-                raise WebAPIError("repository ID is already used by an S3 object repository")
+                raise APIError("repository ID is already used by an S3 object repository")
             manager = _remote_repository_manager()
             return manager.add(identifier, definition) if action == "add_remote_repository" else manager.update(identifier, definition)
         if action == "check_remote_repository":
             if set(params) != {"id"}:
-                raise WebAPIError("check_remote_repository requires exactly id")
+                raise APIError("check_remote_repository requires exactly id")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             return _remote_repository_manager().check(identifier)
         if action in {"mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
             if set(params) != {"id"}:
-                raise WebAPIError(f"{action} requires exactly id")
+                raise APIError(f"{action} requires exactly id")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             if action == "mount_remote_repository":
                 return _remote_repository_manager().mount(identifier)
             if action == "unmount_remote_repository":
                 return _remote_repository_manager().unmount(identifier)
             return _remote_repository_manager().remove(identifier)
-    except WebAPIError:
+    except APIError:
         raise
     except Exception as exc:
-        raise WebAPIError(f"remote repository operation failed: {exc}") from exc
-    raise WebAPIError("unsupported remote repository action")
+        raise APIError(f"remote repository operation failed: {exc}") from exc
+    raise APIError("unsupported remote repository action")
 
 
 def _persistent_repository(repository: Path) -> None:
     try:
         info = os.lstat(repository)
     except OSError as exc:
-        raise WebAPIError("selected profile repository is unavailable") from exc
+        raise APIError("selected profile repository is unavailable") from exc
     if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
-        raise WebAPIError("restore profiles require a real mounted filesystem repository")
+        raise APIError("restore profiles require a real mounted filesystem repository")
     findmnt = shutil.which("findmnt")
     if not findmnt:
-        raise WebAPIError("findmnt is required to verify persistent restore-profile storage")
+        raise APIError("findmnt is required to verify persistent restore-profile storage")
     try:
         result = subprocess.run(
             [findmnt, "--noheadings", "--output", "FSTYPE,TARGET", "--target", str(repository)],
             check=True, capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise WebAPIError(f"cannot verify persistent profile storage: {exc}") from exc
+        raise APIError(f"cannot verify persistent profile storage: {exc}") from exc
     fields = result.stdout.split()
     if len(fields) < 2:
-        raise WebAPIError("findmnt did not identify the restore-profile filesystem")
+        raise APIError("findmnt did not identify the restore-profile filesystem")
     filesystem, mountpoint = fields[0].lower(), fields[-1]
     if filesystem in {"overlay", "tmpfs", "ramfs", "rootfs", "squashfs", "devtmpfs"} or mountpoint == "/":
-        raise WebAPIError("restore profiles require a dedicated persistent mounted filesystem, not the Live root")
+        raise APIError("restore profiles require a dedicated persistent mounted filesystem, not the Live root")
 
 
 def _restore_profile_directory(repository: Path, *, create: bool = False) -> Path:
@@ -3660,22 +3660,22 @@ def _restore_profile_directory(repository: Path, *, create: bool = False) -> Pat
         except FileNotFoundError:
             if not create:
                 return directory
-            raise WebAPIError("persistent restore-profile directory is unavailable")
+            raise APIError("persistent restore-profile directory is unavailable")
         except OSError as exc:
-            raise WebAPIError("cannot inspect persistent restore-profile directory") from exc
+            raise APIError("cannot inspect persistent restore-profile directory") from exc
         if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
                 or info.st_uid != 0 or info.st_mode & 0o077):
-            raise WebAPIError("restore-profile directories must be root-owned and mode 0700")
+            raise APIError("restore-profile directories must be root-owned and mode 0700")
     return directory
 
 
 def _profile_repository(params: dict[str, Any], *, write: bool) -> Path:
     if set(params) != {"repository_id"}:
-        raise WebAPIError("restore profile action requires a mounted filesystem repository_id")
+        raise APIError("restore profile action requires a mounted filesystem repository_id")
     repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
     from feclora.storage.s3_repository_manager import S3RepositoryManager
     if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-        raise WebAPIError("restore profiles require persistent mounted filesystem storage; S3 is not supported")
+        raise APIError("restore profiles require persistent mounted filesystem storage; S3 is not supported")
     repository = _operation_repository({"repository_id": repository_id}, write=write)
     _persistent_repository(repository)
     return repository
@@ -3696,25 +3696,25 @@ def _restore_profiles(params: dict[str, Any]) -> dict[str, Any]:
     except FileNotFoundError:
         ledger_info = None
     except OSError as exc:
-        raise WebAPIError(f"cannot inspect restore profile consumption ledger: {exc}") from exc
+        raise APIError(f"cannot inspect restore profile consumption ledger: {exc}") from exc
     if ledger_info is not None:
         if (not stat.S_ISREG(ledger_info.st_mode) or stat.S_ISLNK(ledger_info.st_mode)
                 or ledger_info.st_uid != 0 or ledger_info.st_mode & 0o077
                 or ledger_info.st_size > 8 * 1024 * 1024):
-            raise WebAPIError("restore profile consumption ledger has unsafe type, permissions or size")
+            raise APIError("restore profile consumption ledger has unsafe type, permissions or size")
         try:
             for line_number, line in enumerate(ledger.read_text(encoding="utf-8").splitlines(), 1):
                 event = json.loads(line, object_pairs_hook=_reject_duplicates)
                 if not isinstance(event, dict) or event.get("status") != "consumed" or not isinstance(event.get("profile_id"), str):
-                    raise WebAPIError(f"restore profile consumption ledger is invalid at line {line_number}")
+                    raise APIError(f"restore profile consumption ledger is invalid at line {line_number}")
                 consumed_ids.add(event["profile_id"])
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            raise WebAPIError(f"restore profile consumption ledger is corrupt: {exc}") from exc
+            raise APIError(f"restore profile consumption ledger is corrupt: {exc}") from exc
     for path in sorted(directory.glob("*.json")):
         try:
             profile = load_restore_profile(path)
         except Exception as exc:
-            raise WebAPIError(f"restore profile {path.name} is invalid: {exc}") from exc
+            raise APIError(f"restore profile {path.name} is invalid: {exc}") from exc
         matches = [
             device for device in inventory.get("devices", [])
             if isinstance(device, dict) and device.get("type") == "disk" and profile.target.matches(device)
@@ -3733,24 +3733,24 @@ def _restore_profiles(params: dict[str, Any]) -> dict[str, Any]:
 def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
     required = {"name", "image_id", "target_wwn", "target_serial", "expires_at", "repository_id"}
     if set(params) != required:
-        raise WebAPIError("create_restore_profile requires name, image_id, target identity, expiry and repository_id")
+        raise APIError("create_restore_profile requires name, image_id, target identity, expiry and repository_id")
     name = _text(params, "name", maximum=80)
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
     wwn, serial = params.get("target_wwn"), params.get("target_serial")
     if wwn is not None and (not isinstance(wwn, str) or not wwn or len(wwn) > 256):
-        raise WebAPIError("target_wwn must be a non-empty string or null")
+        raise APIError("target_wwn must be a non-empty string or null")
     if serial is not None and (not isinstance(serial, str) or not serial or len(serial) > 256):
-        raise WebAPIError("target_serial must be a non-empty string or null")
+        raise APIError("target_serial must be a non-empty string or null")
     if wwn is None and serial is None:
-        raise WebAPIError("restore profile requires a WWN and/or serial-number binding")
+        raise APIError("restore profile requires a WWN and/or serial-number binding")
     expires_at = _text(params, "expires_at", maximum=64)
     from datetime import datetime, timezone
     try:
         expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise WebAPIError("expires_at must be a timezone-aware ISO-8601 timestamp") from exc
+        raise APIError("expires_at must be a timezone-aware ISO-8601 timestamp") from exc
     if expiry.tzinfo is None or expiry.utcoffset() is None or expiry.astimezone(timezone.utc) <= datetime.now(timezone.utc):
-        raise WebAPIError("restore profile expiry must be a future timezone-aware timestamp")
+        raise APIError("restore profile expiry must be a future timezone-aware timestamp")
     from feclora.storage.restore_profile import (
         RestoreProfile, RestoreTargetSelector, RestoreProfileError, save_unattended_restore_profile,
     )
@@ -3768,47 +3768,47 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
         manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         if manifest.image_id != image_id or manifest.image_type != "disk":
-            raise WebAPIError("restore profiles currently require a matching whole-disk image")
+            raise APIError("restore profiles currently require a matching whole-disk image")
         disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
         if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
-            raise WebAPIError("restore profiles require exactly one RAW whole-disk artifact")
+            raise APIError("restore profiles require exactly one RAW whole-disk artifact")
         if any(item.encryption == "age" for item in manifest.artifacts):
             if not _security_material().get("age_decryption_available"):
-                raise WebAPIError("age-encrypted image requires a separately provisioned Server or Client age identity")
+                raise APIError("age-encrypted image requires a separately provisioned Server or Client age identity")
         inventory = collect_inventory()
         matches = [
             device for device in inventory.get("devices", [])
             if isinstance(device, dict) and device.get("type") == "disk" and selector.matches(device)
         ]
         if len(matches) != 1:
-            raise WebAPIError("stable target selector must match exactly one detected whole disk")
+            raise APIError("stable target selector must match exactly one detected whole disk")
         target = matches[0]
         if target.get("read_only"):
-            raise WebAPIError("restore profile target disk is read-only")
+            raise APIError("restore profile target disk is read-only")
         from feclora.storage.source_safety import check_capture_source_safe
         try:
             check_capture_source_safe(target.get("path"))
         except Exception as exc:
-            raise WebAPIError(f"restore profile target must be offline and unused: {exc}") from exc
+            raise APIError(f"restore profile target must be offline and unused: {exc}") from exc
         target_size = target.get("size_bytes")
         if isinstance(target_size, bool) or not isinstance(target_size, int) or target_size < manifest.source_size_bytes:
-            raise WebAPIError("restore profile target capacity is unknown or smaller than the source image; proportional restore is a separate workflow")
+            raise APIError("restore profile target capacity is unknown or smaller than the source image; proportional restore is a separate workflow")
         if target.get("logical_sector_size") != manifest.logical_sector_size:
-            raise WebAPIError("restore profile target logical sector size differs from the image")
+            raise APIError("restore profile target logical sector size differs from the image")
         pending = [target]
         while pending:
             item = pending.pop()
             if item.get("mountpoints"):
-                raise WebAPIError("restore profile target disk or one of its partitions is mounted or in use")
+                raise APIError("restore profile target disk or one of its partitions is mounted or in use")
             children = item.get("children")
             if isinstance(children, list):
                 pending.extend(child for child in children if isinstance(child, dict))
         path = _restore_profile_directory(repository, create=True) / f"{profile.profile_id}.json"
         saved = save_unattended_restore_profile(profile, path)
-    except WebAPIError:
+    except APIError:
         raise
     except (RestoreProfileError, ManifestValidationError, OSError, ValueError) as exc:
-        raise WebAPIError(f"could not create restore profile: {exc}") from exc
+        raise APIError(f"could not create restore profile: {exc}") from exc
     return {
         "profile_id": profile.profile_id, "name": profile.name,
         "path": str(saved), "image_id": image_id, "repository_id": params["repository_id"],
@@ -3823,21 +3823,21 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
 def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]:
     required = {"profile_id", "target", "confirmation", "repository_id"}
     if set(params) != required:
-        raise WebAPIError("execute_restore_profile requires profile_id, target, confirmation and repository_id")
+        raise APIError("execute_restore_profile requires profile_id, target, confirmation and repository_id")
     import uuid
     try:
         profile_id = str(uuid.UUID(params["profile_id"]))
     except (ValueError, TypeError, AttributeError) as exc:
-        raise WebAPIError("profile_id must be a canonical UUID") from exc
+        raise APIError("profile_id must be a canonical UUID") from exc
     if profile_id != params["profile_id"]:
-        raise WebAPIError("profile_id must be a canonical UUID")
+        raise APIError("profile_id must be a canonical UUID")
     target_path = _device(params["target"], "target")
     if params["confirmation"] != f"ERASE {target_path}":
-        raise WebAPIError(f"explicit confirmation required: ERASE {target_path}")
+        raise APIError(f"explicit confirmation required: ERASE {target_path}")
     repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
     from feclora.storage.s3_repository_manager import S3RepositoryManager
     if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-        raise WebAPIError("unattended restore profiles require persistent mounted filesystem storage; S3 is not supported")
+        raise APIError("unattended restore profiles require persistent mounted filesystem storage; S3 is not supported")
     with _operation_repository_context({"repository_id": repository_id}, write=True) as repository:
         _persistent_repository(repository)
         profile_path = _restore_profile_directory(repository) / f"{profile_id}.json"
@@ -3845,16 +3845,16 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
         try:
             profile = load_restore_profile(profile_path)
         except RestoreProfileError as exc:
-            raise WebAPIError(f"selected restore profile is unavailable or invalid: {exc}") from exc
+            raise APIError(f"selected restore profile is unavailable or invalid: {exc}") from exc
         if profile.profile_id != profile_id:
-            raise WebAPIError("restore profile identifier does not match its filename")
+            raise APIError("restore profile identifier does not match its filename")
         inventory = collect_inventory()
         matches = [
             item for item in inventory.get("devices", [])
             if isinstance(item, dict) and item.get("type") == "disk" and profile.target.matches(item)
         ]
         if len(matches) != 1 or matches[0].get("path") != target_path:
-            raise WebAPIError("selected target path does not uniquely match the profile WWN/serial authorization")
+            raise APIError("selected target path does not uniquely match the profile WWN/serial authorization")
         audit = repository / ".feclora" / "restore-audit"
         try:
             audit.mkdir(mode=0o700)
@@ -3863,7 +3863,7 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
         audit_info = os.lstat(audit)
         if (not stat.S_ISDIR(audit_info.st_mode) or stat.S_ISLNK(audit_info.st_mode)
                 or audit_info.st_uid != 0 or audit_info.st_mode & 0o077):
-            raise WebAPIError("restore profile audit directory must be root-owned and mode 0700")
+            raise APIError("restore profile audit directory must be root-owned and mode 0700")
         client_config = _client_runtime_config()
         identity_paths = []
         server_identity = Path("/etc/feclora/pki/server.age")
@@ -3879,7 +3879,7 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         encrypted = any(item.encryption == "age" for item in manifest.artifacts)
         if encrypted and not identity_paths:
-            raise WebAPIError("age-encrypted profile image requires a separately provisioned age identity")
+            raise APIError("age-encrypted profile image requires a separately provisioned age identity")
         from feclora.storage.profile_executor import execute_unattended_restore_profile
         identity_context = tempfile.TemporaryDirectory(prefix="feclora-profile-identities-") if encrypted and len(identity_paths) > 1 else None
         try:
@@ -3899,7 +3899,7 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
                 expected_target_path=target_path,
             )
         except Exception as exc:
-            raise WebAPIError(f"unattended restore profile execution failed: {exc}") from exc
+            raise APIError(f"unattended restore profile execution failed: {exc}") from exc
         finally:
             if identity_context:
                 identity_context.cleanup()
@@ -3912,14 +3912,14 @@ def _execute_restore_profile_operation(params: dict[str, Any]) -> dict[str, Any]
 
 def dispatch(request: Any) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
-        raise WebAPIError("request must contain an action and optional params object")
+        raise APIError("request must contain an action and optional params object")
     action = request["action"]
     params = request.get("params", {})
     if not isinstance(params, dict):
-        raise WebAPIError("params must be a JSON object")
+        raise APIError("params must be a JSON object")
     if action == "open_root_terminal":
         if params:
-            raise WebAPIError("open_root_terminal does not accept parameters")
+            raise APIError("open_root_terminal does not accept parameters")
         try:
             result = subprocess.run(
                 ["/usr/bin/systemctl", "start", "--no-block", "feclora-root-terminal.service"],
@@ -3927,27 +3927,27 @@ def dispatch(request: Any) -> dict[str, Any]:
                 check=False, timeout=10,
             )
         except (OSError, subprocess.SubprocessError) as exc:
-            raise WebAPIError("cannot request the local root terminal") from exc
+            raise APIError("cannot request the local root terminal") from exc
         if result.returncode != 0:
-            raise WebAPIError("systemd rejected the local root terminal request")
+            raise APIError("systemd rejected the local root terminal request")
         return {"requested": True}
     if action == "get_keyboard_layout":
         if params:
-            raise WebAPIError("get_keyboard_layout does not accept parameters")
+            raise APIError("get_keyboard_layout does not accept parameters")
         from feclora.system_preferences import get_keyboard_layout, KeyboardLayoutError
         try:
             return get_keyboard_layout()
         except KeyboardLayoutError as exc:
-            raise WebAPIError(str(exc)) from exc
+            raise APIError(str(exc)) from exc
     if action == "set_keyboard_layout":
         from feclora.system_preferences import set_keyboard_layout, KeyboardLayoutError
         try:
             return set_keyboard_layout(params)
         except KeyboardLayoutError as exc:
-            raise WebAPIError(str(exc)) from exc
+            raise APIError(str(exc)) from exc
     if action == "check_capture_filesystem":
         if set(params) != {"source", "filesystem"}:
-            raise WebAPIError("check_capture_filesystem requires exactly source and filesystem")
+            raise APIError("check_capture_filesystem requires exactly source and filesystem")
         source = _device(params["source"], "source")
         filesystem = _text(params, "filesystem", pattern=r"(?:ext2|ext3|ext4|ntfs|ntfs3|xfs)")
         from feclora.storage.filesystem_probe import (
@@ -3965,7 +3965,7 @@ def dispatch(request: Any) -> dict[str, Any]:
                 minimum_bytes = check_xfs_read_only(source, filesystem_type=filesystem)
                 checker = "xfs_repair -n"
         except FilesystemProbeError as exc:
-            raise WebAPIError(f"read-only pre-capture check failed: {exc}") from exc
+            raise APIError(f"read-only pre-capture check failed: {exc}") from exc
         result = {
             "source": source, "filesystem": filesystem, "checked": True,
             "read_only": True, "checker": checker,
@@ -3981,7 +3981,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return result
     if action == "status":
         if params:
-            raise WebAPIError("status does not accept parameters")
+            raise APIError("status does not accept parameters")
         return {
             "hostname": socket.gethostname(), "platform": platform.platform(),
             "python": platform.python_version(),
@@ -4005,11 +4005,11 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _apply_network_profile(params)
     if action == "network_connection_profiles":
         if params:
-            raise WebAPIError("network_connection_profiles does not accept parameters")
+            raise APIError("network_connection_profiles does not accept parameters")
         return {"profiles": _network_connection_profiles()}
     if action == "network_interfaces":
         if params:
-            raise WebAPIError("network_interfaces does not accept parameters")
+            raise APIError("network_interfaces does not accept parameters")
         return {"interfaces": _network_interfaces()}
     if action == "bootstrap_server":
         return _bootstrap_server(params)
@@ -4023,7 +4023,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _start_pxe_services(params)
     if action == "stop_pxe_services":
         if params:
-            raise WebAPIError("stop_pxe_services does not accept parameters")
+            raise APIError("stop_pxe_services does not accept parameters")
         return _stop_pxe_services()
     if action == "import_deployment_job":
         return _import_deployment_job(params)
@@ -4037,11 +4037,11 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _pxe_age_passphrase_status(params)
     if action == "pxe_service_status":
         if params:
-            raise WebAPIError("pxe_service_status does not accept parameters")
+            raise APIError("pxe_service_status does not accept parameters")
         return _pxe_service_manager().status()
     if action == "inventory":
         if params:
-            raise WebAPIError("inventory does not accept parameters")
+            raise APIError("inventory does not accept parameters")
         return collect_inventory()
     if action == "restore_profiles":
         return _restore_profiles(params)
@@ -4049,11 +4049,11 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _create_restore_profile(params)
     if action == "images":
         if params:
-            raise WebAPIError("images does not accept parameters")
+            raise APIError("images does not accept parameters")
         return {"images": _images()}
     if action == "repository_images":
         if set(params) != {"repository_id"}:
-            raise WebAPIError("repository_images requires repository_id")
+            raise APIError("repository_images requires repository_id")
         return {"images": _images(_text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}"))}
     if action == "inspect_image_layout":
         return _inspect_image_layout(params)
@@ -4063,15 +4063,15 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _verify_image(params)
     if action == "operations":
         if params:
-            raise WebAPIError("operations does not accept parameters")
+            raise APIError("operations does not accept parameters")
         return {"operations": _operations()}
     if action == "initialize_security":
         if params:
-            raise WebAPIError("initialize_security does not accept parameters")
+            raise APIError("initialize_security does not accept parameters")
         return _initialize_security()
     if action == "deployment_jobs":
         if params:
-            raise WebAPIError("deployment_jobs does not accept parameters")
+            raise APIError("deployment_jobs does not accept parameters")
         return {"jobs": _deployment_jobs()}
     if action == "inspect_remote_job":
         return _inspect_remote_job(params)
@@ -4093,7 +4093,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _deployment_service_command(action, params)
     if action == "journals":
         if params:
-            raise WebAPIError("journals does not accept parameters")
+            raise APIError("journals does not accept parameters")
         reports = _deployment_jobs()
         return {"journals": [
             {"job_id": item["job_id"], "job_state": item["job_state"],
@@ -4115,7 +4115,7 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_p2v", "import_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
                   "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "execute_restore_profile"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
-    raise WebAPIError("unsupported API action")
+    raise APIError("unsupported API action")
 
 
 def main() -> int:
@@ -4128,10 +4128,10 @@ def main() -> int:
     try:
         raw = sys.stdin.read(MAX_REQUEST + 1)
         if len(raw) > MAX_REQUEST:
-            raise WebAPIError("request exceeds the size limit")
+            raise APIError("request exceeds the size limit")
         request = json.loads(raw or "{}", object_pairs_hook=_reject_duplicates)
         if not isinstance(request, dict) or request.get("action") != sys.argv[1]:
-            raise WebAPIError("request action does not match the authorized command")
+            raise APIError("request action does not match the authorized command")
         response = {"ok": True, "data": dispatch(request)}
     except Exception as exc:
         _emit({"ok": False, "error": str(exc)[:512]})

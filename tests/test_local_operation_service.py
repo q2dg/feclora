@@ -149,8 +149,8 @@ class LocalOperationWorkerTests(unittest.TestCase):
         with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
              patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
              patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
-             patch("feclora.webapi._execute_operation", side_effect=LocalOperationCancelled("stop")):
+             patch("feclora.api._storage_operation_lock", return_value=nullcontext()), \
+             patch("feclora.api._execute_operation", side_effect=LocalOperationCancelled("stop")):
             self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
         self.assertEqual(store.append.call_args_list[-1].args[1], "cancelled")
         details = store.append.call_args_list[-1].args[2]

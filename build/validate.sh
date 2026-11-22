@@ -21,7 +21,7 @@ require_text() {
 for file in \
   build/build-iso.sh build/preflight.sh kickstart/feclora-live.ks \
   packages/base.txt requirements-test.txt src/feclora/tui.py \
-  src/feclora/tui_api.py src/feclora/webapi.py \
+  src/feclora/tui_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \

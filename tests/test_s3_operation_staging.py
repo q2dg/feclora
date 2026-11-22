@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from feclora.webapi import WebAPIError, _operation_repository_context
+from feclora.api import APIError, _operation_repository_context
 
 
 class FakeObjectRepository:
@@ -100,7 +100,7 @@ class S3OperationStagingTests(unittest.TestCase):
         remote = FakeObjectRepository(download_error=OSError("object download interrupted"))
         manager = FakeManager(remote)
         with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
-            with self.assertRaisesRegex(WebAPIError, "download interrupted"):
+            with self.assertRaisesRegex(APIError, "download interrupted"):
                 with _operation_repository_context(
                     {"repository_id": "s3archive"}, write=False, image_id="golden",
                 ):
@@ -113,7 +113,7 @@ class S3OperationStagingTests(unittest.TestCase):
         remote = FakeObjectRepository(upload_error=OSError("object upload interrupted"))
         manager = FakeManager(remote)
         with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
-            with self.assertRaisesRegex(WebAPIError, "upload interrupted"):
+            with self.assertRaisesRegex(APIError, "upload interrupted"):
                 with _operation_repository_context(
                     {"repository_id": "s3archive"}, write=True, upload_image_id="captured",
                 ) as repository:
@@ -126,7 +126,7 @@ class S3OperationStagingTests(unittest.TestCase):
         remote = FakeObjectRepository()
         manager = FakeManager(remote)
         with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
-            with self.assertRaisesRegex(WebAPIError, "no new image manifest"):
+            with self.assertRaisesRegex(APIError, "no new image manifest"):
                 with _operation_repository_context(
                     {"repository_id": "s3archive"}, write=True, upload_new_images=True,
                 ):
@@ -139,7 +139,7 @@ class S3OperationStagingTests(unittest.TestCase):
         remote = FakeObjectRepository(read_only=True)
         manager = FakeManager(remote)
         with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager):
-            with self.assertRaisesRegex(WebAPIError, "read-only"):
+            with self.assertRaisesRegex(APIError, "read-only"):
                 with _operation_repository_context(
                     {"repository_id": "s3archive"}, write=True, upload_image_id="captured",
                 ):
