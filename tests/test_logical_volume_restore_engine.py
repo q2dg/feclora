@@ -11,7 +11,6 @@ from feclora.storage.logical_volume_restore import (
     LogicalVolumeRestoreError,
     restore_logical_volume,
 )
-from feclora.storage.image_manifest import ImageManifest
 from feclora.storage.partition_restore import PartitionRestoreError
 
 

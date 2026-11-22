@@ -166,7 +166,6 @@ class SfdiskGPTParserTests(unittest.TestCase):
 
 
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 from feclora.storage.gpt_inspection import inspect_gpt_source
 

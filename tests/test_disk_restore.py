@@ -241,7 +241,6 @@ class DiskRestoreTests(unittest.TestCase):
 
 
     def test_age_decryption_stages_on_local_temp_not_read_only_repository(self):
-        import contextlib
         import hashlib
         with tempfile.TemporaryDirectory() as repository, tempfile.TemporaryDirectory() as local_stage:
             encrypted = b"ciphertext"

@@ -4,7 +4,6 @@ import json
 import socket
 import struct
 import unittest
-from types import SimpleNamespace
 
 from feclora.network.remote_clone_protocol import (
     CloneSessionHeader,

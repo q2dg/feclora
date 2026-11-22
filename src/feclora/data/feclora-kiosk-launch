@@ -18,22 +18,21 @@ echo "DRM devices:"
 ls -la /dev/dri 2>&1 || true
 echo "Input devices:"
 ls -la /dev/input 2>&1 || true
-# Cockpit is optional: keep the graphical session independently diagnosable.
+# Cockpit is optional: start the display as soon as its page is available.
 ready=0
 for attempt in {1..15}; do
-  if (exec 3<>/dev/tcp/127.0.0.1/9090) 2>/dev/null; then
-    exec 3>&-
+  if /usr/bin/curl --fail --silent --output /dev/null --max-time 1 "$url"; then
     ready=1
     break
   fi
   sleep 1
 done
 if (( ready == 0 )); then
-  echo "WARNING: Cockpit kiosk endpoint is not listening on 127.0.0.1:9090 after 15 seconds."
+  echo "WARNING: Feclora Cockpit page did not return HTTP success after 15 seconds: $url"
   echo "Starting Weston/Firefox anyway; the Cockpit page may show a connection error until Cockpit is repaired."
   systemctl --no-pager --full status feclora-cockpit-kiosk.service 2>&1 || true
 else
-  echo "Cockpit endpoint is ready."
+  echo "Feclora Cockpit page is ready: $url"
 fi
 # --no-config prevents a system/user weston.ini from loading optional modules.
 # XWayland is deliberately not requested; Firefox is a native Wayland client.
@@ -53,4 +52,7 @@ echo "Kiosk preflight elapsed: ${SECONDS}s."
 echo "Starting Weston kiosk-shell and Firefox (native Wayland; XWayland disabled)."
 echo "Weston log: $LOG_DIR/weston.log"
 echo "Weston/Firefox exit status and stderr will be recorded below."
+# Keep the Plymouth frame visible while waiting for Cockpit and release DRM
+# only when Weston is ready to take over the display.
+/usr/bin/plymouth deactivate || true
 exec /usr/bin/weston "${WESTON_ARGS[@]}" -- /usr/libexec/feclora/feclora-kiosk-firefox-launch --kiosk --private-window --new-instance "$url"

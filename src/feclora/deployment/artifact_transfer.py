@@ -13,7 +13,6 @@ import shutil
 import stat
 import struct
 import tempfile
-from pathlib import Path
 from typing import Any, Callable
 
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError

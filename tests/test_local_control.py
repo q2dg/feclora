@@ -2,7 +2,6 @@ import json
 import os
 import stat
 import struct
-import threading
 import unittest
 from unittest import mock
 

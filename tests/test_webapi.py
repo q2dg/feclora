@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import Mock, patch
 
 from feclora.webapi import WebAPIError, dispatch, _device, _find_inventory_device, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
@@ -1709,55 +1709,6 @@ class WebAPITests(unittest.TestCase):
             self.assertEqual(final[0].read_text(encoding="ascii"), "secret")
             self.assertEqual(final[1].read_text(encoding="ascii"), "public")
 
-
-    def _valid_deployment_payload(self, *, operation="restore", transport="unicast"):
-        return {
-            "schema_version": 1,
-            "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "operation": operation,
-            "image_id": "optional-crypto-image",
-            "target_type": "disk",
-            "authorized_clients": (
-                ["52:54:00:12:34:56", "52:54:00:12:34:57"]
-                if transport == "multicast" else ["52:54:00:12:34:56"]
-            ),
-            "network_interface": "lo",
-            "transport": transport,
-            "multicast_group": "239.10.10.10" if transport == "multicast" else None,
-            "multicast_port": 5000 if transport == "multicast" else None,
-            "start_policy": "manual",
-            "expected_clients": None,
-            "start_deadline": None,
-        }
-
-    def test_create_multicast_restore_without_age_encryption(self):
-        from feclora.deployment.job import DeploymentJob
-        payload = self._valid_deployment_payload(transport="multicast")
-        manifest = SimpleNamespace(
-            image_type="disk",
-            artifacts=[SimpleNamespace(encryption="none", size_bytes=4096)],
-        )
-        config = SimpleNamespace(
-            repository="/repo",
-        )
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
-            "feclora.webapi._image_manifest", return_value=Path(directory) / "optional-crypto-image.manifest.json"
-        ), patch("pathlib.Path.read_text", return_value="{}"), patch(
-            "feclora.webapi.ImageManifest.from_json", return_value=manifest
-        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
-            "feclora.deployment.journal.DeploymentJournal"
-        ), patch(
-            "feclora.deployment.coordinator.DeploymentCoordinator",
-            return_value=SimpleNamespace(state=SimpleNamespace(value="created")),
-        ):
-            result = dispatch({
-                "action": "create_deployment_job", "params": {"job": payload},
-            })
-        self.assertEqual(result["job_state"], "created")
-        self.assertEqual(result["authorized_clients"], payload["authorized_clients"])
-
     def test_create_distributed_restore_from_s3_repository(self):
         payload = self._valid_deployment_payload(operation="restore")
         payload["repository_id"] = "s3-archive"
@@ -1815,52 +1766,6 @@ class WebAPITests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(WebAPIError, "read-only"):
                 dispatch({"action": "create_deployment_job", "params": {"job": payload}})
-
-    def test_create_unicast_save_without_optional_encryption(self):
-        payload = self._valid_deployment_payload(operation="save")
-        config = SimpleNamespace(
-            repository="/repo",
-        )
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
-            "feclora.webapi._images", return_value=[]
-        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
-            "feclora.deployment.journal.DeploymentJournal"
-        ), patch(
-            "feclora.deployment.coordinator.DeploymentCoordinator",
-            return_value=SimpleNamespace(state=SimpleNamespace(value="created")),
-        ):
-            result = dispatch({
-                "action": "create_deployment_job", "params": {"job": payload},
-            })
-        self.assertEqual(result["job_state"], "created")
-
-    def test_client_remote_job_inspection_allows_plain_save_and_multicast(self):
-        from feclora.deployment.job import DeploymentJob
-        config = SimpleNamespace(
-            host="192.0.2.2", port=9443,
-            ca_file="/pki/ca.crt",
-            server_identity="URI:feclora-server",
-            mac_address="52:54:00:12:34:56",
-            age_identity_file=None, age_recipients_file=None,
-        )
-        jobs = (
-            DeploymentJob.from_dict(self._valid_deployment_payload(operation="save")),
-            DeploymentJob.from_dict(self._valid_deployment_payload(transport="multicast")),
-        )
-        for job in jobs:
-            with self.subTest(operation=job.operation, transport=job.transport), patch(
-                "feclora.deployment.runtime_config.load_client_runtime_config", return_value=config
-            ), patch("feclora.network.remote_clone_protocol.create_tls_context", return_value=object()), patch(
-                "feclora.deployment.control.inspect_deployment_job", return_value=job
-            ):
-                result = dispatch({
-                    "action": "inspect_remote_job",
-                    "params": {"host": "", "job_id": job.job_id},
-                })
-            self.assertEqual(result["job"]["job_id"], job.job_id)
-
 
     def _valid_deployment_payload(self, *, operation="restore", transport="unicast"):
         return {
@@ -1936,7 +1841,6 @@ class WebAPITests(unittest.TestCase):
             ca_file="/pki/ca.crt",
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
-            
             age_identity_file=None, age_recipients_file=None,
         )
         jobs = (

@@ -123,7 +123,7 @@ def collect_luks_inventory(
         try:
             uuid_result = runner([*prefix, cryptsetup, "luksUUID", path],
                                  check=True, capture_output=True, text=True, timeout=20)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as exc:
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError):
             errors.append({"device": path, "reason": "LUKS UUID inspection failed"})
             continue
         luks_uuid = uuid_result.stdout.strip()

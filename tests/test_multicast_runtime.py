@@ -13,7 +13,6 @@ from feclora.deployment.multicast_runtime import (
     rendezvous_group_for, udpcast_config_for_job,
 )
 from feclora.storage.image_manifest import ImageArtifact
-from feclora.storage.image_security import ImageSecurityError
 
 
 def multicast_job(**changes):

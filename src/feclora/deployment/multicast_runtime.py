@@ -8,7 +8,6 @@ the existing restore path may write to the locally selected disk.
 from __future__ import annotations
 
 import base64
-import json
 import os
 import shutil
 import stat
@@ -16,7 +15,7 @@ import tempfile
 from typing import Any, Callable
 
 from feclora.deployment.control import (
-    DeploymentControlError, LocalTargetApproval, receive_control_message,
+    LocalTargetApproval, receive_control_message,
 )
 from feclora.deployment.job import DeploymentJob
 from feclora.deployment.restore_execution import execute_restore, RestoreExecutionError

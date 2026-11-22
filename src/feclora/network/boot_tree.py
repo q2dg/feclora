@@ -8,7 +8,6 @@ import shutil
 import stat
 import tempfile
 from pathlib import Path
-from typing import Any
 
 
 class LiveBootAssetError(RuntimeError):

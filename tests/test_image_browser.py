@@ -1,6 +1,5 @@
 import base64
 import json
-import os
 import stat
 import struct
 import sys

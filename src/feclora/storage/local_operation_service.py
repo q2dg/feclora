@@ -8,7 +8,6 @@ import fcntl
 import hashlib
 import json
 import os
-import re
 import stat
 import sys
 import signal

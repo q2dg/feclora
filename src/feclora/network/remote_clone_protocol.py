@@ -13,7 +13,6 @@ import ipaddress
 import json
 import posixpath
 import re
-import socket
 import ssl
 import struct
 import uuid

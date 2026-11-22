@@ -7,7 +7,6 @@ import socket
 import stat
 import struct
 import threading
-from pathlib import Path
 from typing import Any, Callable
 
 MAX_FRAME = 16 * 1024

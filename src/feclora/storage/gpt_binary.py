@@ -247,7 +247,6 @@ def build_gpt_rewrite(
         source_stream, int(source["primary_entries_lba"]) * sector_size, array_bytes
     ))
     seen_numbers: set[int] = set()
-    previous_end = first_usable - 1
     for plan in plans:
         number = getattr(plan, "node", None)
         partuuid = getattr(plan, "partuuid", None)

@@ -10,7 +10,6 @@ import fcntl
 import hashlib
 import json
 import os
-import posixpath
 import re
 import stat
 import uuid
@@ -343,7 +342,7 @@ class LocalOperationStore:
         if state not in set(TRANSITIONS) | TERMINAL_STATES | {"progress"}:
             raise LocalOperationError("unsupported operation state")
         name = self._name(operation_id, "jsonl")
-        definition = self.definition(operation_id)
+        self.definition(operation_id)
         directory_fd = _safe_directory(self.directory, create=False)
         try:
             fd = os.open(name, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),

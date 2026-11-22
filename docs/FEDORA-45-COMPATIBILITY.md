@@ -10,17 +10,21 @@ upstream release for the system toolchain.
 |---|---:|---|---|
 | Node.js | 22.23.1 | Fedora 45 stable `nodejs22` 22.23.1-4.fc45 | Aligned |
 | npm | 10.9.8 | Fedora 45 `nodejs22-npm` 10.9.8-1.22.23.1.4.fc45 | Aligned |
-| React | 18.3.1 | Cockpit 372 development dependencies | Aligned |
-| React DOM | 18.3.1 | Cockpit 372 development dependencies | Aligned |
-| PatternFly | 6.7.0 | Cockpit 372 development dependencies; Fedora 45 cockpit-files metadata | Aligned |
+| React | 18.3.1 | Cockpit 368 development dependencies | Aligned |
+| React DOM | 18.3.1 | Cockpit 368 development dependencies | Aligned |
+| PatternFly | 6.7.0 | Cockpit 368 ships 6.6.1; Cockpit 371/372 ship 6.7.0 | Newer than the Fedora 45 Cockpit baseline; bundled by Feclora's own frontend build |
 | Vite | 8.3.8 | Build-only npm dependency; not the Fedora runtime | Node engine compatibility checked |
 | @vitejs/plugin-react | 6.3.0 | Build-only npm dependency; not the Fedora runtime | Node engine compatibility checked |
 
-The React and PatternFly pins follow the upstream Cockpit 372 development
-manifest, the relevant Cockpit baseline shipped by Fedora 45. Cockpit's
-manifest pins React and React DOM to 18.3.1 and PatternFly packages to 6.7.0.
-The Fedora 45 package metadata independently lists the PatternFly and React
-bundles in Cockpit components.
+Fedora 45 currently ships Cockpit 368, whose manifest pins React and React DOM
+to 18.3.1 and PatternFly to 6.6.1. Feclora pins React 18.3.1, matching that
+baseline, and PatternFly 6.7.0, the version used by Cockpit 371/372. Feclora
+bundles its own React and PatternFly in the frontend build instead of loading
+Cockpit's copies, so the newer PatternFly pin does not modify or replace the
+system Cockpit packages. It still requires a runtime smoke test against the
+Fedora 45 Cockpit shell; do not describe the frontend as validated on hardware
+solely because the pins are declared. The application manifest declares
+Cockpit 368 as the minimum supported version.
 
 Fedora 45 stable currently publishes Node.js 22.23.1 and npm 10.9.8. Vite 8
 and the React Vite plugin require Node 20.19+ or 22.12+; Node 22.23.1 satisfies
@@ -46,6 +50,7 @@ than being resolved afresh on each build.
 
 - [Fedora 45 Node.js package](https://packages.fedoraproject.org/pkgs/nodejs22/nodejs/fedora-45.html)
 - [Fedora 45 npm package](https://packages.fedoraproject.org/pkgs/nodejs22/nodejs22-npm/fedora-45.html)
+- [Cockpit 368 frontend dependency manifest](https://github.com/cockpit-project/cockpit/blob/368/package.json)
 - [Cockpit 372 frontend dependency manifest](https://github.com/cockpit-project/cockpit/blob/372/package.json)
 - [Fedora 45 Cockpit package](https://packages.fedoraproject.org/pkgs/cockpit/cockpit/fedora-45.html)
 - [Vite Node.js engine requirement](https://github.com/vitejs/vite/blob/main/packages/vite/package.json)

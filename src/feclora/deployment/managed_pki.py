@@ -1,7 +1,6 @@
 """Feclora-managed TLS Server certificate lifecycle."""
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import shutil

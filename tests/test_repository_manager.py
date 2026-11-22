@@ -1,6 +1,5 @@
 import multiprocessing
 import os
-import stat
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor

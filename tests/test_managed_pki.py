@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.deployment.managed_pki import (
-    PKIError, certificate_expiry_days, renew_server_certificate, rotate_server_keypair,
+    PKIError, renew_server_certificate, rotate_server_keypair,
 )
 
 

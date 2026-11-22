@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
-from feclora.deployment.managed_pki import PKIError, initialize_server_pki
+from feclora.deployment.managed_pki import initialize_server_pki
 
 
 class BootstrapError(RuntimeError):
@@ -72,7 +72,7 @@ def ensure_server_deployment_config(
         raise BootstrapError("Server bind address must be a concrete IPv4 address") from exc
     if address.version != 4 or address.is_unspecified or address.is_multicast:
         raise BootstrapError("Server bind address must be a concrete unicast IPv4 address")
-    config_directory = _ensure_directory(os.path.dirname(config_path), 0o700)
+    _ensure_directory(os.path.dirname(config_path), 0o700)
     if os.path.lexists(config_path):
         info = os.lstat(config_path)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:

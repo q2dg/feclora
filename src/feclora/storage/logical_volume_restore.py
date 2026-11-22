@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError
 from .partition_restore import (
     PartitionRestoreError,
     _PARTCLONE,

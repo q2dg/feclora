@@ -55,7 +55,6 @@ def convert_block_device_to_qcow2(
     if (not isinstance(source_path, str) or not source_path.startswith("/dev/")
             or os.path.normpath(source_path) != source_path or ".." in Path(source_path).parts):
         raise P2VError("source must be a normalized /dev block-device path")
-    source = Path(source_path)
     destination = Path(output_path)
     if destination.name in {"", ".", ".."} or destination.suffix.lower() != ".qcow2":
         raise P2VError("output must be a .qcow2 file")

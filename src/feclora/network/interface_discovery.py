@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Callable
 
 
 class InterfaceDiscoveryError(RuntimeError):

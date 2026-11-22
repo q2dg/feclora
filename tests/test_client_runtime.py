@@ -1,5 +1,4 @@
 import json
-import os
 import stat
 import struct
 import unittest
@@ -106,7 +105,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         }))
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
              patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"), \
-             patch("feclora.deployment.restore_execution.restore_disk") as restore:
+             patch("feclora.deployment.restore_execution.restore_disk"):
             result = execute_client_image_job(
                 make_job("restore"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",

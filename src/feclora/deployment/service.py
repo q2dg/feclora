@@ -572,12 +572,12 @@ class DeploymentService:
                 udpcast = udpcast_config_for_job(
                     self.job, min_receivers=self.job.minimum_ready_clients, network_interface=self.server_interface,
                 )
-                results = self.control.run_multicast_restore_job(
+                self.control.run_multicast_restore_job(
                     self.repository_path, self.manifest_path,
                     udpcast_config=udpcast,
                 )
             else:
-                results = self.control.run_one_client_job(
+                self.control.run_one_client_job(
                     self.repository_path,
                     manifest_path=self.manifest_path,
                     saved_image_callback=(

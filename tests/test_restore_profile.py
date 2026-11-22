@@ -10,7 +10,6 @@ from unittest.mock import patch
 from feclora.storage.restore_profile import (
     RestoreProfile,
     RestoreProfileError,
-    RestoreTargetSelector,
     load_restore_profile,
     save_unattended_restore_profile,
 )
@@ -77,7 +76,6 @@ class RestoreProfileTests(unittest.TestCase):
             path.write_text(json.dumps(value), encoding="utf-8")
             regular = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=path.stat().st_size)
             folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
-            real_lstat = os.lstat
             def fake_lstat(candidate):
                 return regular if os.fspath(candidate) == os.fspath(path) else folder
             with patch("feclora.storage.restore_profile.os.lstat", side_effect=fake_lstat), \

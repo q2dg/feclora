@@ -1,5 +1,4 @@
 import os
-import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -104,7 +103,7 @@ class S3OperationStagingTests(unittest.TestCase):
             with self.assertRaisesRegex(WebAPIError, "download interrupted"):
                 with _operation_repository_context(
                     {"repository_id": "s3archive"}, write=False, image_id="golden",
-                ) as repository:
+                ):
                     self.fail("failed download must not expose a staging directory")
         with self.assertRaises(OSError):
             os.fstat(manager.lease_fd)

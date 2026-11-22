@@ -6,7 +6,7 @@ import socket
 import ssl
 import subprocess
 import time
-from typing import Any, Callable
+from typing import Callable
 
 from .remote_clone_protocol import RemoteCloneCancelled, verify_peer_identity
 

@@ -22,7 +22,7 @@ from feclora.network.pxe_answer import MAX_ANSWER_BYTES, PXEAnswerError, parse_p
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.restore_profile import RestoreTargetSelector
 from feclora.storage.inventory import collect_inventory
-from feclora.deployment.restore_execution import execute_restore, RestoreExecutionError
+from feclora.deployment.restore_execution import execute_restore
 from feclora.storage.operation_log import operation_record, record_progress
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,

@@ -10,7 +10,7 @@ import subprocess
 from typing import Any, Callable
 
 from .privilege import PrivilegeError, privileged_argv
-from .source_safety import SourceSafetyError, check_capture_source_safe
+from .source_safety import check_capture_source_safe
 
 
 class TargetInspectionError(ValueError):

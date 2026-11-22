@@ -11,6 +11,7 @@ import json
 import hashlib
 import base64
 from dataclasses import replace
+import fcntl
 import ipaddress
 import os
 import platform
@@ -24,7 +25,7 @@ import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import collect_inventory
@@ -854,7 +855,7 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
         raise WebAPIError("image contains age-encrypted artifacts but no local age identity is available")
 
     from feclora.storage.disk_restore import (
-        DiskRestoreError, _decoded_stream, _verified_artifact_stream,
+        _decoded_stream, _verified_artifact_stream,
     )
     artifact_reports = []
     total_decoded = 0

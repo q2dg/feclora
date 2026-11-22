@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import stat
 import subprocess
 import tempfile
 from .process_control import stop_process
-from pathlib import Path
 from typing import Callable, Mapping
 
 from .artifact_writer import ArtifactWriteError, write_artifact
-from .capture import CaptureError, _is_block_device
-from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
+from .capture import _is_block_device
+from .image_manifest import ImageManifest, ManifestValidationError
 from .image_publication import ImagePublicationError, publish_image_set
 from .image_security import ImageSecurityError, encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security
 from .source_safety import SourceSafetyError, check_capture_source_safe

@@ -161,7 +161,6 @@ class DeploymentBundleTests(unittest.TestCase):
         )
 
     def test_atomic_publish_failure_cleans_complete_staging_without_visible_output(self):
-        from feclora.storage import deployment_bundle
 
         def fail_final_rename(staging, output):
             self.assertTrue((staging / "images" / "disk.raw").is_file())

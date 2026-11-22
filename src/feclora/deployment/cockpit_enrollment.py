@@ -7,7 +7,6 @@ import re
 import stat
 from pathlib import Path
 
-from feclora.deployment.managed_pki import PKIError
 
 CONFIG = "/etc/feclora/deployment-server.json"
 PKI = "/etc/feclora/pki"

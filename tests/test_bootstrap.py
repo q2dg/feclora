@@ -42,7 +42,7 @@ class OptionalImageSecurityBootstrapTests(unittest.TestCase):
                 )
 
             self.assertTrue(created)
-            value = json.loads(config.read_text(encoding="utf-8"))
+            json.loads(config.read_text(encoding="utf-8"))
             self.assertFalse((pki / "server.age").exists())
             self.assertFalse((pki / "age-recipients.txt").exists())
 

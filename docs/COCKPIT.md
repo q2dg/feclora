@@ -314,7 +314,6 @@ the control plane uses Server-authenticated TLS; Clients are not authenticated i
 
 When age encryption is enabled, the Server trust panel can export the current public `age-recipients.txt` to mounted removable media without overwriting an existing file. Each remaining Client verifies that the inventory includes its own age identity before refreshing the local recipient list. Private identities remain local. This workflow is optional; deployments that do not use age do not need recipient inventories.
 
-## Partition extraction
 ## Read-only image browsing
 
 The image repository panel also provides **Explore image files** for whole-disk
@@ -333,6 +332,7 @@ LUKS-encrypted partitions, multi-device Btrfs and unsupported filesystem
 layouts are not exposed by this initial browser. Browsing never modifies the
 source image.
 
+## Partition extraction
 
 The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image, reviews a verified read-only partition-table preview (including start sectors and sizes), and selects the unambiguous partition node from the preview (the underlying engine also accepts PARTUUID and PARTLABEL selectors). Feclora verifies the source manifest and any configured authenticity evidence, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. If the source artifact was age-encrypted, the extracted partition artifact is re-encrypted only when the optional age feature is enabled and recipients are configured. The source image is never modified.
 
@@ -340,25 +340,20 @@ Disk restore also presents a read-only layout preview after selecting a whole-di
 
 Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Images are reported as verified only when every stored digest and decoded artifact check succeeds.
 
-Cockpit
-reports the expiry of the locally configured Server TLS certificate and its
-deployment CA. This is read-only; Server certificate renewal remains available
-in the Server setup tab.
+## Certificate status and renewal
 
-Cockpit also reports the local managed Server TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired Server or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
+Cockpit reports the local managed Server TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired Server or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
 
 Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA and Server identity remain unchanged. This is certificate renewal, not CA rotation or Server key rotation.
 
 ## Network configuration status
 
-Cockpit's privileged API can now enumerate NetworkManager connection profiles
-through a read-only, JSON-based inventory. The response is sanitized to expose
-only profile identity, interface/device, autoconnect state and IPv4 method,
-addresses, gateway and DNS; Wi-Fi credentials and other secret properties are
-never returned. This is an inventory foundation, not yet a DHCP/static
-configuration workflow: Cockpit does not modify connection profiles, switch
-Server or Client addressing, or perform connectivity verification/rollback.
-Do not treat the DHCP/static Server-and-Client requirement as complete.
+Cockpit's privileged API enumerates NetworkManager connection profiles through
+a read-only, JSON-based inventory. The response is sanitized to expose only
+profile identity, interface/device, autoconnect state and IPv4 method, addresses,
+gateway and DNS; Wi-Fi credentials and other secret properties are never
+returned. The Network tab can apply DHCP or static IPv4 settings to a profile
+attached to a device, as described below.
 
 ### DHCP and static IPv4 profile application
 

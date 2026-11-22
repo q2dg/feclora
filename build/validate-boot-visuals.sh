@@ -82,6 +82,7 @@ grep -Fq 'rhgb quiet vt.global_cursor_default=0' "$BUILD" || fail "Graphical boo
 if grep -Fq 'rd.plymouth=0' "$BUILD"; then fail "ISO boot arguments must not disable Plymouth."; fi
 
 COCKPIT_KIOSK_SERVICE="$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service"
+COCKPIT_CERTIFICATE_SERVICE="$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate.service"
 grep -Fq 'systemctl --root=/ mask cockpit.socket' "$KS" || fail "The standard Cockpit socket must be masked so it cannot claim port 9090."
 if grep -Fq 'systemctl --root=/ enable cockpit.socket' "$KS" \
   || grep -Fq 'cockpit.socket.d' "$KS" \
@@ -138,12 +139,17 @@ grep -Fq 'section "WESTON COMPOSITOR LOG"' "$DIAGNOSTICS" || fail "Diagnostics m
 grep -Fq 'section "FIREFOX KIOSK CLIENT LOG"' "$DIAGNOSTICS" || fail "Diagnostics must include Firefox output and exit status."
 grep -Fq 'firefox.log' "$DIAGNOSTICS" || fail "Firefox log must be included in the portable diagnostic archive."
 grep -Fq '/dev/dri' "$LAUNCH" || fail "Kiosk launcher must record DRM device availability."
-grep -Fq '/dev/tcp/127.0.0.1/9090' "$LAUNCH" || fail "Kiosk launcher must check the local Cockpit endpoint on port 9090."
+grep -Fq '/usr/bin/curl --fail --silent --output /dev/null --max-time 1 "$url"' "$LAUNCH" || fail "Kiosk must wait for the Feclora Cockpit page, not just an open port."
 grep -Fq 'for attempt in {1..15}' "$LAUNCH" || fail "Cockpit readiness check must be bounded to 15 seconds."
 grep -Fq 'Starting Weston/Firefox anyway' "$LAUNCH" || fail "Kiosk must start Weston even when Cockpit is unavailable."
 grep -Fxq 'Wants=feclora-cockpit-kiosk.service' "$SERVICE" || fail "Cockpit must be optional for the graphical kiosk."
 if grep -Fxq 'Requires=feclora-cockpit-kiosk.service' "$SERVICE"; then
   fail "Cockpit failure must not stop the graphical kiosk."
+fi
+if grep -Eq '^After=.*feclora-cockpit-kiosk\.service' "$SERVICE" \
+  || grep -Fxq 'Before=feclora-kiosk.service' "$COCKPIT_KIOSK_SERVICE" \
+  || grep -Eq '^Before=.*feclora-kiosk\.service' "$COCKPIT_CERTIFICATE_SERVICE"; then
+  fail "Cockpit startup must not delay the graphical kiosk."
 fi
 grep -Fq 'ausearch -m AVC,USER_AVC -ts boot' "$DIAGNOSTICS" || fail "Diagnostics do not collect SELinux access denials."
 grep -Fq 'ls -lZ /usr/libexec/cockpit-ws' "$DIAGNOSTICS" || fail "Diagnostics do not capture Cockpit executable SELinux labels."
@@ -161,8 +167,8 @@ grep -Fxq 'StartLimitIntervalSec=0' "$SERVICE" || fail "Kiosk restart recovery m
 if grep -Eq '^After=.*plymouth-quit-wait\.service' "$SERVICE"; then
   fail "Kiosk must not wait for Plymouth to disappear before starting Weston."
 fi
-grep -Fxq 'Before=plymouth-quit.service graphical.target' "$SERVICE" || fail "Plymouth must not quit before the kiosk startup handoff."
-grep -Fq 'plymouth deactivate || true' "$SERVICE" || fail "Kiosk must ask Plymouth to release DRM while retaining its splash frame."
+grep -Fxq 'Before=plymouth-quit.service' "$SERVICE" || fail "Plymouth must not quit before the kiosk startup handoff."
+grep -Fq '/usr/bin/plymouth deactivate || true' "$LAUNCH" || fail "Kiosk must retain the Plymouth frame until Weston takes over the display."
 grep -Fq 'pgrep -u feclora-kiosk -x firefox' "$SERVICE" || fail "Plymouth splash must remain until the Firefox kiosk process starts."
 grep -Fq 'plymouth quit --retain-splash' "$SERVICE" || fail "Plymouth must retain its final frame during the Firefox handoff."
 grep -Fxq 'Wants=dbus.socket systemd-logind.service plymouth-start.service' "$SERVICE" || fail "Kiosk must pull in D-Bus, logind and Plymouth."
