@@ -12,9 +12,28 @@ import uuid
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual.theme import Theme
 from textual.widgets import Button, DataTable, Footer, Header, Input, ProgressBar, Select, Static, TextArea
 
 from feclora.tui_api import TUIAPIError, call_feclora
+
+CLASSIC_THEME = Theme(
+    name="feclora-classic",
+    primary="#00aaaa",
+    secondary="#55ffff",
+    warning="#ffff55",
+    error="#ff5555",
+    success="#55ff55",
+    accent="#ffff55",
+    foreground="#ffffff",
+    background="#000080",
+    surface="#000088",
+    panel="#000055",
+    boost="#0000aa",
+    dark=True,
+    luminosity_spread=0,
+    text_alpha=1,
+)
 
 PAGES = (
     ("overview", "Inicio"),
@@ -143,20 +162,34 @@ class FecloraTUI(App[None]):
     TITLE = "Feclora"
     SUB_TITLE = "Sistema de rescate y despliegue"
     CSS = """
+    Screen {
+        background: $background;
+        color: $text;
+    }
+    Header, Footer {
+        background: $primary;
+        color: $background;
+        text-style: bold;
+    }
     #layout {
         height: 1fr;
     }
     #navigation {
         width: 32;
         min-width: 24;
-        border-right: round $primary;
+        background: $surface;
+        color: $text;
+        border-right: round $secondary;
         padding: 1;
     }
     #content {
         width: 1fr;
+        background: $background;
+        color: $text;
         padding: 1 2;
     }
     #page-title {
+        color: $warning;
         text-style: bold;
         padding-bottom: 1;
     }
@@ -180,12 +213,52 @@ class FecloraTUI(App[None]):
         display: none;
     }
     .field-label {
+        color: $warning;
         margin-top: 1;
         text-style: bold;
     }
     .nav-button {
         width: 100%;
         margin-bottom: 1;
+        background: #c0c0c0;
+        color: #000080;
+        border: round #ffffff;
+    }
+    Button.-primary, Button.-success {
+        background: $primary;
+        color: #000080;
+    }
+    Button.-error {
+        background: $error;
+        color: #000080;
+    }
+    Button:focus, .nav-button:focus {
+        background: $warning;
+        color: #000080;
+        text-style: bold;
+    }
+    Input, Select, TextArea {
+        background: #c0c0c0;
+        color: #000080;
+    }
+    Input:focus, Select:focus, TextArea:focus {
+        background: #ffffff;
+        color: #000080;
+    }
+    DataTable {
+        background: $surface;
+        color: $text;
+        border: round $secondary;
+    }
+    DataTable > .datatable--header {
+        background: $primary;
+        color: #000080;
+        text-style: bold;
+    }
+    DataTable > .datatable--cursor {
+        background: $warning;
+        color: #000080;
+        text-style: bold;
     }
     """
     BINDINGS = [
@@ -194,6 +267,8 @@ class FecloraTUI(App[None]):
 
     def __init__(self) -> None:
         super().__init__()
+        self.register_theme(CLASSIC_THEME)
+        self.theme = CLASSIC_THEME.name
         self._status: dict[str, Any] | None = None
         self._devices: list[dict[str, Any]] = []
         self._logical_volumes: list[dict[str, Any]] = []

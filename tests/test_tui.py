@@ -14,6 +14,18 @@ else:
 
 @unittest.skipIf(FecloraTUI is None, "Textual is not installed")
 class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
+    async def test_classic_dos_theme_is_registered_and_selected(self):
+        async def api(action, params=None, on_event=None):
+            if action == "get_keyboard_layout":
+                return {"layout": "us"}
+            raise AssertionError(f"unexpected API action: {action}")
+
+        with patch("feclora.tui.call_feclora", new=AsyncMock(side_effect=api)), \
+                patch.object(FecloraTUI, "_save_language"):
+            app = FecloraTUI()
+            async with app.run_test(size=(80, 25)):
+                self.assertEqual(app.theme, "feclora-classic")
+
     async def test_initial_screen_renders_while_keyboard_query_is_pending(self):
         query_started = asyncio.Event()
         finish_query = asyncio.Event()
