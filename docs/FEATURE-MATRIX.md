@@ -75,7 +75,7 @@ Artifact byte counts and SHA-256 digests are recorded in the manifest and verifi
 
 ## Clonezilla-inspired follow-up status
 
-| Capability | Current Feclora status | Remaining work | Verification |
+| Capability | Current Feclora status | Additional detail | Remaining work / verification |
 |---|---|---|---|
 | Independent image verification | Implemented: read-only verification report checks stored digest/size, encryption authentication, decompression and decoded image size | Review any uncovered artifact roles; no new verifier should duplicate the existing path | — |
 | One image to multiple targets | Implemented for multiple authorized remote Clients through UDPcast multicast; each Client independently validates its target | No same-host multi-disk restore workflow; keep this distinction explicit | — |
@@ -89,7 +89,7 @@ Artifact byte counts and SHA-256 digests are recorded in the manifest and verifi
 | Multicast restore | Implemented for multiple authorized Clients using UDPcast and per-Client target validation | Real switch/IGMP and multi-host acceptance remains operator validation | — |
 | Boot/UI | Internationalization | Partial: persistent independent UI-language preference (14 locale choices) applied to document locale/direction and core Cockpit navigation/status/operation screens; keyboard preference is separately persisted and applied to Linux virtual console plus Weston/Wayland XKB with a controlled kiosk restart. The remaining Cockpit screens and operational messages are not yet fully translated. | Cockpit | Complete translation coverage for every label, validation/error/status string and first-boot screen; verify locale-specific layouts/variants on the shipped Fedora image and browser RTL behavior. |
 | Imaging | Incremental/differential images | Documentation study only | Not exposed in Cockpit | No implementation authorized |
-| Recovery | Mountable images / individual-file recovery | Initial Cockpit browser for manifest-backed RAW/QCOW2 whole-disk images: verified partition selection, read-only libguestfs appliance, directory navigation and individual regular-file download (16 MiB limit); rejects QCOW2 external dependencies, does not follow symlinks, and does not expose LVM/LUKS/multi-device Btrfs | Automated fake-appliance/API tests added; Fedora package availability, real RAW/QCOW2/filesystem images and read-only/cleanup acceptance remain to be validated on the shipped Live system | Cockpit image browser | Automated fake-appliance/API tests added; Fedora package availability, real RAW/QCOW2/filesystem images and read-only/cleanup acceptance remain to be validated on the shipped Live system |
+| Mountable images / individual-file recovery | Initial Cockpit browser for manifest-backed RAW/QCOW2 whole-disk images: verified partition selection, read-only libguestfs appliance, directory navigation and individual regular-file download (16 MiB limit); rejects QCOW2 external dependencies, does not follow symlinks, and does not expose LVM/LUKS/multi-device Btrfs | Cockpit image browser | Automated fake-appliance/API tests added; Fedora package availability, real RAW/QCOW2/filesystem images and read-only/cleanup acceptance remain to be validated on the shipped Live system |
 
 
 Release status note: automated tests and source implementation do not imply BIOS/UEFI, hardware, destructive-media, live-provider, multi-Client or PXE acceptance. The repository owner's remaining hands-on tasks are tracked in [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md).
