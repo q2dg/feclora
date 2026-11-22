@@ -83,6 +83,7 @@ below.
 - [ ] Firefox uses a normal (non-private) session.
 - [ ] The first Feclora screen offers interface-language and keyboard-layout selection, a keyboard apply action, and the root-terminal button.
 - [ ] Continuing from initial setup opens the Feclora operations app.
+- [ ] Complete initial setup and at least one operation using only the keyboard; Tab/Shift+Tab reach every control, Enter/Space activate actions, tab navigation works from the keyboard, and focus remains visible.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9090`.
 - [ ] No separate authenticated Cockpit socket or second listener is active.
 - [ ] The `feclora` administrator account exists with its password locked; the current diagnostic image includes the temporary `pepe` console account, which must be removed before a release image is published.

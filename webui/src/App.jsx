@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Alert, Button, Card, CardBody, CardTitle, Flex, FlexItem, Label, Page,
   PageSection, Progress, Spinner, Stack, StackItem, Tab, Tabs, Title, Toolbar,
@@ -45,7 +45,26 @@ function StatusCard({ title, value, icon, description }) {
 }
 
 function Field({ label, children, help, t = (value) => value }) {
-  return <div className="pf-v6-u-mb-md"><label className="pf-v6-c-form__label pf-v6-u-mb-xs"><span className="pf-v6-c-form__label-text">{t(label)}</span></label>{children}{help && <div className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t(help)}</div>}</div>;
+  const fieldId = `feclora-field-${useId()}`;
+  const childElements = React.Children.toArray(children);
+  const controlIndex = childElements.findIndex((child) =>
+    React.isValidElement(child) && ["input", "select", "textarea"].includes(child.type)
+  );
+  const control = controlIndex >= 0 ? childElements[controlIndex] : null;
+  const controlId = control ? control.props.id || fieldId : undefined;
+  const helpId = help ? `${fieldId}-help` : undefined;
+  return <div className="pf-v6-u-mb-md">
+    <label htmlFor={controlId} className="pf-v6-c-form__label pf-v6-u-mb-xs">
+      <span className="pf-v6-c-form__label-text">{t(label)}</span>
+    </label>
+    {childElements.map((child, index) => index === controlIndex
+      ? React.cloneElement(child, {
+        id: controlId,
+        "aria-describedby": [child.props["aria-describedby"], helpId].filter(Boolean).join(" ") || undefined
+      })
+      : child)}
+    {help && <div id={helpId} className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t(help)}</div>}
+  </div>;
 }
 
 export default function App() {

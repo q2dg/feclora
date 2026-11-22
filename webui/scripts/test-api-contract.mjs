@@ -18,6 +18,11 @@ assert.match(firstScreen, /feclora-first-language/, "Initial setup must select t
 assert.match(firstScreen, /KeyboardPreferences language=\{language\}/, "Initial setup must select the keyboard layout");
 assert.match(firstScreen, /open_root_terminal/, "Initial setup must offer root terminal access");
 assert.match(firstScreen, /setLanguageConfirmed\(true\)/, "Initial setup must continue to the Feclora app");
+const fieldComponent = appSource.match(/function Field\([\s\S]*?\n\}/)?.[0];
+assert.ok(fieldComponent, "Could not find the shared form field component");
+assert.match(fieldComponent, /htmlFor=\{controlId\}/, "Form field labels must be associated with their controls");
+assert.match(fieldComponent, /id: controlId/, "Form controls must receive an id referenced by their label");
+assert.match(fieldComponent, /aria-describedby/, "Form help text must be associated with its control");
 assert.equal(
   [...appSource.matchAll(/<KeyboardPreferences\b/g)].length,
   1,
