@@ -108,6 +108,8 @@ fi
 while IFS= read -r -d '' script; do
   bash -n "$script" || fail "Bash syntax check failed: $script"
 done < <(find "$ROOT_DIR/build" -maxdepth 1 -type f -name '*.sh' -print0)
+bash -n "$ROOT_DIR/kickstart/feclora-live.ks" \
+  || fail "Kickstart contains invalid embedded shell syntax."
 bash -n "$ROOT_DIR/src/feclora/data/feclora-api" || fail "Privileged API helper has invalid shell syntax."
 python3 -m compileall -q "$ROOT_DIR/src" "$ROOT_DIR/tests" || fail "Python compilation failed."
 

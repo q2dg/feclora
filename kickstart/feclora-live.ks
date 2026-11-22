@@ -210,7 +210,7 @@ plymouth_packages="$(rpm -qa --qf '%{NAME}\n' | grep -E '^plymouth' || true)"
 if [ -n "$plymouth_packages" ]; then
   echo "Unexpected boot-splash packages installed: $plymouth_packages" >&2
   exit 1
-done
+fi
 
 shopt -s nullglob
 initrds=()
