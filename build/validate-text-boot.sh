@@ -44,6 +44,10 @@ grep -Fq 'feclora ALL=(root) NOPASSWD: /usr/libexec/feclora/feclora-api *' "$KS"
   || fail "The unprivileged interface lacks its restricted API authorization."
 grep -Fxq 'ExecStart=/usr/bin/python3 -m feclora.tui' "$TUI" \
   || fail "The tty1 service does not start Textual."
+grep -Fxq 'StandardError=tty' "$TUI" \
+  || fail "TUI startup errors must be visible on tty1."
+grep -Fxq 'ExecStartPre=+/usr/bin/echo Starting Feclora Textual interface' "$TUI" \
+  || fail "The TUI service must visibly announce its startup on tty1."
 if grep -Eiq 'plymouth|rhgb|quiet|splash' "$TUI"; then
   fail "The TUI service still depends on boot-splash resources."
 fi
