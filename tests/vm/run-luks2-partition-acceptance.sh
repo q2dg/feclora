@@ -30,7 +30,9 @@ cleanup() {
   if [[ -n "$SOURCE_LOOP" ]]; then losetup -d "$SOURCE_LOOP" 2>/dev/null || true; fi
   rm -rf -- "$WORK_DIR"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 SOURCE_DISK="$WORK_DIR/source-disk.img"
 TARGET_DISK="$WORK_DIR/target-disk.img"
