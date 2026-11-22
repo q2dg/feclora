@@ -131,9 +131,9 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 
 The target invokes `build/build-iso.sh` with root privileges. The script:
 
-1. Runs the host preflight: checks Fedora 45, x86_64, the input ISO,
-   Kickstart, application source, required executables, KVM access, and a
-   configurable minimum of free output space.
+1. Runs the host preflight before doing build work: checks Fedora 45,
+   x86_64, the input ISO, Kickstart, application source, required executables
+   (including npm), KVM access, and a configurable minimum of free output space.
 2. Builds the React/PatternFly Cockpit frontend with `build/build-webui.sh`.
 3. Creates a temporary staging tree under the output directory's parent and
    stages the Python application and frontend build there. The staging tree is
