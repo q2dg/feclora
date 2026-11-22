@@ -3,8 +3,13 @@ set -Eeuo pipefail
 
 ISO_FILE="${1:-}"
 REPORT="${2:-}"
+SELINUX_MODE="${3:-enforcing}"
 if [[ -z "$ISO_FILE" || -z "$REPORT" || ! -s "$ISO_FILE" ]]; then
-  echo "Usage: $0 /path/to/feclora-live.iso /path/to/report.txt" >&2
+  echo "Usage: $0 /path/to/feclora-live.iso /path/to/report.txt [enforcing|permissive]" >&2
+  exit 2
+fi
+if [[ "$SELINUX_MODE" != enforcing && "$SELINUX_MODE" != permissive ]]; then
+  echo "SELinux mode must be enforcing or permissive." >&2
   exit 2
 fi
 
@@ -45,10 +50,20 @@ check_grub_config() {
     if grep -Eq '(^|[[:space:]])rd\.plymouth=0([[:space:]]|$)' <<<"$line"; then
       fail "$firmware kernel entry disables Plymouth."
     fi
+    if grep -Eq '(^|[[:space:]])selinux=0([[:space:]]|$)' <<<"$line"; then
+      fail "$firmware kernel entry disables SELinux completely."
+    fi
+    if [[ "$SELINUX_MODE" == permissive ]]; then
+      grep -Eq '(^|[[:space:]])enforcing=0([[:space:]]|$)' <<<"$line" \
+        || fail "$firmware kernel entry does not enable diagnostic SELinux permissive mode."
+    elif grep -Eq '(^|[[:space:]])enforcing=0([[:space:]]|$)' <<<"$line"; then
+      fail "$firmware kernel entry enables diagnostic SELinux permissive mode in an enforcing build."
+    fi
   done
 }
 
 report "ISO: $ISO_FILE"
+report "Expected SELinux mode: $SELINUX_MODE"
 check_grub_config BIOS /boot/grub2/grub.cfg
 uefi_config=""
 for candidate in /EFI/BOOT/grub.cfg /EFI/fedora/grub.cfg; do

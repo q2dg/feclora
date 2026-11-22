@@ -129,6 +129,20 @@ Run the Makefile target:
 make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
+### SELinux boot mode
+
+The Live ISO defaults to SELinux permissive mode. SELinux continues auditing
+AVC denials but does not enforce them. To build an enforcing image:
+
+```bash
+sudo env FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO" \
+  FECLORA_SELINUX_PERMISSIVE=0 make build
+```
+
+Permissive mode adds `enforcing=0` to the BIOS and UEFI boot arguments. It
+does not change the on-disk SELinux configuration. Review AVC denials and
+select enforcing mode explicitly when building release images.
+
 The target invokes `build/build-iso.sh` with root privileges. The script:
 
 1. Runs the host preflight before doing build work: checks Fedora 45,

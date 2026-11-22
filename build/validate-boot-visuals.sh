@@ -215,5 +215,9 @@ grep -Fq 'set-default graphical.target' "$KS" || fail "Live system default targe
 grep -Fq 'unmask getty@tty1.service' "$KS" || fail "Diagnostic ISO must leave tty1 available for display isolation."
 grep -Fq 'mask getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service' "$KS" || fail "Only unused VTs 3-6 may have getty masked." 
 if grep -Fq 'mask getty@tty2.service' "$KS"; then fail "Diagnostic VT2 must remain available for the pepe console account."; fi
+grep -Fq 'SELINUX_PERMISSIVE="${FECLORA_SELINUX_PERMISSIVE:-1}"' "$BUILD" || fail "SELinux must default to permissive mode as requested."
+grep -Fq 'BOOT_ARGS+=(enforcing=0)' "$BUILD" || fail "Diagnostic SELinux permissive mode must be an explicit Live ISO boot argument."
+grep -Fq 'FECLORA_SELINUX_PERMISSIVE=0' "$BUILD" || fail "SELinux enforcing mode must remain available as an explicit build option."
+grep -Fq '"$ISO_FILE" "$REPORT" "$SELINUX_MODE"' "$BUILD" || fail "The ISO verifier must check the requested SELinux boot mode."
 
 printf 'Boot visual configuration checks passed. ISO build and BIOS/UEFI boot are not verified.\n'

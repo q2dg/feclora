@@ -36,6 +36,8 @@ if source == "/images/pxeboot/initrd.img":
     destination.write_bytes(b"initrd")
 elif source in ("/boot/grub2/grub.cfg", "/EFI/BOOT/grub.cfg"):
     kernel_args = "quiet" if os.environ.get("FAKE_NO_RHGB") else "rhgb quiet"
+    if os.environ.get("FAKE_SELINUX_PERMISSIVE"):
+        kernel_args += " enforcing=0"
     destination.write_text(f"menuentry test {{\\n linux /vmlinuz {kernel_args}\\n}}\\n")
 else:
     raise SystemExit(1)
@@ -106,6 +108,48 @@ else:
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing Plymouth asset", result.stderr)
+
+    def test_accepts_permissive_mode_only_when_requested(self):
+        env = os.environ.copy()
+        env["PATH"] = f"{self.tools}{os.pathsep}{env['PATH']}"
+        env["FAKE_SELINUX_PERMISSIVE"] = "1"
+        result = subprocess.run(
+            ["bash", str(VERIFIER), str(self.iso), str(self.report), "permissive"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Expected SELinux mode: permissive", self.report.read_text(encoding="utf-8"))
+
+    def test_rejects_missing_permissive_boot_argument(self):
+        result = subprocess.run(
+            ["bash", str(VERIFIER), str(self.iso), str(self.report), "permissive"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PATH": f"{self.tools}{os.pathsep}{os.environ['PATH']}"},
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not enable diagnostic SELinux permissive mode", result.stderr)
+
+    def test_rejects_permissive_argument_in_enforcing_build(self):
+        env = os.environ.copy()
+        env["PATH"] = f"{self.tools}{os.pathsep}{env['PATH']}"
+        env["FAKE_SELINUX_PERMISSIVE"] = "1"
+        result = subprocess.run(
+            ["bash", str(VERIFIER), str(self.iso), str(self.report), "enforcing"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("enables diagnostic SELinux permissive mode in an enforcing build", result.stderr)
 
 
 if __name__ == "__main__":

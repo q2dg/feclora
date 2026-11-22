@@ -28,6 +28,18 @@ sudo env FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso \
   FECLORA_BUILD_VCPUS=8 FECLORA_BUILD_RAM=8192 make build
 ```
 
+The Live ISO defaults to SELinux permissive while continuing to record AVC
+denials. To build an enforcing image instead:
+
+```bash
+sudo env FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso \
+  FECLORA_SELINUX_PERMISSIVE=0 make build
+```
+
+The default adds `enforcing=0` to the ISO's BIOS and UEFI kernel command lines.
+Permissive mode does not change SELinux configuration on disk; review AVC
+denials and explicitly select enforcing mode for release images.
+
 If Fedora package downloads are the bottleneck, an HTTP caching proxy can be
 provided. It must be reachable from the QEMU installer environment:
 

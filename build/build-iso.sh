@@ -9,6 +9,7 @@ RELEASEVER="${FECLORA_RELEASEVER:-45}"
 BUILD_RAM="${FECLORA_BUILD_RAM:-}"
 BUILD_VCPUS="${FECLORA_BUILD_VCPUS:-}"
 BUILD_PROXY="${FECLORA_BUILD_PROXY:-}"
+SELINUX_PERMISSIVE="${FECLORA_SELINUX_PERMISSIVE:-1}"
 
 usage() {
   cat <<'EOF'
@@ -23,6 +24,7 @@ Environment:
   FECLORA_BUILD_RAM   QEMU installer RAM in MiB (default: 50% of host RAM, min 4096, max 16384).
   FECLORA_BUILD_VCPUS QEMU virtual CPUs (default: host CPUs, min 1, max 8).
   FECLORA_BUILD_PROXY Optional HTTP proxy for Fedora package downloads (also cacheable).
+  FECLORA_SELINUX_PERMISSIVE=0 Boot the Live ISO in enforcing mode (default: permissive).
 
 Run on a Fedora 45 x86_64 build host. Install lorax, lorax-lmc-virt,
 qemu-kvm and the other build dependencies first. The build requires root.
@@ -35,6 +37,10 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
+[[ "$SELINUX_PERMISSIVE" == 0 || "$SELINUX_PERMISSIVE" == 1 ]] || {
+  echo "FECLORA_SELINUX_PERMISSIVE must be 0 or 1." >&2
+  exit 2
+}
 if [[ -z "${INSTALL_ISO}" || ! -f "${INSTALL_ISO}" ]]; then
   echo "FEDORA_INSTALL_ISO must point to an existing Fedora DVD ISO." >&2
   usage >&2
@@ -78,7 +84,6 @@ if [[ -z "${BUILD_RAM}" ]]; then
 fi
 [[ "${BUILD_VCPUS}" =~ ^[1-9][0-9]*$ ]] || { echo "FECLORA_BUILD_VCPUS must be a positive integer." >&2; exit 2; }
 [[ "${BUILD_RAM}" =~ ^[1-9][0-9]*$ ]] || { echo "FECLORA_BUILD_RAM must be a positive integer (MiB)." >&2; exit 2; }
-
 mkdir -p "$(dirname -- "${RESULT_DIR}")"
 WORK_DIR="$(mktemp -d "$(dirname -- "${RESULT_DIR}")/.feclora-build.XXXXXX")"
 trap 'rm -rf -- "${WORK_DIR}"' EXIT
@@ -115,6 +120,11 @@ cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
 echo "[4/4] Creating Live ISO with ${BUILD_VCPUS} vCPUs and ${BUILD_RAM} MiB RAM..."
+BOOT_ARGS=(rhgb quiet vt.global_cursor_default=0)
+if [[ "$SELINUX_PERMISSIVE" == 1 ]]; then
+  echo "WARNING: Building an ISO with SELinux permissive; review security before release."
+  BOOT_ARGS+=(enforcing=0)
+fi
 LMC_ARGS=(
   --make-iso
   --iso "${AUGMENTED_ISO}"
@@ -127,7 +137,7 @@ LMC_ARGS=(
   --iso-only
   --iso-name feclora-live.iso
   --lorax-templates "${LORAX_TEMPLATE_DIR}"
-  --extra-boot-args "rhgb quiet vt.global_cursor_default=0"
+  --extra-boot-args "${BOOT_ARGS[*]}"
 )
 if [[ -n "${BUILD_PROXY}" ]]; then
   LMC_ARGS+=(--proxy "${BUILD_PROXY}")
@@ -137,6 +147,8 @@ livemedia-creator "${LMC_ARGS[@]}"
 ISO_FILE="${RESULT_DIR}/feclora-live.iso"
 REPORT="${RESULT_DIR}/boot-initrd-plymouth-check.txt"
 [[ -s "$ISO_FILE" ]] || { echo "ISO build did not create $ISO_FILE." >&2; exit 1; }
-bash "${ROOT_DIR}/build/verify-iso-boot-visuals.sh" "$ISO_FILE" "$REPORT"
+SELINUX_MODE=enforcing
+[[ "$SELINUX_PERMISSIVE" == 1 ]] && SELINUX_MODE=permissive
+bash "${ROOT_DIR}/build/verify-iso-boot-visuals.sh" "$ISO_FILE" "$REPORT" "$SELINUX_MODE"
 
 printf 'Build command completed in %ss. Inspect the ISO and logs under: %s\n' "${SECONDS}" "${RESULT_DIR}"
