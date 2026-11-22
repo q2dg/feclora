@@ -64,7 +64,7 @@ independent test run. Remove the temporary copy after the test.
 - [ ] The first Feclora screen is the interface-language selector; selecting a language and continuing opens the Feclora operations menu.
 - [ ] The local kiosk service runs Cockpit in `--local-session` mode and is reachable only on `127.0.0.1:9090`.
 - [ ] No separate authenticated Cockpit socket or second listener is active.
-- [ ] The `feclora` administrator account exists with its password locked; the temporary `pepe` diagnostic account is present only in diagnostic builds and is removed from release images.
+- [ ] The `feclora` administrator account exists with its password locked; the current diagnostic image includes the temporary `pepe` console account, which must be removed before a release image is published.
 - [ ] Certificate, local Cockpit kiosk and Firefox kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
 - [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
