@@ -44,10 +44,13 @@ jobs:
       - name: Check Bash syntax and project inputs
         run: |
           bash -n build/*.sh
+          bash -n src/feclora/data/feclora-cockpit-certificate src/feclora/data/feclora-kiosk-diagnostics src/feclora/data/feclora-kiosk-firefox-launch src/feclora/data/feclora-kiosk-launch tests/vm/*.sh
           bash build/validate.sh
           bash build/preflight.sh --help
       - name: Run ShellCheck
-        run: shellcheck build/*.sh
+        run: |
+          shellcheck build/*.sh
+          shellcheck -S error src/feclora/data/feclora-cockpit-certificate src/feclora/data/feclora-kiosk-diagnostics src/feclora/data/feclora-kiosk-firefox-launch src/feclora/data/feclora-kiosk-launch tests/vm/*.sh
       - name: Validate documentation links and guide assets
         run: python3 build/check_docs.py
       - name: Run Python unit tests
