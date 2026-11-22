@@ -180,8 +180,6 @@ requests, and waits for an active storage worker to reach its own terminal
 state before closing Client sessions; its systemd stop timeout is therefore
 unbounded. Interrupted journals require operator inspection and audit-only
 reconciliation. Client-local target approval remains mandatory before READY.
-The old dialog-based modules are migration-era code and are not part of the
-supported Cockpit workflow.
 
 No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
 claimed by source-level checks.
