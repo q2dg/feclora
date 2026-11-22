@@ -57,6 +57,7 @@ cockpit-storaged
 policycoreutils-python-utils
 cockpit-ws-selinux
 cockpit-bridge
+openssh-clients
 
 # Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
 weston
