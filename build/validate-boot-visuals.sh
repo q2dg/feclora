@@ -111,6 +111,9 @@ if grep -Fq '9091' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" "$ROOT_DIR/
 fi
 grep -Fxq "cockpit-bridge" "$KS" || fail "Cockpit bridge package is missing."
 grep -Fq "restorecon -v /usr/libexec/cockpit-ws /usr/bin/cockpit-bridge" "$KS" || fail "Cockpit RPM executables are not relabeled with their SELinux policy contexts."
+grep -Fq 'chroot "$TARGET_ROOT" /usr/sbin/restorecon -RF' "$KS" || fail "Copied Cockpit and Feclora application files must be relabeled with the target system's SELinux policy."
+grep -Fq '/usr/share/cockpit/feclora' "$KS" || fail "Cockpit app files must receive their installed SELinux labels."
+grep -Fq '/usr/share/feclora/python/feclora' "$KS" || fail "Feclora Python app files must receive their installed SELinux labels."
 grep -Fq -- "--local-session /usr/bin/cockpit-bridge" "$ROOT_DIR/src/feclora/data/feclora-cockpit-kiosk.service" || fail "Cockpit kiosk must invoke the packaged cockpit-bridge path."
 grep -Fq 'systemd-detect-virt --vm' "$LAUNCH" || fail "Kiosk must detect the VM vendor before selecting a renderer."
 grep -Fq 'if [[ "$virt_vendor" == "oracle" ]]' "$LAUNCH" || fail "Pixman must be restricted to VirtualBox guests."

@@ -200,6 +200,10 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-imag
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
 # The build host may own files in Vite dist; Cockpit packages must be root-owned.
 chown -R root:root "$TARGET_ROOT/usr/share/cockpit/feclora"
+# Files copied from the installer DVD retain its iso9660_t label unless relabeled.
+chroot "$TARGET_ROOT" /usr/sbin/restorecon -RF \
+  /usr/share/cockpit/feclora \
+  /usr/share/feclora/python/feclora
 cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu

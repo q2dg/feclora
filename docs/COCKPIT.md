@@ -4,6 +4,8 @@ Cockpit is Feclora's primary operator interface. The React/PatternFly
 application is installed at `/usr/share/cockpit/feclora`. The physical kiosk
 uses Cockpit's loopback-only `--local-session` mode without a login prompt;
 the dedicated service owns port 9090 and the standard authenticated socket is masked.
+The Live image restores Fedora's SELinux labels on the frontend copied from
+the installer DVD so Cockpit can serve its files.
 
 ## Live kiosk startup, bootstrap and authentication
 
