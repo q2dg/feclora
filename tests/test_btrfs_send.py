@@ -167,6 +167,45 @@ class BtrfsSendTests(unittest.TestCase):
             self.assertTrue(result.is_dir())
             self.assertEqual(list(target.iterdir()), [result])
 
+    def test_incremental_capture_rejects_unrelated_parent(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            source = root / "source"
+            parent = root / "parent"
+            repository = root / "repo"
+            source.mkdir()
+            parent.mkdir()
+            repository.mkdir()
+            source_uuid = "22222222-2222-2222-2222-222222222222"
+            parent_uuid = "33333333-3333-3333-3333-333333333333"
+
+            def runner(argv, **kwargs):
+                if argv[1:3] == ["subvolume", "show"]:
+                    path = Path(argv[-1])
+                    is_parent = path == parent
+                    return SimpleNamespace(stdout=(
+                        f"Name: {path.name}\\nSubvolume ID: 256\\n"
+                        f"UUID: {parent_uuid if is_parent else source_uuid}\\n"
+                        f"Parent UUID: {'-' if is_parent else '44444444-4444-4444-4444-444444444444'}\\n"
+                        "Received UUID: -\\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\\n")
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\\nTotal devices 1 FS bytes used 4096\\n"
+                    ))
+                if argv[1:4] == ["subvolume", "list", "-o"]:
+                    return SimpleNamespace(stdout="")
+                raise AssertionError(argv)
+
+            with self.assertRaisesRegex(BtrfsSendError, "directly derived"):
+                capture_btrfs_subvolume(
+                    source, "incremental", repository, parent_path=parent,
+                    executables={"btrfs": "/usr/bin/btrfs"}, runner=runner,
+                )
+            self.assertEqual(list(repository.iterdir()), [])
+
     def test_capture_rejects_nested_subvolumes_instead_of_omitting_them(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)

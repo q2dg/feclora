@@ -134,6 +134,10 @@ def capture_btrfs_subvolume(
         parent_fs_uuid, _ = _filesystem_info(parent, btrfs, run)
         if parent_fs_uuid != filesystem_uuid or not parent_info["readonly"]:
             raise BtrfsSendError("incremental parent must be read-only and on the source Btrfs filesystem")
+        if source_info["parent_uuid"] != parent_info["uuid"]:
+            raise BtrfsSendError(
+                "incremental source must be a snapshot directly derived from the selected parent"
+            )
     snapshot_container = None
     snapshot = None
     stage = Path(tempfile.mkdtemp(prefix=".feclora-btrfs-send-", dir=repo))
