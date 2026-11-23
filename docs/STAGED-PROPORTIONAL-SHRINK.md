@@ -40,10 +40,10 @@ The function is deliberately limited:
   read-back verification remain separate gates. No destination restore path
   is authorized by this primitive.
 
-Automated test cases have been added with an injected command runner. They
-exercise loop mapping validation, filesystem-type rejection, digest mismatch,
-shrink command construction and detach behavior. These tests have not been
-run as part of this change.
+Automated unit tests use an injected command runner to exercise loop mapping
+validation, filesystem-type rejection, digest mismatch, shrink command
+construction and detach behavior. They run as part of `make validate`; this
+does not replace acceptance on disposable media.
 
 
 ## NTFS staged shrink
@@ -114,9 +114,10 @@ destination may contain partially written or unverified data.
 This API is deliberately separate from the existing manifest-based
 `restore_disk()`. It does not resize or migrate the original source, does not
 build an ISO, or act as a PXE proxy.
-Automated tests cover confirmation, staging digest, exact capacity,
-device-identity recheck, write/read-back flow and read-back mismatch. They
-have been added but have not been executed.
+Automated unit tests cover confirmation, staging digest, exact capacity,
+device-identity recheck, write/read-back flow and read-back mismatch. They run
+as part of `make validate`; destructive-media acceptance remains a separate
+operator task.
 
 
 ## Interactive proportional restore workflow
@@ -144,9 +145,10 @@ identity captured at selection time and rechecks it, capacity, sector size
 and safety immediately before writing.
 
 This interactive path is for proportional GPT restore only. It does not add
-a PXE proxy or an artifact relay. It does not modify
-the original source disk or repository artifact. No ISO build is part of this
-workflow. Tests have been added but have not been executed.
+a PXE proxy or an artifact relay. It does not modify the original source disk
+or repository artifact. No ISO build is part of this workflow. Its
+hardware-independent unit tests run as part of `make validate`; disposable-
+media and ISO acceptance remain separate operator tasks.
 
 
 The proportional UI also compares the kernel block-device identities
