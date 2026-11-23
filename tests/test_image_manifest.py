@@ -384,3 +384,45 @@ class ImageManifestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_stratis_filesystem_manifest_requires_identity_and_round_trips(self):
+        value = {
+            "schema_version": 1, "image_id": "stratis-data",
+            "image_type": "stratis_filesystem", "source_size_bytes": 8 * 1024**3,
+            "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [{
+                "filename": "stratis-data.img.zst", "role": "stratis-filesystem-image",
+                "format": "partclone", "compression": "zstd", "size_bytes": 4096,
+                "sha256": "b" * 64, "filesystem": "xfs",
+            }],
+            "storage": {
+                "schema_version": 1, "capture_scope": "stratis_filesystem_bytes",
+                "source_layer": "stratis_filesystem", "dependencies": [],
+                "stratis_pool_name": "pool-a", "stratis_pool_uuid": "11111111-1111-1111-1111-111111111111",
+                "stratis_filesystem_name": "data", "stratis_filesystem_uuid": "22222222-2222-2222-2222-222222222222",
+            },
+        }
+        manifest = ImageManifest.from_dict(value)
+        self.assertEqual(manifest.image_type, "stratis_filesystem")
+        self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
+
+    def test_stratis_filesystem_manifest_rejects_missing_identity(self):
+        value = {
+            "schema_version": 1, "image_id": "stratis-data",
+            "image_type": "stratis_filesystem", "source_size_bytes": 4096,
+            "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [{
+                "filename": "stratis-data.img", "role": "stratis-filesystem-image",
+                "format": "raw", "compression": "none", "size_bytes": 4096,
+                "sha256": "b" * 64,
+            }],
+            "storage": {
+                "schema_version": 1, "capture_scope": "stratis_filesystem_bytes",
+                "source_layer": "stratis_filesystem", "dependencies": [],
+                "stratis_pool_name": "pool-a", "stratis_filesystem_name": "data",
+                "stratis_filesystem_uuid": "22222222-2222-2222-2222-222222222222",
+            },
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "stratis_pool_uuid"):
+            ImageManifest.from_dict(value)

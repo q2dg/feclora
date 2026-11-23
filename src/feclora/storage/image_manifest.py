@@ -1,4 +1,4 @@
-"""Validated, versioned metadata for Feclora disk, partition and LV images.
+"""Validated, versioned metadata for Feclora disk, partition, LV and Stratis images.
 
 The manifest describes artifacts, source geometry and optional storage-layer
 provenance. It is not an instruction to write a target device and performs no
@@ -21,22 +21,22 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _PARTITION_ID_RE = re.compile(r"^[A-Za-z0-9_.+-]{1,64}$")
-_ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image", "logical-volume-image"}
+_ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image", "logical-volume-image", "stratis-filesystem-image"}
 _ARTIFACT_FORMATS = {"raw", "partclone", "qcow2"}
 _COMPRESSIONS = {"none", "gzip", "zstd", "xz", "lz4"}
 
 
 _STORAGE_SCOPES = {
-    "whole_disk_bytes", "partition_bytes", "logical_volume_bytes",
+    "whole_disk_bytes", "partition_bytes", "logical_volume_bytes", "stratis_filesystem_bytes",
     "encrypted_container_bytes", "decrypted_mapping_bytes",
 }
 _STORAGE_LAYERS = {
     "block_device", "luks2_container", "active_crypt_mapping",
-    "lvm_logical_volume", "btrfs_filesystem",
+    "lvm_logical_volume", "btrfs_filesystem", "stratis_filesystem",
 }
 _STORAGE_DEPENDENCIES = {
     "luks2_metadata", "lvm_pv_metadata", "lvm_vg_members",
-    "lvm_volume_group", "btrfs_filesystem",
+    "lvm_volume_group", "btrfs_filesystem", "stratis_pool",
 }
 
 
@@ -46,6 +46,7 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
     allowed = {
         "schema_version", "capture_scope", "source_layer", "luks_uuid",
         "lvm_vg_name", "lvm_vg_uuid", "lvm_lv_name", "lvm_lv_uuid", "btrfs_uuid",
+        "stratis_pool_name", "stratis_pool_uuid", "stratis_filesystem_name", "stratis_filesystem_uuid",
         "btrfs_subvolume_id", "btrfs_subvolume_uuid", "btrfs_parent_uuid", "btrfs_device_count",
         "btrfs_received_uuid", "dependencies",
     }
@@ -64,10 +65,18 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
         raise ManifestValidationError("Disk image storage scope must be whole_disk_bytes")
     if image_type == "partition" and scope not in {"partition_bytes", "encrypted_container_bytes"}:
         raise ManifestValidationError("Partition image has an incompatible storage scope")
+    if image_type == "stratis_filesystem" and scope != "stratis_filesystem_bytes":
+        raise ManifestValidationError("Stratis filesystem image has an incompatible storage scope")
     if image_type == "logical_volume" and scope not in {
         "logical_volume_bytes", "encrypted_container_bytes", "decrypted_mapping_bytes"
     }:
         raise ManifestValidationError("Logical-volume image has an incompatible storage scope")
+    if image_type == "stratis_filesystem":
+        if layer != "stratis_filesystem":
+            raise ManifestValidationError("Stratis filesystem image requires source_layer=stratis_filesystem")
+        for key in ("stratis_pool_name", "stratis_pool_uuid", "stratis_filesystem_name", "stratis_filesystem_uuid"):
+            if not isinstance(value.get(key), str) or not value[key]:
+                raise ManifestValidationError(f"Stratis filesystem image requires storage.{key}")
     result = dict(value)
     for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies", "btrfs_subvolume_id", "btrfs_device_count"}:
         item = value.get(key)
@@ -183,13 +192,13 @@ class ImageArtifact:
         elif partition_id is not None:
             raise ManifestValidationError("partition_id is only valid for partition-image artifacts")
 
-        if image_format == "partclone" and role not in {"partition-image", "logical-volume-image"}:
+        if image_format == "partclone" and role not in {"partition-image", "logical-volume-image", "stratis-filesystem-image"}:
             raise ManifestValidationError("Partclone format is only valid for partition or logical-volume image artifacts")
         if image_format == "qcow2" and (
             role != "disk-image" or compression != "none" or encryption != "none"
         ):
             raise ManifestValidationError("QCOW2 is only valid for an uncompressed, unencrypted whole-disk image artifact")
-        if role not in {"partition-image", "logical-volume-image"} and filesystem is not None:
+        if role not in {"partition-image", "logical-volume-image", "stratis-filesystem-image"} and filesystem is not None:
             raise ManifestValidationError("filesystem is only valid for partition or logical-volume image artifacts")
         return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem, encryption, compression_level)
 
@@ -250,8 +259,8 @@ class ImageManifest:
             raise ManifestValidationError("image_id must be a simple identifier")
 
         image_type = value.get("image_type")
-        if not isinstance(image_type, str) or image_type not in {"disk", "partition", "logical_volume"}:
-            raise ManifestValidationError("image_type must be disk, partition or logical_volume")
+        if not isinstance(image_type, str) or image_type not in {"disk", "partition", "logical_volume", "stratis_filesystem"}:
+            raise ManifestValidationError("image_type must be disk, partition, logical_volume or stratis_filesystem")
 
         source_size = value.get("source_size_bytes")
         if isinstance(source_size, bool) or not isinstance(source_size, int) or source_size <= 0:
@@ -264,7 +273,7 @@ class ImageManifest:
         table = value.get("partition_table")
         if not isinstance(table, str) or table not in {"gpt", "mbr", "none", "unknown"}:
             raise ManifestValidationError("partition_table must be gpt, mbr, none, or unknown")
-        if image_type in {"partition", "logical_volume"} and table != "none":
+        if image_type in {"partition", "logical_volume", "stratis_filesystem"} and table != "none":
             raise ManifestValidationError("Partition images must use partition_table='none'")
 
         raw_artifacts = value.get("artifacts")
@@ -284,6 +293,8 @@ class ImageManifest:
             raise ManifestValidationError("Disk image requires at least one data artifact")
         if image_type == "partition" and "partition-image" not in roles:
             raise ManifestValidationError("Partition image requires a partition-image artifact")
+        if image_type == "stratis_filesystem" and roles != ["stratis-filesystem-image"]:
+            raise ManifestValidationError("Stratis filesystem image requires exactly one stratis-filesystem-image artifact")
         if image_type == "logical_volume" and roles != ["logical-volume-image"]:
             raise ManifestValidationError("Logical-volume image requires exactly one logical-volume-image artifact and no other artifact roles")
         if image_type != "logical_volume" and "logical-volume-image" in roles:
@@ -300,8 +311,8 @@ class ImageManifest:
             raise ManifestValidationError("Partition/logical-volume images cannot contain whole-disk metadata artifacts")
 
         storage = value.get("storage")
-        if image_type == "logical_volume" and storage is None:
-            raise ManifestValidationError("Logical-volume manifests require storage metadata")
+        if image_type in {"logical_volume", "stratis_filesystem"} and storage is None:
+            raise ManifestValidationError("Logical-volume and Stratis filesystem manifests require storage metadata")
         if storage is not None:
             storage = _validate_storage_metadata(storage, image_type)
 

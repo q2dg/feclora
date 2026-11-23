@@ -383,12 +383,12 @@ def capture_partition(
     it must resolve to a block device. A private staging directory prevents a
     failed producer process from publishing a partial artifact.
     """
-    if artifact_role not in {"partition-image", "logical-volume-image"}:
+    if artifact_role not in {"partition-image", "logical-volume-image", "stratis-filesystem-image"}:
         raise CaptureError("capture artifact role is not supported")
     if artifact_role == "partition-image" and (not isinstance(partition_id, str) or not partition_id):
         raise CaptureError("partition capture requires a partition identifier")
-    if artifact_role == "logical-volume-image" and partition_id is not None:
-        raise CaptureError("logical-volume artifacts must not carry a partition identifier")
+    if artifact_role != "partition-image" and partition_id is not None:
+        raise CaptureError("non-partition artifacts must not carry a partition identifier")
     validator = device_validator or _is_block_device
     if not validator(source_path):
         raise CaptureError(f"source is not an accessible block device: {source_path}")
