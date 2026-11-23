@@ -190,50 +190,49 @@ def plan_storage_capture(
         profile_status = filesystem.get("allocation_profile_status")
         profiles = filesystem.get("allocation_profiles")
         chunks = filesystem.get("chunks")
-        if profile_status is not None:
-            if profile_status != "available":
-                blockers.append("Btrfs allocation-profile and stripe inventory is unavailable.")
-            elif not isinstance(profiles, list) or not profiles or not isinstance(chunks, list) or not chunks:
-                blockers.append("Btrfs allocation-profile or chunk dependency inventory is incomplete.")
-            else:
-                if any(
-                    not isinstance(profile, dict) or profile.get("known_profile") is not True
-                    for profile in profiles
-                ):
-                    blockers.append("Btrfs uses an unknown allocation profile; refusing layer-aware capture.")
-                member_ids = {
-                    item.get("devid") for item in member_records
-                    if isinstance(item.get("devid"), int) and not isinstance(item.get("devid"), bool)
-                }
-                def chunk_mapping_is_valid(chunk: Any) -> bool:
-                    if not isinstance(chunk, dict) or chunk.get("device_mapping_complete") is not True:
-                        return False
-                    device_ids = chunk.get("device_ids")
-                    return (
-                        isinstance(device_ids, list) and bool(device_ids)
-                        and all(isinstance(value, int) and not isinstance(value, bool) for value in device_ids)
-                        and set(device_ids).issubset(member_ids)
-                    )
+        if profile_status != "available":
+            blockers.append("Btrfs allocation-profile and stripe inventory is unavailable.")
+        elif not isinstance(profiles, list) or not profiles or not isinstance(chunks, list) or not chunks:
+            blockers.append("Btrfs allocation-profile or chunk dependency inventory is incomplete.")
+        else:
+            if any(
+                not isinstance(profile, dict) or profile.get("known_profile") is not True
+                for profile in profiles
+            ):
+                blockers.append("Btrfs uses an unknown allocation profile; refusing layer-aware capture.")
+            member_ids = {
+                item.get("devid") for item in member_records
+                if isinstance(item.get("devid"), int) and not isinstance(item.get("devid"), bool)
+            }
+            def chunk_mapping_is_valid(chunk: Any) -> bool:
+                if not isinstance(chunk, dict) or chunk.get("device_mapping_complete") is not True:
+                    return False
+                device_ids = chunk.get("device_ids")
+                return (
+                    isinstance(device_ids, list) and bool(device_ids)
+                    and all(isinstance(value, int) and not isinstance(value, bool) for value in device_ids)
+                    and set(device_ids).issubset(member_ids)
+                )
 
-                invalid_chunks = [chunk for chunk in chunks if not chunk_mapping_is_valid(chunk)]
-                if invalid_chunks:
-                    blockers.append("Btrfs chunk stripe-to-device dependencies are incomplete or ambiguous.")
-                dependencies.append({
-                    "kind": "btrfs_allocation_profiles",
-                    "filesystem_uuid": filesystem_uuid,
-                    "profiles": profiles,
-                    "chunk_dependencies": [
-                        {
-                            "logical_start": chunk.get("logical_start"),
-                            "type": chunk.get("type"),
-                            "profile": chunk.get("profile"),
-                            "device_ids": chunk.get("device_ids"),
-                        }
-                        for chunk in chunks if isinstance(chunk, dict)
-                    ],
-                    "included_in_source_bytes": complete and not invalid_chunks,
-                    "restore_note": "Chunk profiles and stripe membership are recorded for compatibility checks; unmounted used-byte accounting is unknown.",
-                })
+            invalid_chunks = [chunk for chunk in chunks if not chunk_mapping_is_valid(chunk)]
+            if invalid_chunks:
+                blockers.append("Btrfs chunk stripe-to-device dependencies are incomplete or ambiguous.")
+            dependencies.append({
+                "kind": "btrfs_allocation_profiles",
+                "filesystem_uuid": filesystem_uuid,
+                "profiles": profiles,
+                "chunk_dependencies": [
+                    {
+                        "logical_start": chunk.get("logical_start"),
+                        "type": chunk.get("type"),
+                        "profile": chunk.get("profile"),
+                        "device_ids": chunk.get("device_ids"),
+                    }
+                    for chunk in chunks if isinstance(chunk, dict)
+                ],
+                "included_in_source_bytes": complete and not invalid_chunks,
+                "restore_note": "Chunk profiles and stripe membership are recorded for compatibility checks; unmounted used-byte accounting is unknown.",
+            })
 
     for pool in (inventory.get("stratis_topology") or {}).get("pools", []):
         for filesystem in pool.get("filesystems", []):

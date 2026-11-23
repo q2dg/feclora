@@ -122,6 +122,25 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertTrue(any("unknown allocation profile" in item for item in plan["blockers"]))
         self.assertTrue(any("stripe-to-device dependencies" in item for item in plan["blockers"]))
 
+    def test_missing_btrfs_allocation_profile_inventory_blocks_capture(self):
+        inventory = base_inventory({
+            "path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": [],
+        }, btrfs_topology={"filesystems": [{
+            "uuid": "btrfs-uuid", "total_devices": 1,
+            "devices": [{"devid": 1, "path": "/dev/sda2"}],
+            "allocation_profiles": [{"type": "data", "profile": "single", "known_profile": True}],
+            "chunks": [{
+                "logical_start": 1, "type": "data", "profile": "single",
+                "device_ids": [1], "device_mapping_complete": True,
+            }],
+        }]}, btrfs_subvolumes={"status": "available", "mounts": []})
+        plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any(
+            "allocation-profile and stripe inventory is unavailable" in item
+            for item in plan["blockers"]
+        ))
+
     def test_mounted_btrfs_filesystem_blocks_capture_without_lsblk_mountpoint(self):
         inventory = base_inventory({
             "path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": [],
