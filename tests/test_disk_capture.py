@@ -87,6 +87,20 @@ class DiskCaptureTests(unittest.TestCase):
             )
         self.assertEqual(os.listdir(self.temp.name), [])
         self.assertTrue(proc.terminated)
+    def test_explicit_dd_read_failure_is_classified_and_not_published(self):
+        def factory(_argv, **kwargs):
+            kwargs["stderr"].write(b"dd: error reading '/dev/fake': Input/output error\\n")
+            return FakeProcess(b"partial", returncode=1)
+        with self.assertRaises(DiskCaptureError) as raised:
+            capture_disk(
+                "/dev/fake", "read-failed", self.temp.name,
+                executables=self.executables, device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                runner=self.runner, popen_factory=factory,
+            )
+        self.assertEqual(raised.exception.diagnostic_category, "read_error")
+        self.assertEqual(os.listdir(self.temp.name), [])
+
     def test_failed_dd_leaves_no_published_files(self):
         proc = FakeProcess(b"partial", returncode=1)
         with self.assertRaisesRegex(DiskCaptureError, "status 1"):

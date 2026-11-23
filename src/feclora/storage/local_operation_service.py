@@ -29,7 +29,7 @@ _PROGRESS_PHASES = frozenset({
     "cloning", "checking", "finalizing", "working",
 })
 _DIAGNOSTIC_CATEGORIES = frozenset({
-    "permission", "device", "filesystem", "network", "credentials",
+    "permission", "device", "read_error", "filesystem", "network", "credentials",
     "integrity", "capacity", "cancelled", "unsupported", "internal",
 })
 _OPERATION_DEFAULT_PHASE = {
@@ -53,6 +53,9 @@ _OPERATION_DEFAULT_PHASE = {
 
 def _diagnostic_category(exc: BaseException) -> str:
     """Map an exception to a bounded, non-sensitive operator diagnostic category."""
+    explicit_category = getattr(exc, "diagnostic_category", None)
+    if explicit_category in _DIAGNOSTIC_CATEGORIES:
+        return explicit_category
     number = getattr(exc, "errno", None)
     if number in {errno.EACCES, errno.EPERM, errno.EROFS}:
         return "permission"

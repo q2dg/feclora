@@ -17,6 +17,7 @@ from .image_publication import ImagePublicationError, publish_image_set
 from .image_security import ImageSecurityError, encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
+from .process_diagnostics import process_diagnostic_category
 
 
 class _CountingReader:
@@ -35,6 +36,10 @@ class _CountingReader:
 
 class DiskCaptureError(RuntimeError):
     """Raised when a whole-disk image cannot be safely committed."""
+
+    def __init__(self, message: str, *, diagnostic_category: str | None = None):
+        super().__init__(message)
+        self.diagnostic_category = diagnostic_category
 
 
 def _run_metadata(command: list[str], runner: Callable[..., subprocess.CompletedProcess[str]]) -> str:
@@ -218,7 +223,8 @@ def capture_disk(
                 stderr_file.seek(0)
                 detail = stderr_file.read(8192).decode("utf-8", errors="replace").strip()
                 raise DiskCaptureError(
-                    f"dd exited with status {return_code}" + (f": {detail}" if detail else "")
+                    f"dd exited with status {return_code}" + (f": {detail}" if detail else ""),
+                    diagnostic_category=process_diagnostic_category(detail),
                 )
         finally:
             stderr_file.close()

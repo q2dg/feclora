@@ -134,6 +134,12 @@ class LocalOperationWorkerTests(unittest.TestCase):
         self.assertEqual(_diagnostic_category(OSError(errno.ETIMEDOUT, "timeout")), "network")
         self.assertEqual(_diagnostic_category(NotImplementedError("unsupported")), "unsupported")
         self.assertEqual(_diagnostic_category(RuntimeError("private path /secret")), "internal")
+        read_failure = RuntimeError("dd failed")
+        read_failure.diagnostic_category = "read_error"
+        self.assertEqual(_diagnostic_category(read_failure), "read_error")
+        invalid = RuntimeError("untrusted category")
+        invalid.diagnostic_category = "secret-value"
+        self.assertEqual(_diagnostic_category(invalid), "internal")
 
     def test_sigterm_handler_requests_orderly_worker_cancellation(self):
         with self.assertRaisesRegex(LocalOperationCancelled, "cancellation requested"):

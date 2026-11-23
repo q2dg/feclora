@@ -302,6 +302,26 @@ class CaptureTests(unittest.TestCase):
                 )
             self.assertEqual(os.listdir(directory), [])
             self.assertTrue(proc.terminated)
+    def test_explicit_dd_read_failure_is_classified_and_not_published(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def factory(_argv, **kwargs):
+                kwargs["stderr"].write(b"dd: error reading '/dev/fake1': Input/output error\\n")
+                return FakeProcess(["dd"], returncode=1)
+            with self.assertRaises(CaptureError) as raised:
+                capture_partition(
+                    "/dev/fake1", None, directory, "read-failed.raw", "1",
+                    {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                    popen_factory=factory,
+                )
+            self.assertEqual(raised.exception.diagnostic_category, "read_error")
+            self.assertEqual(os.listdir(directory), [])
+
+    def test_ambiguous_io_error_is_not_misclassified_as_read_failure(self):
+        from feclora.storage.process_diagnostics import process_diagnostic_category
+        self.assertIsNone(process_diagnostic_category("dd: write error: Input/output error"))
+        self.assertIsNone(process_diagnostic_category("Input/output error"))
+
     def test_failed_producer_does_not_publish_partial_artifact(self):
         with tempfile.TemporaryDirectory() as directory:
             proc = FakeProcess(["/usr/bin/dd"], returncode=1)

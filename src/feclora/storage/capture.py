@@ -22,10 +22,15 @@ from .artifact_writer import ArtifactWriteError, write_artifact
 from .image_manifest import ImageArtifact
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
+from .process_diagnostics import process_diagnostic_category
 
 
 class CaptureError(RuntimeError):
     """Raised when a partition capture cannot be completed safely."""
+
+    def __init__(self, message: str, *, diagnostic_category: str | None = None):
+        super().__init__(message)
+        self.diagnostic_category = diagnostic_category
 
 
 class CaptureCancelled(CaptureError):
@@ -470,7 +475,8 @@ def capture_partition(
                 detail = stderr_file.read(8192).decode("utf-8", errors="replace").strip()
                 raise CaptureError(
                     f"{plan.executable} exited with status {return_code}"
-                    + (f": {detail}" if detail else "")
+                    + (f": {detail}" if detail else ""),
+                    diagnostic_category=process_diagnostic_category(detail),
                 )
 
             if plan.image_format == "raw" and expected_size_bytes is not None and counted.bytes_read != expected_size_bytes:
