@@ -252,6 +252,7 @@ def recover_block_device(
         except Exception as exc:
             raise DdrescueRecoveryError(f"recovery source safety check failed: {exc}") from exc
 
+    check_source()
     workspace = _safe_workspace(repository, job_id, create=not resume)
     image_path, mapfile_path = workspace / "recovered.img", workspace / "recovery.map"
     expected = {

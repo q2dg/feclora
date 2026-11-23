@@ -106,6 +106,22 @@ class DdrescueRecoveryTests(unittest.TestCase):
             self.assertEqual(resumed.state, "completed")
             self.assertEqual(resumed.summary.bad_sector_bytes, 0)
 
+    def test_recovery_reports_mapfile_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            progress = []
+            result = recover_block_device(
+                "/dev/test", "progress-job", directory, source_size_bytes=256,
+                source_identity="major_minor:8:0", retry_passes=0,
+                executables={"ddrescue": "/usr/bin/ddrescue"},
+                runner=self._runner("0x0 0x100 +\n"),
+                device_validator=lambda _path: True,
+                identity_reader=lambda _path: "major_minor:8:0",
+                source_safety_check=lambda _path: None,
+                progress_callback=lambda done, total: progress.append((done, total)),
+            )
+            self.assertEqual(result.state, "completed")
+            self.assertEqual(progress, [(256, 256)])
+
     def test_resume_accepts_same_wwn_after_device_path_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             first = recover_block_device(

@@ -1958,9 +1958,20 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 recovered = recover_block_device(
                     source, image_id, repository, source_size_bytes=size,
                     source_identity=identity, retry_passes=retry_passes, resume=resume,
+                    progress_callback=_progress,
                 )
             except DdrescueRecoveryError as exc:
                 raise APIError(f"disk recovery failed: {exc}") from exc
+        if recovered.state != "completed":
+            remaining = (
+                recovered.summary.non_tried_bytes + recovered.summary.non_trimmed_bytes
+                + recovered.summary.non_scraped_bytes + recovered.summary.bad_sector_bytes
+            )
+            raise APIError(
+                f"recovery is {recovered.state}; {remaining} bytes remain unresolved, "
+                f"and the partial image/mapfile were retained at {recovered.mapfile_path}; "
+                "select resume to continue this job"
+            )
         result = {
             "job_id": recovered.job_id, "state": recovered.state,
             "source_size_bytes": size, "rescued_bytes": recovered.summary.rescued_bytes,
