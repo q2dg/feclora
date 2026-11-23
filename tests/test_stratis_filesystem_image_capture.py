@@ -106,6 +106,17 @@ class StratisFilesystemCaptureTests(unittest.TestCase):
         ):
             capture_stratis_filesystem_image("/dev/dm-3", "image", tmp, value)
 
+    def test_rejects_raw_fallback_when_partclone_xfs_is_unavailable(self):
+        value = inventory()
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "feclora.storage.stratis_filesystem_image_capture.shutil.which",
+            return_value=None,
+        ), self.assertRaisesRegex(StratisFilesystemCaptureError, "raw imaging fallback is disabled"):
+            capture_stratis_filesystem_image(
+                "/dev/dm-3", "image", tmp, value,
+                executables={"dd": "/usr/bin/dd"},
+            )
+
     def test_rejects_disagreement_between_cli_and_block_capacity(self):
         value = inventory()
         value["devices"][0]["size_bytes"] -= 4096

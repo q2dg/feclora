@@ -424,6 +424,20 @@ class LocalOperationStoreTests(unittest.TestCase):
             store.submit("capture_disk", params, operation_id=identifier)
             with self.assertRaisesRegex(LocalOperationError, "already exists"):
                 store.submit("capture_disk", params, operation_id=identifier)
+    def test_stratis_filesystem_restore_is_a_valid_durable_operation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000055",
+            "action": "restore_stratis_filesystem",
+            "params": {
+                "image_id": "stratis-image", "target": "/dev/dm-9",
+                "confirmation": "ERASE /dev/dm-9",
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "restore_stratis_filesystem")
+        self.assertEqual(validated["params"]["target"], "/dev/dm-9")
+
 
 if __name__ == "__main__":
     unittest.main()

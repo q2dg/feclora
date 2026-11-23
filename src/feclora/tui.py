@@ -57,6 +57,7 @@ OPERATIONS = (
     ("Capturar partición", "capture_partition"),
     ("Capturar volumen lógico", "capture_logical_volume"),
     ("Capturar filesystem Stratis", "capture_stratis_filesystem"),
+    ("Restaurar filesystem Stratis", "restore_stratis_filesystem"),
     ("Restaurar disco", "restore_disk"),
     ("Restaurar proporcionalmente a un disco menor", "restore_proportional_disk"),
     ("Restaurar partición", "restore_partition"),
@@ -2395,7 +2396,7 @@ class FecloraTUI(App[None]):
         is_clone = operation.startswith("clone_")
         is_disk = operation.endswith("_disk") or operation == "capture_p2v"
         is_logical_volume = operation.endswith("_logical_volume")
-        is_stratis_filesystem = operation == "capture_stratis_filesystem"
+        is_stratis_filesystem = operation.endswith("_stratis_filesystem")
         is_recovery_iso = operation == "build_recovery_iso"
         is_bundle = operation == "build_deployment_bundle"
         source_label = self.query_one("#source-label", Static)
@@ -2444,9 +2445,17 @@ class FecloraTUI(App[None]):
                 item for item in self._devices
                 if item.get("type") == ("disk" if is_disk or operation == "restore_proportional_disk" else "part")
             ]
-        target_devices = self._logical_volumes if is_logical_volume else [
-            item for item in self._devices if item.get("type") == ("disk" if is_disk else "part")
-        ]
+        if is_logical_volume:
+            target_devices = self._logical_volumes
+        elif is_stratis_filesystem:
+            target_devices = [
+                item for item in self._devices
+                if item.get("type") == "dm" and str(item.get("filesystem") or "").lower() == "xfs"
+            ]
+        else:
+            target_devices = [
+                item for item in self._devices if item.get("type") == ("disk" if is_disk else "part")
+            ]
         if operation in {"capture_disk", "capture_p2v", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem", "clone_disk", "clone_partition", "restore_proportional_disk"}:
             self._set_device_options(source_select, source_devices)
         else:

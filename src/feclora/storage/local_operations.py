@@ -93,6 +93,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_stratis_filesystem": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},

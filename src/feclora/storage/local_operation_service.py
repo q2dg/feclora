@@ -42,6 +42,7 @@ _OPERATION_DEFAULT_PHASE = {
     "execute_restore_profile": "restoring",
     "restore_partition": "restoring",
     "restore_logical_volume": "restoring",
+    "restore_stratis_filesystem": "restoring",
     "clone_disk": "cloning",
     "clone_partition": "cloning",
     "extract_partition_image": "reading",

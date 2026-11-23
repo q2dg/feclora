@@ -129,6 +129,13 @@ def capture_stratis_filesystem_image(
     suffix = {"none": "", "gzip": ".gz", "xz": ".xz", "zstd": ".zst", "lz4": ".lz4"}.get(compression)
     if suffix is None:
         raise StratisFilesystemCaptureError("compression must be none, gzip, xz, zstd or lz4")
+    partclone_xfs = available.get("partclone.xfs") or shutil.which("partclone.xfs")
+    if not partclone_xfs:
+        raise StratisFilesystemCaptureError(
+            "partclone.xfs is required for Stratis capture; raw imaging fallback is disabled"
+        )
+    capture_executables = dict(available)
+    capture_executables["partclone.xfs"] = partclone_xfs
     artifact_name = f"{image_id}.img{suffix}"
     manifest_name = f"{image_id}.manifest.json"
     storage = {
@@ -147,7 +154,7 @@ def capture_stratis_filesystem_image(
     stage = tempfile.mkdtemp(prefix=".feclora-stratis-filesystem-set-", dir=repo)
     try:
         artifact = capture_partition(
-            source_path, "xfs", stage, artifact_name, None, available,
+            source_path, "xfs", stage, artifact_name, None, capture_executables,
             compression=compression, compression_level=compression_level,
             device_validator=device_validator, popen_factory=popen_factory,
             source_safety_check=source_safety_check, expected_size_bytes=size,

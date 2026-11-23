@@ -1748,11 +1748,13 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
         "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_stratis_filesystem": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
@@ -1934,6 +1936,29 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             manifest = capture_partition_image(
                 source, image_id, partition_id, repository,
                 compression=compression, progress_callback=_progress, inventory=inventory,
+                age_recipients_file=recipients_file if encrypt else None,
+            )
+        result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+    elif action == "capture_stratis_filesystem":
+        from feclora.storage.inventory import collect_inventory
+        from feclora.storage.stratis_filesystem_image_capture import capture_stratis_filesystem_image
+        source = _device(params["source"], "source")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
+        encrypt = params["encrypt"]
+        if not isinstance(encrypt, bool):
+            raise APIError("encrypt must be a boolean value")
+        security = _security_material()
+        if encrypt and not security["age_encryption_available"]:
+            raise APIError("initialize Feclora security keys before enabling age encryption")
+        recipients_file = _capture_material()
+        inventory = collect_inventory()
+        with _operation_repository_context(
+            params, write=True, create_local=True, upload_image_id=image_id,
+        ) as repository:
+            manifest = capture_stratis_filesystem_image(
+                source, image_id, repository, inventory,
+                compression=compression, progress_callback=_progress,
                 age_recipients_file=recipients_file if encrypt else None,
             )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
@@ -2264,7 +2289,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             ],
             "sha256": digest, "verified": True,
         }
-    elif action in {"restore_disk", "restore_partition", "restore_logical_volume"}:
+    elif action in {"restore_disk", "restore_partition", "restore_logical_volume", "restore_stratis_filesystem"}:
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         target = _device(params["target"], "target")
         expected = f"ERASE {target}"
@@ -2273,7 +2298,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         with _operation_repository_context(params, write=False, image_id=image_id) as repository:
             manifest_path = _image_manifest(image_id, repository)
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-            expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
+            expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume", "restore_stratis_filesystem": "stratis_filesystem"}[action]
             if manifest.image_type != expected_type:
                 raise APIError(f"selected image is not a {expected_type} image")
             security = _security_material()
@@ -2310,10 +2335,18 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                         manifest_path, repository, target, confirmation=expected,
                         progress_callback=_progress, age_identity_file=identity_file,
                     )
-                else:
+                elif action == "restore_logical_volume":
                     from feclora.storage.inventory import collect_inventory
                     from feclora.storage.logical_volume_restore import restore_logical_volume
                     restore_logical_volume(
+                        manifest_path, repository, target, confirmation=expected,
+                        inventory_provider=collect_inventory,
+                        progress_callback=_progress, age_identity_file=identity_file,
+                    )
+                else:
+                    from feclora.storage.inventory import collect_inventory
+                    from feclora.storage.stratis_filesystem_restore import restore_stratis_filesystem_image
+                    restore_stratis_filesystem_image(
                         manifest_path, repository, target, confirmation=expected,
                         inventory_provider=collect_inventory,
                         progress_callback=_progress, age_identity_file=identity_file,
