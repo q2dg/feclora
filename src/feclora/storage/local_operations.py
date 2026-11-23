@@ -116,6 +116,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
         accepted = (allowed, allowed - {"repository_id"})
     if action in {"capture_btrfs_subvolume", "receive_btrfs_subvolume"}:
         accepted = accepted + tuple(item - {"parent_path"} for item in accepted)
+    if action == "capture_btrfs_subvolume":
+        accepted = accepted + tuple(item - {"compression", "encrypt"} for item in accepted)
     if action == "capture_disk":
         accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
         accepted = accepted + tuple(item - {"image_format"} for item in accepted)
@@ -218,7 +220,9 @@ def validate_definition(value: Any) -> dict[str, Any]:
         expected_confirmation = None
     if expected_confirmation is not None and params.get("confirmation") != expected_confirmation:
         raise LocalOperationError("destructive operation confirmation does not match its target and source")
-    if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem"}:
+    if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem"} or (
+        action == "capture_btrfs_subvolume" and ("compression" in params or "encrypt" in params)
+    ):
         if params.get("compression") not in {"none", "gzip", "xz", "zstd", "lz4"}:
             raise LocalOperationError("unsupported compression")
         if not isinstance(params.get("encrypt"), bool):

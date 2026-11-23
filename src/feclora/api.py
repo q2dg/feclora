@@ -2058,6 +2058,14 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if not isinstance(source_path, str):
             raise APIError("source_path is required")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        compression = _text({"compression": params.get("compression", "none")}, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
+        encrypt = params.get("encrypt", False)
+        if not isinstance(encrypt, bool):
+            raise APIError("encrypt must be a boolean value")
+        security = _security_material()
+        if encrypt and not security["age_encryption_available"]:
+            raise APIError("initialize Feclora security keys before enabling age encryption")
+        recipients_file = _capture_material() if encrypt else None
         _require_btrfs_stream_filesystem_repository(params)
         with _operation_repository_context(
             params, write=True, create_local=True, upload_image_id=image_id,
@@ -2065,12 +2073,17 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             try:
                 manifest = capture_btrfs_subvolume(
                     source_path, image_id, repository, parent_path=parent_path,
-                    executables={"btrfs": shutil.which("btrfs")},
+                    compression=compression, age_recipients_file=recipients_file,
+                    executables={
+                        "btrfs": shutil.which("btrfs"), "age": shutil.which("age"),
+                        "zstd": shutil.which("zstd"), "lz4": shutil.which("lz4"),
+                    },
                 )
             except BtrfsSendError as exc:
                 raise APIError(f"Btrfs subvolume capture failed: {exc}") from exc
         result = {"image_id": manifest.image_id, "image_type": "btrfs_send_stream",
-                  "send_mode": manifest.send_mode, "stream_sha256": manifest.stream_sha256}
+                  "send_mode": manifest.send_mode, "stream_sha256": manifest.stream_sha256,
+                  "compression": manifest.compression, "encryption": manifest.encryption}
     elif action == "receive_btrfs_subvolume":
         from feclora.storage.btrfs_send import restore_btrfs_subvolume, BtrfsSendError
         target_directory = params.get("target_directory")
@@ -2087,13 +2100,37 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         _require_btrfs_stream_filesystem_repository(params)
         with _operation_repository_context(params, write=False, image_id=image_id) as repository:
             manifest_path = _image_manifest(image_id, repository)
+            identity_paths = []
+            server_identity = Path("/etc/feclora/pki/server.age")
+            if server_identity.is_file():
+                identity_paths.append(server_identity)
+            client_config = _client_runtime_config()
+            if client_config and client_config.age_identity_file:
+                identity_paths.append(Path(client_config.age_identity_file))
+            identity_context = tempfile.TemporaryDirectory(prefix="feclora-btrfs-identities-") if len(identity_paths) > 1 else None
             try:
+                if identity_context:
+                    identity_file = Path(identity_context.name) / "identities.txt"
+                    identity_file.write_text(
+                        "\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\n",
+                        encoding="ascii",
+                    )
+                    os.chmod(identity_file, 0o600)
+                else:
+                    identity_file = identity_paths[0] if identity_paths else None
                 destination = restore_btrfs_subvolume(
                     manifest_path, repository, target_directory,
-                    parent_path=parent_path, executables={"btrfs": shutil.which("btrfs")},
+                    parent_path=parent_path, age_identity_file=identity_file,
+                    executables={
+                        "btrfs": shutil.which("btrfs"), "age": shutil.which("age"),
+                        "zstd": shutil.which("zstd"), "lz4": shutil.which("lz4"),
+                    },
                 )
             except BtrfsSendError as exc:
                 raise APIError(f"Btrfs subvolume receive failed: {exc}") from exc
+            finally:
+                if identity_context:
+                    identity_context.cleanup()
         result = {"image_id": image_id, "target_directory": str(destination),
                   "verified": True, "published": True}
     elif action == "capture_partition":

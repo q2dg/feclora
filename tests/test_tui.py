@@ -181,6 +181,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(("capture_btrfs_subvolume", {
                     "source_path": "/mnt/btrfs/root", "image_id": "root-stream",
                     "parent_path": "/mnt/btrfs/base",
+                    "compression": "zstd", "encrypt": False,
                 }), requests)
                 app.query_one("#operation-type", Select).value = "receive_btrfs_subvolume"
                 await app._update_operation_fields()

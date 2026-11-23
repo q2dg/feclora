@@ -2473,9 +2473,9 @@ class FecloraTUI(App[None]):
         image_select.display = is_restore or is_recovery_iso or is_bundle
         self.query_one("#format-label", Static).display = operation == "capture_disk"
         self.query_one("#image-format", Select).display = operation == "capture_disk"
-        self.query_one("#compression-label", Static).display = is_capture and operation not in {"capture_p2v", "capture_btrfs_subvolume"}
-        self.query_one("#compression", Select).display = is_capture and operation not in {"capture_p2v", "capture_btrfs_subvolume"}
-        self.query_one("#encrypt-toggle", Button).display = is_capture and operation not in {"capture_p2v", "capture_btrfs_subvolume"} and not (operation == "capture_disk" and str(self.query_one("#image-format", Select).value) == "qcow2")
+        self.query_one("#compression-label", Static).display = is_capture and operation != "capture_p2v"
+        self.query_one("#compression", Select).display = is_capture and operation != "capture_p2v"
+        self.query_one("#encrypt-toggle", Button).display = is_capture and operation != "capture_p2v" and not (operation == "capture_disk" and str(self.query_one("#image-format", Select).value) == "qcow2")
         self.query_one("#encrypt-passphrase-toggle", Button).display = operation == "capture_disk" and str(self.query_one("#image-format", Select).value) != "qcow2"
         self.query_one("#capture-passphrase", Input).display = self.query_one("#encrypt-passphrase-toggle", Button).display and self.query_one("#encrypt-passphrase-toggle", Button).variant == "success"
         self.query_one("#recovery-resume", Checkbox).display = is_recovery
@@ -2575,7 +2575,11 @@ class FecloraTUI(App[None]):
                 source_path = self.query_one("#btrfs-source-path", Input).value.strip()
                 if not source_path.startswith("/") or not new_image_id:
                     raise TUIAPIError("Indica una ruta absoluta de subvolumen Btrfs y un identificador de stream.")
-                params = {"source_path": source_path, "image_id": new_image_id}
+                params = {
+                    "source_path": source_path, "image_id": new_image_id,
+                    "compression": str(self.query_one("#compression", Select).value),
+                    "encrypt": self.query_one("#encrypt-toggle", Button).variant == "success",
+                }
                 parent_path = self.query_one("#btrfs-capture-parent", Input).value.strip()
                 if parent_path:
                     if not parent_path.startswith("/"):

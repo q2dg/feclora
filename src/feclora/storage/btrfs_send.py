@@ -294,8 +294,9 @@ def restore_btrfs_subvolume(
     stage.mkdir(mode=0o700)
     try:
         decoded_path = None
+        decrypted_stream = None
+        codec_stream = None
         decompressor = None
-        decoded_stream = None
         try:
             with stream.open("rb") as stored_stream:
                 input_stream = stored_stream
@@ -304,14 +305,14 @@ def restore_btrfs_subvolume(
                         stored_stream, age_identity_file, stage,
                         age_executable=available.get("age"),
                     )
-                    decoded_stream = open(decoded_path, "rb")
-                    input_stream = decoded_stream
+                    decrypted_stream = open(decoded_path, "rb")
+                    input_stream = decrypted_stream
                 if manifest.compression == "gzip":
-                    decoded_stream = gzip.GzipFile(fileobj=input_stream, mode="rb")
-                    input_stream = decoded_stream
+                    codec_stream = gzip.GzipFile(fileobj=input_stream, mode="rb")
+                    input_stream = codec_stream
                 elif manifest.compression == "xz":
-                    decoded_stream = lzma.LZMAFile(input_stream, mode="rb")
-                    input_stream = decoded_stream
+                    codec_stream = lzma.LZMAFile(input_stream, mode="rb")
+                    input_stream = codec_stream
                 elif manifest.compression in {"zstd", "lz4"}:
                     decompressor = ExternalDecompressionStream(
                         input_stream, manifest.compression,
@@ -328,8 +329,10 @@ def restore_btrfs_subvolume(
         finally:
             if decompressor is not None:
                 decompressor.close()
-            if decoded_stream is not None:
-                decoded_stream.close()
+            if codec_stream is not None:
+                codec_stream.close()
+            if decrypted_stream is not None:
+                decrypted_stream.close()
             if decoded_path is not None:
                 try:
                     os.unlink(decoded_path)

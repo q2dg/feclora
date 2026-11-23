@@ -99,6 +99,15 @@ class LocalOperationStoreTests(unittest.TestCase):
             },
         }
         self.assertEqual(validate_definition(capture)["action"], "capture_btrfs_subvolume")
+        encoded_capture = {
+            **capture,
+            "operation_id": "00000000-0000-4000-8000-000000000075",
+            "params": {
+                "source_path": "/mnt/btrfs/root", "image_id": "root-stream",
+                "compression": "zstd", "encrypt": True,
+            },
+        }
+        self.assertEqual(validate_definition(encoded_capture)["params"]["compression"], "zstd")
         full_capture = {
             "schema_version": 1,
             "operation_id": "00000000-0000-4000-8000-000000000074",
