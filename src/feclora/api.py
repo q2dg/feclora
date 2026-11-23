@@ -1359,7 +1359,9 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
     elif source in {"repository", "scp"}:
         if set(params) != {"job_id", "source", "repository_id", "source_path"}:
             raise APIError("repository/SCP source requires job_id, source, repository_id and source_path")
-        repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+        repository_id = _repository_id(params)
+        if repository_id is None:
+            raise APIError("repository_id is invalid")
         source_path = _text(params, "source_path", maximum=1024)
         parts = source_path.split("/")
         if (source_path.startswith("/") or "\\" in source_path or "\x00" in source_path
