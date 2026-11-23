@@ -28,16 +28,22 @@ if grep -Eiq '^[[:space:]]*plymouth([[:space:]]|$)' "$KS"; then
 fi
 [[ ! -e "$ROOT_DIR/src/feclora/data/plymouth" ]] \
   || fail "Obsolete Feclora boot-splash assets remain in the application payload."
+# shellcheck disable=SC2016 # Match literal shell source; do not expand TARGET_ROOT here.
 grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service"' "$KS" \
   || fail "Kickstart does not install the Textual systemd service."
+# shellcheck disable=SC2016 # Match literal shell source; do not expand TARGET_ROOT here.
 grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready"' "$KS" \
   || fail "Kickstart does not install the QEMU boot readiness helper."
+# shellcheck disable=SC2016 # Match literal shell source; do not expand TARGET_ROOT here.
 grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service' "$KS" \
   || fail "The Live image does not enable the TUI service."
+# shellcheck disable=SC2016 # Match literal shell source; do not expand TARGET_ROOT here.
 grep -Fq 'systemctl --root="$TARGET_ROOT" set-default multi-user.target' "$KS" \
   || fail "The Live image does not select the text-mode systemd target."
+# shellcheck disable=SC2016 # Match literal shell source; do not expand TARGET_ROOT here.
 grep -Fq 'systemctl --root="$TARGET_ROOT" mask getty@tty1.service' "$KS" \
   || fail "The system login prompt is not masked from the appliance TUI."
+# shellcheck disable=SC2016 # Match literal shell source; do not expand TARGET_ROOT here.
 grep -Fq 'systemctl --root="$TARGET_ROOT" mask kmsconvt@tty1.service' "$KS" \
   || fail "The KMS console must not compete with the appliance TUI on tty1."
 grep -Fq 'feclora ALL=(root) NOPASSWD: /usr/libexec/feclora/feclora-api *' "$KS" \
