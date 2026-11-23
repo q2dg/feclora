@@ -1,68 +1,67 @@
 # Btrfs subvolume send/receive
 
-Feclora provides a dedicated `btrfs send`/`btrfs receive` workflow for
-subvolume replication. It is separate from block-level Btrfs partition
-imaging: a send stream is not a RAW filesystem image and must be applied with
-`btrfs receive`.
+Feclora provides a dedicated `btrfs send`/`btrfs receive` engine and durable
+local-operation actions for subvolume capture and receive. This workflow is
+separate from Btrfs partition imaging: it stores a send stream, not a block
+image of the filesystem.
 
 ## Capture
 
-The capture operation accepts a subvolume directory and an optional read-only
-incremental parent. A writable source is snapshotted read-only in a temporary
-sibling directory; an already read-only source is used directly. Nested
-subvolumes are rejected so their contents are never silently omitted.
+Capture accepts a subvolume directory, an image ID, a filesystem-backed image
+repository and an optional read-only incremental parent. A writable source is
+first snapshotted read-only in a temporary sibling directory. Nested
+subvolumes are rejected because `btrfs send` would omit their contents.
 
-The stream can be stored with one of these compression modes:
+The stream can be stored using one of these compression settings:
 
-- `none`: no compression
-- `gzip`, `xz`, `zstd` or `lz4`
+- `none`
+- `gzip`
+- `xz`
+- `zstd`
+- `lz4`
 
-Capture can also encrypt the stored stream with `age`. Compression is applied
-before encryption. The stored byte count and SHA-256 cover the final artifact
-(as stored in the repository), and the manifest records the compression and
-encryption modes. Encryption is optional and requires configured age
-recipients. The Textual capture form exposes the compression selector and
-encryption toggle.
+Age recipient encryption can be enabled independently of compression. When
+enabled, Feclora compresses the stream first and encrypts the compressed
+artifact afterwards. The capture controls are available in the Textual
+operation form. Recipient keys must already be initialized; the API uses the
+configured Feclora recipient material.
 
-The stream is written to private repository staging and published with its
-manifest last. A temporary read-only snapshot is removed after the send
-attempt. Incremental streams identify the read-only parent UUID used for
-`btrfs send -p`.
+The stream is written to private repository staging. Feclora records the
+stored artifact's exact byte count and SHA-256 in the dedicated manifest, then
+publishes the stream and manifest as one image set. The manifest records the
+selected compression and whether age encryption was applied. The temporary
+read-only snapshot is removed after the send attempt.
 
 ## Receive
 
-Receive verifies the stored stream size and SHA-256 before invoking Btrfs. If
-the manifest marks the stream as encrypted, Feclora decrypts it with the
-configured age identity; it then decompresses the stream according to the
-manifest before passing it to `btrfs receive`. The receiver therefore consumes
-the same compression/encryption metadata that capture published.
+Receive verifies the stored stream's size and SHA-256 before invoking Btrfs.
+For an age-encrypted stream, Feclora first decrypts it using a configured
+identity. It then decompresses the plaintext stream and passes the result to
+`btrfs receive`.
 
-For encrypted streams, the receiver looks for the server identity at
-`/etc/feclora/pki/server.age` and/or the client identity configured by the
-deployment-client settings. Capture recipients are read from
-`/etc/feclora/pki/age-recipients.txt` unless the client configuration supplies
-a recipients file. Private identity files must remain root-owned and
-inaccessible to group/other users.
+Incremental receive requires the matching read-only received parent within the
+selected destination filesystem. The destination Btrfs filesystem must already
+exist and be mounted at the selected directory. Incoming data is received into
+a hidden staging directory on that filesystem. The resulting subvolume's name
+and received UUID must match the manifest before it is renamed into its final
+location. A failed receive or failed provenance check is not reported as a
+completed restore; partial receive data is retained in staging for inspection.
 
-Incremental receive requires the matching received parent within the selected
-destination filesystem. Incoming data is received into a hidden staging
-directory on that filesystem. Before publication, the resulting subvolume's
-name and received UUID must match the manifest; only then is it renamed to its
-final location. Failed or unverifiable receives remain quarantined and are not
-reported as completed restores.
+The API resolves configured identities from the Feclora server identity and
+the client runtime configuration when present. A stream encrypted with age
+cannot be received unless at least one usable identity is configured.
 
 ## Boundaries
 
-The destination Btrfs filesystem must already exist and be mounted at the
-selected directory. Feclora does not create filesystems or mount targets, and
-this workflow does not reconcile multi-device block topology. The repository
-must be filesystem-backed; S3 object-repository publication is not supported
-for Btrfs send streams.
+- The repository must be filesystem-backed. S3 object-repository publication
+  is not supported for Btrfs send streams.
+- The destination filesystem must already be mounted; Feclora does not create
+  filesystems or mount targets.
+- This workflow does not provision or reconcile multi-device Btrfs topology.
+- It rejects nested subvolumes rather than attempting recursive orchestration.
+- It is distinct from the existing single-device Btrfs partition-image path.
 
-The existing Btrfs partition-image path remains a separate, single-device
-block-imaging capability. This subvolume workflow supports full and incremental
-streams but does not provide coordinated multi-device block-image capture or
-profile-aware layer restore.
-
-See the [send-stream manifest contract](BTRFS-SEND-MANIFEST.md) for the
-persistent metadata and provenance rules.
+The implementation supports compression and age encryption. Codec-specific
+round-trip and failure-path regression coverage is tracked separately from the
+basic send/receive engine tests; do not infer that every codec combination has
+been exercised solely from a passing general CI run.
