@@ -1934,11 +1934,18 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise APIError("recovery source must identify exactly one inventoried whole disk")
         device = matches[0]
         size = device.get("size_bytes")
-        identity = device.get("major_minor")
+        major_minor = device.get("major_minor")
         if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
             raise APIError("recovery source size is unknown")
-        if not isinstance(identity, str) or not re.fullmatch(r"[0-9]+:[0-9]+", identity):
+        if not isinstance(major_minor, str) or not re.fullmatch(r"[0-9]+:[0-9]+", major_minor):
             raise APIError("recovery source has no stable kernel device identity")
+        wwn, serial = device.get("wwn"), device.get("serial")
+        if isinstance(wwn, str) and re.fullmatch(r"[A-Za-z0-9_.:+/-]{1,240}", wwn):
+            identity = f"wwn:{wwn}"
+        elif isinstance(serial, str) and re.fullmatch(r"[A-Za-z0-9_.:+/-]{1,240}", serial):
+            identity = f"serial:{serial}"
+        else:
+            identity = f"major_minor:{major_minor}"
         repository_id = params.get("repository_id")
         if repository_id is not None:
             from feclora.storage.s3_repository_manager import S3RepositoryManager

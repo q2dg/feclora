@@ -74,6 +74,11 @@ def parse_ddrescue_mapfile(path: str | os.PathLike[str], source_size_bytes: int)
         if not line or line.startswith("#"):
             continue
         fields = line.split()
+        # GNU ddrescue writes a current-position/status/pass header before
+        # the actual block-status table.
+        if (not ranges and len(fields) == 3 and fields[1] in _MAP_STATUSES
+                and fields[2].isdigit()):
+            continue
         if len(fields) != 3 or fields[2] not in _MAP_STATUSES:
             raise DdrescueRecoveryError("ddrescue mapfile contains an invalid block-status record")
         try:
@@ -200,8 +205,9 @@ def recover_block_device(
     """
     if not isinstance(source_path, str) or not source_path.startswith("/dev/") or "\x00" in source_path:
         raise DdrescueRecoveryError("recovery source must be an absolute /dev/ path")
-    if not isinstance(source_identity, str) or not re.fullmatch(r"[0-9]+:[0-9]+", source_identity):
-        raise DdrescueRecoveryError("source kernel identity must use major:minor notation")
+    if (not isinstance(source_identity, str) or len(source_identity) > 256
+            or not re.fullmatch(r"(?:major_minor:[0-9]+:[0-9]+|(?:wwn|serial):[A-Za-z0-9_.:+/-]{1,240})", source_identity)):
+        raise DdrescueRecoveryError("source identity must be a stable WWN/serial or major:minor fallback")
     if isinstance(retry_passes, bool) or not isinstance(retry_passes, int) or not 0 <= retry_passes <= 10:
         raise DdrescueRecoveryError("retry_passes must be an integer between 0 and 10")
     if isinstance(source_size_bytes, bool) or not isinstance(source_size_bytes, int) or source_size_bytes <= 0:
@@ -211,7 +217,27 @@ def recover_block_device(
     if not ddrescue:
         raise DdrescueRecoveryError("GNU ddrescue is required for recoverable block acquisition")
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
-    reader = identity_reader or (lambda path: f"{os.major(os.stat(path).st_rdev)}:{os.minor(os.stat(path).st_rdev)}")
+    def read_device_identity(path: str) -> str:
+        lsblk = shutil.which("lsblk")
+        if lsblk:
+            try:
+                result = subprocess.run(
+                    [lsblk, "--nodeps", "--noheadings", "--output", "WWN,SERIAL,MAJ:MIN", path],
+                    check=True, capture_output=True, text=True, timeout=10,
+                )
+                fields = result.stdout.split()
+                if len(fields) >= 3:
+                    if fields[0] not in {"", "-"}:
+                        return f"wwn:{fields[0]}"
+                    if fields[1] not in {"", "-"}:
+                        return f"serial:{fields[1]}"
+                    return f"major_minor:{fields[2]}"
+            except (OSError, subprocess.SubprocessError):
+                pass
+        device = os.stat(path)
+        return f"major_minor:{os.major(device.st_rdev)}:{os.minor(device.st_rdev)}"
+
+    reader = identity_reader or read_device_identity
     safety_check = source_safety_check or check_capture_source_safe
 
     def check_source() -> None:
@@ -235,7 +261,11 @@ def recover_block_device(
     }
     if resume:
         state = _load_state(workspace)
-        for key in ("job_id", "source_path", "source_identity", "source_size_bytes", "retry_passes"):
+        identity_is_stable = source_identity.startswith(("wwn:", "serial:"))
+        resume_keys = ("job_id", "source_identity", "source_size_bytes", "retry_passes")
+        if not identity_is_stable:
+            resume_keys += ("source_path",)
+        for key in resume_keys:
             if state.get(key) != expected[key]:
                 raise DdrescueRecoveryError(f"resume source {key} does not match the original recovery job")
         for path in (image_path, mapfile_path):
@@ -245,6 +275,8 @@ def recover_block_device(
                 raise DdrescueRecoveryError("recovery image or mapfile is missing; cannot resume") from exc
             if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
                 raise DdrescueRecoveryError("recovery image and mapfile must be private regular files")
+            if path == image_path and info.st_size != source_size_bytes:
+                raise DdrescueRecoveryError("recovery image size does not match the original source geometry")
         summary = parse_ddrescue_mapfile(mapfile_path, source_size_bytes)
     else:
         state = expected

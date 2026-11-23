@@ -50,7 +50,7 @@ authenticated transport provide the trust boundary. Age encryption is optional.
 
 ## Remaining engineering work
 
-- **Disk recovery:** the initial GNU ddrescue engine now retains a private mapfile and partial image, supports bounded direct retry passes and resumes only against the original source identity and geometry. Remaining work is to expose recovery-job inspection/finalization, publish a normal manifest only after a complete map, and add disposable-media fault-injection coverage for read errors, timeouts and reboot/resume.
+- **Disk recovery:** the initial GNU ddrescue engine now retains a private mapfile and partial image, supports bounded direct retry passes and resumes against a stable WWN/serial when available, otherwise the original path plus major:minor identity, and exact geometry. Remaining work is to expose recovery-job inspection/finalization, publish a normal manifest only after a complete map, and add disposable-media fault-injection coverage for read errors, timeouts and reboot/resume.
 - **Btrfs:** implement coordinated snapshot-assisted capture, multi-device
   image-set capture/publication, and layer-aware restore for supported
   allocation profiles. Current inventory discovers device membership,
