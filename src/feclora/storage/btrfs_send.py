@@ -6,7 +6,9 @@ received-UUID verification.
 """
 from __future__ import annotations
 
+import gzip
 import hashlib
+import lzma
 import os
 from pathlib import Path
 import re
@@ -16,6 +18,10 @@ import subprocess
 import tempfile
 import uuid
 from typing import Callable, Mapping
+
+from .artifact_writer import write_artifact
+from .image_security import encrypt_artifact, decrypt_artifact_stream_to_temp, ImageSecurityError
+from .compression import ExternalDecompressionStream, CompressionError
 
 from .btrfs_send_manifest import BtrfsSendManifest, BtrfsSendManifestError
 from .image_publication import ImagePublicationError, publish_image_set
@@ -108,6 +114,8 @@ def capture_btrfs_subvolume(
     parent_path: str | os.PathLike[str] | None = None,
     executables: Mapping[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
+    compression: str = "none",
+    age_recipients_file: str | os.PathLike[str] | None = None,
 ) -> BtrfsSendManifest:
     """Create a full or incremental stream from a stable read-only subvolume."""
     if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -115,6 +123,10 @@ def capture_btrfs_subvolume(
     source = _real_directory(source_path, "source subvolume")
     repo = _real_directory(repository, "image repository")
     available = dict(executables or {})
+    if compression not in {"none", "gzip", "xz", "zstd", "lz4"}:
+        raise BtrfsSendError("unsupported Btrfs stream compression")
+    if age_recipients_file is not None and not os.path.isfile(age_recipients_file):
+        raise BtrfsSendError("age recipients file is unavailable")
     btrfs = available.get("btrfs") or shutil.which("btrfs")
     if not btrfs:
         raise BtrfsSendError("btrfs-progs is required")
@@ -171,8 +183,25 @@ def capture_btrfs_subvolume(
         except Exception:
             partial.unlink(missing_ok=True)
             raise
-        size, digest = _hash_file(partial)
-        os.replace(partial, stage / stream_name)
+        stored_name = stream_name + {"none": "", "gzip": ".gz", "xz": ".xz", "zstd": ".zst", "lz4": ".lz4"}[compression]
+        try:
+            with partial.open("rb") as raw_stream:
+                artifact = write_artifact(
+                    stage, stored_name, raw_stream,
+                    role="btrfs-send-stream", image_format="btrfs-send",
+                    compression=compression,
+                    compression_executable=available.get(compression),
+                )
+            partial.unlink()
+            if age_recipients_file is not None:
+                artifact = encrypt_artifact(
+                    stage / artifact.filename, artifact, age_recipients_file,
+                    age_executable=available.get("age"),
+                )
+            stream_name = artifact.filename
+            size, digest = artifact.size_bytes, artifact.sha256
+        except (OSError, ValueError, ImageSecurityError) as exc:
+            raise BtrfsSendError(f"cannot encode Btrfs send stream: {exc}") from exc
         manifest = BtrfsSendManifest.from_dict({
             "schema_version": 1, "image_id": image_id,
             "filesystem_uuid": filesystem_uuid, "subvolume_id": send_info["id"],
@@ -181,7 +210,8 @@ def capture_btrfs_subvolume(
             "send_mode": "incremental" if parent is not None else "full",
             "stream_parent_uuid": parent_info["uuid"] if parent_info is not None else None,
             "stream_filename": stream_name, "stream_size_bytes": size,
-            "stream_sha256": digest, "compression": "none",
+            "stream_sha256": digest, "compression": compression,
+            "encryption": "age" if age_recipients_file is not None else "none",
             "parent_uuid": send_info["parent_uuid"],
             "received_uuid": send_info["received_uuid"],
         })
@@ -215,6 +245,7 @@ def restore_btrfs_subvolume(
     parent_path: str | os.PathLike[str] | None = None,
     executables: Mapping[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
+    age_identity_file: str | os.PathLike[str] | None = None,
 ) -> Path:
     """Receive to hidden staging and expose the result only after provenance checks."""
     repo = _real_directory(repository, "image repository")
@@ -229,8 +260,8 @@ def restore_btrfs_subvolume(
         manifest = BtrfsSendManifest.from_json(manifest_file.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, BtrfsSendManifestError) as exc:
         raise BtrfsSendError(f"cannot load Btrfs send manifest: {exc}") from exc
-    if manifest.compression != "none":
-        raise BtrfsSendError("this receiver supports uncompressed Btrfs send streams only")
+    if manifest.encryption == "age" and age_identity_file is None:
+        raise BtrfsSendError("age identity file is required to decrypt this Btrfs stream")
     stream = repo / manifest.stream_filename
     try:
         stream_info = os.lstat(stream)
@@ -262,12 +293,48 @@ def restore_btrfs_subvolume(
     stage = target / f".feclora-receive-{manifest.image_id}-{uuid.uuid4().hex}"
     stage.mkdir(mode=0o700)
     try:
+        decoded_path = None
+        decompressor = None
+        decoded_stream = None
         try:
-            with stream.open("rb") as input_stream:
+            with stream.open("rb") as stored_stream:
+                input_stream = stored_stream
+                if manifest.encryption == "age":
+                    decoded_path = decrypt_artifact_stream_to_temp(
+                        stored_stream, age_identity_file, stage,
+                        age_executable=available.get("age"),
+                    )
+                    decoded_stream = open(decoded_path, "rb")
+                    input_stream = decoded_stream
+                if manifest.compression == "gzip":
+                    decoded_stream = gzip.GzipFile(fileobj=input_stream, mode="rb")
+                    input_stream = decoded_stream
+                elif manifest.compression == "xz":
+                    decoded_stream = lzma.LZMAFile(input_stream, mode="rb")
+                    input_stream = decoded_stream
+                elif manifest.compression in {"zstd", "lz4"}:
+                    decompressor = ExternalDecompressionStream(
+                        input_stream, manifest.compression,
+                        {manifest.compression: available.get(manifest.compression)},
+                    )
+                    input_stream = decompressor
                 run([btrfs, "receive", str(stage)], check=True, stdin=input_stream,
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=24 * 60 * 60)
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise BtrfsSendError(f"btrfs receive failed; partial data remains quarantined at {stage}") from exc
+                if decompressor is not None:
+                    decompressor.finish()
+        except (OSError, subprocess.SubprocessError, EOFError, lzma.LZMAError,
+                ImageSecurityError, CompressionError) as exc:
+            raise BtrfsSendError(f"btrfs receive decode/restore failed; partial data remains quarantined at {stage}: {exc}") from exc
+        finally:
+            if decompressor is not None:
+                decompressor.close()
+            if decoded_stream is not None:
+                decoded_stream.close()
+            if decoded_path is not None:
+                try:
+                    os.unlink(decoded_path)
+                except FileNotFoundError:
+                    pass
         entries = list(stage.iterdir())
         if len(entries) != 1 or not entries[0].is_dir() or entries[0].is_symlink():
             raise BtrfsSendError(f"btrfs receive produced an unexpected staging layout at {stage}")
