@@ -271,10 +271,19 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.click("#nav-operation-log")
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
+                for _ in range(20):
+                    await pilot.pause(0.1)
+                    if table.row_count:
+                        break
+                self.assertGreater(table.row_count, 0)
                 table.focus()
                 table.action_select_cursor()
-                await pilot.pause()
-                self.assertFalse(app.query_one("#page-action", Button).disabled)
+                action_button = app.query_one("#page-action", Button)
+                for _ in range(20):
+                    await pilot.pause(0.1)
+                    if not action_button.disabled:
+                        break
+                self.assertFalse(action_button.disabled)
                 await pilot.click("#page-action")
                 self.assertNotIn(("cancel_local_operation", {"operation_id": "operation-test"}), requests)
 
