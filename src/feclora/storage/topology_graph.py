@@ -410,7 +410,14 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(pool, dict) or not isinstance(pool.get("name"), str):
             continue
         pool_name = pool["name"]
-        pool_id = add_node("stratis-pool:" + pool_name, "stratis_pool", name=pool_name)
+        pool_id = add_node(
+            "stratis-pool:" + pool_name, "stratis_pool", name=pool_name,
+            uuid=pool.get("uuid"), status=pool.get("status"),
+            total_physical_bytes=pool.get("total_physical_bytes"),
+            used_physical_bytes=pool.get("used_physical_bytes"),
+            free_physical_bytes=pool.get("free_physical_bytes"),
+            alerts=pool.get("alerts", []), properties=pool.get("properties"),
+        )
         for filesystem in pool.get("filesystems", []):
             if not isinstance(filesystem, dict) or not isinstance(filesystem.get("name"), str):
                 continue
@@ -419,6 +426,10 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 "stratis-filesystem:" + pool_name + "/" + fs_name, "stratis_filesystem",
                 name=fs_name, pool=pool_name, device=filesystem.get("device"),
                 mapper_device=filesystem.get("mapper_device"),
+                uuid=filesystem.get("uuid"),
+                logical_size_bytes=filesystem.get("logical_size_bytes"),
+                used_bytes=filesystem.get("used_bytes"),
+                free_bytes=filesystem.get("free_bytes"),
             )
             add_edge(pool_id, fs_id, "contains_filesystem")
             mapper_path = filesystem.get("mapper_device")

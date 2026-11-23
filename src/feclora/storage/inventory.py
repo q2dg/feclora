@@ -131,7 +131,7 @@ def collect_inventory(
     except BtrfsInventoryError as exc:
         inventory["btrfs_subvolumes"] = {"status": "error", "error": str(exc)}
     try:
-        inventory["stratis_topology"] = collect_stratis_topology()
+        inventory["stratis_topology"] = collect_stratis_topology(which=shutil.which, runner=runner)
     except StratisInventoryError as exc:
         inventory["stratis_topology"] = {"status": "error", "error": str(exc)}
     try:

@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+import shutil
+import subprocess
+
+from .stratis_cli_inventory import parse_pool_list, parse_filesystem_list
 
 
 class StratisInventoryError(RuntimeError):
@@ -41,6 +45,9 @@ def _leaf_slaves(block_name: str, sys_class_block: Path, seen: set[str]) -> list
 def collect_stratis_topology(
     dev_root: str = "/dev/stratis",
     sys_class_block: str = "/sys/class/block",
+    *,
+    which: Callable[[str], str | None] = shutil.which,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
     """Enumerate active Stratis filesystems and their sysfs backing devices."""
     root = Path(dev_root)
@@ -48,6 +55,21 @@ def collect_stratis_topology(
         return {"status": "unavailable", "pools": []}
     if not root.is_dir():
         raise StratisInventoryError("Stratis device root is not a directory")
+    executable = which("stratis")
+    if executable is None:
+        return {"status": "metadata_unavailable", "pools": []}
+    try:
+        pool_output = runner([executable, "pool"], check=True, capture_output=True, text=True, timeout=20)
+        filesystem_output = runner([executable, "filesystem"], check=True, capture_output=True, text=True, timeout=20)
+    except subprocess.TimeoutExpired as exc:
+        raise StratisInventoryError("stratis CLI timed out while reading topology") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or "").strip()
+        raise StratisInventoryError(f"stratis CLI failed: {detail or exc}") from exc
+    except OSError as exc:
+        raise StratisInventoryError(f"cannot execute stratis CLI: {exc}") from exc
+    pool_metadata = parse_pool_list(pool_output.stdout)
+    filesystem_metadata = parse_filesystem_list(filesystem_output.stdout)
     pools: list[dict[str, Any]] = []
     try:
         pool_entries = sorted(root.iterdir())
@@ -74,12 +96,22 @@ def collect_stratis_topology(
                 )
             dm_name = resolved.name
             backing = _leaf_slaves(dm_name, Path(sys_class_block), set())
+            metadata = filesystem_metadata.get((pool_entry.name, fs_entry.name), {})
             filesystems.append({
                 "name": fs_entry.name,
                 "device": str(fs_entry),
                 "mapper_device": str(resolved),
                 "backing_block_devices": backing,
                 "backing_device_paths": ["/dev/" + name for name in backing],
+                **metadata,
             })
-        pools.append({"name": pool_entry.name, "filesystems": filesystems})
-    return {"status": "available", "pools": pools}
+        pools.append({
+            "name": pool_entry.name,
+            "filesystems": filesystems,
+            **pool_metadata.get(pool_entry.name, {}),
+        })
+    complete = bool(pool_metadata) and all(
+        fs.get("uuid") and fs.get("logical_size_bytes") is not None
+        for pool in pools for fs in pool["filesystems"]
+    )
+    return {"status": "available" if complete else "metadata_incomplete", "pools": pools}
