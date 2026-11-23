@@ -11,6 +11,7 @@ It is not an executable restore plan and never authorizes a target write.
 | `disk` | Complete block-device image plus partition-table metadata | Implemented in local Textual workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
 | `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Textual workflow; requires current storage inventory | Implemented for an existing partition target |
 | `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Textual workflow for uniquely identified, non-hidden, non-snapshot LVs | Implemented into an existing active, unmounted linear or thin LV after topology, identity, capacity and sector-size preflight; no LVM objects are created or resized |
+| `stratis_filesystem` | Filesystem data from one existing Stratis XFS filesystem | Implemented in local Textual workflow; requires complete Stratis metadata and `partclone.xfs` | Implemented into a distinct, pre-created, active and unmounted Stratis XFS filesystem; no pool/filesystem provisioning or resize |
 
 These are **image source types/layers**, not repository types. A repository is
 the explicitly selected local or remote destination holding the image files.
@@ -58,8 +59,18 @@ unlock, mount, snapshot, format or modify storage.
   multi-device restore engine. There is no coordinated multi-device capture,
   snapshot-assisted consistency workflow or separate subvolume image.
   Subvolume UUIDs, when present, are provenance only.
-- **Stratis:** inventory/topology discovery exists; a Stratis-specific
-  capture/restore workflow is not implemented.
+- **Stratis XFS filesystem:** a dedicated local workflow captures the
+  filesystem data from an existing active, unmounted Stratis XFS filesystem.
+  Capture requires complete pool/filesystem names and UUIDs, matching logical
+  and block-device capacities, and `partclone.xfs`; raw fallback is disabled.
+  The manifest records pool/filesystem provenance and one external
+  `stratis_pool` dependency. Restore is limited to a distinct, pre-created,
+  active and unmounted Stratis XFS filesystem. It revalidates pool and
+  filesystem identity, kernel device identity, logical capacity and sector
+  size, and performs an XFS read-only consistency check. It does not create
+  pools/filesystems, resize the target, capture pool metadata or image backing
+  devices. Physical pool free space is not treated as filesystem logical
+  capacity. Live Stratis media acceptance remains an operator task.
 
 A raw LUKS2 partition image can be restored through the ordinary partition
 restore path as bytes to an existing compatible partition. That operation
@@ -68,10 +79,10 @@ layer-aware Btrfs restore workflow remains unimplemented.
 
 ## Schema fields and artifact roles
 
-The validator supports `image_type` values `disk`, `partition` and
-`logical_volume`. Source capacity and logical sector size are recorded;
-logical-volume manifests use `partition_table: "none"` and require storage
-provenance.
+The validator supports `image_type` values `disk`, `partition`,
+`logical_volume` and `stratis_filesystem`. Source capacity and logical sector
+size are recorded; logical-volume and Stratis filesystem manifests use
+`partition_table: "none"` and require storage provenance.
 
 Artifact roles include:
 
@@ -82,6 +93,8 @@ Artifact roles include:
 - `partition-image`: Partclone stream or raw partition byte stream.
 - `logical-volume-image`: Partclone stream or raw LV byte stream; valid only
   for `logical_volume` manifests and requires storage metadata.
+- `stratis-filesystem-image`: Partclone XFS stream; valid only for
+  `stratis_filesystem` manifests and requires Stratis pool/filesystem metadata.
 
 For whole-disk images, the `disk-image` format may be `raw` or `qcow2`.
 QCOW2 artifacts must be uncompressed and unencrypted; the manifest's

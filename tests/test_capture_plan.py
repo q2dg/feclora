@@ -235,6 +235,21 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertFalse(plan["eligible_for_layer_aware_capture"])
         self.assertTrue(any("descendants is mounted" in item for item in plan["blockers"]))
 
+
+    def test_stratis_device_is_directed_to_dedicated_xfs_workflow(self):
+        inventory = base_inventory({
+            "path": "/dev/stratis/pool/data", "type": "dm", "filesystem": "xfs",
+            "volume_features": ["stratis", "stratis_filesystem"], "children": [],
+        }, stratis_topology={"status": "available", "pools": [{
+            "name": "pool", "filesystems": [{
+                "name": "data", "device": "/dev/stratis/pool/data",
+                "backing_device_paths": ["/dev/sda1"],
+            }],
+        }]})
+        plan = plan_storage_capture(inventory, "/dev/stratis/pool/data", "logical_volume")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("dedicated Stratis XFS workflow" in item for item in plan["blockers"]))
+
     def test_rejects_unknown_image_type(self):
         with self.assertRaises(CapturePlanError):
             plan_storage_capture({"devices": []}, "/dev/sda", "volume")

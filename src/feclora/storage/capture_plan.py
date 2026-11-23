@@ -238,7 +238,7 @@ def plan_storage_capture(
         for filesystem in pool.get("filesystems", []):
             if filesystem.get("mapper_device") == source_path or filesystem.get("device") == source_path:
                 layers.append("stratis_filesystem")
-                blockers.append("Standalone Stratis filesystem imaging is unsupported until pool metadata and all backing devices can be captured and restored together.")
+                blockers.append("The generic disk/partition/LVM capture planner does not handle Stratis filesystems; use the dedicated Stratis XFS workflow, which excludes pool metadata and backing devices.")
                 dependencies.append({
                     "kind": "stratis_pool", "pool": pool.get("name"),
                     "filesystem": filesystem.get("name"),
