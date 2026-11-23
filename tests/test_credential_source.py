@@ -28,7 +28,7 @@ class CredentialSourceTests(unittest.TestCase):
             read_source_file(str(link), owner_uid=os.getuid())
 
     def test_rejects_nul_bytes(self):
-        self.source.write_bytes(b"secret\\x00material")
+        self.source.write_bytes(b"secret\x00material")
         with self.assertRaisesRegex(CredentialSourceError, "content is invalid"):
             read_source_file(str(self.source), owner_uid=os.getuid())
 
