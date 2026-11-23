@@ -1,4 +1,7 @@
-# Build-host packages for the initial QEMU-backed ISO pipeline.
+# Build-host packages for the initial QEMU-backed Fedora 45 ISO pipeline.
 lorax
 lorax-lmc-virt
 qemu-kvm
+edk2-ovmf
+xorriso
+dracut

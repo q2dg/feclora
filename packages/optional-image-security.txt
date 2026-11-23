@@ -1,3 +1,0 @@
-# Optional image-encryption integration.
-# The default rescue ISO bundles age for offline availability; lean/custom builds may omit it.
-age
