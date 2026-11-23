@@ -54,6 +54,7 @@ PAGES = (
 OPERATIONS = (
     ("Capturar disco", "capture_disk"),
     ("Recuperar disco con ddrescue", "recover_disk"),
+    ("Finalizar recuperación ddrescue", "finalize_recovery"),
     ("Capturar disco virtual QCOW2 (P2V)", "capture_p2v"),
     ("Capturar partición", "capture_partition"),
     ("Capturar volumen lógico", "capture_logical_volume"),
@@ -2395,6 +2396,7 @@ class FecloraTUI(App[None]):
         operation = str(self.query_one("#operation-type", Select).value)
         is_capture = operation.startswith("capture_")
         is_recovery = operation == "recover_disk"
+        is_recovery_finalize = operation == "finalize_recovery"
         is_restore = operation.startswith("restore_")
         is_clone = operation.startswith("clone_")
         is_disk = operation.endswith("_disk") or operation == "capture_p2v"
@@ -2411,7 +2413,10 @@ class FecloraTUI(App[None]):
         source_select.display = source_label.display
         target_label.display = is_restore or is_clone
         target_select.display = target_label.display
-        self.query_one("#new-image-label", Static).display = is_capture or is_recovery
+        self.query_one("#new-image-label", Static).display = is_capture or is_recovery or is_recovery_finalize
+        self.query_one("#new-image-label", Static).update(
+            "Identificador del trabajo de recuperación" if is_recovery_finalize else "Nuevo identificador de imagen"
+        )
         self.query_one("#new-image-id", Input).display = is_capture
         self.query_one("#existing-image-label", Static).display = is_restore or is_recovery_iso or is_bundle
         image_select.display = is_restore or is_recovery_iso or is_bundle
@@ -2545,6 +2550,13 @@ class FecloraTUI(App[None]):
                     if not capture_passphrase:
                         raise TUIAPIError("Indica una frase secreta para cifrar la captura.")
                     params["encrypt_passphrase"] = True
+            elif operation == "finalize_recovery":
+                if not new_image_id:
+                    raise TUIAPIError("Indica el identificador del trabajo de recuperación que quieres finalizar.")
+                params = {"job_id": new_image_id}
+                repository_id = str(self.query_one("#repository-select", Select).value or "")
+                if repository_id:
+                    params["repository_id"] = repository_id
             elif operation == "recover_disk":
                 if not source or not new_image_id:
                     raise TUIAPIError("Selecciona el disco de origen e indica un identificador para la recuperación.")

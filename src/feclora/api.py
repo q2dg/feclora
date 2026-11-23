@@ -1748,6 +1748,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
+        "finalize_recovery": {"job_id", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
@@ -1838,6 +1839,25 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise APIError("target_serial is invalid")
         if target_wwn is None and target_serial is None:
             raise APIError("recovery ISO requires a target WWN and/or serial selector")
+        lsblk = shutil.which("lsblk")
+        if not lsblk:
+            raise APIError("lsblk is required to record recovery disk geometry")
+        try:
+            geometry_result = subprocess.run(
+                [lsblk, "--json", "--nodeps", "--output", "LOG-SEC,PTTYPE", source],
+                check=True, capture_output=True, text=True, timeout=10,
+            )
+            geometry_devices = json.loads(geometry_result.stdout).get("blockdevices", [])
+            if len(geometry_devices) != 1 or not isinstance(geometry_devices[0], dict):
+                raise ValueError("lsblk did not return exactly one source disk")
+            geometry_device = geometry_devices[0]
+            sector_size = geometry_device.get("log-sec")
+            pttype = str(geometry_device.get("pttype") or "").lower()
+        except (OSError, subprocess.SubprocessError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            raise APIError(f"cannot record recovery disk geometry: {exc}") from exc
+        if isinstance(sector_size, bool) or not isinstance(sector_size, int) or sector_size not in {512, 4096}:
+            raise APIError("recovery source logical sector size is unavailable or unsupported")
+        partition_table = {"gpt": "gpt", "dos": "mbr", "mbr": "mbr", "": "none"}.get(pttype, "unknown")
         repository_id = params.get("repository_id")
         if repository_id is not None:
             from feclora.storage.s3_repository_manager import S3RepositoryManager
@@ -1957,7 +1977,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             try:
                 recovered = recover_block_device(
                     source, image_id, repository, source_size_bytes=size,
-                    source_identity=identity, retry_passes=retry_passes, resume=resume,
+                    source_identity=identity, logical_sector_size=sector_size,
+                    partition_table=partition_table,
+                    retry_passes=retry_passes, resume=resume,
                     progress_callback=_progress,
                 )
             except DdrescueRecoveryError as exc:
@@ -1980,6 +2002,26 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             "non_scraped_bytes": recovered.summary.non_scraped_bytes,
             "bad_sector_bytes": recovered.summary.bad_sector_bytes,
             "mapfile": recovered.mapfile_path, "recovery_image": recovered.image_path,
+        }
+    elif action == "finalize_recovery":
+        from feclora.storage.recovery_finalize import finalize_recovery_job, RecoveryFinalizeError
+        job_id = _text(params, "job_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        repository_id = params.get("repository_id")
+        if repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+                raise APIError("recovery finalization requires a writable filesystem repository; S3 is not supported")
+        with _operation_repository_context(
+            {"repository_id": repository_id}, write=True, create_local=True,
+        ) as repository:
+            try:
+                manifest = finalize_recovery_job(job_id, repository)
+            except RecoveryFinalizeError as exc:
+                raise APIError(f"recovery finalization failed: {exc}") from exc
+        result = {
+            "job_id": job_id, "image_id": manifest.image_id,
+            "image_type": manifest.image_type, "artifact_count": len(manifest.artifacts),
+            "finalized": True,
         }
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory
@@ -2776,6 +2818,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
+        "finalize_recovery": {"job_id", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
@@ -2802,6 +2845,7 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
+        "finalize_recovery": {"job_id", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},

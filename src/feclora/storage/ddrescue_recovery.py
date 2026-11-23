@@ -61,6 +61,11 @@ def parse_ddrescue_mapfile(path: str | os.PathLike[str], source_size_bytes: int)
     """Parse GNU ddrescue's block-status records and reject malformed maps."""
     if isinstance(source_size_bytes, bool) or not isinstance(source_size_bytes, int) or source_size_bytes <= 0:
         raise DdrescueRecoveryError("source size must be a positive integer")
+    if (isinstance(logical_sector_size, bool) or not isinstance(logical_sector_size, int)
+            or logical_sector_size not in {512, 4096}):
+        raise DdrescueRecoveryError("logical sector size must be 512 or 4096")
+    if not isinstance(partition_table, str) or partition_table not in {"gpt", "mbr", "none", "unknown"}:
+        raise DdrescueRecoveryError("partition table type is invalid")
     try:
         info = os.lstat(path)
         if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
@@ -252,6 +257,8 @@ def recover_block_device(
     *,
     source_size_bytes: int,
     source_identity: str,
+    logical_sector_size: int,
+    partition_table: str,
     executables: dict[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
     device_validator: Callable[[str], bool] | None = None,
@@ -328,12 +335,13 @@ def recover_block_device(
     expected = {
         "schema_version": 1, "job_id": job_id, "source_path": source_path,
         "source_identity": source_identity, "source_size_bytes": source_size_bytes,
+        "logical_sector_size": logical_sector_size, "partition_table": partition_table,
         "state": "running", "retry_passes": retry_passes,
     }
     if resume:
         state = _load_state(workspace)
         identity_is_stable = source_identity.startswith(("wwn:", "serial:"))
-        resume_keys = ("job_id", "source_identity", "source_size_bytes", "retry_passes")
+        resume_keys = ("job_id", "source_identity", "source_size_bytes", "logical_sector_size", "partition_table", "retry_passes")
         if not identity_is_stable:
             resume_keys += ("source_path",)
         for key in resume_keys:

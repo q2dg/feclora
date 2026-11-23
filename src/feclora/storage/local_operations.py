@@ -89,6 +89,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
+        "finalize_recovery": {"job_id", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
         "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
@@ -182,7 +183,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError(f"{key} must be a kernel major:minor device identity")
         if params.get("source") == params.get("target") or params.get("source_major_minor") == params.get("target_major_minor"):
             raise LocalOperationError("proportional restore source and target must be different physical disks")
-    for key in ("image_id", "partition_id", "source_image_id"):
+    for key in ("image_id", "partition_id", "source_image_id", "job_id"):
         if key in params and (not isinstance(params[key], str)
                 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", params[key])):
             raise LocalOperationError(f"{key} is invalid")

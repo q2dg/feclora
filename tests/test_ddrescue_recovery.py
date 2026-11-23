@@ -47,7 +47,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             result = recover_block_device(
                 "/dev/test", "disk-recovery", directory,
-                source_size_bytes=256, source_identity="major_minor:8:0",
+                source_size_bytes=256, source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none",
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 runner=self._runner("0x0 0x100 +\n"),
                 device_validator=lambda _path: True,
@@ -72,7 +72,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
             result = recover_block_device(
                 "/dev/test", "retry-job", directory, source_size_bytes=256,
-                source_identity="major_minor:8:0", retry_passes=2,
+                source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none", retry_passes=2,
                 executables={"ddrescue": "/usr/bin/ddrescue"}, runner=run,
                 device_validator=lambda _path: True,
                 identity_reader=lambda _path: "major_minor:8:0",
@@ -88,7 +88,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             kwargs = dict(
                 source_path="/dev/test", job_id="disk-recovery", repository=directory,
-                source_size_bytes=256, source_identity="major_minor:8:0",
+                source_size_bytes=256, source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none",
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 device_validator=lambda _path: True,
                 identity_reader=lambda _path: "major_minor:8:0",
@@ -111,7 +111,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
             progress = []
             result = recover_block_device(
                 "/dev/test", "progress-job", directory, source_size_bytes=256,
-                source_identity="major_minor:8:0", retry_passes=0,
+                source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none", retry_passes=0,
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 runner=self._runner("0x0 0x100 +\n"),
                 device_validator=lambda _path: True,
@@ -126,7 +126,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             first = recover_block_device(
                 "/dev/sda", "stable-disk", directory, source_size_bytes=256,
-                source_identity="wwn:naa.5000c50012345678", retry_passes=0,
+                source_identity="wwn:naa.5000c50012345678", logical_sector_size=512, partition_table="none", retry_passes=0,
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 runner=self._runner("0x0 0x100 +\n"),
                 device_validator=lambda _path: True,
@@ -135,7 +135,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
             )
             resumed = recover_block_device(
                 "/dev/sdb", "stable-disk", directory, source_size_bytes=256,
-                source_identity="wwn:naa.5000c50012345678", retry_passes=0, resume=True,
+                source_identity="wwn:naa.5000c50012345678", logical_sector_size=512, partition_table="none", retry_passes=0, resume=True,
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 runner=self._runner("0x0 0x100 +\n"),
                 device_validator=lambda _path: True,
@@ -149,7 +149,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             kwargs = dict(
                 source_path="/dev/test", job_id="disk-recovery", repository=directory,
-                source_size_bytes=256, source_identity="major_minor:8:0",
+                source_size_bytes=256, source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none",
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 device_validator=lambda _path: True,
                 identity_reader=lambda _path: "major_minor:8:0",
@@ -165,7 +165,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             kwargs = dict(
                 source_path="/dev/test", job_id="disk-recovery", repository=directory,
-                source_size_bytes=256, source_identity="major_minor:8:0",
+                source_size_bytes=256, source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none",
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 device_validator=lambda _path: True,
                 identity_reader=lambda _path: "major_minor:8:0",
@@ -182,7 +182,7 @@ class DdrescueRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             kwargs = dict(
                 source_path="/dev/test", job_id="disk-recovery", repository=directory,
-                source_size_bytes=256, source_identity="major_minor:8:0",
+                source_size_bytes=256, source_identity="major_minor:8:0", logical_sector_size=512, partition_table="none",
                 executables={"ddrescue": "/usr/bin/ddrescue"},
                 device_validator=lambda _path: True,
                 identity_reader=lambda _path: "major_minor:8:0",

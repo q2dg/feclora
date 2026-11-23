@@ -102,6 +102,17 @@ class LocalOperationStoreTests(unittest.TestCase):
         self.assertEqual(validated["action"], "capture_logical_volume")
         self.assertEqual(validated["params"]["source"], "/dev/mapper/vg-root")
 
+    def test_ddrescue_finalization_is_a_valid_durable_operation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000057",
+            "action": "finalize_recovery",
+            "params": {"job_id": "disk-recovery"},
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "finalize_recovery")
+        self.assertEqual(validated["params"]["job_id"], "disk-recovery")
+
     def test_ddrescue_recovery_is_a_valid_durable_operation(self):
         definition = {
             "schema_version": 1,
