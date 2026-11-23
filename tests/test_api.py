@@ -1426,6 +1426,18 @@ class APITests(unittest.TestCase):
                 "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": "yes",
             }})
 
+    def test_systemd_credential_api_rejects_unknown_kinds_before_io(self):
+        with patch("feclora.storage.credential_source.read_source_file") as read_source:
+            with self.assertRaisesRegex(APIError, "unsupported credential kind"):
+                dispatch({"action": "put_systemd_credential", "params": {
+                    "id": "nas", "kind": "legacy-plaintext", "source_file": "/root/nas.key", "replace": False,
+                }})
+            read_source.assert_not_called()
+        with self.assertRaisesRegex(APIError, "unsupported credential kind"):
+            dispatch({"action": "remove_systemd_credential", "params": {
+                "id": "nas", "kind": "legacy-plaintext",
+            }})
+
     def test_systemd_credential_removal_rejects_saved_repository_reference(self):
         with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore._path", return_value="/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"):
             with patch("feclora.api._remote_repository_manager") as manager:
