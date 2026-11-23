@@ -322,7 +322,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(120, 50)) as pilot:
                 await pilot.pause()
                 await pilot.click("#continue")
-                await pilot.click("#nav-operation-log")
+                await app.load_page("operation-log")
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
                 for _ in range(50):
