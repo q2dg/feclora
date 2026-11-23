@@ -29,7 +29,7 @@ def _hash_regular_file(path: Path, expected_size: int) -> str:
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
                 or info.st_mode & 0o077 or info.st_size != expected_size):
             raise RecoveryFinalizeError("recovered image is not a private regular file of the expected size")
-        fd = os.open(path, os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
                      | getattr(os, "O_CLOEXEC", 0))
         digest = hashlib.sha256()
         size = 0
@@ -38,7 +38,6 @@ def _hash_regular_file(path: Path, expected_size: int) -> str:
             if (not stat.S_ISREG(opened.st_mode) or opened.st_size != expected_size
                     or (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino)):
                 raise RecoveryFinalizeError("recovered image changed while opening")
-            os.fsync(fd)
             while True:
                 chunk = os.read(fd, 1024 * 1024)
                 if not chunk:
