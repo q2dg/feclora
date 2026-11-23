@@ -224,7 +224,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 await pilot.click("#continue")
                 await pilot.click("#nav-images")
-                await pilot.pause()
+                await app.load_page("images")
                 table = app.query_one("#page-table", DataTable)
                 for _ in range(50):
                     await pilot.pause(0.1)
@@ -387,7 +387,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 await pilot.click("#continue")
                 await pilot.click("#nav-server")
-                await pilot.pause()
+                await app.load_system_page("server")
                 server_interface = app.query_one("#server-interface", Select)
                 for _ in range(50):
                     if any(option[1] == "eth0:192.0.2.10" for option in server_interface._options):

@@ -1763,7 +1763,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
         "finalize_recovery": {"job_id", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
-        "capture_btrfs_subvolume": {"source_path", "image_id", "parent_path", "repository_id"},
+        "capture_btrfs_subvolume": {"source_path", "image_id", "parent_path", "repository_id", "compression", "encrypt"},
         "receive_btrfs_subvolume": {"image_id", "target_directory", "parent_path", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
@@ -1789,6 +1789,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if action in {"capture_btrfs_subvolume", "receive_btrfs_subvolume"}:
         accepted_params = accepted_params + tuple(item - {"parent_path"} for item in accepted_params)
+    if action == "capture_btrfs_subvolume":
+        accepted_params = accepted_params + tuple(item - {"compression", "encrypt"} for item in accepted_params)
     if action == "capture_disk":
         accepted_params = accepted_params + tuple(item - {"age_passphrase"} for item in accepted_params)
         accepted_params = accepted_params + tuple(
