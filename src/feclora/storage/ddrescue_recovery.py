@@ -12,7 +12,10 @@ import re
 import shutil
 import stat
 import subprocess
+import tempfile
+import time
 import uuid
+from types import SimpleNamespace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -182,6 +185,66 @@ def _secure_mapfile(path: Path) -> None:
         raise DdrescueRecoveryError(f"cannot secure ddrescue mapfile: {exc}") from exc
 
 
+def _run_ddrescue(
+    command: list[str],
+    mapfile_path: Path,
+    source_size_bytes: int,
+    progress_callback: Callable[[int, int], None] | None,
+) -> Any:
+    """Run ddrescue while sampling its durable mapfile for live progress."""
+    previous_umask = os.umask(0o077)
+    try:
+        with tempfile.TemporaryFile(mode="w+b") as stderr_file:
+            process = subprocess.Popen(
+                command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                stderr=stderr_file, close_fds=True,
+            )
+            deadline = time.monotonic() + 24 * 60 * 60
+            last_rescued = -1
+            try:
+                while True:
+                    if os.path.lexists(mapfile_path):
+                        try:
+                            summary = parse_ddrescue_mapfile(mapfile_path, source_size_bytes)
+                        except DdrescueRecoveryError:
+                            summary = None
+                        if summary is not None and summary.rescued_bytes != last_rescued:
+                            last_rescued = summary.rescued_bytes
+                            if progress_callback is not None:
+                                try:
+                                    progress_callback(summary.rescued_bytes, source_size_bytes)
+                                except Exception:
+                                    pass
+                    return_code = process.poll()
+                    if return_code is not None:
+                        break
+                    if time.monotonic() >= deadline:
+                        process.terminate()
+                        try:
+                            process.wait(timeout=10)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait()
+                        raise subprocess.TimeoutExpired(command, 24 * 60 * 60)
+                    time.sleep(1)
+            except BaseException:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                raise
+            stderr_file.seek(0, os.SEEK_END)
+            size = stderr_file.tell()
+            stderr_file.seek(max(0, size - 8192))
+            detail = stderr_file.read(8192).decode("utf-8", errors="replace")
+            return SimpleNamespace(returncode=return_code, stdout="", stderr=detail)
+    finally:
+        os.umask(previous_umask)
+
+
 def recover_block_device(
     source_path: str,
     job_id: str,
@@ -196,6 +259,7 @@ def recover_block_device(
     source_safety_check: Callable[[str], None] | None = None,
     retry_passes: int = 3,
     resume: bool = False,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> RecoveryResult:
     """Run ddrescue's non-scraping pass then bounded direct retry passes.
 
@@ -222,16 +286,21 @@ def recover_block_device(
         if lsblk:
             try:
                 result = subprocess.run(
-                    [lsblk, "--nodeps", "--noheadings", "--output", "WWN,SERIAL,MAJ:MIN", path],
+                    [lsblk, "--json", "--nodeps", "--output", "WWN,SERIAL,MAJ:MIN", path],
                     check=True, capture_output=True, text=True, timeout=10,
                 )
-                fields = result.stdout.split()
-                if len(fields) >= 3:
-                    if fields[0] not in {"", "-"}:
-                        return f"wwn:{fields[0]}"
-                    if fields[1] not in {"", "-"}:
-                        return f"serial:{fields[1]}"
-                    return f"major_minor:{fields[2]}"
+                devices = json.loads(result.stdout).get("blockdevices", [])
+                if len(devices) == 1 and isinstance(devices[0], dict):
+                    device = devices[0]
+                    wwn, serial, major_minor = (
+                        device.get("wwn"), device.get("serial"), device.get("maj:min")
+                    )
+                    if isinstance(wwn, str) and wwn not in {"", "-"}:
+                        return f"wwn:{wwn}"
+                    if isinstance(serial, str) and serial not in {"", "-"}:
+                        return f"serial:{serial}"
+                    if isinstance(major_minor, str):
+                        return f"major_minor:{major_minor}"
             except (OSError, subprocess.SubprocessError):
                 pass
         device = os.stat(path)
@@ -252,6 +321,7 @@ def recover_block_device(
         except Exception as exc:
             raise DdrescueRecoveryError(f"recovery source safety check failed: {exc}") from exc
 
+    check_source()
     check_source()
     workspace = _safe_workspace(repository, job_id, create=not resume)
     image_path, mapfile_path = workspace / "recovered.img", workspace / "recovery.map"
@@ -292,7 +362,6 @@ def recover_block_device(
         _write_state(workspace, state)
         summary = None
 
-    run = runner or subprocess.run
     results: list[int] = []
     commands = [
         [ddrescue, "--force", "--no-scrape", source_path, str(image_path), str(mapfile_path)],
@@ -305,10 +374,15 @@ def recover_block_device(
     try:
         for command in commands:
             check_source()
-            completed = run(
-                command, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                check=False, timeout=24 * 60 * 60,
-            )
+            if runner is not None:
+                completed = runner(
+                    command, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                    check=False, timeout=24 * 60 * 60,
+                )
+            else:
+                completed = _run_ddrescue(
+                    command, mapfile_path, source_size_bytes, progress_callback,
+                )
             code = completed.returncode
             results.append(code)
             if code != 0:
@@ -330,6 +404,11 @@ def recover_block_device(
                 "bad_sector_bytes": summary.bad_sector_bytes,
             }
             _write_state(workspace, state)
+            if progress_callback is not None:
+                try:
+                    progress_callback(summary.rescued_bytes, source_size_bytes)
+                except Exception:
+                    pass
             if summary.complete:
                 break
         state["state"] = "completed" if summary and summary.complete else "degraded"
@@ -352,6 +431,16 @@ def recover_block_device(
         state["state"] = "failed"
         _write_state(workspace, state)
         raise DdrescueRecoveryError(f"cannot execute ddrescue: {exc}; recovery data and mapfile were retained") from exc
+    except BaseException:
+        if state.get("state") in {"running", "degraded"}:
+            if os.path.lexists(mapfile_path):
+                try:
+                    _secure_mapfile(mapfile_path)
+                except DdrescueRecoveryError:
+                    pass
+            state["state"] = "interrupted"
+            _write_state(workspace, state)
+        raise
 
     if summary is None:
         raise DdrescueRecoveryError("ddrescue did not produce a valid mapfile")
