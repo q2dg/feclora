@@ -88,6 +88,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "capture_btrfs_subvolume": {"source_path", "image_id", "parent_path", "repository_id"},
+        "receive_btrfs_subvolume": {"image_id", "target_directory", "parent_path", "repository_id"},
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
         "finalize_recovery": {"job_id", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},

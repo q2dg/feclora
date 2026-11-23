@@ -8,7 +8,7 @@ Capture accepts a subvolume directory and optional read-only incremental
 parent. A writable source is snapshotted read-only in a temporary sibling
 directory; the stream is written to private repository staging, hashed, and
 published with its manifest last. The temporary snapshot is deleted after the
-send attempt. The first implementation writes uncompressed streams only.
+send attempt. Capture rejects nested subvolumes rather than silently omitting their data. The first implementation writes uncompressed streams only.
 
 Receive verifies the stream size and SHA-256 before invoking Btrfs. Incremental
 receive requires the matching read-only received parent within the selected

@@ -120,7 +120,12 @@ def capture_btrfs_subvolume(
         raise BtrfsSendError("btrfs-progs is required")
     run = runner or subprocess.run
     source_info = _subvolume_info(source, btrfs, run)
+    if source_info["name"] != source.name:
+        raise BtrfsSendError("source path basename does not match the Btrfs subvolume name")
     filesystem_uuid, device_count = _filesystem_info(source, btrfs, run)
+    nested = _run(run, [btrfs, "subvolume", "list", "-o", str(source)]).stdout.strip()
+    if nested:
+        raise BtrfsSendError("source contains nested Btrfs subvolumes; btrfs send would omit their contents")
     parent = None
     parent_info = None
     if parent_path is not None:
@@ -136,7 +141,10 @@ def capture_btrfs_subvolume(
     manifest_name = f"{image_id}.manifest.json"
     try:
         if not source_info["readonly"]:
-            snapshot_container = source.parent / f".feclora-send-{uuid.uuid4().hex}"
+            snapshot_parent = source.parent
+            if os.stat(snapshot_parent).st_dev != os.stat(source).st_dev:
+                snapshot_parent = source
+            snapshot_container = snapshot_parent / f".feclora-send-{uuid.uuid4().hex}"
             snapshot_container.mkdir(mode=0o700)
             snapshot = snapshot_container / source.name
             _run(run, [btrfs, "subvolume", "snapshot", "-r", str(source), str(snapshot)])

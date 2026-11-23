@@ -54,6 +54,8 @@ class BtrfsSendTests(unittest.TestCase):
                     ))
                 if argv[1:3] == ["property", "get"]:
                     return SimpleNamespace(stdout="ro=false\n")
+                if argv[1:3] == ["subvolume", "list"]:
+                    return SimpleNamespace(stdout="")
                 if argv[1:3] == ["filesystem", "show"]:
                     return SimpleNamespace(stdout=(
                         f"Label: none  uuid: {UUID}\nTotal devices 2 FS bytes used 4096\n"
@@ -143,18 +145,18 @@ class BtrfsSendTests(unittest.TestCase):
             def runner(argv, **kwargs):
                 if argv[1:3] == ["filesystem", "show"]:
                     return SimpleNamespace(stdout=(
-                        f"Label: none uuid: {UUID}\\nTotal devices 1 FS bytes used 4096\\n"
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
                     ))
                 if argv[1:2] == ["receive"]:
                     Path(argv[-1], "root").mkdir()
                     return SimpleNamespace(stdout=b"", stderr=b"")
                 if argv[1:3] == ["subvolume", "show"]:
                     return SimpleNamespace(stdout=(
-                        "Name: root\\nSubvolume ID: 256\\nUUID: 33333333-3333-3333-3333-333333333333\\n"
-                        f"Parent UUID: -\\nReceived UUID: {source_uuid}\\n"
+                        "Name: root\nSubvolume ID: 256\nUUID: 33333333-3333-3333-3333-333333333333\n"
+                        f"Parent UUID: -\nReceived UUID: {source_uuid}\n"
                     ))
                 if argv[1:3] == ["property", "get"]:
-                    return SimpleNamespace(stdout="ro=true\\n")
+                    return SimpleNamespace(stdout="ro=true\n")
                 raise AssertionError(argv)
 
             result = restore_btrfs_subvolume(
@@ -164,6 +166,37 @@ class BtrfsSendTests(unittest.TestCase):
             self.assertEqual(result, target / "root")
             self.assertTrue(result.is_dir())
             self.assertEqual(list(target.iterdir()), [result])
+
+    def test_capture_rejects_nested_subvolumes_instead_of_omitting_them(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            source = root / "root"
+            source.mkdir()
+            repository = root / "repo"
+            repository.mkdir()
+
+            def runner(argv, **kwargs):
+                if argv[1:3] == ["subvolume", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Name: root\\nSubvolume ID: 256\\nUUID: {UUID}\\n"
+                        "Parent UUID: -\\nReceived UUID: -\\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\\n")
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\\nTotal devices 1 FS bytes used 4096\\n"
+                    ))
+                if argv[1:4] == ["subvolume", "list", "-o"]:
+                    return SimpleNamespace(stdout="ID 257 gen 1 top level 256 path nested\\n")
+                raise AssertionError(argv)
+
+            with self.assertRaisesRegex(BtrfsSendError, "nested Btrfs subvolumes"):
+                capture_btrfs_subvolume(
+                    source, "image", repository,
+                    executables={"btrfs": "/usr/bin/btrfs"}, runner=runner,
+                )
+            self.assertEqual(list(repository.iterdir()), [])
 
     def test_capture_rejects_symlink_source(self):
         with tempfile.TemporaryDirectory() as root:
