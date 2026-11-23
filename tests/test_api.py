@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -2252,3 +2253,28 @@ class RestoreProfileExecutionDispatchTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(APIError, "dedicated persistent"):
                     _persistent_repository(Path(directory))
+
+
+class PrivilegedHelperDispatchParityTests(unittest.TestCase):
+    def test_shell_helper_allowlist_matches_python_dispatch(self):
+        root = Path(__file__).resolve().parents[1]
+        helper = (root / "src/feclora/data/feclora-api").read_text(encoding="utf-8")
+        api_source = (root / "src/feclora/api.py").read_text(encoding="utf-8")
+        helper_case = re.search(
+            r'case "\\$1" in\\s*(.*?)\\s*\\)\\s*;;',
+            helper,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(helper_case, "privileged helper action case must exist")
+        helper_actions = {
+            item.strip()
+            for item in helper_case.group(1).split("|")
+            if item.strip()
+        }
+
+        dispatch_source = api_source[api_source.index("def dispatch("):]
+        dispatch_actions = set(re.findall(r'action\\s*==\\s*"([a-z0-9_]+)"', dispatch_source))
+        for group in re.findall(r'action\\s+in\\s+\\{([^}]+)\\}', dispatch_source):
+            dispatch_actions.update(re.findall(r'"([a-z0-9_]+)"', group))
+
+        self.assertEqual(helper_actions, dispatch_actions)
