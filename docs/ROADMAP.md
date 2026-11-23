@@ -17,8 +17,8 @@ Durable images and manifests belong in repositories explicitly selected by the
 operator. Persistent Live-session storage is not a product requirement.
 
 Storage layers and repositories are different concepts. LVM logical volumes,
-raw LUKS2 containers, opened crypt mappings and Btrfs filesystems are potential
-image sources/layers. SSHFS, NFS and SMB/CIFS are mounted-repository providers;
+raw LUKS2 containers, opened crypt mappings, Btrfs filesystems and existing
+Stratis XFS filesystems are potential image sources/layers. SSHFS, NFS and SMB/CIFS are mounted-repository providers;
 S3 is a separate object-storage provider. Feclora consumes external storage
 services and does not provision or administer them.
 

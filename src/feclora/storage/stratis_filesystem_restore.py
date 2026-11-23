@@ -6,6 +6,7 @@ writes only XFS filesystem data; it never creates pools or Stratis filesystems.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -23,6 +24,9 @@ from .partition_restore import (
 from .privilege import PrivilegeError, privileged_argv
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .process_control import stop_process
+
+
+_UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
 class StratisFilesystemRestoreError(RuntimeError):
@@ -59,10 +63,10 @@ def _target_record(inventory: Mapping[str, Any], target_path: str, source_uuid: 
     pool, filesystem = matches[0]
     pool_uuid = pool.get("uuid")
     filesystem_uuid = filesystem.get("uuid")
-    if not isinstance(pool_uuid, str) or not pool_uuid:
-        raise StratisFilesystemRestoreError("target Stratis pool UUID is unavailable")
-    if not isinstance(filesystem_uuid, str) or not filesystem_uuid:
-        raise StratisFilesystemRestoreError("target Stratis filesystem UUID is unavailable")
+    if not isinstance(pool_uuid, str) or not _UUID.fullmatch(pool_uuid):
+        raise StratisFilesystemRestoreError("target Stratis pool UUID is unavailable or invalid")
+    if not isinstance(filesystem_uuid, str) or not _UUID.fullmatch(filesystem_uuid):
+        raise StratisFilesystemRestoreError("target Stratis filesystem UUID is unavailable or invalid")
     if filesystem_uuid.lower() == source_uuid.lower():
         raise StratisFilesystemRestoreError("restore target is the source Stratis filesystem")
     logical_size = filesystem.get("logical_size_bytes")
@@ -163,8 +167,8 @@ def restore_stratis_filesystem_image(
         raise StratisFilesystemRestoreError("Stratis restore requires a stratis_filesystem image manifest")
     storage = manifest.storage or {}
     source_uuid = storage.get("stratis_filesystem_uuid")
-    if not isinstance(source_uuid, str) or not source_uuid:
-        raise StratisFilesystemRestoreError("manifest has no source Stratis filesystem UUID")
+    if not isinstance(source_uuid, str) or not _UUID.fullmatch(source_uuid):
+        raise StratisFilesystemRestoreError("manifest has no valid source Stratis filesystem UUID")
     artifacts = [item for item in manifest.artifacts if item.role == "stratis-filesystem-image"]
     if len(artifacts) != 1:
         raise StratisFilesystemRestoreError("manifest must contain exactly one Stratis filesystem data artifact")
@@ -268,6 +272,8 @@ def restore_stratis_filesystem_image(
                 raise StratisFilesystemRestoreError("Stratis target identity changed during post-restore verification")
         if progress_callback is not None:
             progress_callback(manifest.source_size_bytes, manifest.source_size_bytes)
+    except PartitionRestoreError as exc:
+        raise StratisFilesystemRestoreError(f"Stratis image verification or decompression failed: {exc}") from exc
     finally:
         if staged_path:
             try:

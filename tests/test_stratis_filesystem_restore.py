@@ -136,6 +136,9 @@ class StratisFilesystemRestoreTests(unittest.TestCase):
                     inventory=target_inventory(size=SIZE - 4096),
                     executables={"lsblk": "/usr/bin/lsblk", "partclone.xfs": "/usr/bin/partclone.xfs",
                                  "xfs_repair": "/usr/sbin/xfs_repair"},
+                    runner=lambda *args, **kwargs: SimpleNamespace(
+                        stdout=f"{SIZE - 4096} dm 512 0", returncode=0, stderr=""
+                    ),
                     device_validator=lambda _: True,
                 )
 
