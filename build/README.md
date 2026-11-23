@@ -60,16 +60,17 @@ network-side RPM cache or mirror.
 
 ## Static validation and automated tests
 
-Run the repository checks before building:
+Run the complete repository validation before building:
 
 ```bash
 make validate
-make test
 ```
 
-GitHub Actions runs Bash syntax checks, project-input validation, ShellCheck,
-Python compilation and hardware-independent unit tests. A passing CI run does
-not prove that an ISO can be built or booted.
+`make validate` runs project-input and documentation checks, Python compilation
+and hardware-independent unit tests. Use `make test` only when you want to
+rerun the unit tests independently. GitHub Actions also runs Bash syntax
+checks and ShellCheck. A passing CI run does not prove that an ISO can be built
+or booted.
 
 ## Build host
 
