@@ -20,5 +20,5 @@ reported as a completed restore.
 
 The destination Btrfs filesystem must already exist and be mounted at the
 selected directory. Feclora does not create filesystems, mount targets, or
-reconcile multi-device topology during this operation. Compression, encryption,
-and interactive UI selection are not yet exposed for send streams.
+reconcile multi-device topology during this operation. Compression, encryption, interactive UI selection and S3 object-repository publication
+are not yet exposed for send streams. A filesystem-backed repository is required.

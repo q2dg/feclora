@@ -113,6 +113,19 @@ def _operation_repository(params: dict[str, Any], *, write: bool, create_local: 
 
 
 @contextmanager
+def _require_btrfs_stream_filesystem_repository(params: dict[str, Any]) -> None:
+    """Reject S3 until its image-set contract supports Btrfs stream manifests."""
+    repository_id = _repository_id(params)
+    if repository_id is None:
+        return
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+        raise APIError(
+            "Btrfs send-stream operations currently require a filesystem-backed repository; "
+            "S3 image-set storage does not yet support the dedicated Btrfs stream manifest"
+        )
+
+
 def _operation_repository_context(
     params: dict[str, Any], *, write: bool, create_local: bool = False,
     image_id: str | None = None, upload_image_id: str | None = None,
@@ -2045,6 +2058,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if not isinstance(source_path, str):
             raise APIError("source_path is required")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        _require_btrfs_stream_filesystem_repository(params)
         with _operation_repository_context(
             params, write=True, create_local=True, upload_image_id=image_id,
         ) as repository:
@@ -2070,6 +2084,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if not isinstance(target_directory, str):
             raise APIError("target_directory is required")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        _require_btrfs_stream_filesystem_repository(params)
         with _operation_repository_context(params, write=False, image_id=image_id) as repository:
             manifest_path = _image_manifest(image_id, repository)
             try:

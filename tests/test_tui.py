@@ -171,10 +171,19 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.click("#nav-images")
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
+                for _ in range(20):
+                    await pilot.pause(0.1)
+                    if table.row_count:
+                        break
+                self.assertGreater(table.row_count, 0)
                 table.focus()
                 table.action_select_cursor()
-                await pilot.pause()
-                self.assertTrue(app.query_one("#page-action", Button).display)
+                action_button = app.query_one("#page-action", Button)
+                for _ in range(20):
+                    await pilot.pause(0.1)
+                    if action_button.display:
+                        break
+                self.assertTrue(action_button.display)
                 await pilot.click("#page-action")
                 self.assertIn(("verify_image", {"image_id": "image-test"}), requests)
 

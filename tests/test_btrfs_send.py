@@ -178,17 +178,17 @@ class BtrfsSendTests(unittest.TestCase):
             def runner(argv, **kwargs):
                 if argv[1:3] == ["subvolume", "show"]:
                     return SimpleNamespace(stdout=(
-                        f"Name: root\\nSubvolume ID: 256\\nUUID: {UUID}\\n"
-                        "Parent UUID: -\\nReceived UUID: -\\n"
+                        f"Name: root\nSubvolume ID: 256\nUUID: {UUID}\n"
+                        "Parent UUID: -\nReceived UUID: -\n"
                     ))
                 if argv[1:3] == ["property", "get"]:
-                    return SimpleNamespace(stdout="ro=true\\n")
+                    return SimpleNamespace(stdout="ro=true\n")
                 if argv[1:3] == ["filesystem", "show"]:
                     return SimpleNamespace(stdout=(
-                        f"Label: none uuid: {UUID}\\nTotal devices 1 FS bytes used 4096\\n"
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
                     ))
                 if argv[1:4] == ["subvolume", "list", "-o"]:
-                    return SimpleNamespace(stdout="ID 257 gen 1 top level 256 path nested\\n")
+                    return SimpleNamespace(stdout="ID 257 gen 1 top level 256 path nested\n")
                 raise AssertionError(argv)
 
             with self.assertRaisesRegex(BtrfsSendError, "nested Btrfs subvolumes"):
