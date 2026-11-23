@@ -471,7 +471,12 @@ def capture_partition(
 
             return_code = process.wait()
             if return_code != 0:
-                stderr_file.seek(0)
+                # Partclone can emit substantial progress output before its final
+                # diagnostic. Keep the tail so the actionable failure is not
+                # hidden beyond the first 8 KiB.
+                stderr_file.seek(0, os.SEEK_END)
+                stderr_size = stderr_file.tell()
+                stderr_file.seek(max(0, stderr_size - 8192))
                 detail = stderr_file.read(8192).decode("utf-8", errors="replace").strip()
                 raise CaptureError(
                     f"{plan.executable} exited with status {return_code}"

@@ -317,6 +317,34 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(raised.exception.diagnostic_category, "read_error")
             self.assertEqual(os.listdir(directory), [])
 
+    def test_partclone_read_failure_after_progress_output_is_classified_and_not_published(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def factory(argv, **kwargs):
+                stdout_read, stdout_write = os.pipe()
+                os.write(stdout_write, b"partial Partclone stream")
+                os.close(stdout_write)
+                stderr_stream = tempfile.TemporaryFile(mode="w+b")
+                stderr_stream.write(b"progress update\\n" * 700)
+                stderr_stream.write(b"Partclone: error reading device: Input/output error\\n")
+                stderr_stream.seek(0)
+                process = FakeProcess(argv, returncode=1)
+                process.stdout = os.fdopen(stdout_read, "rb")
+                process.stderr = stderr_stream
+                return process
+
+            with patch("feclora.storage.capture._partclone_supports_json_status", return_value=False):
+                with self.assertRaises(CaptureError) as raised:
+                    capture_partition(
+                        "/dev/fake1", "ext4", directory, "partclone-read-failed.img", "1",
+                        {"partclone.ext4": "/usr/bin/partclone.ext4"},
+                        device_validator=lambda _path: True,
+                        source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                        popen_factory=factory,
+                    )
+
+            self.assertEqual(raised.exception.diagnostic_category, "read_error")
+            self.assertEqual(os.listdir(directory), [])
+
     def test_ambiguous_io_error_is_not_misclassified_as_read_failure(self):
         from feclora.storage.process_diagnostics import process_diagnostic_category
         self.assertIsNone(process_diagnostic_category("dd: write error: Input/output error"))
