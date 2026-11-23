@@ -61,11 +61,6 @@ def parse_ddrescue_mapfile(path: str | os.PathLike[str], source_size_bytes: int)
     """Parse GNU ddrescue's block-status records and reject malformed maps."""
     if isinstance(source_size_bytes, bool) or not isinstance(source_size_bytes, int) or source_size_bytes <= 0:
         raise DdrescueRecoveryError("source size must be a positive integer")
-    if (isinstance(logical_sector_size, bool) or not isinstance(logical_sector_size, int)
-            or logical_sector_size not in {512, 4096}):
-        raise DdrescueRecoveryError("logical sector size must be 512 or 4096")
-    if not isinstance(partition_table, str) or partition_table not in {"gpt", "mbr", "none", "unknown"}:
-        raise DdrescueRecoveryError("partition table type is invalid")
     try:
         info = os.lstat(path)
         if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
@@ -283,6 +278,11 @@ def recover_block_device(
         raise DdrescueRecoveryError("retry_passes must be an integer between 0 and 10")
     if isinstance(source_size_bytes, bool) or not isinstance(source_size_bytes, int) or source_size_bytes <= 0:
         raise DdrescueRecoveryError("source size must be a positive integer")
+    if (isinstance(logical_sector_size, bool) or not isinstance(logical_sector_size, int)
+            or logical_sector_size not in {512, 4096}):
+        raise DdrescueRecoveryError("logical sector size must be 512 or 4096")
+    if not isinstance(partition_table, str) or partition_table not in {"gpt", "mbr", "none", "unknown"}:
+        raise DdrescueRecoveryError("partition table type is invalid")
     available = executables or {}
     ddrescue = available.get("ddrescue") or (None if executables is not None else shutil.which("ddrescue"))
     if not ddrescue:

@@ -1844,17 +1844,22 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise APIError("lsblk is required to record recovery disk geometry")
         try:
             geometry_result = subprocess.run(
-                [lsblk, "--json", "--nodeps", "--output", "LOG-SEC,PTTYPE", source],
+                [lsblk, "--json", "--bytes", "--nodeps", "--output", "SIZE,LOG-SEC,PTTYPE,MAJ:MIN", source],
                 check=True, capture_output=True, text=True, timeout=10,
             )
             geometry_devices = json.loads(geometry_result.stdout).get("blockdevices", [])
             if len(geometry_devices) != 1 or not isinstance(geometry_devices[0], dict):
                 raise ValueError("lsblk did not return exactly one source disk")
             geometry_device = geometry_devices[0]
+            geometry_size = geometry_device.get("size")
+            geometry_major_minor = geometry_device.get("maj:min")
             sector_size = geometry_device.get("log-sec")
             pttype = str(geometry_device.get("pttype") or "").lower()
         except (OSError, subprocess.SubprocessError, ValueError, TypeError, json.JSONDecodeError) as exc:
             raise APIError(f"cannot record recovery disk geometry: {exc}") from exc
+        if (isinstance(geometry_size, bool) or not isinstance(geometry_size, int)
+                or geometry_size != size or geometry_major_minor != major_minor):
+            raise APIError("recovery source geometry or kernel identity changed during preflight")
         if isinstance(sector_size, bool) or not isinstance(sector_size, int) or sector_size not in {512, 4096}:
             raise APIError("recovery source logical sector size is unavailable or unsupported")
         partition_table = {"gpt": "gpt", "dos": "mbr", "mbr": "mbr", "": "none"}.get(pttype, "unknown")
