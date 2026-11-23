@@ -65,7 +65,8 @@ the RAW image, or write a destination disk.
 
 NTFS unit tests use an injected command runner and cover the loop mapping,
 filesystem signature, live minimum-size guard, source digest and detach path.
-They have been added but not executed.
+They run as part of `make validate`; disposable-media acceptance remains a
+separate operator task.
 
 
 ## Coordinated staging preparation
