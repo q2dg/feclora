@@ -683,5 +683,61 @@ class BtrfsSendTests(unittest.TestCase):
                 self.assertEqual(received_payload, [payload])
 
 
+    @unittest.skipUnless(shutil.which("zstd") and shutil.which("lz4"),
+                         "zstd and lz4 executables are required")
+    def test_corrupt_external_codec_streams_are_quarantined(self):
+        for codec, suffix in (("zstd", ".zst"), ("lz4", ".lz4")):
+            with self.subTest(codec=codec), tempfile.TemporaryDirectory() as root:
+                root = Path(root)
+                repository = root / "repo"
+                repository.mkdir()
+                target = root / "target"
+                target.mkdir()
+                stored = b"not a valid external compressed stream"
+                filename = "image.btrfs" + suffix
+                (repository / filename).write_bytes(stored)
+                import json
+                manifest = {
+                    "schema_version": 1, "image_id": "image",
+                    "filesystem_uuid": UUID, "subvolume_id": 256,
+                    "subvolume_uuid": "22222222-2222-2222-2222-222222222222",
+                    "subvolume_name": "root", "device_count": 1,
+                    "send_mode": "full", "stream_parent_uuid": None,
+                    "stream_filename": filename,
+                    "stream_size_bytes": len(stored),
+                    "stream_sha256": hashlib.sha256(stored).hexdigest(),
+                    "compression": codec,
+                }
+                manifest_path = repository / "image.manifest.json"
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                receive_calls = []
+                executables = {
+                    "btrfs": "/usr/bin/btrfs",
+                    codec: shutil.which(codec),
+                }
+
+                def runner(argv, **kwargs):
+                    if argv[1:3] == ["filesystem", "show"]:
+                        return SimpleNamespace(stdout=(
+                            f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                        ))
+                    if argv[1] == "receive":
+                        receive_calls.append(argv)
+                        kwargs["stdin"].read()
+                        return SimpleNamespace(stdout=b"", stderr=b"")
+                    raise AssertionError(argv)
+
+                with self.assertRaisesRegex(BtrfsSendError, "decode/restore failed"):
+                    restore_btrfs_subvolume(
+                        manifest_path, repository, target,
+                        executables=executables, runner=runner,
+                    )
+                self.assertEqual(len(receive_calls), 1)
+                self.assertFalse((target / "root").exists())
+                staging = list(target.glob(".feclora-receive-image-*"))
+                self.assertEqual(len(staging), 1)
+                self.assertEqual(list(staging[0].iterdir()), [])
+
+
 if __name__ == "__main__":
     unittest.main()
