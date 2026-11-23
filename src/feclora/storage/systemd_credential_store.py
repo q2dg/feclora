@@ -18,7 +18,8 @@ from typing import Callable, Any
 
 DEFAULT_ROOT = Path("/etc/credstore.encrypted/feclora")
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_KINDS = {"ssh-key", "known-hosts", "smb", "s3"}
+CREDENTIAL_KINDS = ("ssh-key", "known-hosts", "smb", "s3")
+_KINDS = frozenset(CREDENTIAL_KINDS)
 
 
 class SystemdCredentialStoreError(RuntimeError):
