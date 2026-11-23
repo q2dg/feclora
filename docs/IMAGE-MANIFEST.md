@@ -10,7 +10,7 @@ It is not an executable restore plan and never authorizes a target write.
 |---|---|---|---|
 | `disk` | Complete block-device image plus partition-table metadata | Implemented in local Textual workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
 | `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Textual workflow; requires current storage inventory | Implemented for an existing partition target |
-| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Textual workflow for uniquely identified, non-hidden, non-snapshot LVs | Not implemented |
+| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Textual workflow for uniquely identified, non-hidden, non-snapshot LVs | Implemented into an existing active, unmounted linear or thin LV after topology, identity, capacity and sector-size preflight; no LVM objects are created or resized |
 
 These are **image source types/layers**, not repository types. A repository is
 the explicitly selected local or remote destination holding the image files.
@@ -28,8 +28,15 @@ unlock, mount, snapshot, format or modify storage.
   and whose VG/PV topology is healthy. Hidden and snapshot LVs are excluded.
   The resulting `logical_volume` image is a byte image of that LV, not a
   self-contained backup of the VG, PV metadata or all VG members. Restore is
-  not implemented; the destination LV and its dependency topology require a
-  future validated restore workflow.
+  implemented only into an already existing active, unmounted linear or thin
+  LV. Preflight revalidates the target's VG/PV health, kernel identity,
+  capacity, logical sector size, mount state and snapshot relationships;
+  thin-pool health and estimated free capacity are checked as well. The
+  capacity estimate is not a reservation against concurrent LVM activity.
+  Restore writes the image bytes into the LV and verifies the result (raw
+  read-back or a filesystem-specific Partclone check). It does not create,
+  activate, resize or otherwise provision LVM objects, and it does not back up
+  VG/PV metadata or dependent LVs.
 - **LUKS2 container:** partition capture can record raw encrypted-container
   bytes only when `cryptsetup` verifies a version-2 header and UUID. The
   captured bytes include the LUKS2 header/keyslots; passphrases and recovery
@@ -56,8 +63,8 @@ unlock, mount, snapshot, format or modify storage.
 
 A raw LUKS2 partition image can be restored through the ordinary partition
 restore path as bytes to an existing compatible partition. That operation
-does not provision encryption, unlock the result, or manage keys. There is no
-LVM logical-volume restore engine or layer-aware Btrfs restore workflow.
+does not provision encryption, unlock the result, or manage keys. A
+layer-aware Btrfs restore workflow remains unimplemented.
 
 ## Schema fields and artifact roles
 
