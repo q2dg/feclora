@@ -346,6 +346,18 @@ class APITests(unittest.TestCase):
         with self.assertRaisesRegex(APIError, "RENEW SERVER CERTIFICATE"):
             _renew_server_certificate({"confirmation": "renew it"})
 
+    def test_certificate_maintenance_fails_closed_when_service_state_is_unknown(self):
+        for result in (
+            SimpleNamespace(returncode=1, stdout=""),
+        ):
+            with self.subTest(result=result), patch(
+                "feclora.api.subprocess.run", return_value=result,
+            ) as runner:
+                with self.assertRaisesRegex(APIError, "renewing the Server TLS certificate is blocked"):
+                    from feclora.api import _assert_no_active_deployment_jobs
+                    _assert_no_active_deployment_jobs("renewing the Server TLS certificate")
+            self.assertEqual(runner.call_args.kwargs["timeout"], 5)
+
     def test_server_certificate_renewal_refuses_active_deployment_service(self):
         config = SimpleNamespace(
             certificate_file="/etc/feclora/pki/server.crt",
