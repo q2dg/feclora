@@ -1605,6 +1605,14 @@ class APITests(unittest.TestCase):
         with self.assertRaisesRegex(APIError, "repository_id is invalid"):
             _operation_repository({"repository_id": "../images"}, write=False)
 
+    def test_operation_repository_context_rejects_invalid_repository_id_before_provider_io(self):
+        from feclora.api import _operation_repository_context
+        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager") as manager:
+            with self.assertRaisesRegex(APIError, "repository_id is invalid"):
+                with _operation_repository_context({"repository_id": "../images"}, write=False):
+                    self.fail("invalid repository ID must not enter the operation")
+        manager.assert_not_called()
+
     def test_local_disk_clone_persists_progress_in_operation_journal(self):
         from feclora.api import _clone_disk_progress
         with patch("feclora.storage.operation_log.record_progress") as record, patch(
