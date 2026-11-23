@@ -170,8 +170,11 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.click("#continue")
                 await pilot.click("#nav-images")
                 await pilot.pause()
-                app.query_one("#page-table", DataTable).focus()
-                await pilot.press("enter")
+                table = app.query_one("#page-table", DataTable)
+                table.focus()
+                table.action_select_cursor()
+                await pilot.pause()
+                self.assertTrue(app.query_one("#page-action", Button).display)
                 await pilot.click("#page-action")
                 self.assertIn(("verify_image", {"image_id": "image-test"}), requests)
 
@@ -260,7 +263,9 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
                 table.focus()
-                await pilot.press("enter")
+                table.action_select_cursor()
+                await pilot.pause()
+                self.assertFalse(app.query_one("#page-action", Button).disabled)
                 await pilot.click("#page-action")
                 self.assertNotIn(("cancel_local_operation", {"operation_id": "operation-test"}), requests)
 
@@ -305,8 +310,16 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 await pilot.click("#continue")
                 await pilot.click("#nav-server")
-                await pilot.pause()
-                app.query_one("#server-interface", Select).value = "eth0:192.0.2.10"
+                server_interface = app.query_one("#server-interface", Select)
+                for _ in range(50):
+                    if any(option.value == "eth0:192.0.2.10" for option in server_interface._options):
+                        break
+                    await pilot.pause(0.1)
+                self.assertTrue(
+                    any(option.value == "eth0:192.0.2.10" for option in server_interface._options),
+                    "server interface options were not loaded",
+                )
+                server_interface.value = "eth0:192.0.2.10"
                 await app.validate_pxe_profile()
                 self.assertIn(("validate_pxe_profile", {
                     "interface": "eth0",
