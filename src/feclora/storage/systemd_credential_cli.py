@@ -5,8 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from feclora.storage.credential_cli import read_source_file
-from feclora.storage.credential_store import CredentialStoreError
+from feclora.storage.credential_source import CredentialSourceError, read_source_file
 from feclora.storage.systemd_credential_store import (
     DEFAULT_ROOT, SystemdCredentialStore, SystemdCredentialStoreError,
 )
@@ -39,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
             store.remove(args.id, args.kind)
             print("Encrypted credential removed.")
         return 0
-    except (CredentialStoreError, SystemdCredentialStoreError) as exc:
+    except (CredentialSourceError, SystemdCredentialStoreError) as exc:
         print(f"feclora-systemd-credential: {exc}", file=sys.stderr)
         return 1
 
