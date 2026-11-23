@@ -312,11 +312,11 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.click("#nav-server")
                 server_interface = app.query_one("#server-interface", Select)
                 for _ in range(50):
-                    if any(option.value == "eth0:192.0.2.10" for option in server_interface._options):
+                    if any(option[1] == "eth0:192.0.2.10" for option in server_interface._options):
                         break
                     await pilot.pause(0.1)
                 self.assertTrue(
-                    any(option.value == "eth0:192.0.2.10" for option in server_interface._options),
+                    any(option[1] == "eth0:192.0.2.10" for option in server_interface._options),
                     "server interface options were not loaded",
                 )
                 server_interface.value = "eth0:192.0.2.10"
