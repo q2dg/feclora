@@ -807,7 +807,9 @@ class FecloraTUI(App[None]):
         elif event.select.id == "repository-provider":
             self._update_repository_fields()
         elif event.select.id == "repository-management-select":
-            self.query_one("#repository-removal-confirmation", Input).value = ""
+            confirmation = self.query("#repository-removal-confirmation")
+            if confirmation:
+                confirmation.first(Input).value = ""
         elif event.select.id == "image-repository-select":
             selected = event.value if isinstance(event.value, str) else ""
             if selected == self._image_repository_selection_value:

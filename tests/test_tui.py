@@ -222,7 +222,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(120, 50)) as pilot:
                 await pilot.pause()
                 await pilot.click("#continue")
-                await app.load_images_page()
+                await pilot.click("#nav-images")
+                await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
                 for _ in range(50):
                     await pilot.pause(0.1)
@@ -321,7 +322,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(120, 50)) as pilot:
                 await pilot.pause()
                 await pilot.click("#continue")
-                await app.load_page("operation-log")
+                await pilot.click("#nav-operation-log")
+                await pilot.pause()
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
                 for _ in range(50):
@@ -331,7 +333,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 self.assertGreater(table.row_count, 0)
                 table.focus()
                 table.move_cursor(row=0)
-                await pilot.press("enter")
+                table.action_select_cursor()
+                await pilot.pause()
                 await pilot.pause()
                 action_button = app.query_one("#page-action", Button)
                 for _ in range(50):
@@ -382,7 +385,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(120, 50)) as pilot:
                 await pilot.pause()
                 await pilot.click("#continue")
-                await app.load_system_page("server")
+                await pilot.click("#nav-server")
+                await pilot.pause()
                 server_interface = app.query_one("#server-interface", Select)
                 for _ in range(50):
                     if any(option[1] == "eth0:192.0.2.10" for option in server_interface._options):
