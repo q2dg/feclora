@@ -1,10 +1,14 @@
 import hashlib
+from dataclasses import replace
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
+
+from feclora.storage.image_security import ImageSecurityError
 
 from feclora.storage.btrfs_send import (
     BtrfsSendError, _filesystem_info, _subvolume_info,
@@ -330,6 +334,160 @@ class BtrfsSendTests(unittest.TestCase):
             self.assertEqual(result, target / "root")
             self.assertEqual(received_payload, [payload])
             self.assertEqual(list(target.iterdir()), [result])
+
+
+    def test_age_encrypted_gzip_capture_and_restore_round_trip(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            source = root / "root"
+            source.mkdir()
+            repository = root / "repo"
+            repository.mkdir()
+            target = root / "target"
+            target.mkdir()
+            recipients = root / "recipients.txt"
+            recipients.write_text("age1example\n", encoding="ascii")
+            identity = root / "identity.txt"
+            identity.write_text("AGE-SECRET-KEY-1EXAMPLE\n", encoding="ascii")
+            payload = b"encrypted-btrfs-send-payload" * 32
+            received_payload = []
+
+            def runner(argv, **kwargs):
+                if argv[1:3] == ["subvolume", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Name: root\nSubvolume ID: 256\nUUID: {UUID}\n"
+                        "Parent UUID: -\nReceived UUID: -\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\n")
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1:4] == ["subvolume", "list", "-o"]:
+                    return SimpleNamespace(stdout="")
+                if argv[1] == "send":
+                    kwargs["stdout"].write(payload)
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                raise AssertionError(argv)
+
+            def fake_encrypt(path, artifact, recipients_file, *, age_executable=None):
+                plaintext = Path(path)
+                encrypted_name = plaintext.name + ".age"
+                encrypted_bytes = b"age:" + plaintext.read_bytes()
+                (plaintext.parent / encrypted_name).write_bytes(encrypted_bytes)
+                plaintext.unlink()
+                return replace(
+                    artifact, filename=encrypted_name,
+                    size_bytes=len(encrypted_bytes),
+                    sha256=hashlib.sha256(encrypted_bytes).hexdigest(),
+                    encryption="age",
+                )
+
+            with patch("feclora.storage.btrfs_send.encrypt_artifact", side_effect=fake_encrypt):
+                manifest = capture_btrfs_subvolume(
+                    source, "encrypted-image", repository,
+                    executables={"btrfs": "/usr/bin/btrfs"}, runner=runner,
+                    compression="gzip", age_recipients_file=recipients,
+                )
+
+            self.assertEqual(manifest.encryption, "age")
+            self.assertEqual(manifest.compression, "gzip")
+            stored = repository / manifest.stream_filename
+            stored_bytes = stored.read_bytes()
+            self.assertEqual(hashlib.sha256(stored_bytes).hexdigest(), manifest.stream_sha256)
+            self.assertEqual(len(stored_bytes), manifest.stream_size_bytes)
+            self.assertTrue(stored_bytes.startswith(b"age:"))
+
+            def fake_decrypt(encrypted_stream, identity_file, directory, *, age_executable=None):
+                encrypted = encrypted_stream.read()
+                if not encrypted.startswith(b"age:"):
+                    raise ImageSecurityError("unexpected encrypted test payload")
+                fd, path = tempfile.mkstemp(prefix=".decrypted-", dir=directory)
+                with os.fdopen(fd, "wb") as output:
+                    output.write(encrypted[4:])
+                return path
+
+            def restore_runner(argv, **kwargs):
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1] == "receive":
+                    received_payload.append(kwargs["stdin"].read())
+                    Path(argv[-1], "root").mkdir()
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                if argv[1:3] == ["subvolume", "show"]:
+                    return SimpleNamespace(stdout=(
+                        "Name: root\nSubvolume ID: 300\nUUID: 44444444-4444-4444-4444-444444444444\n"
+                        f"Parent UUID: -\nReceived UUID: {UUID}\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\n")
+                raise AssertionError(argv)
+
+            with patch(
+                "feclora.storage.btrfs_send.decrypt_artifact_stream_to_temp",
+                side_effect=fake_decrypt,
+            ):
+                result = restore_btrfs_subvolume(
+                    repository / "encrypted-image.manifest.json", repository, target,
+                    executables={"btrfs": "/usr/bin/btrfs"}, runner=restore_runner,
+                    age_identity_file=identity,
+                )
+            self.assertEqual(result, target / "root")
+            self.assertEqual(received_payload, [payload])
+
+    def test_age_decryption_failure_keeps_receive_staging_quarantined(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            repository = root / "repo"
+            repository.mkdir()
+            target = root / "target"
+            target.mkdir()
+            identity = root / "identity.txt"
+            identity.write_text("AGE-SECRET-KEY-1EXAMPLE\n", encoding="ascii")
+            stored = b"not-authenticated"
+            (repository / "image.btrfs.age").write_bytes(stored)
+            import json
+            manifest = {
+                "schema_version": 1, "image_id": "image",
+                "filesystem_uuid": UUID, "subvolume_id": 256,
+                "subvolume_uuid": "22222222-2222-2222-2222-222222222222",
+                "subvolume_name": "root", "device_count": 1,
+                "send_mode": "full", "stream_parent_uuid": None,
+                "stream_filename": "image.btrfs.age",
+                "stream_size_bytes": len(stored),
+                "stream_sha256": hashlib.sha256(stored).hexdigest(),
+                "compression": "none", "encryption": "age",
+            }
+            manifest_path = repository / "image.manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            receive_calls = []
+
+            def runner(argv, **kwargs):
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1] == "receive":
+                    receive_calls.append(argv)
+                raise AssertionError(argv)
+
+            with patch(
+                "feclora.storage.btrfs_send.decrypt_artifact_stream_to_temp",
+                side_effect=ImageSecurityError("authentication failed"),
+            ):
+                with self.assertRaisesRegex(BtrfsSendError, "decode/restore failed"):
+                    restore_btrfs_subvolume(
+                        manifest_path, repository, target,
+                        executables={"btrfs": "/usr/bin/btrfs"}, runner=runner,
+                        age_identity_file=identity,
+                    )
+            self.assertEqual(receive_calls, [])
+            staging = list(target.glob(".feclora-receive-image-*"))
+            self.assertEqual(len(staging), 1)
+            self.assertEqual(list(staging[0].iterdir()), [])
 
 
 if __name__ == "__main__":
