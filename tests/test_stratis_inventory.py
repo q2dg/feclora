@@ -22,7 +22,8 @@ class StratisInventoryTests(unittest.TestCase):
     def test_parses_pool_capacity_uuid_and_alerts(self):
         result = parse_pool_list(POOL_TABLE)
         self.assertEqual(result["poolA"]["free_physical_bytes"], 80 * 1024**3)
-        self.assertEqual(result["poolA"]["status"], "healthy")
+        self.assertFalse(result["poolA"]["alerts_reported"])
+        self.assertEqual(result["poolA"]["status"], "unknown")
         self.assertEqual(result["poolA"]["uuid"], "e22772c2-afe9-446c-9be5-2f78f682284e")
 
     def test_parses_filesystem_logical_capacity_and_identity(self):
