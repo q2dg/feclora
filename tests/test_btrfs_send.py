@@ -254,5 +254,83 @@ class BtrfsSendTests(unittest.TestCase):
                 )
 
 
+    def test_gzip_capture_and_restore_round_trip(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            source = root / "root"
+            source.mkdir()
+            repository = root / "repo"
+            repository.mkdir()
+            target = root / "target"
+            target.mkdir()
+            payload = b"btrfs-send-stream-payload" * 64
+            received_payload = []
+
+            def runner(argv, **kwargs):
+                if argv[1:3] == ["subvolume", "show"]:
+                    path = Path(argv[-1])
+                    if path.name == "root":
+                        return SimpleNamespace(stdout=(
+                            f"Name: root\nSubvolume ID: 256\nUUID: {UUID}\n"
+                            "Parent UUID: -\nReceived UUID: -\n"
+                        ))
+                    raise AssertionError(argv)
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\n")
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1:4] == ["subvolume", "list", "-o"]:
+                    return SimpleNamespace(stdout="")
+                if argv[1] == "send":
+                    kwargs["stdout"].write(payload)
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                if argv[1] == "receive":
+                    received_payload.append(kwargs["stdin"].read())
+                    Path(argv[-1], "root").mkdir()
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                raise AssertionError(argv)
+
+            manifest = capture_btrfs_subvolume(
+                source, "gzip-image", repository,
+                executables={"btrfs": "/usr/bin/btrfs"}, runner=runner,
+                compression="gzip",
+            )
+            stored = repository / manifest.stream_filename
+            self.assertTrue(manifest.stream_filename.endswith(".btrfs.gz"))
+            self.assertEqual(hashlib.sha256(stored.read_bytes()).hexdigest(), manifest.stream_sha256)
+            self.assertEqual(manifest.stream_size_bytes, stored.stat().st_size)
+            import gzip
+            self.assertEqual(gzip.decompress(stored.read_bytes()), payload)
+
+            # A received subvolume reports the source UUID as its received UUID.
+            def restore_runner(argv, **kwargs):
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1] == "receive":
+                    received_payload.append(kwargs["stdin"].read())
+                    Path(argv[-1], "root").mkdir()
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                if argv[1:3] == ["subvolume", "show"]:
+                    return SimpleNamespace(stdout=(
+                        "Name: root\nSubvolume ID: 300\nUUID: 44444444-4444-4444-4444-444444444444\n"
+                        f"Parent UUID: -\nReceived UUID: {UUID}\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\n")
+                raise AssertionError(argv)
+
+            result = restore_btrfs_subvolume(
+                repository / "gzip-image.manifest.json", repository, target,
+                executables={"btrfs": "/usr/bin/btrfs"}, runner=restore_runner,
+            )
+            self.assertEqual(result, target / "root")
+            self.assertEqual(received_payload, [payload])
+            self.assertEqual(list(target.iterdir()), [result])
+
+
 if __name__ == "__main__":
     unittest.main()
