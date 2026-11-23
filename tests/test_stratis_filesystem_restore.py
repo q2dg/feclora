@@ -24,7 +24,7 @@ def target_inventory(filesystem_uuid=TARGET_FS_UUID, mountpoints=None, size=TARG
         "stratis_topology": {
             "status": "available",
             "pools": [{
-                "name": "pool-target", "uuid": TARGET_POOL_UUID,
+                "name": "pool-target", "uuid": TARGET_POOL_UUID, "alerts_reported": False,
                 "filesystems": [{
                     "name": "restore-target", "uuid": filesystem_uuid,
                     "device": "/dev/stratis/pool-target/restore-target",
@@ -110,6 +110,18 @@ class StratisFilesystemRestoreTests(unittest.TestCase):
                     inventory=target_inventory(SOURCE_FS_UUID),
                     executables={"lsblk": "/usr/bin/lsblk", "partclone.xfs": "/usr/bin/partclone.xfs",
                                  "xfs_repair": "/usr/sbin/xfs_repair"},
+                    device_validator=lambda _: True,
+                )
+
+    def test_rejects_target_pool_with_reported_alerts(self):
+        with tempfile.TemporaryDirectory() as repository:
+            self._image_set(repository)
+            value = target_inventory()
+            value["stratis_topology"]["pools"][0]["alerts_reported"] = True
+            with self.assertRaisesRegex(StratisFilesystemRestoreError, "reports alerts"):
+                restore_stratis_filesystem_image(
+                    "stratis-image.manifest.json", repository, "/dev/dm-9",
+                    confirmation="ERASE /dev/dm-9", inventory=value,
                     device_validator=lambda _: True,
                 )
 

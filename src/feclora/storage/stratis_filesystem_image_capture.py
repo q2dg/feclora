@@ -53,6 +53,8 @@ def _stratis_source(inventory: Mapping[str, Any], source_path: str):
             "source must identify exactly one active Stratis filesystem"
         )
     pool, filesystem = matches[0]
+    if pool.get("alerts_reported") is not False:
+        raise StratisFilesystemCaptureError("Stratis pool reports alerts or alert status is unavailable")
     for label, value in (("pool UUID", pool.get("uuid")), ("filesystem UUID", filesystem.get("uuid"))):
         if not isinstance(value, str) or not _UUID.fullmatch(value):
             raise StratisFilesystemCaptureError(f"Stratis {label} is missing or invalid")

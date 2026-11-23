@@ -61,6 +61,8 @@ def _target_record(inventory: Mapping[str, Any], target_path: str, source_uuid: 
             "restore target must identify exactly one active Stratis filesystem"
         )
     pool, filesystem = matches[0]
+    if pool.get("alerts_reported") is not False:
+        raise StratisFilesystemRestoreError("target Stratis pool reports alerts or alert status is unavailable")
     pool_uuid = pool.get("uuid")
     filesystem_uuid = filesystem.get("uuid")
     if not isinstance(pool_uuid, str) or not _UUID.fullmatch(pool_uuid):

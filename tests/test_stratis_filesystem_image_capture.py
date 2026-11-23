@@ -22,6 +22,7 @@ def inventory():
                 "name": "pool-a", "uuid": POOL_UUID,
                 "total_physical_bytes": 100 * 1024**3,
                 "free_physical_bytes": 80 * 1024**3,
+                "alerts_reported": False,
                 "filesystems": [{
                     "name": "data", "uuid": FS_UUID,
                     "device": "/dev/stratis/pool-a/data",
@@ -77,6 +78,14 @@ class StratisFilesystemCaptureTests(unittest.TestCase):
         value["stratis_topology"]["status"] = "metadata_incomplete"
         with tempfile.TemporaryDirectory() as tmp, self.assertRaisesRegex(
             StratisFilesystemCaptureError, "metadata is unavailable or incomplete"
+        ):
+            capture_stratis_filesystem_image("/dev/dm-3", "image", tmp, value)
+
+    def test_rejects_pool_with_reported_alerts(self):
+        value = inventory()
+        value["stratis_topology"]["pools"][0]["alerts_reported"] = True
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaisesRegex(
+            StratisFilesystemCaptureError, "reports alerts"
         ):
             capture_stratis_filesystem_image("/dev/dm-3", "image", tmp, value)
 
