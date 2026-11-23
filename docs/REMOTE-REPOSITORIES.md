@@ -135,6 +135,15 @@ symlink or hard link. Encrypted credentials are host-bound and must be
 reprovisioned when moving to another Server or recovering after loss of the
 host credential key.
 
+Older installations may still contain plaintext credential files under
+`/etc/feclora/credentials` from the retired file-backed store. Current Feclora
+versions do not read or migrate that directory. Re-import any still-needed
+credentials through the protected credential workflow, verify that each
+repository connects successfully, and only then remove the obsolete files
+under the host's credential-retention policy. Removing a file does not
+necessarily guarantee physical erasure on SSDs, copy-on-write filesystems or
+storage with snapshots.
+
 SSHFS requires a private key and pinned host keys; SMB requires a protected
 credentials file; NFS uses server-side export policy. S3 requires a dedicated
 access key ID and secret access key with least-privilege bucket/prefix
