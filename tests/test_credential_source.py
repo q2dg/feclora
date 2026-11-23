@@ -2,8 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from feclora.storage.credential_source import read_source_file
-from feclora.storage.credential_source import CredentialSourceError
+from feclora.storage.credential_source import CredentialSourceError, read_source_file
 
 
 class CredentialSourceTests(unittest.TestCase):
@@ -27,6 +26,11 @@ class CredentialSourceTests(unittest.TestCase):
         link.symlink_to(self.source)
         with self.assertRaisesRegex(CredentialSourceError, "symlink"):
             read_source_file(str(link), owner_uid=os.getuid())
+
+    def test_rejects_nul_bytes(self):
+        self.source.write_bytes(b"secret\\x00material")
+        with self.assertRaisesRegex(CredentialSourceError, "content is invalid"):
+            read_source_file(str(self.source), owner_uid=os.getuid())
 
     def test_rejects_hard_link_source(self):
         os.link(self.source, Path(self.temp.name) / "hard-link")
