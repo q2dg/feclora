@@ -37,16 +37,17 @@ correctness and storage safety take priority over feature count.
 
 ## Validation
 
-Run the hardware-independent checks from the repository root:
+Run the complete project validation from the repository root:
 
 ```bash
 make validate
-make test
 ```
 
-The tests use the standard-library `unittest` runner. UI tests require the
-pinned Textual dependency from `requirements-test.txt`; install it in a virtual
-environment as described in [the build guide](docs/BUILD.md).
+This includes static project and documentation checks, Python compilation and
+the hardware-independent `unittest` suite. Use `make test` only to rerun the
+unit tests on their own. UI tests require the pinned Textual dependency from
+`requirements-test.txt`; install it in a virtual environment as described in
+[the build guide](docs/BUILD.md).
 
 Changes to shell scripts must pass Bash syntax validation and ShellCheck.
 Changes to the TUI must pass its interaction tests. CI must pass on the exact
