@@ -836,11 +836,15 @@ class FecloraTUI(App[None]):
             self._update_client_confirmation()
         elif event.select.id == "pxe-mode":
             self._pxe_profile = None
-            self.query_one("#pxe-start", Button).disabled = True
+            pxe_start = self.query("#pxe-start")
+            if pxe_start:
+                pxe_start.first(Button).disabled = True
             self._update_pxe_fields()
         elif event.select.id in {"server-interface", "pxe-authoritative"}:
             self._pxe_profile = None
-            self.query_one("#pxe-start", Button).disabled = True
+            pxe_start = self.query("#pxe-start")
+            if pxe_start:
+                pxe_start.first(Button).disabled = True
         elif event.select.id == "pxe-answer-source":
             source = str(event.value)
             self.query_one("#pxe-answer-path", Input).display = source in {"upload", "url"}
@@ -1883,12 +1887,17 @@ class FecloraTUI(App[None]):
         self.query_one("#repository-credentials", Select).display = provider == "smb"
 
     def _update_pxe_fields(self) -> None:
-        isolated = self.query_one("#pxe-mode", Select).value == "isolated"
+        mode = self.query("#pxe-mode").first(Select) if self.query("#pxe-mode") else None
+        if mode is None:
+            return
+        isolated = mode.value == "isolated"
         for widget_id in (
             "pxe-pool-start", "pxe-pool-end", "pxe-gateway",
             "pxe-dns", "pxe-authoritative",
         ):
-            self.query_one(f"#{widget_id}").display = isolated
+            widgets = self.query(f"#{widget_id}")
+            if widgets:
+                widgets.first().display = isolated
 
     async def bootstrap_server(self) -> None:
         binding = self.query_one("#server-interface", Select).value
