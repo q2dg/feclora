@@ -32,6 +32,40 @@ class StratisInventoryTests(unittest.TestCase):
         self.assertEqual(filesystem["used_bytes"], 2 * 1024**3)
         self.assertEqual(filesystem["device"], "/dev/stratis/poolA/fs1")
 
+    def test_pool_without_alerts_is_not_claimed_healthy(self):
+        result = parse_pool_list(POOL_TABLE)
+        self.assertFalse(result["poolA"]["alerts_reported"])
+        self.assertEqual(result["poolA"]["status"], "unknown")
+
+    def test_missing_pool_metadata_keeps_inventory_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "stratis"
+            pool = root / "poolA"
+            pool.mkdir(parents=True)
+            sysfs = Path(tmp) / "sys" / "class" / "block"
+            (sysfs / "dm-3" / "slaves").mkdir(parents=True)
+            (sysfs / "dm-3" / "slaves" / "sda1").symlink_to(sysfs / "sda1")
+            (sysfs / "sda1").mkdir()
+            os.symlink("/dev/dm-3", pool / "fs1")
+
+            def runner(command, **kwargs):
+                return Mock(stdout="" if command[1] == "pool" else FILESYSTEM_TABLE)
+
+            result = collect_stratis_topology(
+                str(root), str(sysfs), which=lambda _: "/usr/bin/stratis", runner=runner,
+            )
+            self.assertEqual(result["status"], "metadata_incomplete")
+
+    def test_empty_active_pool_inventory_is_not_reported_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "stratis"
+            root.mkdir()
+            result = collect_stratis_topology(
+                str(root), tmp, which=lambda _: "/usr/bin/stratis",
+                runner=lambda command, **kwargs: Mock(stdout=POOL_TABLE if command[1] == "pool" else ""),
+            )
+            self.assertEqual(result["status"], "metadata_incomplete")
+
     def test_unparseable_capacity_is_unknown_not_zero(self):
         result = parse_pool_list(
             "Name     Total/Used/Free    Properties   UUID                                   Alerts\n"

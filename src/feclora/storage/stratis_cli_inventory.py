@@ -52,7 +52,10 @@ def parse_pool_list(payload: str) -> dict[str, dict[str, Any]]:
             "total_physical_bytes": total, "used_physical_bytes": used,
             "free_physical_bytes": free, "properties": properties,
             "alerts": [] if alerts in {"", "-"} else re.split(r"[,; ]+", alerts),
-            "status": "healthy" if alerts in {"", "-"} and total is not None and free is not None else "unknown",
+            "alerts_reported": alerts not in {"", "-"},
+            # An empty alert column is not a health check; daemon and pool health
+            # need independent validation before restore safety can rely on them.
+            "status": "unknown",
         }
     return result
 

@@ -110,8 +110,17 @@ def collect_stratis_topology(
             "filesystems": filesystems,
             **pool_metadata.get(pool_entry.name, {}),
         })
-    complete = bool(pool_metadata) and all(
-        fs.get("uuid") and fs.get("logical_size_bytes") is not None
-        for pool in pools for fs in pool["filesystems"]
+    # Inventory completeness is about identity and geometry, not health.
+    # Require metadata for every active pool and filesystem; an empty filesystem
+    # list must not make all() silently turn a partial inventory into "available".
+    complete = bool(pools) and all(
+        pool.get("uuid")
+        and pool.get("total_physical_bytes") is not None
+        and pool.get("free_physical_bytes") is not None
+        and all(
+            fs.get("uuid") and fs.get("logical_size_bytes") is not None
+            for fs in pool["filesystems"]
+        )
+        for pool in pools
     )
     return {"status": "available" if complete else "metadata_incomplete", "pools": pools}
