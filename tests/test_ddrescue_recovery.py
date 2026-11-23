@@ -1,8 +1,10 @@
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from feclora.storage.ddrescue_recovery import (
     DdrescueRecoveryError,
@@ -140,6 +142,79 @@ class DdrescueRecoveryTests(unittest.TestCase):
             )
             self.assertEqual(resumed.state, "completed")
             self.assertEqual(resumed.summary.bad_sector_bytes, 0)
+
+    def test_timeout_preserves_mapfile_and_marks_job_interrupted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def timeout_runner(command, **_kwargs):
+                with open(command[-1], "w", encoding="ascii") as stream:
+                    stream.write("0x0 0x80 +\n0x80 0x80 -\n")
+                raise subprocess.TimeoutExpired(command, 5)
+
+            with self.assertRaises(DdrescueRecoveryError):
+                recover_block_device(
+                    "/dev/test", "timeout-job", directory, source_size_bytes=256,
+                    source_identity="major_minor:8:0", logical_sector_size=512,
+                    partition_table="none", retry_passes=0,
+                    executables={"ddrescue": "/usr/bin/ddrescue"},
+                    runner=timeout_runner,
+                    device_validator=lambda _path: True,
+                    identity_reader=lambda _path: "major_minor:8:0",
+                    source_safety_check=lambda _path: None,
+                )
+            workspace = os.path.join(directory, ".feclora-recovery-timeout-job")
+            with open(os.path.join(workspace, "job.json"), encoding="utf-8") as stream:
+                state = json.load(stream)
+            self.assertEqual(state["state"], "interrupted")
+            jobs = list_recovery_jobs(directory)
+            self.assertEqual(jobs[0]["rescued_bytes"], 128)
+            self.assertEqual(jobs[0]["unresolved_bytes"], 128)
+
+    def test_cancelled_ddrescue_process_is_terminated_and_job_remains_resumable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            process = Mock()
+            process.poll.side_effect = [None, None]
+            process.wait.return_value = -15
+
+            def start_process(command, **_kwargs):
+                with open(command[-1], "w", encoding="ascii") as stream:
+                    stream.write("0x0 0x80 +\n0x80 0x80 -\n")
+                return process
+
+            with patch(
+                "feclora.storage.ddrescue_recovery.subprocess.Popen",
+                side_effect=start_process,
+            ), patch(
+                "feclora.storage.ddrescue_recovery.time.sleep",
+                side_effect=KeyboardInterrupt,
+            ):
+                with self.assertRaises(KeyboardInterrupt):
+                    recover_block_device(
+                        "/dev/test", "cancel-job", directory, source_size_bytes=256,
+                        source_identity="major_minor:8:0", logical_sector_size=512,
+                        partition_table="none", retry_passes=0,
+                        executables={"ddrescue": "/usr/bin/ddrescue"},
+                        device_validator=lambda _path: True,
+                        identity_reader=lambda _path: "major_minor:8:0",
+                        source_safety_check=lambda _path: None,
+                    )
+
+            process.terminate.assert_called_once_with()
+            process.wait.assert_called_once()
+            workspace = os.path.join(directory, ".feclora-recovery-cancel-job")
+            with open(os.path.join(workspace, "job.json"), encoding="utf-8") as stream:
+                self.assertEqual(json.load(stream)["state"], "interrupted")
+            resumed = recover_block_device(
+                "/dev/test", "cancel-job", directory, source_size_bytes=256,
+                source_identity="major_minor:8:0", logical_sector_size=512,
+                partition_table="none", retry_passes=0,
+                executables={"ddrescue": "/usr/bin/ddrescue"},
+                runner=self._runner("0x0 0x100 +\n"),
+                device_validator=lambda _path: True,
+                identity_reader=lambda _path: "major_minor:8:0",
+                source_safety_check=lambda _path: None,
+                resume=True,
+            )
+            self.assertEqual(resumed.state, "completed")
 
     def test_recovery_reports_mapfile_progress(self):
         with tempfile.TemporaryDirectory() as directory:
