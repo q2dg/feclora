@@ -41,7 +41,6 @@ PAGES = (
     ("restore-profiles", "Perfiles de restauración"),
     ("inventory", "Inventario"),
     ("images", "Imágenes"),
-    ("recovery-jobs", "Recuperaciones ddrescue"),
     ("remote-jobs", "Tareas remotas"),
     ("deployments", "Historial de despliegues"),
     ("repositories", "Repositorios"),
@@ -50,6 +49,7 @@ PAGES = (
     ("server", "Configuración del servidor"),
     ("client-jobs", "Tareas del cliente"),
     ("system", "Sistema"),
+    ("recovery-jobs", "Recuperaciones ddrescue"),
 )
 
 OPERATIONS = (
@@ -182,6 +182,8 @@ class FecloraTUI(App[None]):
     #navigation {
         width: 32;
         min-width: 24;
+        height: 1fr;
+        overflow-y: auto;
         background: $surface;
         color: $text;
         border-right: round $secondary;
