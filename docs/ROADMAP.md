@@ -53,14 +53,16 @@ authenticated transport provide the trust boundary. Age encryption is optional.
 ## Remaining engineering work
 
 - **Disk recovery:** GNU ddrescue now retains a private mapfile and partial image, supports bounded direct retry passes, reports mapfile-based progress, and resumes against a stable WWN/serial when available (otherwise the original path plus major:minor identity) and exact geometry. A completed map can be finalized into a normal raw disk image set with SHA-256 and manifest-last publication; degraded maps are rejected. The Textual recovery-jobs page lists local jobs and derives progress from the private mapfile; completed, degraded, interrupted and failed workspaces remain distinct. Automated fault-injection now covers timeout, cancellation, retained mapfiles and resume after cancellation. Remaining work is acceptance with disposable failing media and a real reboot/resume cycle on the shipped Live system.
-- **Btrfs:** extend the implemented single-subvolume `btrfs send`/`receive`
-  workflow with stream compression/encryption, interactive subvolume/dependency
-  selection, and stronger receive lifecycle management. Current send-stream
-  capture uses a read-only snapshot for writable sources, supports full and
-  incremental streams, and receives into hidden staging before provenance
-  verification. Coordinated multi-device block-image capture and profile-aware
-  layer restore remain separate, unimplemented capabilities; the existing
-  partition-image path remains restricted to single-device Btrfs.
+- **Btrfs:** the single-subvolume `btrfs send`/`receive` workflow now supports
+  full and incremental streams, `none`/`gzip`/`xz`/`zstd`/`lz4` compression,
+  optional `age` encryption, and manifest-driven decrypt/decompress on receive.
+  Capture exposes compression and encryption in the Textual form; receive
+  stages data privately and verifies received provenance before publication.
+  Remaining software work is interactive selection of subvolumes and their
+  dependency chains, plus stronger lifecycle/recovery coverage for interrupted
+  receive operations. Coordinated multi-device block-image capture and
+  profile-aware layer restore remain separate, unimplemented capabilities;
+  the existing partition-image path remains restricted to single-device Btrfs.
 - **LUKS:** implement a separately designed opened-mapping workflow only if
   its plaintext byte-scope, key handling and restore semantics are approved.
   Current raw LUKS2 container partition imaging/restore preserves the closed

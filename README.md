@@ -20,8 +20,9 @@ selected by the operator.
 ## Important scope limits
 
 Feclora supports ext2/3/4, XFS, NTFS, FAT12/16/32, exFAT and F2FS, plus single-device
-Btrfs partitions, subject to the feature matrix. LVM logical volumes and raw
-LUKS2 containers have documented restrictions. Stratis supports local capture
+Btrfs partitions, subject to the feature matrix. Btrfs also has a separate full/incremental
+subvolume send/receive workflow with optional compression and age encryption.
+LVM logical volumes and raw LUKS2 containers have documented restrictions. Stratis supports local capture
 and restore of existing, unmounted XFS filesystems only; pool metadata and
 backing devices are not included, and the target Stratis filesystem must
 already exist. Coordinated multi-device/snapshot

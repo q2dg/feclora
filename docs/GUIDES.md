@@ -44,6 +44,7 @@ title: Step-by-step operator guides
 <details class="section" id="engineering-references"><summary><strong>Engineering references (for maintainers and contributors)</strong></summary>
 <p>These pages describe implementation contracts and safety boundaries. They are not required for routine operation.</p>
 <h3>Storage, artifacts and safety</h3><ul>
+<li><a href="./BTRFS-SUBVOLUME-SEND-RECEIVE.html">Btrfs subvolume send/receive</a></li><li><a href="./BTRFS-SEND-MANIFEST.html">Btrfs send-stream manifest contract</a></li>
 <li><a href="./STORAGE-INVENTORY.html">Read-only storage inventory</a></li><li><a href="./CAPTURE-SOURCE-SAFETY.html">Capture and restore source safety</a></li><li><a href="./SAFE-STORAGE-SELECTION.html">Safe storage selection</a></li><li><a href="./ARTIFACT-WRITER.html">Image artifact writer and atomic publication</a></li><li><a href="./IMAGE-MANIFEST.html">Image manifest contract</a></li><li><a href="./IMAGE-ENCRYPTION.html">Image encryption</a></li><li><a href="./TOOLING-AND-TRANSPORTS.html">External tools and transport boundaries</a></li><li><a href="./FILESYSTEM-SHRINK-RESEARCH.html">Filesystem shrink research checkpoint</a></li>
 </ul>
 <h3>Deployment and local operations</h3><ul>

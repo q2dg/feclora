@@ -4,19 +4,24 @@ Feclora uses a dedicated manifest for Btrfs subvolume replication streams.
 It is intentionally separate from block-image manifests: a `btrfs send` stream
 is not a RAW filesystem image and must be restored with `btrfs receive`.
 
-The initial contract records the source filesystem UUID, subvolume ID and UUID,
-Btrfs device count, stream mode, optional incremental parent UUID, source
-snapshot ancestry/provenance, and the exact stored stream size and SHA-256.
-The stream filename is a basename, and the manifest does not contain commands
-or destination paths.
+The manifest records source filesystem and subvolume identity, Btrfs device
+count, stream mode, optional incremental parent UUID, source snapshot
+ancestry/provenance, compression and encryption modes, and the exact stored
+stream size and SHA-256. The stream filename is a basename; the manifest does
+not contain commands or destination paths.
 
-A full stream has no stream parent. An incremental stream must identify the
-read-only parent subvolume UUID used to generate it. That UUID is distinct from
-Btrfs snapshot ancestry (`parent_uuid`) and received-stream provenance
-(`received_uuid`). The destination must already contain the matching
-received parent before an incremental stream can be applied.
+A full stream has no stream parent. An incremental stream identifies the
+read-only parent subvolume UUID used to generate it. That UUID is distinct
+from Btrfs snapshot ancestry (`parent_uuid`) and received-stream provenance
+(`received_uuid`). The destination must already contain the matching received
+parent before an incremental stream can be applied.
 
-This contract does not itself implement capture or restore. In particular,
-`btrfs receive` may leave a partially received subvolume after failure;
-a receiver must keep that result in private staging and must never report it as
-a completed restore or publish a success marker until verification succeeds.
+The size and digest describe the final stored bytes, including compression
+and, when enabled, age encryption. Receive validates those stored bytes before
+decrypting and decompressing the stream for `btrfs receive`. Legacy manifests
+that omit the encryption field are interpreted as unencrypted; compression
+defaults to `none`.
+
+A receiver must keep partial receives in private staging. It must not report a
+restore as complete or publish the subvolume at its final destination until
+the received name and provenance have been verified.
