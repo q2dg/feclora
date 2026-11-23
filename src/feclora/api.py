@@ -112,7 +112,6 @@ def _operation_repository(params: dict[str, Any], *, write: bool, create_local: 
         raise APIError(f"selected image repository is not safely available: {exc}") from exc
 
 
-@contextmanager
 def _require_btrfs_stream_filesystem_repository(params: dict[str, Any]) -> None:
     """Reject S3 until its image-set contract supports Btrfs stream manifests."""
     repository_id = _repository_id(params)
@@ -126,6 +125,7 @@ def _require_btrfs_stream_filesystem_repository(params: dict[str, Any]) -> None:
         )
 
 
+@contextmanager
 def _operation_repository_context(
     params: dict[str, Any], *, write: bool, create_local: bool = False,
     image_id: str | None = None, upload_image_id: str | None = None,
