@@ -1,4 +1,5 @@
 import hashlib
+import lzma
 from dataclasses import replace
 import os
 from pathlib import Path
@@ -485,6 +486,122 @@ class BtrfsSendTests(unittest.TestCase):
                         age_identity_file=identity,
                     )
             self.assertEqual(receive_calls, [])
+            staging = list(target.glob(".feclora-receive-image-*"))
+            self.assertEqual(len(staging), 1)
+            self.assertEqual(list(staging[0].iterdir()), [])
+
+
+    def test_xz_capture_and_restore_round_trip(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            source = root / "root"
+            source.mkdir()
+            repository = root / "repo"
+            repository.mkdir()
+            target = root / "target"
+            target.mkdir()
+            payload = b"btrfs-xz-stream-payload" * 64
+            received_payload = []
+
+            def capture_runner(argv, **kwargs):
+                if argv[1:3] == ["subvolume", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Name: root\nSubvolume ID: 256\nUUID: {UUID}\n"
+                        "Parent UUID: -\nReceived UUID: -\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\n")
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1:4] == ["subvolume", "list", "-o"]:
+                    return SimpleNamespace(stdout="")
+                if argv[1] == "send":
+                    kwargs["stdout"].write(payload)
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                raise AssertionError(argv)
+
+            manifest = capture_btrfs_subvolume(
+                source, "xz-image", repository,
+                executables={"btrfs": "/usr/bin/btrfs"}, runner=capture_runner,
+                compression="xz",
+            )
+            stored = repository / manifest.stream_filename
+            stored_bytes = stored.read_bytes()
+            self.assertTrue(manifest.stream_filename.endswith(".btrfs.xz"))
+            self.assertEqual(lzma.decompress(stored_bytes), payload)
+            self.assertEqual(hashlib.sha256(stored_bytes).hexdigest(), manifest.stream_sha256)
+            self.assertEqual(len(stored_bytes), manifest.stream_size_bytes)
+
+            def restore_runner(argv, **kwargs):
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1] == "receive":
+                    received_payload.append(kwargs["stdin"].read())
+                    Path(argv[-1], "root").mkdir()
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                if argv[1:3] == ["subvolume", "show"]:
+                    return SimpleNamespace(stdout=(
+                        "Name: root\nSubvolume ID: 300\nUUID: 44444444-4444-4444-4444-444444444444\n"
+                        f"Parent UUID: -\nReceived UUID: {UUID}\n"
+                    ))
+                if argv[1:3] == ["property", "get"]:
+                    return SimpleNamespace(stdout="ro=true\n")
+                raise AssertionError(argv)
+
+            result = restore_btrfs_subvolume(
+                repository / "xz-image.manifest.json", repository, target,
+                executables={"btrfs": "/usr/bin/btrfs"}, runner=restore_runner,
+            )
+            self.assertEqual(result, target / "root")
+            self.assertEqual(received_payload, [payload])
+
+    def test_corrupt_gzip_stream_is_kept_in_quarantined_staging(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            repository = root / "repo"
+            repository.mkdir()
+            target = root / "target"
+            target.mkdir()
+            stored = b"not a gzip stream"
+            (repository / "image.btrfs.gz").write_bytes(stored)
+            import json
+            manifest = {
+                "schema_version": 1, "image_id": "image",
+                "filesystem_uuid": UUID, "subvolume_id": 256,
+                "subvolume_uuid": "22222222-2222-2222-2222-222222222222",
+                "subvolume_name": "root", "device_count": 1,
+                "send_mode": "full", "stream_parent_uuid": None,
+                "stream_filename": "image.btrfs.gz",
+                "stream_size_bytes": len(stored),
+                "stream_sha256": hashlib.sha256(stored).hexdigest(),
+                "compression": "gzip",
+            }
+            manifest_path = repository / "image.manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            receive_calls = []
+
+            def runner(argv, **kwargs):
+                if argv[1:3] == ["filesystem", "show"]:
+                    return SimpleNamespace(stdout=(
+                        f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                    ))
+                if argv[1] == "receive":
+                    receive_calls.append(argv)
+                    kwargs["stdin"].read()
+                    return SimpleNamespace(stdout=b"", stderr=b"")
+                raise AssertionError(argv)
+
+            with self.assertRaisesRegex(BtrfsSendError, "decode/restore failed"):
+                restore_btrfs_subvolume(
+                    manifest_path, repository, target,
+                    executables={"btrfs": "/usr/bin/btrfs"}, runner=runner,
+                )
+            self.assertEqual(len(receive_calls), 1)
+            self.assertFalse((target / "root").exists())
             staging = list(target.glob(".feclora-receive-image-*"))
             self.assertEqual(len(staging), 1)
             self.assertEqual(list(staging[0].iterdir()), [])
