@@ -115,6 +115,9 @@ class LocalOperationStoreTests(unittest.TestCase):
         validated = validate_definition(definition)
         self.assertEqual(validated["action"], "recover_disk")
         self.assertEqual(validated["params"]["retry_passes"], 3)
+        definition["params"]["retry_passes"] = True
+        with self.assertRaisesRegex(LocalOperationError, "retry_passes"):
+            validate_definition(definition)
 
     def test_logical_volume_restore_is_a_valid_durable_operation(self):
         definition = {

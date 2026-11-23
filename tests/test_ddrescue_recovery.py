@@ -61,6 +61,29 @@ class DdrescueRecoveryTests(unittest.TestCase):
                       encoding="utf-8") as stream:
                 self.assertEqual(json.load(stream)["state"], "completed")
 
+    def test_runs_direct_retry_pass_after_incomplete_first_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            commands = []
+            maps = ["0x0 0x80 +\\n0x80 0x80 -\\n", "0x0 0x100 +\\n"]
+            def run(command, **_kwargs):
+                commands.append(command)
+                with open(command[-1], "w", encoding="ascii") as stream:
+                    stream.write(maps.pop(0))
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            result = recover_block_device(
+                "/dev/test", "retry-job", directory, source_size_bytes=256,
+                source_identity="8:0", retry_passes=2,
+                executables={"ddrescue": "/usr/bin/ddrescue"}, runner=run,
+                device_validator=lambda _path: True,
+                identity_reader=lambda _path: "8:0",
+                source_safety_check=lambda _path: None,
+            )
+            self.assertEqual(result.state, "completed")
+            self.assertEqual(len(commands), 2)
+            self.assertIn("--no-scrape", commands[0])
+            self.assertIn("--direct", commands[1])
+            self.assertIn("--retry-passes=2", commands[1])
+
     def test_degraded_recovery_can_resume_with_same_source_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             kwargs = dict(

@@ -116,6 +116,12 @@ def validate_definition(value: Any) -> dict[str, Any]:
         accepted = accepted + tuple(item - {"image_format"} for item in accepted)
     if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
+    if action == "recover_disk":
+        retry_passes = params.get("retry_passes")
+        if isinstance(retry_passes, bool) or not isinstance(retry_passes, int) or not 0 <= retry_passes <= 10:
+            raise LocalOperationError("retry_passes must be an integer between 0 and 10")
+        if not isinstance(params.get("resume"), bool):
+            raise LocalOperationError("resume must be boolean")
     if action == "import_p2v":
         if params.get("source_image_id") == params.get("image_id"):
             raise LocalOperationError("P2V import must publish under a new image identifier")

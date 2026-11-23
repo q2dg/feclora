@@ -90,6 +90,7 @@ nfs-utils
 cifs-utils
 age
 partclone
+ddrescue
 zstd
 lz4
 parted
