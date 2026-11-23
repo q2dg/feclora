@@ -410,7 +410,11 @@ class LocalOperationStore:
             )
         finally:
             os.close(directory_fd)
-        reports, _inspection_errors = self._read_list_entries(names)
+        reports, inspection_errors = self._read_list_entries(names)
+        if inspection_errors:
+            raise LocalOperationError(
+                f"{len(inspection_errors)} local operation record(s) require inspection"
+            )
         reports.sort(
             key=lambda item: str((item.get("events") or [{}])[-1].get("timestamp") or ""),
             reverse=True,
@@ -427,7 +431,7 @@ class LocalOperationStore:
         try:
             names = sorted(
                 entry.name for entry in os.scandir(directory_fd)
-                if re.fullmatch(r"[0-9a-f-]{36}\\.json", entry.name)
+                if re.fullmatch(r"[0-9a-f-]{36}\.json", entry.name)
             )
         finally:
             os.close(directory_fd)
