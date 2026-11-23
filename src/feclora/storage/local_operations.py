@@ -405,17 +405,17 @@ class LocalOperationStore:
         directory_fd = _safe_directory(self.directory, create=False)
         try:
             names = sorted(
-                (entry.name for entry in os.scandir(directory_fd)
-                 if re.fullmatch(r"[0-9a-f-]{36}\.json", entry.name)),
-                reverse=True,
-            )[:limit]
+                entry.name for entry in os.scandir(directory_fd)
+                if re.fullmatch(r"[0-9a-f-]{36}\.json", entry.name)
+            )
         finally:
             os.close(directory_fd)
-        reports = []
-        for name in names:
-            operation_id = name[:-5]
-            reports.append(self.status(operation_id))
-        return reports
+        reports = [self.status(name[:-5]) for name in names]
+        reports.sort(
+            key=lambda item: str((item.get("events") or [{}])[-1].get("timestamp") or ""),
+            reverse=True,
+        )
+        return reports[:limit]
 
     def operation_ids(self) -> list[str]:
         """Enumerate every job definition without parsing its event journal."""

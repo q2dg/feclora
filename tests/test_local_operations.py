@@ -349,6 +349,20 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(report["state"], "cancelled")
             self.assertTrue(report["events"][-1]["details"]["destination_may_be_partial"])
 
+    def test_list_returns_most_recent_jobs_by_event_time_not_uuid(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            params = {"source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                      "encrypt": False}
+            older_id = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+            newer_id = "00000000-0000-4000-8000-000000000001"
+            with patch("feclora.storage.local_operations._timestamp",
+                       side_effect=["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"]):
+                store.submit("capture_disk", params, operation_id=older_id)
+                store.submit("capture_disk", params, operation_id=newer_id)
+            reports = store.list(limit=1)
+            self.assertEqual([item["operation_id"] for item in reports], [newer_id])
+
     def test_list_returns_durable_operation_status(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
