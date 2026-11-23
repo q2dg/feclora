@@ -3498,7 +3498,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             source_file = _text(params, "source_file", maximum=512)
             if not isinstance(params["replace"], bool):
                 raise APIError("replace must be boolean")
-            from feclora.storage.credential_cli import read_source_file
+            from feclora.storage.credential_source import read_source_file
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
             content = read_source_file(source_file)
             return {"credential": SystemdCredentialStore().put(
