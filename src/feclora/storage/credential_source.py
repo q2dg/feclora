@@ -30,7 +30,7 @@ def read_source_file(path: str, *, owner_uid: int = 0) -> bytes:
             chunks.append(chunk)
             remaining -= len(chunk)
         content = b"".join(chunks)
-        if not content or len(content) > 1024 * 1024 or b"\\x00" in content:
+        if not content or len(content) > 1024 * 1024 or b"\x00" in content:
             raise CredentialSourceError("source file content is invalid or too large")
         return content
     finally:
