@@ -58,6 +58,15 @@ class BtrfsSendManifestTests(unittest.TestCase):
                 with self.assertRaises(BtrfsSendManifestError):
                     BtrfsSendManifest.from_dict(full_manifest(**changes))
 
+    def test_encryption_defaults_to_none_and_accepts_age(self):
+        legacy = BtrfsSendManifest.from_dict(full_manifest())
+        self.assertEqual(legacy.encryption, "none")
+        encrypted = BtrfsSendManifest.from_dict(full_manifest(encryption="age"))
+        self.assertEqual(encrypted.encryption, "age")
+        self.assertEqual(BtrfsSendManifest.from_json(encrypted.to_json()), encrypted)
+        with self.assertRaisesRegex(BtrfsSendManifestError, "encryption"):
+            BtrfsSendManifest.from_dict(full_manifest(encryption="unknown"))
+
     def test_rejects_unknown_fields(self):
         with self.assertRaisesRegex(BtrfsSendManifestError, "fields"):
             BtrfsSendManifest.from_dict(full_manifest(command="btrfs receive"))

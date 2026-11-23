@@ -16,6 +16,7 @@ _IMAGE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _COMPRESSIONS = {"none", "gzip", "xz", "zstd", "lz4"}
+_ENCRYPTIONS = {"none", "age"}
 
 
 def _uuid(value: Any, field: str) -> str:
@@ -42,6 +43,7 @@ class BtrfsSendManifest:
     compression: str
     parent_uuid: str | None = None
     received_uuid: str | None = None
+    encryption: str = "none"
     schema_version: int = 1
 
     @classmethod
@@ -54,7 +56,7 @@ class BtrfsSendManifest:
             "stream_parent_uuid", "stream_filename", "stream_size_bytes",
             "stream_sha256", "compression",
         }
-        optional = {"parent_uuid", "received_uuid"}
+        optional = {"parent_uuid", "received_uuid", "encryption"}
         if set(value) - required - optional or required - set(value):
             raise BtrfsSendManifestError("manifest fields do not match the Btrfs send schema")
         version = value["schema_version"]
@@ -92,6 +94,9 @@ class BtrfsSendManifest:
         compression = value["compression"]
         if not isinstance(compression, str) or compression not in _COMPRESSIONS:
             raise BtrfsSendManifestError("unsupported stream compression")
+        encryption = value.get("encryption", "none")
+        if not isinstance(encryption, str) or encryption not in _ENCRYPTIONS:
+            raise BtrfsSendManifestError("unsupported stream encryption")
         normalized = {
             "schema_version": 1, "image_id": image_id,
             "filesystem_uuid": _uuid(value["filesystem_uuid"], "filesystem_uuid"),
@@ -103,6 +108,7 @@ class BtrfsSendManifest:
             "stream_sha256": digest, "compression": compression,
             "parent_uuid": _uuid(value["parent_uuid"], "parent_uuid") if value.get("parent_uuid") is not None else None,
             "received_uuid": _uuid(value["received_uuid"], "received_uuid") if value.get("received_uuid") is not None else None,
+            "encryption": encryption,
         }
         return cls(**normalized)
 
@@ -128,6 +134,8 @@ class BtrfsSendManifest:
             result["parent_uuid"] = self.parent_uuid
         if self.received_uuid is not None:
             result["received_uuid"] = self.received_uuid
+        if self.encryption != "none":
+            result["encryption"] = self.encryption
         return result
 
     def to_json(self) -> str:
