@@ -303,7 +303,7 @@ For each run, record:
   unit-test results alone.
 
 
-## 9. Filesystem-aware partition capture and restore
+## 7. Filesystem-aware partition capture and restore
 
 Run each case on a disposable VM disk/partition formatted with the named
 filesystem. Use the exact Partclone and filesystem-checker packages included
@@ -386,7 +386,7 @@ must not mount, unmount, create, delete or otherwise modify Btrfs objects.
 Mark not run until exercised against a real mounted Btrfs filesystem. This
 inventory does not establish that snapshot capture or restore is supported.
 
-## 10. Capture publication failure and rollback
+## 9. Capture publication failure and rollback
 
 Run against a disposable local repository directory. This verifies the final
 artifact name is not left visible when capture reports a failure after its
@@ -406,7 +406,7 @@ atomic hard-link publication step.
 5. Record the injected failure and directory contents. This software test does
    not replace remote-provider interruption acceptance.
 
-## 11. Artifact-writer rollback ownership
+## 10. Artifact-writer rollback ownership
 
 Run the low-level artifact-writer failure-injection test on a disposable local
 repository directory.
@@ -420,7 +420,7 @@ repository directory.
    replacement contains the attempted artifact.
 5. Do not generalize this local filesystem test to remote provider guarantees;
    repeat provider-specific interruption checks separately.
-## 12. Interrupted capture staging residue
+## 11. Interrupted capture staging residue
 
 A process or host crash can bypass Python cleanup and leave a private
 `.feclora-capture-*` directory or a low-level `.feclora-*.tmp` file in the
