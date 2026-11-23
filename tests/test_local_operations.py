@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from feclora.storage.local_operations import (
     LocalOperationError, LocalOperationStore, validate_definition,
 )
@@ -17,6 +18,29 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(status["state"], "queued")
             self.assertEqual(status["events"][0]["sequence"], 1)
             self.assertEqual(store.definition(operation_id)["params"]["source"], "/dev/sda")
+
+    def test_submit_retries_after_a_short_definition_write(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            real_write = os.write
+            calls = 0
+
+            def short_first_write(fd, data):
+                nonlocal calls
+                calls += 1
+                if calls == 1 and len(data) > 1:
+                    return real_write(fd, data[:len(data) // 2])
+                return real_write(fd, data)
+
+            with patch("feclora.storage.local_operations.os.write", side_effect=short_first_write):
+                operation_id = store.submit("capture_disk", {
+                    "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                    "encrypt": False,
+                })
+
+            self.assertGreaterEqual(calls, 3)
+            self.assertEqual(store.status(operation_id)["state"], "queued")
+            self.assertEqual(store.definition(operation_id)["params"]["image_id"], "daily")
 
     def test_xz_compression_is_valid_for_all_capture_types(self):
         cases = {

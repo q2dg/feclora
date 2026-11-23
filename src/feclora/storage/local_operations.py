@@ -253,7 +253,12 @@ class LocalOperationStore:
             fd = os.open(self._name(identifier, "json"), os.O_WRONLY | os.O_CREAT | os.O_EXCL
                          | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=directory_fd)
             try:
-                os.write(fd, payload + b"\n")
+                view = memoryview(payload + b"\n")
+                while view:
+                    written = os.write(fd, view)
+                    if written <= 0:
+                        raise LocalOperationError("short write while persisting operation definition")
+                    view = view[written:]
                 os.fsync(fd)
             finally:
                 os.close(fd)
