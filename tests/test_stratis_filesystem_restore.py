@@ -122,6 +122,8 @@ class StratisFilesystemRestoreTests(unittest.TestCase):
                 restore_stratis_filesystem_image(
                     "stratis-image.manifest.json", repository, "/dev/dm-9",
                     confirmation="ERASE /dev/dm-9", inventory=value,
+                    executables={"lsblk": "/usr/bin/lsblk", "partclone.xfs": "/usr/bin/partclone.xfs",
+                                 "xfs_repair": "/usr/sbin/xfs_repair"},
                     device_validator=lambda _: True,
                 )
 

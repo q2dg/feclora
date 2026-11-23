@@ -21,6 +21,7 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _PARTITION_ID_RE = re.compile(r"^[A-Za-z0-9_.+-]{1,64}$")
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 _ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image", "logical-volume-image", "stratis-filesystem-image"}
 _ARTIFACT_FORMATS = {"raw", "partclone", "qcow2"}
 _COMPRESSIONS = {"none", "gzip", "zstd", "xz", "lz4"}
@@ -77,6 +78,9 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
         for key in ("stratis_pool_name", "stratis_pool_uuid", "stratis_filesystem_name", "stratis_filesystem_uuid"):
             if not isinstance(value.get(key), str) or not value[key]:
                 raise ManifestValidationError(f"Stratis filesystem image requires storage.{key}")
+        for key in ("stratis_pool_uuid", "stratis_filesystem_uuid"):
+            if not _UUID_RE.fullmatch(value[key]):
+                raise ManifestValidationError(f"storage.{key} must be a valid UUID")
     result = dict(value)
     for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies", "btrfs_subvolume_id", "btrfs_device_count"}:
         item = value.get(key)
@@ -109,6 +113,14 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
         if not isinstance(included, bool):
             raise ManifestValidationError("Storage dependency included_in_source_bytes must be boolean")
         normalized.append(dict(dependency))
+    if image_type == "stratis_filesystem":
+        pool_uuid = value["stratis_pool_uuid"].lower()
+        matching = [item for item in normalized if item["kind"] == "stratis_pool"]
+        if (len(matching) != 1 or matching[0]["identity"].lower() != pool_uuid
+                or matching[0]["included_in_source_bytes"] is not False):
+            raise ManifestValidationError(
+                "Stratis filesystem image requires exactly one matching external stratis_pool dependency"
+            )
     result["dependencies"] = normalized
     return result
 
@@ -295,6 +307,10 @@ class ImageManifest:
             raise ManifestValidationError("Partition image requires a partition-image artifact")
         if image_type == "stratis_filesystem" and roles != ["stratis-filesystem-image"]:
             raise ManifestValidationError("Stratis filesystem image requires exactly one stratis-filesystem-image artifact")
+        if image_type == "stratis_filesystem" and (
+            artifacts[0].format != "partclone" or artifacts[0].filesystem != "xfs"
+        ):
+            raise ManifestValidationError("Stratis filesystem images require a Partclone XFS artifact")
         if image_type == "logical_volume" and roles != ["logical-volume-image"]:
             raise ManifestValidationError("Logical-volume image requires exactly one logical-volume-image artifact and no other artifact roles")
         if image_type != "logical_volume" and "logical-volume-image" in roles:

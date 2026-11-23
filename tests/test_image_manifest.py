@@ -394,7 +394,10 @@ class ImageManifestTests(unittest.TestCase):
             }],
             "storage": {
                 "schema_version": 1, "capture_scope": "stratis_filesystem_bytes",
-                "source_layer": "stratis_filesystem", "dependencies": [],
+                "source_layer": "stratis_filesystem", "dependencies": [{
+                    "kind": "stratis_pool", "identity": "11111111-1111-1111-1111-111111111111",
+                    "included_in_source_bytes": False,
+                }],
                 "stratis_pool_name": "pool-a", "stratis_pool_uuid": "11111111-1111-1111-1111-111111111111",
                 "stratis_filesystem_name": "data", "stratis_filesystem_uuid": "22222222-2222-2222-2222-222222222222",
             },
@@ -403,6 +406,59 @@ class ImageManifestTests(unittest.TestCase):
         self.assertEqual(manifest.image_type, "stratis_filesystem")
         self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
 
+    def test_stratis_filesystem_manifest_rejects_invalid_uuid_and_pool_dependency(self):
+        value = {
+            "schema_version": 1, "image_id": "stratis-image",
+            "image_type": "stratis_filesystem", "source_size_bytes": 4096,
+            "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [{
+                "filename": "stratis.img", "role": "stratis-filesystem-image",
+                "format": "partclone", "compression": "none", "size_bytes": 4096,
+                "sha256": "b" * 64, "filesystem": "xfs",
+            }],
+            "storage": {
+                "schema_version": 1, "capture_scope": "stratis_filesystem_bytes",
+                "source_layer": "stratis_filesystem",
+                "stratis_pool_name": "pool-a", "stratis_pool_uuid": "not-a-uuid",
+                "stratis_filesystem_name": "data",
+                "stratis_filesystem_uuid": "22222222-2222-2222-2222-222222222222",
+                "dependencies": [{
+                    "kind": "stratis_pool", "identity": "not-a-uuid",
+                    "included_in_source_bytes": False,
+                }],
+            },
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "valid UUID"):
+            ImageManifest.from_dict(value)
+        value["storage"]["stratis_pool_uuid"] = "11111111-1111-1111-1111-111111111111"
+        with self.assertRaisesRegex(ManifestValidationError, "matching external"):
+            ImageManifest.from_dict(value)
+
+    def test_stratis_filesystem_manifest_requires_partclone_xfs(self):
+        value = {
+            "schema_version": 1, "image_id": "stratis-image",
+            "image_type": "stratis_filesystem", "source_size_bytes": 4096,
+            "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [{
+                "filename": "stratis.img", "role": "stratis-filesystem-image",
+                "format": "raw", "compression": "none", "size_bytes": 4096,
+                "sha256": "b" * 64, "filesystem": "xfs",
+            }],
+            "storage": {
+                "schema_version": 1, "capture_scope": "stratis_filesystem_bytes",
+                "source_layer": "stratis_filesystem",
+                "stratis_pool_name": "pool-a", "stratis_pool_uuid": "11111111-1111-1111-1111-111111111111",
+                "stratis_filesystem_name": "data",
+                "stratis_filesystem_uuid": "22222222-2222-2222-2222-222222222222",
+                "dependencies": [{
+                    "kind": "stratis_pool", "identity": "11111111-1111-1111-1111-111111111111",
+                    "included_in_source_bytes": False,
+                }],
+            },
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "Partclone XFS"):
+            ImageManifest.from_dict(value)
+
     def test_stratis_filesystem_manifest_rejects_missing_identity(self):
         value = {
             "schema_version": 1, "image_id": "stratis-data",
@@ -410,8 +466,8 @@ class ImageManifestTests(unittest.TestCase):
             "logical_sector_size": 512, "partition_table": "none",
             "artifacts": [{
                 "filename": "stratis-data.img", "role": "stratis-filesystem-image",
-                "format": "raw", "compression": "none", "size_bytes": 4096,
-                "sha256": "b" * 64,
+                "format": "partclone", "compression": "none", "size_bytes": 4096,
+                "sha256": "b" * 64, "filesystem": "xfs",
             }],
             "storage": {
                 "schema_version": 1, "capture_scope": "stratis_filesystem_bytes",
