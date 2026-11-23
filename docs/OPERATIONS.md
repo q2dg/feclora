@@ -46,8 +46,10 @@ operational approach is to build and boot a new ISO using
 [the build procedure](BUILD.html).
 
 1. Review the release notes and the exact source commit intended for the new
-   image. Check CI, Python tests, localization checks and CodeQL results for
-   that commit.
+   image. Check the exact commit's CI result (static validation, Python unit
+   tests and documentation checks) and CodeQL result. Locale coverage remains
+   incomplete and has no dedicated end-to-end validation gate; do not treat a
+   passing CI run as proof that every translation is complete.
 2. Back up and verify all required repository image sets and any external
    provider configuration using the provider's own backup process.
 3. Build the new ISO by following [BUILD](BUILD.html). Record the installer
