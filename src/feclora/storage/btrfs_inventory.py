@@ -378,8 +378,13 @@ def _allocation_type_and_profile(type_flags: str) -> tuple[str, str, bool]:
         token.lower() for token in tokens
         if token not in {"DATA", "METADATA", "SYSTEM", "METADATA_REMAP"}
     ]
-    profile = profile_tokens[0] if profile_tokens else "single"
-    return "+".join(sorted(kinds)), profile, profile in _KNOWN_PROFILES
+    # A chunk has at most one allocation profile. Silently selecting the
+    # first flag would turn contradictory/unknown layouts into a known one.
+    if len(profile_tokens) != len(set(profile_tokens)):
+        raise BtrfsInventoryError("Btrfs chunk contains duplicate allocation profile flags")
+    profile = "+".join(sorted(profile_tokens)) if profile_tokens else "single"
+    known_profile = len(profile_tokens) <= 1 and profile in _KNOWN_PROFILES
+    return "+".join(sorted(kinds)), profile, known_profile
 
 
 def parse_chunk_tree(

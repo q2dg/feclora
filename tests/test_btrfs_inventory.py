@@ -190,6 +190,19 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         self.assertEqual(by_type["metadata"]["device_ids"], [1])
         self.assertIsNone(by_type["metadata"]["used_bytes"])
 
+    def test_chunk_tree_does_not_accept_conflicting_allocation_profiles(self):
+        conflicting = CHUNK_TREE.replace("DATA|RAID1", "DATA|RAID1|RAID10", 1)
+        chunks, profiles = parse_chunk_tree(conflicting, known_device_ids={1, 2})
+        data_chunk = next(item for item in chunks if item["type"] == "data")
+        self.assertFalse(data_chunk["known_profile"])
+        self.assertEqual(data_chunk["profile"], "raid1+raid10")
+        self.assertFalse(next(item for item in profiles if item["type"] == "data")["known_profile"])
+
+    def test_chunk_tree_rejects_duplicate_allocation_profile_flags(self):
+        duplicated = CHUNK_TREE.replace("DATA|RAID1", "DATA|RAID1|RAID1", 1)
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate allocation profile"):
+            parse_chunk_tree(duplicated)
+
     def test_chunk_tree_preserves_unknown_profiles_and_rejects_missing_stripes(self):
         unknown = CHUNK_TREE.replace("DATA|RAID1", "DATA|FUTURE_RAID")
         _chunks, profiles = parse_chunk_tree(unknown, known_device_ids={1, 2})
