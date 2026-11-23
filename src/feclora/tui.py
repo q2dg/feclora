@@ -13,7 +13,7 @@ import uuid
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.theme import Theme
-from textual.widgets import Button, DataTable, Footer, Header, Input, ProgressBar, Select, Static, TextArea
+from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, ProgressBar, Select, Static, TextArea
 
 from feclora.tui_api import TUIAPIError, call_feclora
 
@@ -53,6 +53,7 @@ PAGES = (
 
 OPERATIONS = (
     ("Capturar disco", "capture_disk"),
+    ("Recuperar disco con ddrescue", "recover_disk"),
     ("Capturar disco virtual QCOW2 (P2V)", "capture_p2v"),
     ("Capturar partición", "capture_partition"),
     ("Capturar volumen lógico", "capture_logical_volume"),
@@ -514,6 +515,7 @@ class FecloraTUI(App[None]):
                     yield Button("Cifrar artefactos con age", id="encrypt-toggle", variant="default")
                     yield Button("Usar cifrado con frase secreta", id="encrypt-passphrase-toggle", variant="default")
                     yield Input(placeholder="Frase secreta de cifrado", password=True, id="capture-passphrase")
+                    yield Checkbox("Reanudar recuperación existente", value=False, id="recovery-resume")
                     yield Static("Ruta absoluta de la ISO Feclora base", classes="field-label", id="base-iso-label")
                     yield Input(placeholder="/home/feclora/Downloads/feclora-live.iso", id="base-iso")
                     yield Static("WWN del disco destino (opcional si se indica serie)", classes="field-label", id="target-wwn-label")
@@ -2392,6 +2394,7 @@ class FecloraTUI(App[None]):
     async def _update_operation_fields(self) -> None:
         operation = str(self.query_one("#operation-type", Select).value)
         is_capture = operation.startswith("capture_")
+        is_recovery = operation == "recover_disk"
         is_restore = operation.startswith("restore_")
         is_clone = operation.startswith("clone_")
         is_disk = operation.endswith("_disk") or operation == "capture_p2v"
@@ -2404,11 +2407,11 @@ class FecloraTUI(App[None]):
         source_select = self.query_one("#source-device", Select)
         target_select = self.query_one("#target-device", Select)
         image_select = self.query_one("#existing-image", Select)
-        self.query_one("#source-label", Static).display = is_capture or is_clone or operation == "restore_proportional_disk"
+        self.query_one("#source-label", Static).display = is_capture or is_recovery or is_clone or operation == "restore_proportional_disk"
         source_select.display = source_label.display
         target_label.display = is_restore or is_clone
         target_select.display = target_label.display
-        self.query_one("#new-image-label", Static).display = is_capture
+        self.query_one("#new-image-label", Static).display = is_capture or is_recovery
         self.query_one("#new-image-id", Input).display = is_capture
         self.query_one("#existing-image-label", Static).display = is_restore or is_recovery_iso or is_bundle
         image_select.display = is_restore or is_recovery_iso or is_bundle
@@ -2419,6 +2422,7 @@ class FecloraTUI(App[None]):
         self.query_one("#encrypt-toggle", Button).display = is_capture and operation != "capture_p2v" and not (operation == "capture_disk" and str(self.query_one("#image-format", Select).value) == "qcow2")
         self.query_one("#encrypt-passphrase-toggle", Button).display = operation == "capture_disk" and str(self.query_one("#image-format", Select).value) != "qcow2"
         self.query_one("#capture-passphrase", Input).display = self.query_one("#encrypt-passphrase-toggle", Button).display and self.query_one("#encrypt-passphrase-toggle", Button).variant == "success"
+        self.query_one("#recovery-resume", Checkbox).display = is_recovery
         self.query_one("#repository-label", Static).display = True
         self.query_one("#repository-select", Select).display = True
         self.query_one("#base-iso-label", Static).display = is_recovery_iso or is_bundle
@@ -2456,7 +2460,7 @@ class FecloraTUI(App[None]):
             target_devices = [
                 item for item in self._devices if item.get("type") == ("disk" if is_disk else "part")
             ]
-        if operation in {"capture_disk", "capture_p2v", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem", "clone_disk", "clone_partition", "restore_proportional_disk"}:
+        if operation in {"capture_disk", "recover_disk", "capture_p2v", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem", "clone_disk", "clone_partition", "restore_proportional_disk"}:
             self._set_device_options(source_select, source_devices)
         else:
             self._set_device_options(source_select, [])
@@ -2541,6 +2545,17 @@ class FecloraTUI(App[None]):
                     if not capture_passphrase:
                         raise TUIAPIError("Indica una frase secreta para cifrar la captura.")
                     params["encrypt_passphrase"] = True
+            elif operation == "recover_disk":
+                if not source or not new_image_id:
+                    raise TUIAPIError("Selecciona el disco de origen e indica un identificador para la recuperación.")
+                params = {
+                    "source": source, "image_id": new_image_id,
+                    "retry_passes": 3,
+                    "resume": self.query_one("#recovery-resume", Checkbox).value,
+                }
+                repository_id = str(self.query_one("#repository-select", Select).value or "")
+                if repository_id:
+                    params["repository_id"] = repository_id
             elif operation == "build_recovery_iso":
                 image_id = str(self.query_one("#existing-image", Select).value or "")
                 base_iso = self.query_one("#base-iso", Input).value.strip()

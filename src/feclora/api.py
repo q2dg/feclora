@@ -2709,6 +2709,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
+        "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
@@ -2734,6 +2735,7 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
     operation_fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
+        "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
