@@ -3494,12 +3494,14 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id", "kind", "source_file", "replace"}:
                 raise APIError("put_systemd_credential requires id, kind, source_file and replace")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
-            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|s3", maximum=16)
+            kind = _text(params, "kind", maximum=16)
+            from feclora.storage.systemd_credential_store import CREDENTIAL_KINDS, SystemdCredentialStore
+            if kind not in CREDENTIAL_KINDS:
+                raise APIError("unsupported credential kind")
             source_file = _text(params, "source_file", maximum=512)
             if not isinstance(params["replace"], bool):
                 raise APIError("replace must be boolean")
             from feclora.storage.credential_source import read_source_file
-            from feclora.storage.systemd_credential_store import SystemdCredentialStore
             content = read_source_file(source_file)
             return {"credential": SystemdCredentialStore().put(
                 identifier, kind, content, replace=params["replace"],
@@ -3508,8 +3510,10 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id", "kind"}:
                 raise APIError("remove_systemd_credential requires id and kind")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
-            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|s3", maximum=16)
-            from feclora.storage.systemd_credential_store import SystemdCredentialStore
+            kind = _text(params, "kind", maximum=16)
+            from feclora.storage.systemd_credential_store import CREDENTIAL_KINDS, SystemdCredentialStore
+            if kind not in CREDENTIAL_KINDS:
+                raise APIError("unsupported credential kind")
             store = SystemdCredentialStore()
             if _remote_repository_manager().credential_is_referenced(str(store._path(identifier, kind))):
                 raise APIError("credential is still referenced by a saved repository; update or remove that repository first")
