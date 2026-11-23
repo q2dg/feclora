@@ -90,14 +90,22 @@ def _image_manifest(image_id: str, repository: Path | None = None) -> Path:
     return path
 
 
-def _operation_repository(params: dict[str, Any], *, write: bool, create_local: bool = False) -> Path:
-    """Resolve a local or explicitly selected, identity-verified image repository."""
+def _repository_id(params: dict[str, Any]) -> str | None:
+    """Return a validated repository ID, or None for the local repository."""
     repository_id = params.get("repository_id")
     if repository_id is None:
-        return _repository(create=create_local)
+        return None
     if (not isinstance(repository_id, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
         raise APIError("repository_id is invalid")
+    return repository_id
+
+
+def _operation_repository(params: dict[str, Any], *, write: bool, create_local: bool = False) -> Path:
+    """Resolve a local or explicitly selected, identity-verified image repository."""
+    repository_id = _repository_id(params)
+    if repository_id is None:
+        return _repository(create=create_local)
     try:
         return Path(_remote_repository_manager().resolve(repository_id, write=write))
     except Exception as exc:
@@ -111,13 +119,10 @@ def _operation_repository_context(
     upload_new_images: bool = False,
 ):
     """Resolve a filesystem repository or stage S3 objects in a private work directory."""
-    repository_id = params.get("repository_id")
+    repository_id = _repository_id(params)
     if repository_id is None:
         yield _operation_repository(params, write=write, create_local=create_local)
         return
-    if (not isinstance(repository_id, str)
-            or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
-        raise APIError("repository_id is invalid")
     from feclora.storage.s3_repository_manager import S3RepositoryManager
     manager = S3RepositoryManager()
     s3_definition = next((item for item in manager.list() if item["id"] == repository_id), None)
