@@ -203,6 +203,24 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         with self.assertRaisesRegex(BtrfsInventoryError, "duplicate allocation profile"):
             parse_chunk_tree(duplicated)
 
+    def test_chunk_tree_rejects_duplicate_geometry_and_stripe_count_rows(self):
+        duplicate_geometry = CHUNK_TREE.replace(
+            "        io_align 4096 io_width 4096 sector_size 4096",
+            "        length 1048576 owner 2 stripe_len 65536 type DATA|RAID1\\n"
+            "        io_align 4096 io_width 4096 sector_size 4096",
+            1,
+        )
+        duplicate_stripe_count = CHUNK_TREE.replace(
+            "        stripe 0 devid 1 offset 0",
+            "        num_stripes 2 sub_stripes 1\\n"
+            "        stripe 0 devid 1 offset 0",
+            1,
+        )
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate geometry rows"):
+            parse_chunk_tree(duplicate_geometry)
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate stripe-count rows"):
+            parse_chunk_tree(duplicate_stripe_count)
+
     def test_chunk_tree_preserves_unknown_profiles_and_rejects_missing_stripes(self):
         unknown = CHUNK_TREE.replace("DATA|RAID1", "DATA|FUTURE_RAID")
         _chunks, profiles = parse_chunk_tree(unknown, known_device_ids={1, 2})

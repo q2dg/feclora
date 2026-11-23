@@ -449,6 +449,8 @@ def parse_chunk_tree(
             continue
         match = _CHUNK_DATA.match(line)
         if match:
+            if current["length_bytes"] is not None:
+                raise BtrfsInventoryError("Btrfs chunk contains duplicate geometry rows")
             length, owner, stripe_len, type_flags = match.groups()
             current.update({
                 "length_bytes": int(length),
@@ -459,6 +461,8 @@ def parse_chunk_tree(
             continue
         match = _CHUNK_STRIPE_COUNT.match(line)
         if match:
+            if current["num_stripes"] is not None:
+                raise BtrfsInventoryError("Btrfs chunk contains duplicate stripe-count rows")
             current["num_stripes"], current["sub_stripes"] = (
                 int(value) for value in match.groups()
             )
