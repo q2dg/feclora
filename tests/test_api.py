@@ -1612,6 +1612,18 @@ class APITests(unittest.TestCase):
         self.assertEqual(str(result), "/var/lib/feclora/repositories/images")
         manager.resolve.assert_called_once_with("images", write=True)
 
+    def test_pxe_answer_source_rejects_invalid_repository_id_before_provider_io(self):
+        from feclora.api import _read_pxe_answer_source
+        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager") as manager:
+            with self.assertRaisesRegex(APIError, "repository_id is invalid"):
+                _read_pxe_answer_source({
+                    "job_id": "00000000-0000-4000-8000-000000000000",
+                    "source": "repository",
+                    "repository_id": "../images",
+                    "source_path": "answer.json",
+                })
+        manager.assert_not_called()
+
     def test_operation_repository_rejects_invalid_repository_id(self):
         from feclora.api import _operation_repository
         with self.assertRaisesRegex(APIError, "repository_id is invalid"):
