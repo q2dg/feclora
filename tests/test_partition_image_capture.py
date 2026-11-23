@@ -118,7 +118,13 @@ class PartitionImageCaptureTests(unittest.TestCase):
             inventory = make_inventory("/dev/fake1", 4096, "btrfs")
             inventory["btrfs_topology"] = {"status": "available", "filesystems": [{
                 "uuid": "01234567-89ab-cdef-0123-456789abcdef",
-                "total_devices": 1, "devices": [{"path": "/dev/fake1"}],
+                "total_devices": 1, "devices": [{"devid": 1, "path": "/dev/fake1"}],
+                "allocation_profile_status": "available",
+                "allocation_profiles": [{"type": "data", "profile": "single", "known_profile": True}],
+                "chunks": [{
+                    "logical_start": 1048576, "type": "data", "profile": "single",
+                    "device_ids": [1], "device_mapping_complete": True,
+                }],
             }]}
             inventory["btrfs_subvolumes"] = {"status": "available", "mounts": []}
             manifest = capture_partition_image(
