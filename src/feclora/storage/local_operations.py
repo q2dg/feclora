@@ -87,6 +87,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_disk": {"source", "image_id", "compression", "encrypt", "image_format", "repository_id", "encrypt_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
         "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
@@ -192,7 +193,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         expected_confirmation = None
     if expected_confirmation is not None and params.get("confirmation") != expected_confirmation:
         raise LocalOperationError("destructive operation confirmation does not match its target and source")
-    if action in {"capture_disk", "capture_partition", "capture_logical_volume"}:
+    if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem"}:
         if params.get("compression") not in {"none", "gzip", "xz", "zstd", "lz4"}:
             raise LocalOperationError("unsupported compression")
         if not isinstance(params.get("encrypt"), bool):

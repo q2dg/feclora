@@ -57,6 +57,10 @@ class LocalOperationStoreTests(unittest.TestCase):
                 "source": "/dev/mapper/vg-root", "image_id": "lv-image",
                 "compression": "xz", "encrypt": False,
             },
+            "capture_stratis_filesystem": {
+                "source": "/dev/dm-3", "image_id": "stratis-image",
+                "compression": "xz", "encrypt": False,
+            },
         }
         for index, (action, params) in enumerate(cases.items(), start=20):
             with self.subTest(action=action):

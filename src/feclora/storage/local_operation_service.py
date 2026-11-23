@@ -36,6 +36,7 @@ _OPERATION_DEFAULT_PHASE = {
     "capture_disk": "capturing",
     "capture_partition": "capturing",
     "capture_logical_volume": "capturing",
+    "capture_stratis_filesystem": "capturing",
     "restore_disk": "restoring",
     "restore_proportional_disk": "restoring",
     "execute_restore_profile": "restoring",

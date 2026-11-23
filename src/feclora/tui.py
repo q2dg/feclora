@@ -56,6 +56,7 @@ OPERATIONS = (
     ("Capturar disco virtual QCOW2 (P2V)", "capture_p2v"),
     ("Capturar partición", "capture_partition"),
     ("Capturar volumen lógico", "capture_logical_volume"),
+    ("Capturar filesystem Stratis", "capture_stratis_filesystem"),
     ("Restaurar disco", "restore_disk"),
     ("Restaurar proporcionalmente a un disco menor", "restore_proportional_disk"),
     ("Restaurar partición", "restore_partition"),
@@ -2394,6 +2395,7 @@ class FecloraTUI(App[None]):
         is_clone = operation.startswith("clone_")
         is_disk = operation.endswith("_disk") or operation == "capture_p2v"
         is_logical_volume = operation.endswith("_logical_volume")
+        is_stratis_filesystem = operation == "capture_stratis_filesystem"
         is_recovery_iso = operation == "build_recovery_iso"
         is_bundle = operation == "build_deployment_bundle"
         source_label = self.query_one("#source-label", Static)
@@ -2430,14 +2432,22 @@ class FecloraTUI(App[None]):
         self.query_one("#deployment-job", TextArea).display = is_bundle
         self.query_one("#confirmation", Input).display = is_restore or is_clone or is_recovery_iso
         self.query_one("#confirmation-prompt", Static).display = is_restore or is_clone or is_recovery_iso
-        source_devices = self._logical_volumes if is_logical_volume else [
-            item for item in self._devices
-            if item.get("type") == ("disk" if is_disk or operation == "restore_proportional_disk" else "part")
-        ]
+        if is_logical_volume:
+            source_devices = self._logical_volumes
+        elif is_stratis_filesystem:
+            source_devices = [
+                item for item in self._devices
+                if item.get("type") == "dm" and str(item.get("filesystem") or "").lower() == "xfs"
+            ]
+        else:
+            source_devices = [
+                item for item in self._devices
+                if item.get("type") == ("disk" if is_disk or operation == "restore_proportional_disk" else "part")
+            ]
         target_devices = self._logical_volumes if is_logical_volume else [
             item for item in self._devices if item.get("type") == ("disk" if is_disk else "part")
         ]
-        if operation in {"capture_disk", "capture_p2v", "capture_partition", "capture_logical_volume", "clone_disk", "clone_partition", "restore_proportional_disk"}:
+        if operation in {"capture_disk", "capture_p2v", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem", "clone_disk", "clone_partition", "restore_proportional_disk"}:
             self._set_device_options(source_select, source_devices)
         else:
             self._set_device_options(source_select, [])
@@ -2445,7 +2455,7 @@ class FecloraTUI(App[None]):
             self._set_device_options(target_select, target_devices)
         else:
             self._set_device_options(target_select, [])
-        image_type = "logical_volume" if is_logical_volume else "disk" if is_disk or is_recovery_iso or is_bundle else "partition"
+        image_type = "stratis_filesystem" if is_stratis_filesystem else "logical_volume" if is_logical_volume else "disk" if is_disk or is_recovery_iso or is_bundle else "partition"
         images = [item for item in self._images if item.get("image_type") == image_type]
         image_select.set_options(
             [("Selecciona una imagen…", "")] +
