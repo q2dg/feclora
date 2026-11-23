@@ -60,6 +60,8 @@ OPERATIONS = (
     ("Capturar partición", "capture_partition"),
     ("Capturar volumen lógico", "capture_logical_volume"),
     ("Capturar filesystem Stratis", "capture_stratis_filesystem"),
+    ("Capturar subvolumen Btrfs", "capture_btrfs_subvolume"),
+    ("Recibir stream Btrfs", "receive_btrfs_subvolume"),
     ("Restaurar filesystem Stratis", "restore_stratis_filesystem"),
     ("Restaurar disco", "restore_disk"),
     ("Restaurar proporcionalmente a un disco menor", "restore_proportional_disk"),
@@ -510,6 +512,14 @@ class FecloraTUI(App[None]):
                     yield Select([("Selecciona una imagen…", "")], value="", id="existing-image")
                     yield Static("Identificador de la nueva imagen", classes="field-label", id="new-image-label")
                     yield Input(placeholder="letras, números, punto, guion o guion bajo", id="new-image-id")
+                    yield Static("Ruta absoluta del subvolumen Btrfs", classes="field-label", id="btrfs-source-label")
+                    yield Input(placeholder="/mnt/btrfs/root", id="btrfs-source-path")
+                    yield Static("Ruta absoluta del padre incremental (opcional)", classes="field-label", id="btrfs-capture-parent-label")
+                    yield Input(placeholder="/mnt/btrfs/snapshots/base", id="btrfs-capture-parent")
+                    yield Static("Directorio destino Btrfs ya montado", classes="field-label", id="btrfs-target-label")
+                    yield Input(placeholder="/mnt/btrfs/received", id="btrfs-target-directory")
+                    yield Static("Padre recibido para incremental (opcional)", classes="field-label", id="btrfs-receive-parent-label")
+                    yield Input(placeholder="/mnt/btrfs/received/base", id="btrfs-receive-parent")
                     yield Static("Repositorio de imágenes", classes="field-label", id="repository-label")
                     yield Select([("Repositorio local", "")], value="", id="repository-select")
                     yield Static("Formato de imagen", classes="field-label", id="format-label")
@@ -2423,6 +2433,8 @@ class FecloraTUI(App[None]):
 
     async def _update_operation_fields(self) -> None:
         operation = str(self.query_one("#operation-type", Select).value)
+        is_btrfs_capture = operation == "capture_btrfs_subvolume"
+        is_btrfs_receive = operation == "receive_btrfs_subvolume"
         is_capture = operation.startswith("capture_")
         is_recovery = operation == "recover_disk"
         is_recovery_finalize = operation == "finalize_recovery"
@@ -2438,22 +2450,30 @@ class FecloraTUI(App[None]):
         source_select = self.query_one("#source-device", Select)
         target_select = self.query_one("#target-device", Select)
         image_select = self.query_one("#existing-image", Select)
-        self.query_one("#source-label", Static).display = is_capture or is_recovery or is_clone or operation == "restore_proportional_disk"
+        self.query_one("#source-label", Static).display = (is_capture or is_recovery or is_clone or operation == "restore_proportional_disk") and not is_btrfs_capture
         source_select.display = source_label.display
+        for suffix in ("source", "capture-parent", "target", "receive-parent"):
+            self.query_one(f"#btrfs-{suffix}-label", Static).display = (
+                is_btrfs_capture and suffix in {"source", "capture-parent"}
+            ) or (is_btrfs_receive and suffix in {"target", "receive-parent"})
+            self.query_one(f"#btrfs-{suffix}-path" if suffix in {"source", "target"} else f"#btrfs-{suffix}", Input).display = (
+                is_btrfs_capture and suffix in {"source", "capture-parent"}
+            ) or (is_btrfs_receive and suffix in {"target", "receive-parent"})
         target_label.display = is_restore or is_clone
         target_select.display = target_label.display
         self.query_one("#new-image-label", Static).display = is_capture or is_recovery or is_recovery_finalize
         self.query_one("#new-image-label", Static).update(
-            "Identificador del trabajo de recuperación" if is_recovery_finalize else "Nuevo identificador de imagen"
+            "Identificador del trabajo de recuperación" if is_recovery_finalize else
+            "Identificador del stream Btrfs" if is_btrfs_receive else "Nuevo identificador de imagen"
         )
-        self.query_one("#new-image-id", Input).display = is_capture
+        self.query_one("#new-image-id", Input).display = is_capture or is_btrfs_receive
         self.query_one("#existing-image-label", Static).display = is_restore or is_recovery_iso or is_bundle
         image_select.display = is_restore or is_recovery_iso or is_bundle
         self.query_one("#format-label", Static).display = operation == "capture_disk"
         self.query_one("#image-format", Select).display = operation == "capture_disk"
-        self.query_one("#compression-label", Static).display = is_capture and operation != "capture_p2v"
-        self.query_one("#compression", Select).display = is_capture and operation != "capture_p2v"
-        self.query_one("#encrypt-toggle", Button).display = is_capture and operation != "capture_p2v" and not (operation == "capture_disk" and str(self.query_one("#image-format", Select).value) == "qcow2")
+        self.query_one("#compression-label", Static).display = is_capture and operation not in {"capture_p2v", "capture_btrfs_subvolume"}
+        self.query_one("#compression", Select).display = is_capture and operation not in {"capture_p2v", "capture_btrfs_subvolume"}
+        self.query_one("#encrypt-toggle", Button).display = is_capture and operation not in {"capture_p2v", "capture_btrfs_subvolume"} and not (operation == "capture_disk" and str(self.query_one("#image-format", Select).value) == "qcow2")
         self.query_one("#encrypt-passphrase-toggle", Button).display = operation == "capture_disk" and str(self.query_one("#image-format", Select).value) != "qcow2"
         self.query_one("#capture-passphrase", Input).display = self.query_one("#encrypt-passphrase-toggle", Button).display and self.query_one("#encrypt-passphrase-toggle", Button).variant == "success"
         self.query_one("#recovery-resume", Checkbox).display = is_recovery
@@ -2549,7 +2569,20 @@ class FecloraTUI(App[None]):
         capture_passphrase: str | None = None
         message.update("")
         try:
-            if operation.startswith("capture_"):
+            if operation == "capture_btrfs_subvolume":
+                source_path = self.query_one("#btrfs-source-path", Input).value.strip()
+                if not source_path.startswith("/") or not new_image_id:
+                    raise TUIAPIError("Indica una ruta absoluta de subvolumen Btrfs y un identificador de stream.")
+                params = {"source_path": source_path, "image_id": new_image_id}
+                parent_path = self.query_one("#btrfs-capture-parent", Input).value.strip()
+                if parent_path:
+                    if not parent_path.startswith("/"):
+                        raise TUIAPIError("La ruta del padre incremental debe ser absoluta.")
+                    params["parent_path"] = parent_path
+                repository_id = str(self.query_one("#repository-select", Select).value or "")
+                if repository_id:
+                    params["repository_id"] = repository_id
+            elif operation.startswith("capture_"):
                 if not source or not new_image_id:
                     raise TUIAPIError("Selecciona el origen e indica un identificador de imagen.")
                 repository_id = str(self.query_one("#repository-select", Select).value or "")
@@ -2579,6 +2612,20 @@ class FecloraTUI(App[None]):
                     if not capture_passphrase:
                         raise TUIAPIError("Indica una frase secreta para cifrar la captura.")
                     params["encrypt_passphrase"] = True
+            elif operation == "receive_btrfs_subvolume":
+                image_id = new_image_id
+                target_directory = self.query_one("#btrfs-target-directory", Input).value.strip()
+                if not image_id or not target_directory.startswith("/"):
+                    raise TUIAPIError("Indica el identificador del stream y un directorio destino absoluto ya montado en Btrfs.")
+                params = {"image_id": image_id, "target_directory": target_directory}
+                parent_path = self.query_one("#btrfs-receive-parent", Input).value.strip()
+                if parent_path:
+                    if not parent_path.startswith("/"):
+                        raise TUIAPIError("La ruta del padre recibido debe ser absoluta.")
+                    params["parent_path"] = parent_path
+                repository_id = str(self.query_one("#repository-select", Select).value or "")
+                if repository_id:
+                    params["repository_id"] = repository_id
             elif operation == "finalize_recovery":
                 if not new_image_id:
                     raise TUIAPIError("Indica el identificador del trabajo de recuperación que quieres finalizar.")

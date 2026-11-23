@@ -141,6 +141,59 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 }), requests)
                 self.assertIn("completada", str(app.query_one("#operation-result", Static).render()).lower())
 
+    async def test_btrfs_send_capture_and_receive_use_explicit_paths(self):
+        requests = []
+
+        async def api(action, params=None, on_event=None):
+            requests.append((action, params))
+            if action == "get_keyboard_layout":
+                return {"layout": "us"}
+            if action in {"remote_repositories", "s3_repositories"}:
+                return {"repositories": []}
+            if action == "systemd_credentials":
+                return {"credentials": []}
+            if action == "status":
+                return {"hostname": "feclora-test", "platform": "Fedora", "services": {}}
+            if action == "inventory":
+                return {"devices": []}
+            if action == "images":
+                return {"images": []}
+            if action in {"capture_btrfs_subvolume", "receive_btrfs_subvolume"}:
+                return {"operation_id": "btrfs-op", "status": "running"}
+            if action == "local_operation_status":
+                return {"operation_id": "btrfs-op", "state": "completed", "events": []}
+            raise AssertionError(f"unexpected API action: {action}")
+
+        with patch("feclora.tui.call_feclora", new=AsyncMock(side_effect=api)), \
+                patch.object(FecloraTUI, "_save_language"):
+            app = FecloraTUI()
+            async with app.run_test(size=(120, 50)) as pilot:
+                await pilot.pause()
+                await pilot.click("#continue")
+                await pilot.click("#nav-operations")
+                await pilot.pause()
+                app.query_one("#operation-type", Select).value = "capture_btrfs_subvolume"
+                await app._update_operation_fields()
+                app.query_one("#new-image-id", Input).value = "root-stream"
+                app.query_one("#btrfs-source-path", Input).value = "/mnt/btrfs/root"
+                app.query_one("#btrfs-capture-parent", Input).value = "/mnt/btrfs/base"
+                await pilot.click("#operation-start")
+                self.assertIn(("capture_btrfs_subvolume", {
+                    "source_path": "/mnt/btrfs/root", "image_id": "root-stream",
+                    "parent_path": "/mnt/btrfs/base",
+                }), requests)
+                app.query_one("#operation-type", Select).value = "receive_btrfs_subvolume"
+                await app._update_operation_fields()
+                app.query_one("#new-image-id", Input).value = "root-stream"
+                app.query_one("#btrfs-target-directory", Input).value = "/mnt/btrfs/received"
+                app.query_one("#btrfs-receive-parent", Input).value = "/mnt/btrfs/received/base"
+                await pilot.click("#operation-start")
+                self.assertIn(("receive_btrfs_subvolume", {
+                    "image_id": "root-stream",
+                    "target_directory": "/mnt/btrfs/received",
+                    "parent_path": "/mnt/btrfs/received/base",
+                }), requests)
+
     async def test_image_verification_uses_selected_image_id(self):
         requests = []
 
