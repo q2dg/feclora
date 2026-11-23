@@ -187,7 +187,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 app.query_one("#new-image-id", Input).value = "root-stream"
                 app.query_one("#btrfs-target-directory", Input).value = "/mnt/btrfs/received"
                 app.query_one("#btrfs-receive-parent", Input).value = "/mnt/btrfs/received/base"
-                await pilot.click("#operation-start")
+                self.assertTrue(app.query_one("#new-image-label", Static).display)
+                await app.run_operation()
                 self.assertIn(("receive_btrfs_subvolume", {
                     "image_id": "root-stream",
                     "target_directory": "/mnt/btrfs/received",
