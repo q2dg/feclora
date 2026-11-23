@@ -382,10 +382,6 @@ class ImageManifestTests(unittest.TestCase):
             ImageManifest.from_dict(disk_manifest(schema_version=True))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_stratis_filesystem_manifest_requires_identity_and_round_trips(self):
         value = {
             "schema_version": 1, "image_id": "stratis-data",
@@ -426,3 +422,7 @@ if __name__ == "__main__":
         }
         with self.assertRaisesRegex(ManifestValidationError, "stratis_pool_uuid"):
             ImageManifest.from_dict(value)
+
+
+if __name__ == "__main__":
+    unittest.main()
