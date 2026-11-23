@@ -7,18 +7,15 @@ from feclora.storage.btrfs_send_manifest import (
 
 def full_manifest(**changes):
     value = {
-        "schema_version": 1,
-        "image_id": "root-subvolume",
+        "schema_version": 1, "image_id": "root-subvolume",
         "filesystem_uuid": "11111111-1111-1111-1111-111111111111",
         "subvolume_id": 256,
         "subvolume_uuid": "22222222-2222-2222-2222-222222222222",
-        "device_count": 2,
-        "send_mode": "full",
-        "stream_parent_uuid": None,
-        "stream_filename": "root-subvolume.btrfs.zst",
-        "stream_size_bytes": 8192,
-        "stream_sha256": "a" * 64,
-        "compression": "zstd",
+        "subvolume_name": "root", "device_count": 2,
+        "send_mode": "full", "stream_parent_uuid": None,
+        "stream_filename": "root-subvolume.btrfs",
+        "stream_size_bytes": 8192, "stream_sha256": "a" * 64,
+        "compression": "none",
     }
     value.update(changes)
     return value
@@ -54,6 +51,7 @@ class BtrfsSendManifestTests(unittest.TestCase):
     def test_rejects_path_traversal_and_bad_digest(self):
         for changes in ({"stream_filename": "../payload"},
                         {"stream_filename": "nested/payload"},
+                        {"subvolume_name": "../outside"},
                         {"stream_sha256": "A" * 64},
                         {"stream_size_bytes": 0}):
             with self.subTest(changes=changes):

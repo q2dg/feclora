@@ -112,6 +112,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
         accepted = (allowed, allowed - {"destination_repository_id"})
     else:
         accepted = (allowed, allowed - {"repository_id"})
+    if action in {"capture_btrfs_subvolume", "receive_btrfs_subvolume"}:
+        accepted = accepted + tuple(item - {"parent_path"} for item in accepted)
     if action == "capture_disk":
         accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
         accepted = accepted + tuple(item - {"image_format"} for item in accepted)
@@ -160,6 +162,18 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError(f"{key} is invalid")
         if params.get("target_wwn") is None and params.get("target_serial") is None:
             raise LocalOperationError("recovery ISO requires a target WWN and/or serial selector")
+    for key in ("source_path", "parent_path", "target_directory"):
+        if key in params:
+            path = params[key]
+            if (path is not None and (
+                not isinstance(path, str) or not path.startswith("/") or len(path) > 4096
+                or "\\x00" in path or os.path.normpath(path) != path
+            )):
+                raise LocalOperationError(f"{key} must be an absolute normalized path")
+    if action == "capture_btrfs_subvolume" and not isinstance(params.get("source_path"), str):
+        raise LocalOperationError("source_path is required")
+    if action == "receive_btrfs_subvolume" and not isinstance(params.get("target_directory"), str):
+        raise LocalOperationError("target_directory is required")
     for key in ("source", "target"):
         if key in params:
             device = params[key]

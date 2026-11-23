@@ -1,8 +1,4 @@
-"""Strict manifest contract for Btrfs send-stream image sets.
-
-This format is deliberately separate from block-image manifests: a send stream
-is a subvolume replication artifact, not a disk or filesystem byte image.
-"""
+"""Strict manifest contract for Btrfs send-stream image sets."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,6 +32,7 @@ class BtrfsSendManifest:
     filesystem_uuid: str
     subvolume_id: int
     subvolume_uuid: str
+    subvolume_name: str
     device_count: int
     send_mode: str
     stream_parent_uuid: str | None
@@ -53,8 +50,9 @@ class BtrfsSendManifest:
             raise BtrfsSendManifestError("manifest must be a JSON object")
         required = {
             "schema_version", "image_id", "filesystem_uuid", "subvolume_id",
-            "subvolume_uuid", "device_count", "send_mode", "stream_parent_uuid",
-            "stream_filename", "stream_size_bytes", "stream_sha256", "compression",
+            "subvolume_uuid", "subvolume_name", "device_count", "send_mode",
+            "stream_parent_uuid", "stream_filename", "stream_size_bytes",
+            "stream_sha256", "compression",
         }
         optional = {"parent_uuid", "received_uuid"}
         if set(value) - required - optional or required - set(value):
@@ -72,7 +70,7 @@ class BtrfsSendManifest:
         if isinstance(device_count, bool) or not isinstance(device_count, int) or not 1 <= device_count <= 256:
             raise BtrfsSendManifestError("device_count must be an integer between 1 and 256")
         mode = value["send_mode"]
-        if mode not in {"full", "incremental"}:
+        if not isinstance(mode, str) or mode not in {"full", "incremental"}:
             raise BtrfsSendManifestError("send_mode must be full or incremental")
         parent = value["stream_parent_uuid"]
         if mode == "incremental":
@@ -82,6 +80,9 @@ class BtrfsSendManifest:
         filename = value["stream_filename"]
         if not isinstance(filename, str) or not _FILENAME.fullmatch(filename) or filename in {".", ".."}:
             raise BtrfsSendManifestError("stream_filename must be a safe basename")
+        name = value["subvolume_name"]
+        if not isinstance(name, str) or not _FILENAME.fullmatch(name) or name in {".", ".."}:
+            raise BtrfsSendManifestError("subvolume_name must be a safe basename")
         size = value["stream_size_bytes"]
         if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
             raise BtrfsSendManifestError("stream_size_bytes must be a positive integer")
@@ -89,21 +90,17 @@ class BtrfsSendManifest:
         if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
             raise BtrfsSendManifestError("stream_sha256 must be 64 lowercase hexadecimal characters")
         compression = value["compression"]
-        if compression not in _COMPRESSIONS:
+        if not isinstance(compression, str) or compression not in _COMPRESSIONS:
             raise BtrfsSendManifestError("unsupported stream compression")
         normalized = {
-            "schema_version": 1,
-            "image_id": image_id,
+            "schema_version": 1, "image_id": image_id,
             "filesystem_uuid": _uuid(value["filesystem_uuid"], "filesystem_uuid"),
             "subvolume_id": subvolume_id,
             "subvolume_uuid": _uuid(value["subvolume_uuid"], "subvolume_uuid"),
-            "device_count": device_count,
-            "send_mode": mode,
-            "stream_parent_uuid": parent,
-            "stream_filename": filename,
-            "stream_size_bytes": size,
-            "stream_sha256": digest,
-            "compression": compression,
+            "subvolume_name": name, "device_count": device_count,
+            "send_mode": mode, "stream_parent_uuid": parent,
+            "stream_filename": filename, "stream_size_bytes": size,
+            "stream_sha256": digest, "compression": compression,
             "parent_uuid": _uuid(value["parent_uuid"], "parent_uuid") if value.get("parent_uuid") is not None else None,
             "received_uuid": _uuid(value["received_uuid"], "received_uuid") if value.get("received_uuid") is not None else None,
         }
@@ -119,18 +116,13 @@ class BtrfsSendManifest:
 
     def to_dict(self) -> dict[str, Any]:
         result = {
-            "schema_version": self.schema_version,
-            "image_id": self.image_id,
-            "filesystem_uuid": self.filesystem_uuid,
-            "subvolume_id": self.subvolume_id,
-            "subvolume_uuid": self.subvolume_uuid,
-            "device_count": self.device_count,
-            "send_mode": self.send_mode,
+            "schema_version": self.schema_version, "image_id": self.image_id,
+            "filesystem_uuid": self.filesystem_uuid, "subvolume_id": self.subvolume_id,
+            "subvolume_uuid": self.subvolume_uuid, "subvolume_name": self.subvolume_name,
+            "device_count": self.device_count, "send_mode": self.send_mode,
             "stream_parent_uuid": self.stream_parent_uuid,
-            "stream_filename": self.stream_filename,
-            "stream_size_bytes": self.stream_size_bytes,
-            "stream_sha256": self.stream_sha256,
-            "compression": self.compression,
+            "stream_filename": self.stream_filename, "stream_size_bytes": self.stream_size_bytes,
+            "stream_sha256": self.stream_sha256, "compression": self.compression,
         }
         if self.parent_uuid is not None:
             result["parent_uuid"] = self.parent_uuid

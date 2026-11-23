@@ -1750,6 +1750,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
         "finalize_recovery": {"job_id", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "capture_btrfs_subvolume": {"source_path", "image_id", "parent_path", "repository_id"},
+        "receive_btrfs_subvolume": {"image_id", "target_directory", "parent_path", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
         "execute_restore_profile": {"profile_id", "target", "confirmation", "repository_id"},
@@ -1772,6 +1774,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
+    if action in {"capture_btrfs_subvolume", "receive_btrfs_subvolume"}:
+        accepted_params = accepted_params + tuple(item - {"parent_path"} for item in accepted_params)
     if action == "capture_disk":
         accepted_params = accepted_params + tuple(item - {"age_passphrase"} for item in accepted_params)
         accepted_params = accepted_params + tuple(
@@ -2028,6 +2032,55 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             "image_type": manifest.image_type, "artifact_count": len(manifest.artifacts),
             "finalized": True,
         }
+    elif action == "capture_btrfs_subvolume":
+        from feclora.storage.btrfs_send import capture_btrfs_subvolume, BtrfsSendError
+        source_path = params.get("source_path")
+        parent_path = params.get("parent_path")
+        for label, path in (("source_path", source_path), ("parent_path", parent_path)):
+            if path is not None and (
+                not isinstance(path, str) or not os.path.isabs(path)
+                or os.path.normpath(path) != path or len(path) > 4096 or "\x00" in path
+            ):
+                raise APIError(f"{label} must be an absolute normalized path")
+        if not isinstance(source_path, str):
+            raise APIError("source_path is required")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        with _operation_repository_context(
+            params, write=True, create_local=True, upload_image_id=image_id,
+        ) as repository:
+            try:
+                manifest = capture_btrfs_subvolume(
+                    source_path, image_id, repository, parent_path=parent_path,
+                    executables={"btrfs": shutil.which("btrfs")},
+                )
+            except BtrfsSendError as exc:
+                raise APIError(f"Btrfs subvolume capture failed: {exc}") from exc
+        result = {"image_id": manifest.image_id, "image_type": "btrfs_send_stream",
+                  "send_mode": manifest.send_mode, "stream_sha256": manifest.stream_sha256}
+    elif action == "receive_btrfs_subvolume":
+        from feclora.storage.btrfs_send import restore_btrfs_subvolume, BtrfsSendError
+        target_directory = params.get("target_directory")
+        parent_path = params.get("parent_path")
+        for label, path in (("target_directory", target_directory), ("parent_path", parent_path)):
+            if path is not None and (
+                not isinstance(path, str) or not os.path.isabs(path)
+                or os.path.normpath(path) != path or len(path) > 4096 or "\x00" in path
+            ):
+                raise APIError(f"{label} must be an absolute normalized path")
+        if not isinstance(target_directory, str):
+            raise APIError("target_directory is required")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        with _operation_repository_context(params, write=False, image_id=image_id) as repository:
+            manifest_path = _image_manifest(image_id, repository)
+            try:
+                destination = restore_btrfs_subvolume(
+                    manifest_path, repository, target_directory,
+                    parent_path=parent_path, executables={"btrfs": shutil.which("btrfs")},
+                )
+            except BtrfsSendError as exc:
+                raise APIError(f"Btrfs subvolume receive failed: {exc}") from exc
+        result = {"image_id": image_id, "target_directory": str(destination),
+                  "verified": True, "published": True}
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory
         from feclora.storage.partition_image_capture import capture_partition_image

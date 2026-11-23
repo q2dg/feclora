@@ -88,6 +88,52 @@ class LocalOperationStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalOperationError, "encrypt"):
             validate_definition(definition)
 
+    def test_btrfs_subvolume_operations_are_valid_and_path_scoped(self):
+        capture = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000071",
+            "action": "capture_btrfs_subvolume",
+            "params": {
+                "source_path": "/mnt/btrfs/root", "image_id": "root-stream",
+                "parent_path": "/mnt/btrfs/previous",
+            },
+        }
+        self.assertEqual(validate_definition(capture)["action"], "capture_btrfs_subvolume")
+        full_capture = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000074",
+            "action": "capture_btrfs_subvolume",
+            "params": {"source_path": "/mnt/btrfs/root", "image_id": "full-stream"},
+        }
+        self.assertEqual(validate_definition(full_capture)["action"], "capture_btrfs_subvolume")
+        receive = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000072",
+            "action": "receive_btrfs_subvolume",
+            "params": {
+                "image_id": "root-stream", "target_directory": "/mnt/restore",
+                "parent_path": "/mnt/restore/previous",
+            },
+        }
+        self.assertEqual(validate_definition(receive)["action"], "receive_btrfs_subvolume")
+
+    def test_btrfs_subvolume_operations_reject_relative_or_traversing_paths(self):
+        for action, params in (
+            ("capture_btrfs_subvolume", {
+                "source_path": "../root", "image_id": "root-stream",
+            }),
+            ("receive_btrfs_subvolume", {
+                "image_id": "root-stream", "target_directory": "/mnt/../etc",
+            }),
+        ):
+            with self.subTest(action=action):
+                with self.assertRaisesRegex(LocalOperationError, "absolute normalized path"):
+                    validate_definition({
+                        "schema_version": 1,
+                        "operation_id": "00000000-0000-4000-8000-000000000073",
+                        "action": action, "params": params,
+                    })
+
     def test_logical_volume_capture_is_a_valid_durable_operation(self):
         definition = {
             "schema_version": 1,

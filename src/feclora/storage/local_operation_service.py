@@ -37,6 +37,8 @@ _OPERATION_DEFAULT_PHASE = {
     "capture_partition": "capturing",
     "capture_logical_volume": "capturing",
     "capture_stratis_filesystem": "capturing",
+    "capture_btrfs_subvolume": "capturing",
+    "receive_btrfs_subvolume": "restoring",
     "recover_disk": "reading",
     "finalize_recovery": "finalizing",
     "restore_disk": "restoring",
