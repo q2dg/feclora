@@ -56,9 +56,9 @@ authenticated transport provide the trust boundary. Age encryption is optional.
 - **Btrfs:** full/incremental subvolume send/receive, none/gzip/xz/zstd/lz4
   compression and optional age encryption are implemented and exposed through
   the durable capture operation. Tests now cover gzip/xz/zstd/lz4 round trips, age-plus-gzip composition,
-  gzip corruption and age-authentication failures. Remaining work is external
-  codec corruption/failure-path coverage, plus any later UI work for selecting
-  dependency chains. Coordinated multi-device block-image capture and
+  corrupt-stream rejection for all four compressed codecs, and age-authentication
+  failure quarantine. The Btrfs codec work is complete; a richer Textual view for
+  selecting incremental dependency chains remains a possible UI enhancement. Coordinated multi-device block-image capture and
   profile-aware layer restore remain separate, unimplemented capabilities;
   the partition-image path remains restricted to supported single-device Btrfs.
 
