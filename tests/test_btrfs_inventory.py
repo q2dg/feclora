@@ -206,13 +206,13 @@ class BtrfsSubvolumeTests(unittest.TestCase):
     def test_chunk_tree_rejects_duplicate_geometry_and_stripe_count_rows(self):
         duplicate_geometry = CHUNK_TREE.replace(
             "        io_align 4096 io_width 4096 sector_size 4096",
-            "        length 1048576 owner 2 stripe_len 65536 type DATA|RAID1\\n"
+            "        length 1048576 owner 2 stripe_len 65536 type DATA|RAID1\n"
             "        io_align 4096 io_width 4096 sector_size 4096",
             1,
         )
         duplicate_stripe_count = CHUNK_TREE.replace(
             "        stripe 0 devid 1 offset 0",
-            "        num_stripes 2 sub_stripes 1\\n"
+            "        num_stripes 2 sub_stripes 1\n"
             "        stripe 0 devid 1 offset 0",
             1,
         )
