@@ -34,7 +34,7 @@ Partition-to-partition cloning can reuse the same bounded copier with source off
 
 `src/feclora/storage/partition_clone.py` implements offline partition-to-partition cloning. It independently inspects both partition geometries, requires equal logical sector sizes and a destination at least as large as the source, rejects partitions sharing a physical backing disk, applies the existing fail-closed mounted/root/busy-device checks, streams the exact source partition byte count through bounded `dd` pipes, and reads the destination range back for SHA-256 comparison. The Local rescue menu exposes independent source and target selection with an exact `ERASE target FROM source` confirmation, progress and cancellation. The source is not modified; bytes beyond the source length on a larger destination partition are left unchanged.
 
-The tests are added but have not yet been executed in CI or against disposable physical devices.
+Hardware-independent unit tests for partition cloning run as part of `make validate` using controlled test doubles. They do not write to physical devices; disposable-media acceptance remains an operator task.
 
 ## Resizing policy
 
