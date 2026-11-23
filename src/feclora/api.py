@@ -278,6 +278,25 @@ def _security_material() -> dict[str, bool]:
     return result
 
 
+def _assert_no_active_deployment_jobs(operation: str) -> None:
+    """Fail closed unless no Feclora deployment worker is running."""
+    try:
+        active = subprocess.run(
+            ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
+             "--no-legend", "feclora-deployment@*.service"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise APIError(f"cannot establish whether a deployment service is active: {exc}") from exc
+    if active.returncode != 0:
+        raise APIError(
+            f"cannot establish whether a deployment service is active; {operation} is blocked"
+        )
+    if active.stdout.strip():
+        raise APIError(f"stop all active deployment jobs before {operation}")
+
+
 def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"confirmation"} or params.get("confirmation") != "RENEW SERVER CERTIFICATE":
         raise APIError("explicit confirmation required: RENEW SERVER CERTIFICATE")
@@ -293,19 +312,7 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
         raise APIError("Server PKI paths differ from the managed renewal locations; refusing to replace an untracked certificate")
     if config.local_identity != "URI:feclora-server":
         raise APIError("Server runtime identity is not the managed Feclora Server identity")
-    try:
-        active = subprocess.run(
-            ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
-             "--no-legend", "feclora-deployment@*.service"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise APIError(f"cannot establish whether a deployment service is active: {exc}") from exc
-    if active.returncode != 0:
-        raise APIError("cannot establish whether a deployment service is active; Server certificate renewal is blocked")
-    if active.stdout.strip():
-        raise APIError("stop all active deployment jobs before renewing the Server TLS certificate")
+    _assert_no_active_deployment_jobs("renewing the Server TLS certificate")
     try:
         from feclora.deployment.managed_pki import renew_server_certificate, certificate_expiry_days
         renewed = renew_server_certificate("/etc/feclora/pki")
@@ -335,19 +342,7 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
             or os.path.realpath(config.ca_file) != "/etc/feclora/pki/ca.crt"
             or config.local_identity != "URI:feclora-server"):
         raise APIError("Server PKI paths or identity differ from the managed rotation locations")
-    try:
-        active = subprocess.run(
-            ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
-             "--no-legend", "feclora-deployment@*.service"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise APIError(f"cannot establish whether a deployment service is active: {exc}") from exc
-    if active.returncode != 0:
-        raise APIError("cannot establish whether a deployment service is active; Server key rotation is blocked")
-    if active.stdout.strip():
-        raise APIError("stop all active deployment jobs before rotating the Server TLS keypair")
+    _assert_no_active_deployment_jobs("rotating the Server TLS keypair")
     try:
         from feclora.deployment.managed_pki import rotate_server_keypair, certificate_expiry_days
         rotated = rotate_server_keypair("/etc/feclora/pki")
