@@ -2456,7 +2456,7 @@ class FecloraTUI(App[None]):
             self.query_one(f"#btrfs-{suffix}-label", Static).display = (
                 is_btrfs_capture and suffix in {"source", "capture-parent"}
             ) or (is_btrfs_receive and suffix in {"target", "receive-parent"})
-            self.query_one(f"#btrfs-{suffix}-path" if suffix in {"source", "target"} else f"#btrfs-{suffix}", Input).display = (
+            self.query_one(f"#btrfs-{suffix}-path" if suffix == "source" else "#btrfs-target-directory" if suffix == "target" else f"#btrfs-{suffix}", Input).display = (
                 is_btrfs_capture and suffix in {"source", "capture-parent"}
             ) or (is_btrfs_receive and suffix in {"target", "receive-parent"})
         target_label.display = is_restore or is_clone
