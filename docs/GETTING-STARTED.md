@@ -88,7 +88,7 @@ title: Getting started
     <ul>
       <li>The Live root and session credentials are ephemeral; images belong in an external or separately selected repository.</li>
       <li>Image manifests record artifact size and SHA-256; trust depends on repository access controls and authenticated transport.</li>
-      <li>Advanced Btrfs multi-device/snapshot imaging and opened-LUKS-mapping image workflows are not complete.</li>
+      <li>Multi-device Btrfs block imaging and opened-LUKS-mapping image workflows are not supported. The separate Btrfs subvolume workflow does support read-only snapshots and full or incremental send/receive streams.</li>
       <li>Feclora does not automatically roll back or resume an interrupted destructive write.</li>
     </ul>
     <p><a href="./FEATURE-MATRIX.html">Full feature and compatibility matrix →</a></p>
