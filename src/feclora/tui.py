@@ -2461,7 +2461,7 @@ class FecloraTUI(App[None]):
             ) or (is_btrfs_receive and suffix in {"target", "receive-parent"})
         target_label.display = is_restore or is_clone
         target_select.display = target_label.display
-        self.query_one("#new-image-label", Static).display = is_capture or is_recovery or is_recovery_finalize
+        self.query_one("#new-image-label", Static).display = is_capture or is_recovery or is_recovery_finalize or is_btrfs_receive
         self.query_one("#new-image-label", Static).update(
             "Identificador del trabajo de recuperación" if is_recovery_finalize else
             "Identificador del stream Btrfs" if is_btrfs_receive else "Nuevo identificador de imagen"

@@ -177,7 +177,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 app.query_one("#new-image-id", Input).value = "root-stream"
                 app.query_one("#btrfs-source-path", Input).value = "/mnt/btrfs/root"
                 app.query_one("#btrfs-capture-parent", Input).value = "/mnt/btrfs/base"
-                await pilot.click("#operation-start")
+                await app.run_operation()
                 self.assertIn(("capture_btrfs_subvolume", {
                     "source_path": "/mnt/btrfs/root", "image_id": "root-stream",
                     "parent_path": "/mnt/btrfs/base",
