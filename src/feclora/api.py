@@ -1747,7 +1747,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "encrypt_passphrase", "age_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
-        "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
         "capture_stratis_filesystem": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
@@ -1914,6 +1914,54 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         result = {
             "image_id": manifest.image_id, "image_type": manifest.image_type,
             "image_format": next(item.format for item in manifest.artifacts if item.role == "disk-image"),
+        }
+    elif action == "recover_disk":
+        from feclora.storage.ddrescue_recovery import recover_block_device, DdrescueRecoveryError
+        source = _device(params["source"], "source")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        retry_passes = params.get("retry_passes", 3)
+        resume = params.get("resume", False)
+        if isinstance(retry_passes, bool) or not isinstance(retry_passes, int) or not 0 <= retry_passes <= 10:
+            raise APIError("retry_passes must be an integer between 0 and 10")
+        if not isinstance(resume, bool):
+            raise APIError("resume must be a boolean")
+        inventory = collect_inventory()
+        matches = [
+            item for item in inventory.get("devices", [])
+            if isinstance(item, dict) and item.get("path") == source and item.get("type") == "disk"
+        ]
+        if len(matches) != 1:
+            raise APIError("recovery source must identify exactly one inventoried whole disk")
+        device = matches[0]
+        size = device.get("size_bytes")
+        identity = device.get("major_minor")
+        if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+            raise APIError("recovery source size is unknown")
+        if not isinstance(identity, str) or not re.fullmatch(r"[0-9]+:[0-9]+", identity):
+            raise APIError("recovery source has no stable kernel device identity")
+        repository_id = params.get("repository_id")
+        if repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+                raise APIError("ddrescue recovery requires a writable filesystem repository; S3 is not supported")
+        with _operation_repository_context(
+            {"repository_id": repository_id}, write=True, create_local=True,
+        ) as repository:
+            try:
+                recovered = recover_block_device(
+                    source, image_id, repository, source_size_bytes=size,
+                    source_identity=identity, retry_passes=retry_passes, resume=resume,
+                )
+            except DdrescueRecoveryError as exc:
+                raise APIError(f"disk recovery failed: {exc}") from exc
+        result = {
+            "job_id": recovered.job_id, "state": recovered.state,
+            "source_size_bytes": size, "rescued_bytes": recovered.summary.rescued_bytes,
+            "non_tried_bytes": recovered.summary.non_tried_bytes,
+            "non_trimmed_bytes": recovered.summary.non_trimmed_bytes,
+            "non_scraped_bytes": recovered.summary.non_scraped_bytes,
+            "bad_sector_bytes": recovered.summary.bad_sector_bytes,
+            "mapfile": recovered.mapfile_path, "recovery_image": recovered.image_path,
         }
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory

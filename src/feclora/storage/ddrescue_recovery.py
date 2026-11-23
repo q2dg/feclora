@@ -278,14 +278,16 @@ def recover_block_device(
             )
             code = completed.returncode
             results.append(code)
-            _secure_mapfile(mapfile_path)
             if code != 0:
+                if os.path.lexists(mapfile_path):
+                    _secure_mapfile(mapfile_path)
                 state["state"] = "interrupted" if code in {5, 6, 7} else "failed"
                 state["last_exit_code"] = code
                 _write_state(workspace, state)
                 raise DdrescueRecoveryError(
                     f"ddrescue exited with status {code}; recovery data and mapfile were retained"
                 )
+            _secure_mapfile(mapfile_path)
             summary = parse_ddrescue_mapfile(mapfile_path, source_size_bytes)
             state["mapfile"] = {
                 "rescued_bytes": summary.rescued_bytes,
@@ -300,9 +302,19 @@ def recover_block_device(
         state["state"] = "completed" if summary and summary.complete else "degraded"
         _write_state(workspace, state)
     except subprocess.TimeoutExpired as exc:
+        if os.path.lexists(mapfile_path):
+            try:
+                _secure_mapfile(mapfile_path)
+            except DdrescueRecoveryError:
+                pass
         state["state"] = "interrupted"
         _write_state(workspace, state)
         raise DdrescueRecoveryError("ddrescue timed out; recovery data and mapfile were retained") from exc
+    except DdrescueRecoveryError as exc:
+        if state.get("state") == "running":
+            state["state"] = "interrupted" if "identity changed" in str(exc) else "failed"
+            _write_state(workspace, state)
+        raise
     except OSError as exc:
         state["state"] = "failed"
         _write_state(workspace, state)
