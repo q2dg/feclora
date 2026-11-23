@@ -18,9 +18,11 @@ operator. Persistent Live-session storage is not a product requirement.
 
 Storage layers and repositories are different concepts. LVM logical volumes,
 raw LUKS2 containers, opened crypt mappings, Btrfs filesystems and existing
-Stratis XFS filesystems are potential image sources/layers. SSHFS, NFS and SMB/CIFS are mounted-repository providers;
-S3 is a separate object-storage provider. Feclora consumes external storage
-services and does not provision or administer them.
+Stratis XFS filesystems are distinct source layers with different support
+boundaries, documented in the [feature matrix](FEATURE-MATRIX.md). SSHFS, NFS
+and SMB/CIFS are mounted-repository providers; S3 is a separate object-storage
+provider. Feclora consumes external storage services and does not provision
+or administer them.
 
 ## Implemented capabilities and workflow boundaries
 
