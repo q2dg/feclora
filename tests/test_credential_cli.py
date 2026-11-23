@@ -2,8 +2,8 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from feclora.storage.credential_cli import read_source_file
-from feclora.storage.credential_store import CredentialStoreError
+from feclora.storage.credential_source import read_source_file
+from feclora.storage.credential_source import CredentialSourceError
 
 
 class CredentialCliSourceTests(unittest.TestCase):
@@ -19,7 +19,7 @@ class CredentialCliSourceTests(unittest.TestCase):
 
     def test_rejects_group_or_world_accessible_source(self):
         self.source.chmod(0o640)
-        with self.assertRaisesRegex(CredentialStoreError, "private regular file"):
+        with self.assertRaisesRegex(CredentialSourceError, "private regular file"):
             read_source_file(str(self.source), owner_uid=os.getuid())
 
     def test_rejects_symlink_source(self):
