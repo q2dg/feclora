@@ -410,12 +410,51 @@ class LocalOperationStore:
             )
         finally:
             os.close(directory_fd)
-        reports = [self.status(name[:-5]) for name in names]
+        reports, _inspection_errors = self._read_list_entries(names)
         reports.sort(
             key=lambda item: str((item.get("events") or [{}])[-1].get("timestamp") or ""),
             reverse=True,
         )
         return reports[:limit]
+
+    def list_with_errors(
+        self, *, limit: int = 100,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+        """Return readable jobs and explicit, bounded diagnostics for unreadable entries."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise LocalOperationError("operation list limit must be between 1 and 500")
+        directory_fd = _safe_directory(self.directory, create=False)
+        try:
+            names = sorted(
+                entry.name for entry in os.scandir(directory_fd)
+                if re.fullmatch(r"[0-9a-f-]{36}\\.json", entry.name)
+            )
+        finally:
+            os.close(directory_fd)
+        reports, inspection_errors = self._read_list_entries(names)
+        reports.sort(
+            key=lambda item: str((item.get("events") or [{}])[-1].get("timestamp") or ""),
+            reverse=True,
+        )
+        return reports[:limit], inspection_errors[:500]
+
+    def _read_list_entries(
+        self, names: list[str],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+        reports, inspection_errors = [], []
+        for name in names:
+            operation_id = name[:-5]
+            try:
+                reports.append(self.status(operation_id))
+            except LocalOperationError:
+                inspection_errors.append({
+                    "operation_id": operation_id, "diagnostic_category": "integrity",
+                })
+            except OSError:
+                inspection_errors.append({
+                    "operation_id": operation_id, "diagnostic_category": "filesystem",
+                })
+        return reports, inspection_errors
 
     def operation_ids(self) -> list[str]:
         """Enumerate every job definition without parsing its event journal."""

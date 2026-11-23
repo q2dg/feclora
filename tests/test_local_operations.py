@@ -363,6 +363,29 @@ class LocalOperationStoreTests(unittest.TestCase):
             reports = store.list(limit=1)
             self.assertEqual([item["operation_id"] for item in reports], [newer_id])
 
+    def test_list_with_errors_keeps_healthy_jobs_and_reports_corrupt_journals(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            params = {
+                "source": "/dev/sda", "image_id": "daily",
+                "compression": "zstd", "encrypt": False,
+            }
+            healthy_id = "00000000-0000-4000-8000-000000000001"
+            corrupt_id = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+            store.submit("capture_disk", params, operation_id=healthy_id)
+            store.submit("capture_disk", params, operation_id=corrupt_id)
+            journal = Path(root) / "jobs" / f"{corrupt_id}.jsonl"
+            journal.write_text("{corrupt journal}\\n", encoding="utf-8")
+            reports, errors = store.list_with_errors()
+            self.assertEqual([item["operation_id"] for item in reports], [healthy_id])
+            self.assertEqual(errors, [{
+                "operation_id": corrupt_id,
+                "diagnostic_category": "integrity",
+            }])
+            # The strict API remains strict for callers that need complete integrity.
+            with self.assertRaises(LocalOperationError):
+                store.list()
+
     def test_list_returns_durable_operation_status(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))

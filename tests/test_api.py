@@ -41,8 +41,8 @@ class PXEOperationHistoryTests(unittest.TestCase):
             },
         ]
         class EmptyStore:
-            def list(self, limit=100):
-                return []
+            def list_with_errors(self, limit=100):
+                return [], []
         with tempfile.TemporaryDirectory() as root:
             journal = Path(root) / "operations.jsonl"
             journal.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")

@@ -1702,7 +1702,21 @@ class FecloraTUI(App[None]):
                     str(item.get("started_at") or item.get("created_at") or "—"),
                     str(item.get("summary") or item.get("action") or "—"), key=operation_id,
                 )
-        message.update(f"Registros: {len(rows)}")
+        inspection_errors = response.get("inspection_errors") or []
+        if inspection_errors:
+            identifiers = ", ".join(
+                str(item.get("operation_id") or "desconocido")
+                for item in inspection_errors[:5]
+            )
+            remainder = len(inspection_errors) - min(len(inspection_errors), 5)
+            suffix = f" y {remainder} más" if remainder else ""
+            message.update(
+                f"Registros legibles: {len(rows)}. ATENCIÓN: {len(inspection_errors)} "
+                f"operación(es) requieren inspección manual; no se han ocultado: "
+                f"{identifiers}{suffix}. No reanudes ni repitas esas operaciones."
+            )
+        else:
+            message.update(f"Registros: {len(rows)}")
 
     async def load_repositories_page(self) -> None:
         table = self.query_one("#page-table", DataTable)

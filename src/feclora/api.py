@@ -2631,7 +2631,8 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
         raise APIError("local_operations accepts only an optional limit")
     limit = params.get("limit", 100)
     try:
-        operations = _local_operation_store().list(limit=limit)
+        local_operations, inspection_errors = _local_operation_store().list_with_errors(limit=limit)
+        operations = list(local_operations)
         operations.extend(_pxe_local_operations(limit))
         operations.extend(_pxe_remote_operations(limit))
         operations.sort(
@@ -2640,7 +2641,7 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
             ),
             reverse=True,
         )
-        return {"operations": operations[:limit]}
+        return {"operations": operations[:limit], "inspection_errors": inspection_errors}
     except APIError:
         raise
     except Exception as exc:
