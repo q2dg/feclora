@@ -4,6 +4,7 @@ from dataclasses import replace
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -605,6 +606,81 @@ class BtrfsSendTests(unittest.TestCase):
             staging = list(target.glob(".feclora-receive-image-*"))
             self.assertEqual(len(staging), 1)
             self.assertEqual(list(staging[0].iterdir()), [])
+
+
+    @unittest.skipUnless(shutil.which("zstd") and shutil.which("lz4"),
+                         "zstd and lz4 executables are required")
+    def test_external_codec_capture_and_restore_round_trips(self):
+        for codec, suffix in (("zstd", ".zst"), ("lz4", ".lz4")):
+            with self.subTest(codec=codec), tempfile.TemporaryDirectory() as root:
+                root = Path(root)
+                source = root / "root"
+                source.mkdir()
+                repository = root / "repo"
+                repository.mkdir()
+                target = root / "target"
+                target.mkdir()
+                payload = (f"btrfs-{codec}-stream-payload-".encode("ascii")) * 128
+                received_payload = []
+                executables = {
+                    "btrfs": "/usr/bin/btrfs",
+                    codec: shutil.which(codec),
+                }
+
+                def capture_runner(argv, **kwargs):
+                    if argv[1:3] == ["subvolume", "show"]:
+                        return SimpleNamespace(stdout=(
+                            f"Name: root\nSubvolume ID: 256\nUUID: {UUID}\n"
+                            "Parent UUID: -\nReceived UUID: -\n"
+                        ))
+                    if argv[1:3] == ["property", "get"]:
+                        return SimpleNamespace(stdout="ro=true\n")
+                    if argv[1:3] == ["filesystem", "show"]:
+                        return SimpleNamespace(stdout=(
+                            f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                        ))
+                    if argv[1:4] == ["subvolume", "list", "-o"]:
+                        return SimpleNamespace(stdout="")
+                    if argv[1] == "send":
+                        kwargs["stdout"].write(payload)
+                        return SimpleNamespace(stdout=b"", stderr=b"")
+                    raise AssertionError(argv)
+
+                manifest = capture_btrfs_subvolume(
+                    source, f"{codec}-image", repository,
+                    executables=executables, runner=capture_runner,
+                    compression=codec,
+                )
+                stored = repository / manifest.stream_filename
+                stored_bytes = stored.read_bytes()
+                self.assertTrue(manifest.stream_filename.endswith(".btrfs" + suffix))
+                self.assertEqual(hashlib.sha256(stored_bytes).hexdigest(), manifest.stream_sha256)
+                self.assertEqual(len(stored_bytes), manifest.stream_size_bytes)
+
+                def restore_runner(argv, **kwargs):
+                    if argv[1:3] == ["filesystem", "show"]:
+                        return SimpleNamespace(stdout=(
+                            f"Label: none uuid: {UUID}\nTotal devices 1 FS bytes used 4096\n"
+                        ))
+                    if argv[1] == "receive":
+                        received_payload.append(kwargs["stdin"].read())
+                        Path(argv[-1], "root").mkdir()
+                        return SimpleNamespace(stdout=b"", stderr=b"")
+                    if argv[1:3] == ["subvolume", "show"]:
+                        return SimpleNamespace(stdout=(
+                            "Name: root\nSubvolume ID: 300\nUUID: 44444444-4444-4444-4444-444444444444\n"
+                            f"Parent UUID: -\nReceived UUID: {UUID}\n"
+                        ))
+                    if argv[1:3] == ["property", "get"]:
+                        return SimpleNamespace(stdout="ro=true\n")
+                    raise AssertionError(argv)
+
+                result = restore_btrfs_subvolume(
+                    repository / f"{codec}-image.manifest.json", repository, target,
+                    executables=executables, runner=restore_runner,
+                )
+                self.assertEqual(result, target / "root")
+                self.assertEqual(received_payload, [payload])
 
 
 if __name__ == "__main__":
