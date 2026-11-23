@@ -395,8 +395,12 @@ def parse_chunk_tree(
         if current is None:
             return
         if (current.get("length_bytes") is None or current.get("num_stripes") is None
+                or current.get("stripe_len_bytes") is None
                 or not isinstance(current.get("type_flags"), str)):
             raise BtrfsInventoryError("Btrfs chunk-tree item is incomplete")
+        if (current["logical_start"] < 0 or current["length_bytes"] <= 0
+                or current["stripe_len_bytes"] <= 0 or current["sub_stripes"] < 1):
+            raise BtrfsInventoryError("Btrfs chunk contains invalid logical or stripe geometry")
         stripes = current["stripes"]
         if len(stripes) != current["num_stripes"]:
             raise BtrfsInventoryError(
@@ -404,6 +408,8 @@ def parse_chunk_tree(
             )
         if {stripe["index"] for stripe in stripes} != set(range(current["num_stripes"])):
             raise BtrfsInventoryError("Btrfs chunk contains invalid or duplicate stripe indexes")
+        if any(stripe["offset_bytes"] < 0 for stripe in stripes):
+            raise BtrfsInventoryError("Btrfs chunk contains a negative device stripe offset")
         kind, profile, known_profile = _allocation_type_and_profile(current["type_flags"])
         device_ids = sorted({stripe["devid"] for stripe in stripes})
         complete = (
@@ -463,6 +469,15 @@ def parse_chunk_tree(
                 "index": index, "devid": devid, "offset_bytes": offset,
             })
     finish_chunk()
+
+    ordered_chunks = sorted(chunks, key=lambda item: item["logical_start"])
+    previous_end = -1
+    for chunk in ordered_chunks:
+        logical_start = chunk["logical_start"]
+        logical_end = logical_start + chunk["length_bytes"]
+        if logical_start < previous_end:
+            raise BtrfsInventoryError("Btrfs chunk logical ranges overlap or are duplicated")
+        previous_end = logical_end
 
     aggregates: dict[tuple[str, str], dict[str, Any]] = {}
     for chunk in chunks:

@@ -198,6 +198,25 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         with self.assertRaisesRegex(BtrfsInventoryError, "reports 2 stripes"):
             parse_chunk_tree(incomplete)
 
+    def test_chunk_tree_rejects_invalid_geometry_and_negative_stripe_offsets(self):
+        invalid_payloads = (
+            CHUNK_TREE.replace("length 1048576", "length 0", 1),
+            CHUNK_TREE.replace("stripe_len 65536", "stripe_len 0", 1),
+            CHUNK_TREE.replace("stripe 0 devid 1 offset 0", "stripe 0 devid 1 offset -1", 1),
+            CHUNK_TREE.replace("num_stripes 2 sub_stripes 1", "num_stripes 2 sub_stripes 0", 1),
+        )
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload[:120]):
+                with self.assertRaises(BtrfsInventoryError):
+                    parse_chunk_tree(payload)
+
+    def test_chunk_tree_rejects_overlapping_or_duplicate_logical_ranges(self):
+        overlapping = CHUNK_TREE.replace(
+            "CHUNK_ITEM 2097152", "CHUNK_ITEM 1500000", 1,
+        )
+        with self.assertRaisesRegex(BtrfsInventoryError, "logical ranges overlap"):
+            parse_chunk_tree(overlapping)
+
     def test_unmounted_root_tree_reports_snapshot_and_received_ancestry(self):
         result = parse_root_tree_subvolumes(ROOT_TREE)
         by_id = {item["id"]: item for item in result}
