@@ -55,10 +55,10 @@ authenticated transport provide the trust boundary. Age encryption is optional.
 - **Disk recovery:** GNU ddrescue now retains a private mapfile and partial image, supports bounded direct retry passes, reports mapfile-based progress, and resumes against a stable WWN/serial when available (otherwise the original path plus major:minor identity) and exact geometry. A completed map can be finalized into a normal raw disk image set with SHA-256 and manifest-last publication; degraded maps are rejected. The Textual recovery-jobs page lists local jobs and derives progress from the private mapfile; completed, degraded, interrupted and failed workspaces remain distinct. Automated fault-injection now covers timeout, cancellation, retained mapfiles and resume after cancellation. Remaining work is acceptance with disposable failing media and a real reboot/resume cycle on the shipped Live system.
 - **Btrfs:** full/incremental subvolume send/receive, none/gzip/xz/zstd/lz4
   compression and optional age encryption are implemented and exposed through
-  the durable capture operation. Tests now cover gzip/xz round trips, age-plus-gzip
-  composition, and gzip-corruption/age-authentication failures. Remaining work is
-  Btrfs-specific zstd/lz4 integration and failure-path coverage, plus any later
-  UI work for selecting dependency chains. Coordinated multi-device block-image capture and
+  the durable capture operation. Tests now cover gzip/xz/zstd/lz4 round trips, age-plus-gzip composition,
+  gzip corruption and age-authentication failures. Remaining work is external
+  codec corruption/failure-path coverage, plus any later UI work for selecting
+  dependency chains. Coordinated multi-device block-image capture and
   profile-aware layer restore remain separate, unimplemented capabilities;
   the partition-image path remains restricted to supported single-device Btrfs.
 
