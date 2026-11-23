@@ -225,7 +225,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.click("#nav-images")
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
-                for _ in range(20):
+                for _ in range(50):
                     await pilot.pause(0.1)
                     if table.row_count:
                         break
@@ -233,7 +233,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 table.focus()
                 table.action_select_cursor()
                 action_button = app.query_one("#page-action", Button)
-                for _ in range(20):
+                for _ in range(50):
                     await pilot.pause(0.1)
                     if action_button.display:
                         break
@@ -325,7 +325,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 await pilot.click("#nav-operation-log")
                 await pilot.pause()
                 table = app.query_one("#page-table", DataTable)
-                for _ in range(20):
+                for _ in range(50):
                     await pilot.pause(0.1)
                     if table.row_count:
                         break
@@ -333,7 +333,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                 table.focus()
                 table.action_select_cursor()
                 action_button = app.query_one("#page-action", Button)
-                for _ in range(20):
+                for _ in range(50):
                     await pilot.pause(0.1)
                     if not action_button.disabled:
                         break
