@@ -28,7 +28,7 @@ def inventory():
                     "device": "/dev/stratis/pool-a/data",
                     "mapper_device": "/dev/dm-3",
                     "logical_size_bytes": 8 * 1024**3,
-                    "used_bytes": 2 * 1024**3,
+                    "used_bytes": None,
                     "free_bytes": 6 * 1024**3,
                 }],
             }],

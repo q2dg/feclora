@@ -125,8 +125,6 @@ def capture_stratis_filesystem_image(
         raise StratisFilesystemCaptureError("Stratis logical sector size is unknown or unsupported")
     if device.get("mountpoints"):
         raise StratisFilesystemCaptureError("Stratis filesystem is mounted; consistent capture is not established")
-    if filesystem_info.get("used_bytes") is None:
-        raise StratisFilesystemCaptureError("Stratis filesystem used-byte accounting is unavailable")
 
     suffix = {"none": "", "gzip": ".gz", "xz": ".xz", "zstd": ".zst", "lz4": ".lz4"}.get(compression)
     if suffix is None:
