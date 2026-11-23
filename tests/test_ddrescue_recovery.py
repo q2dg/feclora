@@ -8,6 +8,7 @@ from feclora.storage.ddrescue_recovery import (
     DdrescueRecoveryError,
     parse_ddrescue_mapfile,
     recover_block_device,
+    list_recovery_jobs,
 )
 
 
@@ -42,6 +43,40 @@ class DdrescueRecoveryTests(unittest.TestCase):
                 stream.write(map_status)
             return SimpleNamespace(returncode=0, stdout="", stderr="")
         return run
+
+    def test_lists_completed_recovery_with_live_mapfile_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            recover_block_device(
+                "/dev/test", "listed-job", directory,
+                source_size_bytes=256, source_identity="major_minor:8:0",
+                logical_sector_size=512, partition_table="none",
+                executables={"ddrescue": "/usr/bin/ddrescue"},
+                runner=self._runner("0x0 0x80 +\n0x80 0x80 -\n"),
+                device_validator=lambda _path: True,
+                identity_reader=lambda _path: "major_minor:8:0",
+                source_safety_check=lambda _path: None,
+            )
+            jobs = list_recovery_jobs(directory)
+            self.assertEqual(len(jobs), 1)
+            self.assertEqual(jobs[0]["job_id"], "listed-job")
+            self.assertEqual(jobs[0]["state"], "degraded")
+            self.assertEqual(jobs[0]["rescued_bytes"], 128)
+            self.assertEqual(jobs[0]["unresolved_bytes"], 128)
+            self.assertEqual(jobs[0]["progress_percent"], 50.0)
+
+    def test_lists_invalid_metadata_without_exposing_its_contents(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = os.path.join(directory, ".feclora-recovery-broken")
+            os.mkdir(workspace, 0o700)
+            with open(os.path.join(workspace, "job.json"), "w", encoding="utf-8") as stream:
+                stream.write("{invalid")
+            os.chmod(os.path.join(workspace, "job.json"), 0o600)
+            jobs = list_recovery_jobs(directory)
+            self.assertEqual(jobs, [{
+                "job_id": "broken", "state": "metadata_invalid",
+                "source_path": None, "source_size_bytes": None,
+                "rescued_bytes": 0, "unresolved_bytes": None, "progress_percent": None,
+            }])
 
     def test_complete_recovery_retains_mapfile_and_marks_job_complete(self):
         with tempfile.TemporaryDirectory() as directory:

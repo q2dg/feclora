@@ -110,6 +110,79 @@ def parse_ddrescue_mapfile(path: str | os.PathLike[str], source_size_bytes: int)
     )
 
 
+def list_recovery_jobs(repository: str | os.PathLike[str]) -> list[dict[str, Any]]:
+    """List private local ddrescue workspaces without modifying recovery state."""
+    root = Path(os.path.abspath(os.fspath(repository)))
+    try:
+        root_info = os.lstat(root)
+    except OSError as exc:
+        raise DdrescueRecoveryError("recovery repository is unavailable") from exc
+    if not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode):
+        raise DdrescueRecoveryError("recovery repository must be a real directory")
+    jobs: list[dict[str, Any]] = []
+    try:
+        with os.scandir(root) as iterator:
+            entries = sorted(iterator, key=lambda item: item.name)
+    except OSError as exc:
+        raise DdrescueRecoveryError(f"cannot inspect recovery repository: {exc}") from exc
+    for entry in entries:
+        prefix = ".feclora-recovery-"
+        if not entry.name.startswith(prefix):
+            continue
+        job_id = entry.name[len(prefix):]
+        if not _IMAGE_ID.fullmatch(job_id):
+            continue
+        try:
+            workspace = _safe_workspace(root, job_id, create=False)
+            state = _load_state(workspace)
+            if state.get("job_id") != job_id:
+                raise DdrescueRecoveryError("recovery metadata identifier does not match workspace")
+            source_size = state.get("source_size_bytes")
+            if isinstance(source_size, bool) or not isinstance(source_size, int) or source_size <= 0:
+                raise DdrescueRecoveryError("recovery metadata has invalid source geometry")
+            summary = None
+            map_path = workspace / "recovery.map"
+            try:
+                map_info = os.lstat(map_path)
+                if (not stat.S_ISREG(map_info.st_mode) or map_info.st_uid != os.geteuid()
+                        or map_info.st_mode & 0o077):
+                    raise DdrescueRecoveryError("recovery mapfile is unsafe")
+                summary = parse_ddrescue_mapfile(map_path, source_size)
+            except FileNotFoundError:
+                pass
+            recorded = state.get("mapfile")
+            counters = {
+                "rescued_bytes": summary.rescued_bytes if summary else (
+                    recorded.get("rescued_bytes", 0) if isinstance(recorded, dict) else 0
+                ),
+                "non_tried_bytes": summary.non_tried_bytes if summary else source_size,
+                "non_trimmed_bytes": summary.non_trimmed_bytes if summary else 0,
+                "non_scraped_bytes": summary.non_scraped_bytes if summary else 0,
+                "bad_sector_bytes": summary.bad_sector_bytes if summary else 0,
+            }
+            unresolved = sum(counters[key] for key in (
+                "non_tried_bytes", "non_trimmed_bytes", "non_scraped_bytes", "bad_sector_bytes",
+            ))
+            jobs.append({
+                "job_id": job_id,
+                "state": state.get("state") if state.get("state") in {
+                    "running", "completed", "degraded", "interrupted", "failed",
+                } else "metadata_invalid",
+                "source_path": state.get("source_path") if isinstance(state.get("source_path"), str) else None,
+                "source_size_bytes": source_size,
+                "rescued_bytes": counters["rescued_bytes"],
+                "unresolved_bytes": unresolved,
+                "progress_percent": round(counters["rescued_bytes"] * 100 / source_size, 2),
+            })
+        except DdrescueRecoveryError:
+            jobs.append({
+                "job_id": job_id, "state": "metadata_invalid",
+                "source_path": None, "source_size_bytes": None,
+                "rescued_bytes": 0, "unresolved_bytes": None, "progress_percent": None,
+            })
+    return jobs
+
+
 def _safe_workspace(repository: str | os.PathLike[str], job_id: str, *, create: bool) -> Path:
     if not isinstance(job_id, str) or not _IMAGE_ID.fullmatch(job_id):
         raise DdrescueRecoveryError("recovery job identifier is invalid")
@@ -328,7 +401,6 @@ def recover_block_device(
         except Exception as exc:
             raise DdrescueRecoveryError(f"recovery source safety check failed: {exc}") from exc
 
-    check_source()
     check_source()
     workspace = _safe_workspace(repository, job_id, create=not resume)
     image_path, mapfile_path = workspace / "recovered.img", workspace / "recovery.map"

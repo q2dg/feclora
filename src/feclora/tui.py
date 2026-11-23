@@ -41,6 +41,7 @@ PAGES = (
     ("restore-profiles", "Perfiles de restauración"),
     ("inventory", "Inventario"),
     ("images", "Imágenes"),
+    ("recovery-jobs", "Recuperaciones ddrescue"),
     ("remote-jobs", "Tareas remotas"),
     ("deployments", "Historial de despliegues"),
     ("repositories", "Repositorios"),
@@ -1598,6 +1599,9 @@ class FecloraTUI(App[None]):
         message = self.query_one("#page-message", Static)
         actions: dict[str, tuple[str, tuple[str, ...], str]] = {
             "images": ("images", ("Identificador", "Tipo", "Tamaño", "Origen"), "images"),
+            "recovery-jobs": (
+                "recovery_jobs", ("Trabajo", "Estado", "Origen", "Recuperado", "Pendiente"), "jobs",
+            ),
             "restore-profiles": (
                 "restore_profiles", ("Perfil", "Nombre", "Imagen", "Destino", "Expira", "Estado"),
                 "restore-profiles",
@@ -1637,6 +1641,29 @@ class FecloraTUI(App[None]):
                 )
             self.query_one("#page-action", Button).display = bool(rows)
             self.query_one("#page-action", Button).label = "Verificar imagen seleccionada"
+        elif page_id == "recovery-jobs":
+            for item in rows:
+                job_id = str(item.get("job_id") or "—")
+                size = item.get("source_size_bytes")
+                rescued = item.get("rescued_bytes")
+                unresolved = item.get("unresolved_bytes")
+                progress = item.get("progress_percent")
+                recovered_text = (
+                    f"{rescued:,} / {size:,} bytes ({progress:.2f}%)"
+                    if isinstance(rescued, int) and isinstance(size, int)
+                    and isinstance(progress, (int, float)) else "—"
+                )
+                pending_text = f"{unresolved:,} bytes" if isinstance(unresolved, int) else "—"
+                table.add_row(
+                    job_id, str(item.get("state") or "—"),
+                    str(item.get("source_path") or "—"), recovered_text, pending_text,
+                    key=job_id,
+                )
+            self.query_one("#page-action", Button).display = False
+            message.update(
+                f"Trabajos de recuperación: {len(rows)} · Los trabajos en curso o interrumpidos "
+                "conservan su mapfile para reanudación"
+            )
         elif page_id == "operation-log":
             self._operation_history = rows
             for item in rows:

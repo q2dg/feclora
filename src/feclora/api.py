@@ -4232,6 +4232,22 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise APIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "recovery_jobs":
+        if set(params) not in (set(), {"repository_id"}):
+            raise APIError("recovery_jobs accepts only an optional repository_id")
+        repository_id = _repository_id(params)
+        if repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+                raise APIError("ddrescue recovery jobs require a filesystem repository; S3 is not supported")
+        from feclora.storage.ddrescue_recovery import list_recovery_jobs, DdrescueRecoveryError
+        try:
+            with _operation_repository_context(
+                {"repository_id": repository_id}, write=False,
+            ) as repository:
+                return {"jobs": list_recovery_jobs(repository)}
+        except DdrescueRecoveryError as exc:
+            raise APIError(f"cannot list ddrescue recovery jobs: {exc}") from exc
     if action == "repository_images":
         if set(params) != {"repository_id"}:
             raise APIError("repository_images requires repository_id")
