@@ -690,7 +690,7 @@ class FecloraGTK:
         self.capture_resume.set_visible(is_recovery)
         if kind in {0, 6, 11, 16, 17}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
-            label = "Discos" if kind == 0 else "Discos para recuperación ddrescue" if kind == 6 else "Discos de origen para restauración proporcional" if kind == 16 else "Discos de origen para clonación"
+            label = "Discos" if kind == 0 else "Discos para recuperación ddrescue" if kind == 6 else "Discos de origen para restauración proporcional" if kind == 16 else "Discos de origen P2V" if kind == 17 else "Discos de origen para clonación"
         elif kind in {1, 12}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "part" and isinstance(d.get("path"), str)]
             label = "Particiones"
