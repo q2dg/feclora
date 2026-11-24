@@ -65,6 +65,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('volume.get("snapshot")', flatten)
         self.assertIn('identity_counts.get(identity) != 1', flatten)
 
+    def test_btrfs_capture_uses_absolute_paths_and_incremental_parent(self):
+        start = ast.unparse(self.methods["_start_disk_capture"])
+        mode = ast.unparse(self.methods["_capture_mode_changed"])
+        self.assertIn('"capture_btrfs_subvolume"', start)
+        self.assertIn("source_path", start)
+        self.assertIn("parent_path", start)
+        self.assertIn("startswith(\"/\")", start)
+        self.assertIn("kind == 4", mode)
+        self.assertIn("Subvolúmenes Btrfs (ruta manual)", mode)
+
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
