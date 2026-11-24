@@ -309,3 +309,8 @@ require_text 'title="No hay imágenes de disco"' src/feclora/gui_gtk.py "GTK ima
 require_text 'title="Cargando catálogo"' src/feclora/gui_gtk.py "GTK image catalog must use a libadwaita loading state."
 require_text 'title="No se pudo cargar el catálogo"' src/feclora/gui_gtk.py "GTK image catalog must distinguish lookup failures from empty repositories."
 require_text 'self\.image_catalog_stack\.set_visible_child_name\("images" if self\.image_catalog else "empty"\)' src/feclora/gui_gtk.py "GTK image selector must appear only when disk images are available."
+
+require_text 'Adw\.PreferencesGroup\(' src/feclora/gui_gtk.py "GTK system status must use a libadwaita preferences group."
+require_text 'status_row = Adw\.ActionRow\(title="Resumen del sistema"\)' src/feclora/gui_gtk.py "GTK system status must use a semantic libadwaita status row."
+require_text 'refresh_row = Adw\.ActionRow\(title="Actualizar estado"\)' src/feclora/gui_gtk.py "GTK system refresh must use a libadwaita action row."
+require_text 'refresh_row\.set_activatable_widget\(refresh\)' src/feclora/gui_gtk.py "GTK system refresh row must preserve direct button activation."
