@@ -47,6 +47,8 @@ require_text 'action = "capture_logical_volume"' src/feclora/gui_gtk.py "GTK ope
 require_text 'action = "capture_stratis_filesystem"' src/feclora/gui_gtk.py "GTK operations must invoke the real Stratis capture API."
 require_text 'self\.api\.submit\("capture_btrfs_subvolume"' src/feclora/gui_gtk.py "GTK operations must invoke the real Btrfs capture API."
 require_text 'self\.api\.submit\("receive_btrfs_subvolume"' src/feclora/gui_gtk.py "GTK operations must invoke the real Btrfs receive API."
+require_text 'self\.api\.submit\("recover_disk"' src/feclora/gui_gtk.py "GTK operations must invoke the real ddrescue recovery API."
+require_text 'self\.api\.submit\("finalize_recovery"' src/feclora/gui_gtk.py "GTK operations must invoke the real recovery finalization API."
 require_text 'def _flatten_logical_volumes' src/feclora/gui_gtk.py "GTK must filter logical volumes before capture."
 require_text 'self\.api\.submit\("local_operation_status"' src/feclora/gui_gtk.py "GTK disk capture must poll real operation status."
 require_text 'self\.api\.submit\("cancel_local_operation"' src/feclora/gui_gtk.py "GTK disk capture must expose operation cancellation."
