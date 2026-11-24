@@ -2,41 +2,44 @@
 
 ## Status
 
-All migrated operator pages are placed in a vertically scrollable content area so
-long forms remain reachable at kiosk resolution. The migration is staged. The existing Textual application remains the production
-boot interface until every operator workflow has been ported and accepted.
+The migration is staged. Textual remains the production boot interface until
+every operator workflow has been ported, tested and accepted. All 14 navigation
+pages now have GTK content, but several are read-only or have incomplete controls;
+page presence is not feature parity.
 
 The native frontend is `gui_gtk.py`, built with GTK4 and PyGObject.
-`gtk_api.py` dispatches the existing allowlisted API calls in worker threads
-and marshals results/events onto the GLib main loop. The overview reads real
-system status, the inventory renders nested storage devices, and the operations
-page supports whole-disk capture (RAW/QCOW2), partition capture, LVM logical-volume
-capture, Stratis XFS filesystem capture and incremental Btrfs subvolume send/receive streams,
-compression, age encryption, progress polling and cancellation through the privileged API.
-The GTK Images page now inspects whole-disk manifests and verified partition tables,
-verifies all image artifacts, browses filesystem directories, downloads individual files safely under ~/Downloads,
-and extracts selected partitions through the durable operation worker. Proportional
-restore to a smaller disk is also exposed with kernel major:minor identity checks and
-a strict target-smaller-than-source preflight. The operations page also exposes ddrescue disk recovery (retry-pass and resume
-controls), recovery finalization, whole-disk/partition/logical-volume/Stratis restoration
-and whole-disk/partition cloning. Restore and clone actions retain exact destructive
-confirmation phrases and use the privileged asynchronous operation API. Recovery ISO and deployment-bundle generation now use GTK image/repository
-selectors, repository write-state checks and DeploymentJob JSON validation. Restore
-images are loaded from the selected mounted repository when one is chosen; The System page now renders host, platform, service and certificate status. The Server
-page reports Feclora/PXE service and interface readiness, but its bootstrap, PXE
-configuration, certificate lifecycle and answer-publication controls remain in Textual.
-The Repositories page now inventories filesystem and S3 repositories with mounted,
-verified and read-only state. The Remote Jobs, Deployment History and Client Jobs pages now render persisted
-job metadata, deployment journals, client states and event counts. The Operation Log
-page renders durable local operation records, progress, terminal
-errors, and partial-destination warnings; the ddrescue history page lists persistent
-recovery jobs, rescued/unresolved byte counts, and progress. The Network page also reads active NetworkManager profiles and live IPv4 bindings,
-validates static IPv4/prefix/gateway/DNS input, and applies DHCP or static changes
-through the existing 120-second rollback checkpoint. The remaining navigation pages
-are still placeholders. The Restore Profiles page now
-lists persistent profiles, creates single-use profiles only from RAW disk images and
-stable WWN/serial-bound disks, enforces timezone-aware expiry, and requires exact
-destination confirmation before executing a profile through the durable worker. This frontend is not production-ready.
+`gtk_api.py` dispatches allowlisted API calls in worker threads and marshals
+results onto the GLib main loop. All navigation content is vertically scrollable.
+
+Implemented GTK workflows:
+
+- Overview, nested storage inventory, system status and server/PXE status views.
+- Whole-disk RAW/QCOW2, partition, LVM, Stratis XFS and Btrfs send/receive capture.
+- ddrescue recovery/resume and finalization; progress polling and cancellation.
+- Disk, partition, LVM and Stratis restoration; proportional disk restore with
+  kernel major:minor identity checks and a strictly smaller target preflight.
+- Disk and partition cloning with exact destructive confirmation.
+- QCOW2 P2V capture.
+- Recovery ISO and deployment-bundle generation with repository state checks.
+- Image integrity verification, verified partition-table inspection, filesystem
+  browsing, safe file download under `~/Downloads`, and partition extraction.
+- Single-use restore profiles bound to stable WWN/serial identities, with
+  timezone-aware expiry and exact destination confirmation.
+- NetworkManager IPv4 DHCP/static configuration with the existing 120-second
+  rollback checkpoint.
+- Repository inventory, remote deployment/client history, operation log with
+  exact-phrase cancellation, and persistent ddrescue recovery history.
+
+Known remaining migration work includes the full server bootstrap/PXE controls,
+certificate lifecycle and PXE answer publication; repository management actions;
+remote job creation/inspection/import/reconciliation and deployment controls;
+client-job actions; P2V import and S3 export; and remaining operational workflows
+present in Textual. These pages must not be treated as complete merely because
+their status/history views are present.
+
+The CustomTkinter/Tk prototype and its dedicated tests have been removed.
+GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
+runtime is retained. The frontend is not production-ready.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
@@ -62,20 +65,18 @@ session is required.
 
 ## Migration sequence
 
-1. Keep the current Textual application bootable while sharing catalog data
-   and introducing the GTK/GLib API bridge.
-2. Port the welcome/setup flow and shared GTK application shell. The initial
-   overview and storage inventory pages now call the real backend and render
-   live results; structural regression tests cover these paths.
-3. Complete the operations page: port the remaining capture modes and the
-   remaining recovery and deployment actions, preserving
-   confirmation phrases, validation, progress events, cancellation and error handling.
-4. Port inventory, image browsing, restore profiles, network, repositories,
-   server/PXE, remote deployment and recovery workflows; do not replace
-   operational controls with read-only placeholders.
-5. Add Weston DRM + kiosk-shell configuration, a native Wayland-only service,
-   graphical readiness reporting and VM smoke tests. Keep tty2 as the
-   independent maintenance/recovery path.
+1. Keep Textual bootable while sharing catalog data and introducing the GTK/GLib
+   API bridge.
+2. Port and structurally test the GTK shell, overview, inventory and core local
+   storage operations.
+3. Complete image inspection/browsing/extraction, restore profiles, network and
+   remaining local operations, including P2V import/export and full preflight parity.
+4. Complete server/PXE, repository management, remote deployment, client-job and
+   remaining history actions. Keep operational controls functional rather than
+   replacing them with read-only summaries.
+5. Run unit/contract tests and `build/validate.sh`; then add Weston DRM +
+   kiosk-shell configuration, a native Wayland-only service and VM smoke tests.
+   Keep tty2 as the independent maintenance/recovery path.
 6. Switch the default boot service only after feature parity and BIOS/UEFI
    acceptance. Then remove Textual and obsolete text-boot checks.
 
