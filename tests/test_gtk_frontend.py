@@ -78,6 +78,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("kind == 5", mode)
         self.assertIn("Subvolúmenes Btrfs (ruta manual)", mode)
 
+    def test_ddrescue_recovery_and_finalization_use_privileged_api(self):
+        start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
+        mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
+        self.assertIn('self.api.submit("recover_disk"', start)
+        self.assertIn('self.api.submit("finalize_recovery"', start)
+        self.assertIn('"retry_passes"', start)
+        self.assertIn('"resume"', start)
+        self.assertIn("kind == 6", mode)
+        self.assertIn("kind == 7", mode)
+
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
