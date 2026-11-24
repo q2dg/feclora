@@ -73,9 +73,9 @@ OPERATIONS = (
     ("Crear paquete de despliegue", "build_deployment_bundle"),
 )
 COMPRESSION = (("Zstandard", "zstd"), ("LZ4", "lz4"), ("Gzip", "gzip"), ("XZ", "xz"), ("Sin compresión", "none"))
-# Only expose locales with an actual message catalog. The remaining workflows
-# are Spanish-first; English currently covers startup and primary navigation.
-LANGUAGES = [["English","en"],["Español","es"],["Català","ca"],["Galego","gl"],["Euskara","eu"],["Français","fr"],["Deutsch","de"],["Italiano","it"],["Português","pt"],["Русский","ru"],["Türkçe","tr"],["العربية","ar"],["日本語","ja"],["简体中文","zh"]]
+# Keep this list aligned with MESSAGES and the supported keyboard locales.
+# Operational forms and messages are being migrated incrementally.
+LANGUAGES = (("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"), ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"), ("Português (Brasil)", "br"), ("Русский", "ru"), ("Türkçe", "tr"), ("العربية", "ar"), ("日本語", "ja"))
 MESSAGES = {
     "en": {
         "first_title": "Welcome to Feclora",
@@ -389,29 +389,29 @@ MESSAGES = {
         "system": "システム",
         "recovery_jobs": "ddrescue 復旧"
     },
-    "zh": {
-        "first_title": "欢迎使用 Feclora",
-        "tagline": "救援、磁盘映像和网络部署系统",
-        "language": "界面语言",
-        "language_scope": "其他操作界面将在后续更新中翻译。",
-        "keyboard": "键盘布局",
-        "apply_keyboard": "应用键盘布局",
-        "continue": "继续",
-        "terminal": "打开 root 终端",
-        "overview": "概览",
-        "inventory": "存储清单",
-        "operations": "操作",
-        "restore_profiles": "恢复配置",
-        "images": "映像",
-        "server": "服务器配置",
-        "remote_jobs": "远程任务",
-        "deployments": "部署历史",
-        "repositories": "存储库",
-        "operation_log": "操作日志",
-        "network": "网络",
-        "client_jobs": "客户端任务",
-        "system": "系统",
-        "recovery_jobs": "ddrescue 恢复"
+    "br": {
+        "first_title": "Bem-vindo ao Feclora",
+        "tagline": "Sistema de resgate, imagens de disco e implantação em rede",
+        "language": "Idioma da interface",
+        "language_scope": "As demais telas operacionais serão traduzidas nas próximas atualizações.",
+        "keyboard": "Layout do teclado",
+        "apply_keyboard": "Aplicar layout do teclado",
+        "continue": "Continuar",
+        "terminal": "Abrir terminal root",
+        "overview": "Visão geral",
+        "inventory": "Inventário",
+        "operations": "Operações",
+        "restore_profiles": "Perfis de restauração",
+        "images": "Imagens",
+        "server": "Configuração do servidor",
+        "remote_jobs": "Tarefas remotas",
+        "deployments": "Histórico de implantações",
+        "repositories": "Repositórios",
+        "operation_log": "Registro de operações",
+        "network": "Rede",
+        "client_jobs": "Tarefas do cliente",
+        "system": "Sistema",
+        "recovery_jobs": "Recuperações ddrescue"
     }
 }
 KEYBOARD_LAYOUTS = (
@@ -421,39 +421,6 @@ KEYBOARD_LAYOUTS = (
     ("Português (Brasil)", "br"), ("Русский", "ru"), ("Türkçe", "tr"),
     ("العربية", "ar"), ("日本語", "ja"), ("中文 (US físico)", "zh"),
 )
-MESSAGES = {
-    "en": {
-        "first_title": "Welcome to Feclora",
-        "tagline": "Rescue, disk imaging and network deployment appliance",
-        "language": "Startup and navigation language",
-        "language_scope": "Operational workflows remain in Spanish; English currently covers startup and primary navigation.",
-        "keyboard": "Keyboard layout",
-        "apply_keyboard": "Apply keyboard layout",
-        "continue": "Continue",
-        "terminal": "Open root terminal",
-        "overview": "Overview",
-        "inventory": "Storage inventory",
-        "operations": "Local operations",
-        "apply_ok": "Keyboard layout applied.",
-        "apply_error": "Could not apply keyboard layout:",
-    },
-    "es": {
-        "first_title": "Bienvenido a Feclora",
-        "tagline": "Sistema de rescate, imágenes de disco y despliegue en red",
-        "language": "Idioma de inicio y navegación",
-        "language_scope": "Los flujos operativos siguen en español; el inglés cubre actualmente el inicio y la navegación principal.",
-        "keyboard": "Distribución del teclado",
-        "apply_keyboard": "Aplicar distribución del teclado",
-        "continue": "Continuar",
-        "terminal": "Abrir terminal root",
-        "overview": "Inicio",
-        "inventory": "Inventario de almacenamiento",
-        "operations": "Operaciones locales",
-        "apply_ok": "Distribución del teclado aplicada.",
-        "apply_error": "No se pudo aplicar la distribución del teclado:",
-    },
-}
-
 
 def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
     if not isinstance(devices, list):

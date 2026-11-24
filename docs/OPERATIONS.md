@@ -196,7 +196,7 @@ maintainer release acceptance.
 
 The interface offers 14 language catalogs: English, Spanish, Catalan, Galician,
 Basque, French, German, Italian, Portuguese, Russian, Turkish, Arabic, Japanese
-and Simplified Chinese. Startup and primary navigation are translated in all
+and Brazilian Portuguese. Startup and primary navigation are translated in all
 14 languages. Operational forms and messages are still being migrated; do not
 advertise full-interface translation until the coverage tests include them.
 

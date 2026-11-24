@@ -21,6 +21,15 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({code for _, code in LANGUAGES}, set(MESSAGES))
         self.assertEqual(len(LANGUAGES), 14)
 
+    def test_every_supported_language_can_be_saved_and_loaded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            language_path = Path(temporary) / "language"
+            with patch.object(FecloraTUI, "_language_path", return_value=language_path):
+                for _, language in LANGUAGES:
+                    with self.subTest(language=language):
+                        FecloraTUI._save_language(language)
+                        self.assertEqual(FecloraTUI._load_language(), language)
+
     def test_every_language_catalog_has_the_same_complete_startup_and_navigation_keys(self):
         expected = set(MESSAGES["es"])
         for language, catalog in MESSAGES.items():
@@ -31,7 +40,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
     def test_unknown_saved_language_falls_back_to_spanish(self):
         with tempfile.TemporaryDirectory() as temporary:
             language_path = Path(temporary) / "language"
-            language_path.write_text("ca\n", encoding="utf-8")
+            language_path.write_text("xx\n", encoding="utf-8")
             with patch.object(FecloraTUI, "_language_path", return_value=language_path):
                 self.assertEqual(FecloraTUI._load_language(), "es")
 
