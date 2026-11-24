@@ -272,14 +272,50 @@ class FecloraGTK:
             if content_page is not None:
                 content_page.set_title(page_title)
         if page_id == "overview":
-            self.page_description.set_text("Estado del equipo y configuración local.")
+            self.page_description.set_text("Estado del equipo, configuración de roles y servicios locales.")
+
+            def overview_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget, subtitle: str = "") -> Adw.ActionRow:
+                row = Adw.ActionRow(title=title, subtitle=subtitle)
+                row.add_suffix(widget)
+                group.add(row)
+                return row
+
+            identity_group = Adw.PreferencesGroup(
+                title="Identidad del equipo",
+                description="Nombre del host y plataforma detectada.",
+            )
+            self.page_body.append(identity_group)
             self.status_summary = Gtk.Label(label="Consultando el estado del sistema…", xalign=0)
+            self.status_summary.set_wrap(True)
             self.status_summary.set_selectable(True)
-            self.page_body.append(self.status_summary)
+            overview_row(identity_group, "Host y plataforma", self.status_summary)
+
+            configuration_group = Adw.PreferencesGroup(
+                title="Configuración de Feclora",
+                description="Disponibilidad de los roles de servidor y cliente.",
+            )
+            self.page_body.append(configuration_group)
+            self.overview_configuration = Gtk.Label(label="Consultando configuración…", xalign=0)
+            self.overview_configuration.set_wrap(True)
+            self.overview_configuration.set_selectable(True)
+            overview_row(configuration_group, "Roles configurados", self.overview_configuration)
+
+            services_group = Adw.PreferencesGroup(
+                title="Servicios del sistema",
+                description="Estado comunicado por la API local.",
+            )
+            self.page_body.append(services_group)
+            self.overview_services = Gtk.Label(label="Consultando servicios…", xalign=0)
+            self.overview_services.set_wrap(True)
+            self.overview_services.set_selectable(True)
+            overview_row(services_group, "Servicios", self.overview_services)
+
+            actions_group = Adw.PreferencesGroup(title="Acciones")
+            self.page_body.append(actions_group)
             refresh = Gtk.Button(label="Actualizar estado")
-            refresh.set_halign(Gtk.Align.START)
+            refresh_row = overview_row(actions_group, "Consulta del estado local", refresh)
+            refresh_row.set_activatable_widget(refresh)
             refresh.connect("clicked", self._refresh_status)
-            self.page_body.append(refresh)
             self._refresh_status(None)
         elif page_id == "inventory":
             self.page_description.set_text("Inventario de dispositivos de almacenamiento detectados.")
@@ -3309,20 +3345,31 @@ class FecloraGTK:
             self.capture_cancel.set_sensitive(False)
 
     def _refresh_status(self, _button: Gtk.Button | None) -> None:
-        self.status_summary.set_text("Consultando el estado local…")
+        if hasattr(self, "status_summary"):
+            self.status_summary.set_text("Consultando el estado del sistema…")
+        if hasattr(self, "overview_configuration"):
+            self.overview_configuration.set_text("Consultando configuración…")
+        if hasattr(self, "overview_services"):
+            self.overview_services.set_text("Consultando servicios…")
         self.api.submit("status", on_success=self._show_status, on_error=self._show_error)
 
     def _show_status(self, status: dict[str, Any]) -> None:
         if not hasattr(self, "status_summary"):
             return
-        lines = [
-            f"Equipo: {status.get('hostname', '—')}",
-            f"Sistema: {status.get('platform', '—')}",
-            f"Servidor configurado: {'sí' if status.get('server_configured') else 'no'}",
-            f"Cliente configurado: {'sí' if status.get('client_configured') else 'no'}",
-        ]
-        lines.extend(f"Servicio {name}: {state}" for name, state in (status.get("services") or {}).items())
-        self.status_summary.set_text("\n".join(lines))
+        self.status_summary.set_text(
+            f"{status.get('hostname', '—')}\n{status.get('platform', '—')}"
+        )
+        if hasattr(self, "overview_configuration"):
+            self.overview_configuration.set_text(
+                f"Servidor: {'configurado' if status.get('server_configured') else 'no configurado'}\n"
+                f"Cliente: {'configurado' if status.get('client_configured') else 'no configurado'}"
+            )
+        if hasattr(self, "overview_services"):
+            services = status.get("services") or {}
+            self.overview_services.set_text(
+                "\n".join(f"{name}: {state}" for name, state in services.items())
+                or "La API no ha comunicado servicios."
+            )
 
     @staticmethod
     def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
