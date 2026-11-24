@@ -688,9 +688,9 @@ class FecloraGTK:
         self.capture_btrfs_receive_parent.set_visible(is_btrfs_receive)
         self.capture_retry.set_visible(is_recovery)
         self.capture_resume.set_visible(is_recovery)
-        if kind in {0, 6, 11}:
+        if kind in {0, 6, 11, 16}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
-            label = "Discos" if kind == 0 else "Discos para recuperación ddrescue" if kind == 6 else "Discos de origen para clonación"
+            label = "Discos" if kind == 0 else "Discos para recuperación ddrescue" if kind == 6 else "Discos de origen para restauración proporcional" if kind == 16 else "Discos de origen para clonación"
         elif kind in {1, 12}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "part" and isinstance(d.get("path"), str)]
             label = "Particiones"
@@ -727,7 +727,7 @@ class FecloraGTK:
         self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
         self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
         self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
-        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
+        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
