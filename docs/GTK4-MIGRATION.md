@@ -125,3 +125,8 @@ The operation log and persistent ddrescue recovery history use Adw.StatusPage in
 
 
 The Network page now groups IPv4 profile, interface, DHCP/static method, address, prefix, gateway and DNS controls in an Adw.PreferencesGroup with Adw.ActionRow entries. The existing validation, NetworkManager selection, rollback-protected apply action and conditional visibility of static fields are retained.
+
+
+## libadwaita image catalog states
+
+The image browser's repository catalog is presented through a `Gtk.Stack` with dedicated `Adw.StatusPage` views for loading, an empty repository, and lookup failures. The image selector is shown only when disk images are available; an empty catalog is represented as an actual empty state rather than a placeholder selectable item. Repository changes return the view to loading, and lookup errors remain distinguishable from a valid empty repository. Image inspection, verification, browsing and extraction actions are unchanged.
