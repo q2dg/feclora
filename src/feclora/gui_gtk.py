@@ -220,6 +220,12 @@ def main() -> None:
             frontend = FecloraGTK(application)
 
     app.connect("activate", activate)
+
+    def shutdown(_application: Gtk.Application) -> None:
+        if frontend is not None:
+            frontend.api.close()
+
+    app.connect("shutdown", shutdown)
     app.run(None)
 
 
