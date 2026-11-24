@@ -194,10 +194,11 @@ not installed from PyPI into the Live image. Dependabot proposes GitHub Actions
 updates, and CodeQL complements (but does not replace) code review, tests and
 maintainer release acceptance.
 
-The interface currently offers English and Spanish catalogs. Translation
-coverage remains partial: startup and primary navigation are translated, while
-operational forms and messages remain Spanish. Do not advertise the interface
-as fully translated.
+The interface offers 14 language catalogs: English, Spanish, Catalan, Galician,
+Basque, French, German, Italian, Portuguese, Russian, Turkish, Arabic, Japanese
+and Simplified Chinese. Startup and primary navigation are translated in all
+14 languages. Operational forms and messages are still being migrated; do not
+advertise full-interface translation until the coverage tests include them.
 
 ## Screenshots and mockups
 

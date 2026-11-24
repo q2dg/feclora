@@ -19,6 +19,14 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
 
     def test_language_options_match_available_message_catalogs(self):
         self.assertEqual({code for _, code in LANGUAGES}, set(MESSAGES))
+        self.assertEqual(len(LANGUAGES), 14)
+
+    def test_every_language_catalog_has_the_same_complete_startup_and_navigation_keys(self):
+        expected = set(MESSAGES["es"])
+        for language, catalog in MESSAGES.items():
+            with self.subTest(language=language):
+                self.assertEqual(set(catalog), expected)
+                self.assertTrue(all(catalog[key].strip() for key in expected))
 
     def test_unknown_saved_language_falls_back_to_spanish(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -40,12 +48,12 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             language_path = Path(temporary) / "language"
             with patch.object(FecloraTUI, "_language_path", return_value=language_path):
                 with self.assertRaisesRegex(ValueError, "unsupported interface language"):
-                    FecloraTUI._save_language("ca")
+                    FecloraTUI._save_language("xx")
             self.assertFalse(language_path.exists())
 
     def test_unknown_runtime_language_uses_spanish_fallback(self):
         app = FecloraTUI()
-        app._language = "ca"
+        app._language = "xx"
         self.assertEqual(app._text("first_title"), "Bienvenido a Feclora")
 
 
