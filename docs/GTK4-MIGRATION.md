@@ -140,3 +140,8 @@ The System page now presents its read-only status summary and refresh action in 
 ## libadwaita server administration
 
 The Server page groups the server health summary, TLS identity and certificate actions, PXE profile controls, unattended PXE answer publication/revocation, and age recipient/passphrase workflows into semantic `Adw.PreferencesGroup` sections. Editable controls and action buttons use `Adw.ActionRow` suffixes with direct activation, while status/result labels remain selectable. Existing privileged API calls, exact confirmation requirements, PXE validation-before-start sequence, initially disabled PXE start control, and masked one-shot age passphrase handling are preserved.
+
+
+## libadwaita restore profiles
+
+The single-use restore profile page is grouped into source/target selection, profile definition, and controlled execution sections using `Adw.PreferencesGroup` and `Adw.ActionRow`. Existing repository and inventory lookups, timezone-aware expiry input, exact destructive target confirmation, disabled initial cancellation control, and privileged execution/cancellation callbacks are preserved. Creating a profile remains separate from starting a restore.
