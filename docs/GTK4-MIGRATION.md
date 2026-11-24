@@ -22,7 +22,7 @@ and whole-disk/partition cloning. Restore and clone actions retain exact destruc
 confirmation phrases and use the privileged asynchronous operation API. Recovery ISO and deployment-bundle generation now use GTK image/repository
 selectors, repository write-state checks and DeploymentJob JSON validation. Restore
 images are loaded from the selected mounted repository when one is chosen; other
-navigation pages are still placeholders. This frontend is not production-ready.
+navigation pages, including restore profiles, are still placeholders. This frontend is not production-ready.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
