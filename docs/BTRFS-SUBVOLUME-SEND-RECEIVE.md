@@ -61,7 +61,8 @@ cannot be received unless at least one usable identity is configured.
 - It rejects nested subvolumes rather than attempting recursive orchestration.
 - It is distinct from the existing single-device Btrfs partition-image path.
 
-The implementation supports compression and age encryption. Codec-specific
-round-trip and failure-path regression coverage is tracked separately from the
-basic send/receive engine tests; do not infer that every codec combination has
-been exercised solely from a passing general CI run.
+Automated regression tests cover gzip/xz/zstd/lz4 capture-and-receive round trips,
+age encryption composed with gzip, corrupt-stream rejection for all four
+compressed codecs, and age-authentication failure quarantine. The uncompressed
+capture/receive path is covered as well. These tests run in CI; they do not imply
+that every possible compression-and-encryption combination has been exercised.
