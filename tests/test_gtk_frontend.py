@@ -109,6 +109,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_image_page_inspects_browses_downloads_and_extracts_partition_images(self):
         self.assertIn('self.api.submit("inspect_image_layout"', self.source)
         self.assertIn('self.api.submit("browse_image"', self.source)
+        self.assertIn('self.api.submit("verify_image"', self.source)
         self.assertIn('self.api.submit("extract_partition_image"', self.source)
         self.assertIn("base64.b64decode(encoded, validate=True)", self.source)
         self.assertIn('destination.open("xb")', self.source)
@@ -138,6 +139,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
         self.assertIn('self.api.submit("local_operations"', self.source)
+        self.assertIn('self.api.submit("cancel_local_operation"', self.source)
+        self.assertIn('operation_confirmation.get_text() != expected', self.source)
         self.assertIn('self.api.submit("recovery_jobs"', self.source)
         self.assertIn('details.get("destination_may_be_partial")', self.source)
         self.assertIn('item.get("unresolved_bytes")', self.source)
