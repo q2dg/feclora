@@ -243,7 +243,7 @@ class FecloraGTK:
             self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.page_body.append(Gtk.Label(label="Origen", xalign=0))
@@ -278,6 +278,12 @@ class FecloraGTK:
             self.page_body.append(self.capture_compression)
             self.capture_encrypt = Gtk.CheckButton(label="Cifrar artefactos con age")
             self.page_body.append(self.capture_encrypt)
+            self.capture_retry = Gtk.DropDown.new_from_strings([str(n) for n in range(11)])
+            self.capture_retry.set_selected(3)
+            self.page_body.append(Gtk.Label(label="Pasadas de reintento ddrescue", xalign=0))
+            self.page_body.append(self.capture_retry)
+            self.capture_resume = Gtk.CheckButton(label="Reanudar recuperación existente (mapfile)")
+            self.page_body.append(self.capture_resume)
             self.capture_start = Gtk.Button(label="Iniciar captura de disco")
             self.capture_start.connect("clicked", self._start_disk_capture)
             self.page_body.append(self.capture_start)
@@ -304,14 +310,18 @@ class FecloraGTK:
         kind = self.capture_kind.get_selected()
         is_btrfs_capture = kind == 4
         is_btrfs_receive = kind == 5
-        self.capture_source.set_visible(not (is_btrfs_capture or is_btrfs_receive))
+        is_recovery = kind == 6
+        is_finalize = kind == 7
+        self.capture_source.set_visible(not (is_btrfs_capture or is_btrfs_receive or is_finalize))
         self.capture_btrfs_source.set_visible(is_btrfs_capture)
         self.capture_btrfs_parent.set_visible(is_btrfs_capture)
         self.capture_btrfs_target.set_visible(is_btrfs_receive)
         self.capture_btrfs_receive_parent.set_visible(is_btrfs_receive)
-        if kind == 0:
+        self.capture_retry.set_visible(is_recovery)
+        self.capture_resume.set_visible(is_recovery)
+        if kind in {0, 6}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
-            label = "Discos"
+            label = "Discos" if kind == 0 else "Discos para recuperación ddrescue"
         elif kind == 1:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "part" and isinstance(d.get("path"), str)]
             label = "Particiones"
@@ -330,10 +340,10 @@ class FecloraGTK:
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_format.set_visible(kind == 0)
-        self.capture_compression.set_visible(kind != 5)
-        self.capture_encrypt.set_visible(kind != 5)
-        self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "Identificador de imagen")
-        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar captura: " + label.lower())
+        self.capture_compression.set_visible(kind not in {5, 6, 7})
+        self.capture_encrypt.set_visible(kind not in {5, 6, 7})
+        self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
+        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
@@ -361,6 +371,23 @@ class FecloraGTK:
         index = self.capture_source.get_selected()
         image_id = self.capture_image_id.get_text().strip()
         kind = self.capture_kind.get_selected()
+        if kind == 7:
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+                self.capture_result.set_text("Indica un identificador válido del trabajo de recuperación.")
+                return
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando finalización de recuperación…")
+            self.api.submit("finalize_recovery", {"job_id": image_id}, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
+        if kind == 6:
+            if index >= len(getattr(self, "capture_devices", [])) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+                self.capture_result.set_text("Selecciona un disco completo e indica un ID de recuperación válido.")
+                return
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "retry_passes": self.capture_retry.get_selected(), "resume": self.capture_resume.get_active()}
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando recuperación ddrescue…")
+            self.api.submit("recover_disk", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
         if kind == 5:
             target_directory = self.capture_btrfs_target.get_text().strip()
             parent_path = self.capture_btrfs_receive_parent.get_text().strip()
