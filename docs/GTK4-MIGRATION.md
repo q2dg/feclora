@@ -11,7 +11,10 @@ The native frontend is `gui_gtk.py`, built with GTK4, PyGObject and libadwaita.
 The application uses `Adw.Application`/`Adw.ApplicationWindow`, an
 `Adw.ToolbarView` with `Adw.HeaderBar` and `Adw.WindowTitle`, an `Adw.Clamp`
 for the welcome flow, and an `Adw.ToastOverlay` for transient error feedback.
-The existing fullscreen, undecorated kiosk policy is retained. The graphical
+Navigation uses `Adw.NavigationSplitView` with separately titled sidebar and
+content pages, width constraints and a compact-mode back control; selecting a
+page updates both the split-view page title and the window title. The existing
+fullscreen, undecorated kiosk policy is retained. The graphical
 runtime requires Fedora's `libadwaita` RPM; no PyPI
 binding, GNOME Shell, Mutter or X11 compatibility layer is required.
 `gtk_api.py` dispatches allowlisted API calls in worker threads and marshals
