@@ -165,3 +165,8 @@ The client-job page now separates authenticated server connection and inspection
 ## libadwaita repository administration
 
 The Repositories page now groups repository inventory, legacy P2V compatibility, managed repository actions, SSHFS/NFS/SMB definitions, S3 definitions, and encrypted systemd credential administration into Adw.PreferencesGroup sections. Editable fields and action buttons are presented through Adw.ActionRow controls. Provider-dependent SSH identity and SMB credential visibility, read-only flags, explicit removal phrases, protected credential references, and the existing repository/P2V API callbacks are retained. This is a presentation-only reorganization; mount, credential, validation and backend semantics are unchanged.
+
+
+## libadwaita local operations
+
+The local operations form now uses separate Adw.PreferencesGroup sections for operation selection, source/target/image selection, destructive confirmation and artifact generation, Btrfs paths, format/encryption, ddrescue recovery, and execution progress. Controls use Adw.ActionRow suffixes while mode-dependent visibility is applied to complete rows, including Btrfs and recovery-specific fields. The operation selector, device filtering, exact ERASE/BUILD confirmation, one-shot masked age passphrase, progress/cancellation controls, and all existing privileged API calls remain unchanged.
