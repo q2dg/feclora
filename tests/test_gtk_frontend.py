@@ -454,6 +454,37 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.window.connect("close-request"', self.source)
 
 
+    def test_remote_job_and_deployment_histories_use_libadwaita_rows(self):
+        start = self.source.index("    def _history_page")
+        end = self.source.index("    def _show_remote_jobs_page", start)
+        history = self.source[start:end]
+        self.assertIn('title="Consulta del historial"', history)
+        self.assertIn('summary_row = Adw.ActionRow(title="Estado"', history)
+        self.assertIn('refresh_row.set_activatable_widget(refresh)', history)
+
+        start = self.source.index("    def _show_remote_jobs_page")
+        end = self.source.index("    def _show_deployments_page", start)
+        remote = self.source[start:end]
+        for title in ("Definición del trabajo", "Importar definición", "Servicio de despliegue"):
+            self.assertIn(f'title="{title}"', remote)
+        self.assertIn("job_row.set_activatable_widget(self.remote_job_select)", remote)
+        self.assertIn("confirmation_row.set_activatable_widget(self.remote_job_confirmation)", remote)
+        self.assertIn('self.api.submit("deployment_jobs"', remote)
+        self.assertIn('self.api.submit("remote_repositories"', remote)
+        self.assertIn('self.api.submit("s3_repositories"', remote)
+
+    def test_client_job_history_uses_libadwaita_rows_without_changing_client_actions(self):
+        start = self.source.index("    def _show_client_jobs_page")
+        end = self.source.index("    def _show_client_job_rows", start)
+        page = self.source[start:end]
+        self.assertIn('title="Historial de clientes"', page)
+        self.assertIn("client_refresh_row.set_activatable_widget(refresh)", page)
+        for callback in ("self._inspect_client_job", "self._start_client_job", "self._refresh_client_job_status"):
+            self.assertIn(callback, page)
+        self.assertIn('self.api.submit("network_interfaces"', page)
+        self.assertIn('self.api.submit("inventory"', page)
+
+
 if __name__ == "__main__":
     unittest.main()
 
