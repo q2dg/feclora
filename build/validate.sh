@@ -278,6 +278,10 @@ require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk
 require_text 'status\.get\("certificate_status"\)' src/feclora/gui_gtk.py "GTK system status must include certificate health."
 
 require_text 'self\.capture_passphrase = Gtk\.PasswordEntry\(\)' src/feclora/gui_gtk.py "GTK RAW capture must provide a masked age passphrase field."
+require_text 'self\.capture_passphrase_toggle = Gtk\.CheckButton' src/feclora/gui_gtk.py "GTK RAW capture must expose the separate one-shot passphrase mode."
+require_text 'self\.capture_encrypt = Gtk\.CheckButton\(label="Cifrar con destinatarios age"\)' src/feclora/gui_gtk.py "GTK capture must preserve recipient-based age encryption."
+require_text 'self\.capture_passphrase_toggle\.set_active\(False\)' src/feclora/gui_gtk.py "GTK age encryption modes must be mutually exclusive."
+require_text 'params\["encrypt_passphrase"\] = True' src/feclora/gui_gtk.py "GTK passphrase capture must select the dedicated API encryption mode."
 require_text '"provide_capture_passphrase"' src/feclora/gui_gtk.py "GTK must deliver the one-shot age passphrase to the accepted operation."
 require_text 'self\.capture_passphrase\.set_text\(""\)' src/feclora/gui_gtk.py "GTK must clear the age passphrase field after submission."
 
