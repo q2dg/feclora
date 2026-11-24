@@ -2201,46 +2201,66 @@ class FecloraGTK:
 
     def _show_restore_profiles_page(self) -> None:
         self.page_description.set_text("Perfiles de restauración de un solo uso, vinculados a la identidad física del disco y con caducidad.")
+
+        def add_profile_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget, subtitle: str = "") -> Adw.ActionRow:
+            row = Adw.ActionRow(title=title, subtitle=subtitle)
+            row.add_suffix(widget)
+            row.set_activatable_widget(widget)
+            group.add(row)
+            return row
+
+        source_group = Adw.PreferencesGroup(
+            title="Origen y destino",
+            description="Selecciona una imagen RAW persistida y un disco identificado físicamente",
+        )
+        self.page_body.append(source_group)
         self.profile_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
-        self.page_body.append(Gtk.Label(label="Repositorio persistente (montado, verificado y escribible)", xalign=0))
-        self.page_body.append(self.profile_repository)
+        add_profile_row(source_group, "Repositorio persistente", self.profile_repository, "Debe estar montado, verificado y ser escribible")
         self.profile_image = Gtk.DropDown.new_from_strings(["Selecciona imagen RAW de disco…"])
-        self.page_body.append(Gtk.Label(label="Imagen RAW de disco", xalign=0))
-        self.page_body.append(self.profile_image)
+        add_profile_row(source_group, "Imagen RAW de disco", self.profile_image)
         self.profile_target = Gtk.DropDown.new_from_strings(["Cargando discos…"])
-        self.page_body.append(Gtk.Label(label="Disco destino con WWN o número de serie", xalign=0))
-        self.page_body.append(self.profile_target)
+        add_profile_row(source_group, "Disco destino", self.profile_target, "Requiere WWN o número de serie")
+
+        profile_group = Adw.PreferencesGroup(
+            title="Definición del perfil",
+            description="Crear un perfil no inicia la restauración",
+        )
+        self.page_body.append(profile_group)
         self.profile_name = Gtk.Entry()
         self.profile_name.set_placeholder_text("Nombre descriptivo del perfil")
-        self.page_body.append(Gtk.Label(label="Nombre del perfil", xalign=0))
-        self.page_body.append(self.profile_name)
+        add_profile_row(profile_group, "Nombre del perfil", self.profile_name)
         self.profile_expiry = Gtk.Entry()
         self.profile_expiry.set_placeholder_text("2027-01-31T23:59:59+01:00")
-        self.page_body.append(Gtk.Label(label="Caducidad ISO-8601 con zona horaria", xalign=0))
-        self.page_body.append(self.profile_expiry)
-        create = Gtk.Button(label="Crear perfil (no ejecuta la restauración)")
-        create.set_halign(Gtk.Align.START)
+        add_profile_row(profile_group, "Caducidad", self.profile_expiry, "Fecha ISO-8601 con zona horaria")
+        create = Gtk.Button(label="Crear perfil")
         create.connect("clicked", self._create_restore_profile)
-        self.page_body.append(create)
+        add_profile_row(profile_group, "Guardar perfil de un solo uso", create)
+
+        execution_group = Adw.PreferencesGroup(
+            title="Ejecución controlada",
+            description="La ejecución exige confirmar exactamente el disco físico detectado",
+        )
+        self.page_body.append(execution_group)
         self.profile_select = Gtk.DropDown.new_from_strings(["Cargando perfiles…"])
-        self.page_body.append(Gtk.Label(label="Perfil guardado", xalign=0))
-        self.page_body.append(self.profile_select)
+        add_profile_row(execution_group, "Perfil guardado", self.profile_select)
         self.profile_confirmation = Gtk.Entry()
         self.profile_confirmation.set_placeholder_text("ERASE /dev/…")
-        self.page_body.append(Gtk.Label(label="Confirmación exacta del disco detectado", xalign=0))
-        self.page_body.append(self.profile_confirmation)
+        add_profile_row(execution_group, "Confirmación exacta", self.profile_confirmation, "Debe coincidir con el destino seleccionado")
         execute = Gtk.Button(label="Ejecutar perfil de restauración")
-        execute.set_halign(Gtk.Align.START)
         execute.connect("clicked", self._execute_selected_restore_profile)
-        self.page_body.append(execute)
+        add_profile_row(execution_group, "Iniciar restauración", execute)
         self.profile_cancel = Gtk.Button(label="Solicitar cancelación de restauración")
         self.profile_cancel.set_sensitive(False)
         self.profile_cancel.connect("clicked", self._cancel_restore_profile_operation)
-        self.page_body.append(self.profile_cancel)
+        add_profile_row(execution_group, "Cancelar operación activa", self.profile_cancel)
+
         self.profile_result = Gtk.Label(label="", xalign=0)
         self.profile_result.set_wrap(True)
         self.profile_result.set_selectable(True)
-        self.page_body.append(self.profile_result)
+        result_row = Adw.ActionRow(title="Resultado")
+        result_row.add_suffix(self.profile_result)
+        execution_group.add(result_row)
+
         self.api.submit("inventory", on_success=self._populate_profile_inventory, on_error=self._profile_failed)
         self.api.submit("remote_repositories", on_success=self._populate_profile_repositories, on_error=self._profile_failed)
 
