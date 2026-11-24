@@ -31,6 +31,7 @@ class FecloraGTK:
         self.application = application
         self.language = self._load_language()
         self.keyboard_layout = "us"
+        self.keyboard_selection = "us"
         self.api = GtkAPIClient()
         self.window = Adw.ApplicationWindow(application=application)
         self.toast_overlay = Adw.ToastOverlay()
@@ -95,6 +96,7 @@ class FecloraGTK:
         values = [value for _label, value in KEYBOARD_LAYOUTS]
         if layout in values:
             self.keyboard_layout = layout
+            self.keyboard_selection = layout
             if hasattr(self, "keyboard_dropdown"):
                 self.keyboard_dropdown.set_selected(values.index(layout))
 
@@ -156,7 +158,7 @@ class FecloraGTK:
         root.append(keyboard_group)
         self.keyboard_dropdown = Gtk.DropDown.new_from_strings([label for label, _value in KEYBOARD_LAYOUTS])
         keyboard_values = [value for _label, value in KEYBOARD_LAYOUTS]
-        self.keyboard_dropdown.set_selected(keyboard_values.index(self.keyboard_layout) if self.keyboard_layout in keyboard_values else 0)
+        self.keyboard_dropdown.set_selected(keyboard_values.index(self.keyboard_selection) if self.keyboard_selection in keyboard_values else 0)
         self.keyboard_dropdown.set_valign(Gtk.Align.CENTER)
         keyboard_row = Adw.ActionRow(title=self.tr("keyboard"))
         keyboard_row.add_suffix(self.keyboard_dropdown)
@@ -200,6 +202,10 @@ class FecloraGTK:
     def _language_changed(self, dropdown: Gtk.DropDown, _param: Any) -> None:
         index = dropdown.get_selected()
         if index < len(LANGUAGES):
+            if hasattr(self, "keyboard_dropdown"):
+                keyboard_index = self.keyboard_dropdown.get_selected()
+                if keyboard_index < len(KEYBOARD_LAYOUTS):
+                    self.keyboard_selection = KEYBOARD_LAYOUTS[keyboard_index][1]
             self.language = LANGUAGES[index][1]
             self._show_welcome()
 
@@ -215,6 +221,7 @@ class FecloraGTK:
 
     def _keyboard_layout_applied(self, layout: str) -> None:
         self.keyboard_layout = layout
+        self.keyboard_selection = layout
         self.status.set_text(self.tr("apply_ok"))
 
     def _open_root_terminal(self, _button: Gtk.Button) -> None:
