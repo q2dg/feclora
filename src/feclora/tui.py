@@ -317,8 +317,6 @@ MESSAGES = {
         "client_jobs": "Tarefas do cliente",
         "system": "Sistema",
         "recovery_jobs": "Recuperações ddrescue",
-        "apply_ok": "Layout do teclado aplicado.",
-        "apply_error": "Não foi possível aplicar o layout do teclado:",
         "apply_ok": "Disposição do teclado aplicada.",
         "apply_error": "Não foi possível aplicar a disposição do teclado:"
     },
