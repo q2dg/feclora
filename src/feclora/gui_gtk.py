@@ -240,15 +240,28 @@ class FecloraGTK:
             self.page_body.append(scroller)
             self._refresh_inventory(None)
         elif page_id == "operations":
-            self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
+            self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue", "Restaurar disco", "Restaurar partición", "Restaurar volumen lógico", "Clonar disco", "Clonar partición"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.page_body.append(Gtk.Label(label="Origen", xalign=0))
             self.capture_source = Gtk.DropDown.new_from_strings(["Cargando dispositivos…"])
             self.page_body.append(self.capture_source)
+            self.capture_target_label = Gtk.Label(label="Destino", xalign=0)
+            self.page_body.append(self.capture_target_label)
+            self.capture_target = Gtk.DropDown.new_from_strings(["Cargando dispositivos…"])
+            self.page_body.append(self.capture_target)
+            self.capture_image_select_label = Gtk.Label(label="Imagen existente", xalign=0)
+            self.page_body.append(self.capture_image_select_label)
+            self.capture_image_select = Gtk.DropDown.new_from_strings(["Cargando imágenes…"])
+            self.page_body.append(self.capture_image_select)
+            self.capture_confirmation_label = Gtk.Label(label="Confirmación destructiva", xalign=0)
+            self.page_body.append(self.capture_confirmation_label)
+            self.capture_confirmation = Gtk.Entry()
+            self.capture_confirmation.set_placeholder_text("ERASE /dev/…")
+            self.page_body.append(self.capture_confirmation)
             self.capture_btrfs_source = Gtk.Entry()
             self.capture_btrfs_source.set_placeholder_text("/ruta/al/subvolumen")
             self.page_body.append(Gtk.Label(label="Ruta absoluta del subvolumen Btrfs", xalign=0))
@@ -298,6 +311,7 @@ class FecloraGTK:
             self.capture_result.set_wrap(True)
             self.page_body.append(self.capture_result)
             self.api.submit("inventory", on_success=self._populate_capture_devices, on_error=self._capture_failed)
+            self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
@@ -306,26 +320,40 @@ class FecloraGTK:
         self.capture_inventory_devices = self._flatten_devices(inventory.get("devices"))
         self._capture_mode_changed(self.capture_kind, None)
 
+    def _populate_capture_images(self, result: dict[str, Any]) -> None:
+        self.capture_images = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_id")]
+        labels = [str(item.get("image_id")) + " · " + str(item.get("image_type")) + " · " + str(item.get("source_size_bytes", 0)) + " bytes" for item in self.capture_images]
+        self.capture_image_select.set_model(Gtk.StringList.new(labels or ["No hay imágenes disponibles"]))
+        self.capture_image_select.set_selected(0)
+
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
         is_btrfs_capture = kind == 4
         is_btrfs_receive = kind == 5
         is_recovery = kind == 6
         is_finalize = kind == 7
-        self.capture_source.set_visible(not (is_btrfs_capture or is_btrfs_receive or is_finalize))
+        is_restore = kind in {8, 9, 10}
+        is_clone = kind in {11, 12}
+        self.capture_source.set_visible(not (is_btrfs_capture or is_btrfs_receive or is_finalize or is_restore))
+        self.capture_target_label.set_visible(is_restore or is_clone)
+        self.capture_target.set_visible(is_restore or is_clone)
+        self.capture_image_select_label.set_visible(is_restore)
+        self.capture_image_select.set_visible(is_restore)
+        self.capture_confirmation_label.set_visible(is_restore or is_clone)
+        self.capture_confirmation.set_visible(is_restore or is_clone)
         self.capture_btrfs_source.set_visible(is_btrfs_capture)
         self.capture_btrfs_parent.set_visible(is_btrfs_capture)
         self.capture_btrfs_target.set_visible(is_btrfs_receive)
         self.capture_btrfs_receive_parent.set_visible(is_btrfs_receive)
         self.capture_retry.set_visible(is_recovery)
         self.capture_resume.set_visible(is_recovery)
-        if kind in {0, 6}:
+        if kind in {0, 6, 11}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
             label = "Discos" if kind == 0 else "Discos para recuperación ddrescue"
-        elif kind == 1:
+        elif kind in {1, 12}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "part" and isinstance(d.get("path"), str)]
             label = "Particiones"
-        elif kind == 2:
+        elif kind in {2, 10}:
             self.capture_devices = self._flatten_logical_volumes(self.capture_inventory)
             label = "Volúmenes lógicos sanos"
         elif kind == 3:
@@ -334,19 +362,28 @@ class FecloraGTK:
         elif kind in {4, 5}:
             self.capture_devices = []
             label = "Subvolúmenes Btrfs (ruta manual)"
+        elif kind in {8, 9}:
+            device_type = "disk" if kind == 8 else "part"
+            self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == device_type and isinstance(d.get("path"), str)]
+            label = "Destinos de restauración · " + ("discos" if kind == 8 else "particiones")
         else:
             self.capture_devices = []
             label = "Finalización de recuperación"
         labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("lvm_name") or d.get("type")) for d in self.capture_devices]
         self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
+        target_type = "disk" if kind in {8, 11} else "part"
+        self.capture_target_devices = self._flatten_logical_volumes(self.capture_inventory) if kind == 10 else [d for d in self.capture_inventory_devices if d.get("type") == target_type and isinstance(d.get("path"), str)]
+        target_labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("type")) for d in self.capture_target_devices]
+        self.capture_target.set_model(Gtk.StringList.new(target_labels or ["No hay destinos compatibles"]))
+        self.capture_target.set_selected(0)
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_format.set_visible(kind == 0)
-        self.capture_compression.set_visible(kind not in {5, 6, 7})
-        self.capture_encrypt.set_visible(kind not in {5, 6, 7})
+        self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12})
+        self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12})
         self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
-        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Iniciar captura: " + label.lower())
+        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
@@ -374,6 +411,41 @@ class FecloraGTK:
         index = self.capture_source.get_selected()
         image_id = self.capture_image_id.get_text().strip()
         kind = self.capture_kind.get_selected()
+        if kind in {8, 9, 10, 11, 12}:
+            target_index = self.capture_target.get_selected()
+            if target_index >= len(getattr(self, "capture_target_devices", [])):
+                self.capture_result.set_text("Selecciona un destino compatible.")
+                return
+            target = self.capture_target_devices[target_index].get("path")
+            confirmation = self.capture_confirmation.get_text()
+            if kind in {11, 12}:
+                if index >= len(getattr(self, "capture_devices", [])) or self.capture_devices[index].get("path") == target:
+                    self.capture_result.set_text("Selecciona dos dispositivos distintos.")
+                    return
+                source = self.capture_devices[index]["path"]
+                expected = "ERASE " + target if kind == 11 else "ERASE " + target + " FROM " + source
+                action = "clone_disk" if kind == 11 else "clone_partition"
+                params = {"source": source, "target": target, "confirmation": confirmation}
+            else:
+                image_index = self.capture_image_select.get_selected()
+                if image_index >= len(getattr(self, "capture_images", [])):
+                    self.capture_result.set_text("Selecciona una imagen compatible.")
+                    return
+                image = self.capture_images[image_index]
+                expected_type = {8: "disk", 9: "partition", 10: "logical_volume"}[kind]
+                if image.get("image_type") != expected_type:
+                    self.capture_result.set_text("La imagen seleccionada no corresponde al tipo de restauración.")
+                    return
+                expected = "ERASE " + target
+                action = {8: "restore_disk", 9: "restore_partition", 10: "restore_logical_volume"}[kind]
+                params = {"image_id": image["image_id"], "target": target, "confirmation": confirmation}
+            if confirmation != expected:
+                self.capture_result.set_text("Escribe exactamente: " + expected)
+                return
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando operación destructiva…")
+            self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
         if kind == 7:
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
                 self.capture_result.set_text("Indica un identificador válido del trabajo de recuperación.")
