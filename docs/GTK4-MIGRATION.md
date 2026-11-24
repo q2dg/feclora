@@ -41,10 +41,6 @@ The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
 runtime is retained. The frontend is not production-ready.
 
-The CustomTkinter/Tk prototype and its dedicated tests have been removed.
-GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
-runtime is retained.
-
 ## Target runtime: native Wayland only
 
 The intended appliance stack is Weston on its DRM/KMS backend with
