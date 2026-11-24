@@ -258,7 +258,12 @@ class FecloraGTK:
             self.capture_start = Gtk.Button(label="Iniciar captura de disco")
             self.capture_start.connect("clicked", self._start_disk_capture)
             self.page_body.append(self.capture_start)
+            self.capture_cancel = Gtk.Button(label="Solicitar cancelación")
+            self.capture_cancel.set_sensitive(False)
+            self.capture_cancel.connect("clicked", self._cancel_disk_capture)
+            self.page_body.append(self.capture_cancel)
             self.capture_progress = Gtk.ProgressBar()
+            self.capture_progress.set_show_text(True)
             self.page_body.append(self.capture_progress)
             self.capture_result = Gtk.Label(label="", xalign=0)
             self.capture_result.set_wrap(True)
@@ -298,6 +303,7 @@ class FecloraGTK:
             self._capture_failed(RuntimeError("El backend no devolvió operation_id."))
             return
         self.active_capture_id = operation_id
+        self.capture_cancel.set_sensitive(True)
         self.capture_result.set_text("Captura aceptada: " + operation_id)
         self._poll_capture_status()
 
@@ -321,9 +327,18 @@ class FecloraGTK:
         self.capture_result.set_text("Operación " + str(self.active_capture_id) + ": " + str(state))
         if state in {"completed", "failed", "cancelled", "interrupted"}:
             self.capture_start.set_sensitive(True)
+            self.capture_cancel.set_sensitive(False)
             self.active_capture_id = None
             return
         GLib.timeout_add_seconds(2, self._poll_capture_status)
+
+    def _cancel_disk_capture(self, _button: Gtk.Button) -> None:
+        operation_id = getattr(self, "active_capture_id", None)
+        if not operation_id:
+            return
+        self.capture_cancel.set_sensitive(False)
+        self.capture_result.set_text("Cancelación solicitada. La escritura podría dejar el destino parcialmente modificado.")
+        self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._capture_failed)
 
     def _capture_failed(self, error: Exception) -> None:
         if hasattr(self, "capture_result"):
