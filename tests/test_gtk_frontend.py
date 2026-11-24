@@ -106,6 +106,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"interrupted"', status)
         self.assertIn("GLib.timeout_add_seconds", status)
         self.assertIn("Solicitar cancelación", self.source)
+    def test_restore_and_clone_operations_use_inventory_images_and_exact_confirmation(self):
+        self.assertIn('self.api.submit("images"', self.source)
+        self.assertIn('"restore_disk"', self.source)
+        self.assertIn('"restore_partition"', self.source)
+        self.assertIn('"restore_logical_volume"', self.source)
+        self.assertIn('"clone_disk"', self.source)
+        self.assertIn('"clone_partition"', self.source)
+        self.assertIn('confirmation != expected', self.source)
+        self.assertIn('image.get("image_type") != expected_type', self.source)
+
     def test_kiosk_window_is_fullscreen_and_not_decorated_or_closable(self):
         self.assertIn("self.window.fullscreen()", self.source)
         self.assertIn("self.window.set_decorated(False)", self.source)
