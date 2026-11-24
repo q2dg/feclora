@@ -274,7 +274,7 @@ require_text 'f"READ \{target\} TO \{inspection.get' src/feclora/gui_gtk.py "GTK
 require_text 'base64\.b64encode\(payload\)\.decode\("ascii"\)' src/feclora/gui_gtk.py "GTK must bound and encode local PXE answer uploads."
 require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk.py "GTK must mask one-shot age passphrases."
 
- "GTK server status must include PXE service health."
+require_text 'self\.api\.submit\("pxe_service_status"' src/feclora/gui_gtk.py "GTK server status must include PXE service health."
 require_text 'status\.get\("certificate_status"\)' src/feclora/gui_gtk.py "GTK system status must include certificate health."
 
 require_text 'self\.capture_passphrase = Gtk\.PasswordEntry\(\)' src/feclora/gui_gtk.py "GTK RAW capture must provide a masked age passphrase field."
