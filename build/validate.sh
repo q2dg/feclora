@@ -375,3 +375,14 @@ require_text 'self\.capture_passphrase = Gtk\.PasswordEntry\(\)' src/feclora/gui
 require_text 'self\.capture_confirmation\.set_placeholder_text\("ERASE /dev/… o BUILD <imagen>"\)' src/feclora/gui_gtk.py "GTK destructive operation confirmation guidance must remain visible."
 require_text 'self\.capture_retry_row\.set_visible\(is_recovery\)' src/feclora/gui_gtk.py "GTK ddrescue controls must hide and show as complete preference rows."
 require_text 'self\.capture_btrfs_source_row\.set_visible\(is_btrfs_capture\)' src/feclora/gui_gtk.py "GTK Btrfs capture controls must hide and show as complete preference rows."
+
+
+require_text 'title="Repositorio e imagen"' src/feclora/gui_gtk.py "GTK image selection must use a semantic preferences group."
+require_text 'title="Inspección y verificación"' src/feclora/gui_gtk.py "GTK image inspection and integrity verification must be grouped."
+require_text 'title="Exploración y descarga"' src/feclora/gui_gtk.py "GTK image browsing and download controls must be grouped."
+require_text 'title="Extracción de particiones"' src/feclora/gui_gtk.py "GTK partition extraction controls must be grouped."
+require_text 'title="Resultado y actividad"' src/feclora/gui_gtk.py "GTK image operation results must have a dedicated group."
+require_text 'self\.image_catalog_stack\.set_visible_child_name\("loading"\)' src/feclora/gui_gtk.py "GTK image catalog loading state must remain explicit."
+require_text 'self\.image_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK image extraction cancellation must remain disabled until accepted."
+require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK image integrity verification must retain its privileged API request."
+require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK partition extraction must retain its privileged API request."
