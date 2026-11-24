@@ -50,6 +50,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("compression", start)
         self.assertIn("encrypt", start)
 
+    def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
+        api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
+        self.assertIn('"image_format", "encrypt_passphrase"', api_source)
+
     def test_disk_capture_polls_terminal_states_and_exposes_cancel(self):
         status = ast.unparse(self.methods["_show_capture_status"])
         self.assertIn('"completed"', status)
