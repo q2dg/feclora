@@ -331,9 +331,12 @@ class FecloraGTK:
         elif kind == 3:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "dm" and str(d.get("filesystem") or "").lower() == "xfs" and isinstance(d.get("path"), str)]
             label = "Filesystems Stratis XFS"
-        else:
+        elif kind in {4, 5}:
             self.capture_devices = []
             label = "Subvolúmenes Btrfs (ruta manual)"
+        else:
+            self.capture_devices = []
+            label = "Finalización de recuperación"
         labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("lvm_name") or d.get("type")) for d in self.capture_devices]
         self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
