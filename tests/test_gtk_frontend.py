@@ -28,6 +28,17 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('app = Adw.Application(application_id="org.feclora.Appliance")', self.source)
         self.assertNotIn("Gtk.ApplicationWindow(application=application)", self.source)
 
+    def test_navigation_uses_adaptive_libadwaita_split_view(self):
+        self.assertIn("Adw.NavigationSplitView()", self.source)
+        self.assertIn("Adw.NavigationPage.new(sidebar_scroller, \"Feclora\")", self.source)
+        self.assertIn("Adw.NavigationPage.new(content, self.tr(\"overview\"))", self.source)
+        self.assertIn("self.navigation_split.set_min_sidebar_width(220)", self.source)
+        self.assertIn("self.navigation_split.set_sidebar_width_fraction(0.25)", self.source)
+        self.assertIn('self.navigation_split.connect("notify::collapsed"', self.source)
+        self.assertIn("self.navigation_split.set_show_content(True)", self.source)
+        self.assertIn("self.navigation_split.set_show_content(False)", self.source)
+        self.assertIn("self.window_title.set_title(page_title)", self.source)
+
     def test_frontend_fails_closed_to_native_wayland(self):
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', self.source)
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
