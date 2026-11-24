@@ -44,6 +44,23 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', self.source)
 
+    def test_welcome_uses_semantic_libadwaita_preference_groups(self):
+        welcome = ast.get_source_segment(self.source, self.methods["_show_welcome"])
+        for title in ("Idioma de la interfaz", "Distribución del teclado", "Acciones"):
+            self.assertIn(title, welcome)
+        self.assertEqual(welcome.count("Adw.PreferencesGroup("), 3)
+        self.assertIn("Adw.ActionRow(", welcome)
+        self.assertIn("self.keyboard_layout", welcome)
+        self.assertIn("self.keyboard_dropdown.set_selected(", welcome)
+        self.assertIn("set_activatable_widget", welcome)
+
+    def test_keyboard_layout_selection_is_preserved_after_apply(self):
+        apply = ast.get_source_segment(self.source, self.methods["_apply_keyboard"])
+        accepted = ast.get_source_segment(self.source, self.methods["_keyboard_layout_applied"])
+        self.assertIn('"set_keyboard_layout"', apply)
+        self.assertIn("_keyboard_layout_applied(layout)", apply)
+        self.assertIn("self.keyboard_layout = layout", accepted)
+        self.assertIn("apply_ok", accepted)
     def test_overview_uses_real_status_api(self):
         method = ast.get_source_segment(self.source, self.methods["_refresh_status"])
         self.assertIn('self.api.submit("status"', method)
