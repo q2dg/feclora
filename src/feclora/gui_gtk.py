@@ -3109,13 +3109,13 @@ class FecloraGTK:
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Capturar disco virtual QCOW2 (P2V)" if kind == 17 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
 
     def _capture_encryption_changed(self, widget: Gtk.CheckButton) -> None:
-        if widget.get_active():
-            if widget is self.capture_encrypt:
+        if widget is self.capture_encrypt:
+            if widget.get_active():
                 self.capture_passphrase_toggle.set_active(False)
-                self.capture_passphrase.set_text("")
-            else:
-                self.capture_encrypt.set_active(False)
-        elif widget is self.capture_passphrase_toggle:
+            self.capture_passphrase.set_text("")
+        elif widget.get_active():
+            self.capture_encrypt.set_active(False)
+        else:
             self.capture_passphrase.set_text("")
         self._capture_mode_changed(self.capture_kind, None)
 
