@@ -183,3 +183,8 @@ The Overview page now separates host/platform identity, Feclora server/client co
 
 
 The Inventory page now presents storage topology as one `Adw.PreferencesGroup` per top-level device, with nested devices and partitions represented by `Adw.ActionRow` entries. Each row retains the reported type, byte size, model, filesystem and mountpoints; an `Adw.StatusPage` explains an empty inventory. Refresh and summary controls use semantic preference rows. The inventory API and underlying device data are unchanged.
+
+
+## libadwaita welcome and input preferences
+
+The welcome screen now organizes interface language, keyboard layout, configuration status, and actions into semantic `Adw.PreferencesGroup` and `Adw.ActionRow` sections. The selected keyboard layout is initialized from the current in-memory setting, and a successful privileged apply updates that setting so rebuilding the welcome screen after a language change does not reset the selection. Language persistence and keyboard API behavior remain unchanged.
