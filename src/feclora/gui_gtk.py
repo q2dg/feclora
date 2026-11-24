@@ -2041,11 +2041,12 @@ class FecloraGTK:
         )
         self.page_body.append(network_group)
 
-        def add_network_row(title: str, widget: Gtk.Widget) -> None:
+        def add_network_row(title: str, widget: Gtk.Widget) -> Adw.ActionRow:
             row = Adw.ActionRow(title=title)
             row.add_suffix(widget)
             row.set_activatable_widget(widget)
             network_group.add(row)
+            return row
 
         self.network_profile = Gtk.DropDown.new_from_strings(["Cargando perfiles…"])
         self.network_profile.connect("notify::selected", self._network_profile_changed)
@@ -2058,19 +2059,19 @@ class FecloraGTK:
         self.network_address = Gtk.Entry()
         self.network_address.set_placeholder_text("192.0.2.10")
         self.network_address.set_width_chars(18)
-        add_network_row("Dirección IPv4", self.network_address)
+        self.network_address_row = add_network_row("Dirección IPv4", self.network_address)
         self.network_prefix = Gtk.Entry()
         self.network_prefix.set_placeholder_text("24")
         self.network_prefix.set_width_chars(6)
-        add_network_row("Prefijo CIDR (1–32)", self.network_prefix)
+        self.network_prefix_row = add_network_row("Prefijo CIDR (1–32)", self.network_prefix)
         self.network_gateway = Gtk.Entry()
         self.network_gateway.set_placeholder_text("192.0.2.1 (opcional)")
         self.network_gateway.set_width_chars(18)
-        add_network_row("Gateway IPv4 (opcional)", self.network_gateway)
+        self.network_gateway_row = add_network_row("Gateway IPv4 (opcional)", self.network_gateway)
         self.network_dns = Gtk.Entry()
         self.network_dns.set_placeholder_text("1.1.1.1, 8.8.8.8")
         self.network_dns.set_width_chars(24)
-        add_network_row("DNS IPv4 separados por comas", self.network_dns)
+        self.network_dns_row = add_network_row("DNS IPv4 separados por comas", self.network_dns)
         apply = Gtk.Button(label="Aplicar configuración (rollback automático si falla)")
         apply.set_halign(Gtk.Align.START)
         apply.connect("clicked", self._apply_network_profile)
@@ -2110,8 +2111,8 @@ class FecloraGTK:
 
     def _network_method_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         manual = self.network_method.get_selected() == 1
-        for widget in (self.network_address, self.network_prefix, self.network_gateway, self.network_dns):
-            widget.set_visible(manual)
+        for row in (self.network_address_row, self.network_prefix_row, self.network_gateway_row, self.network_dns_row):
+            row.set_visible(manual)
 
     def _apply_network_profile(self, _button: Gtk.Button) -> None:
         import ipaddress
