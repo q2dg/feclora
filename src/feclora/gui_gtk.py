@@ -105,10 +105,24 @@ class FecloraGTK:
     def _present_content(self, content: Gtk.Widget, title: str, subtitle: str = "") -> None:
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
-        header.set_title_widget(Adw.WindowTitle(title, subtitle))
+        self.window_title = Adw.WindowTitle(title, subtitle)
+        header.set_title_widget(self.window_title)
+        self.back_button = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        self.back_button.set_tooltip_text("Volver a la navegación")
+        self.back_button.connect("clicked", self._show_navigation_sidebar)
+        header.pack_start(self.back_button)
+        self.back_button.set_visible(False)
         toolbar.add_top_bar(header)
         toolbar.set_content(content)
         self.toast_overlay.set_child(toolbar)
+
+    def _show_navigation_sidebar(self, _button: Gtk.Button) -> None:
+        if hasattr(self, "navigation_split"):
+            self.navigation_split.set_show_content(False)
+
+    def _navigation_split_collapsed(self, split: Adw.NavigationSplitView, _param: Any) -> None:
+        if hasattr(self, "back_button"):
+            self.back_button.set_visible(split.get_collapsed())
 
     def _show_welcome(self) -> None:
         root = self._box(Gtk.Orientation.VERTICAL, 18)
@@ -188,7 +202,6 @@ class FecloraGTK:
         self._show_navigation()
 
     def _show_navigation(self) -> None:
-        outer = self._box(Gtk.Orientation.HORIZONTAL, 0)
         sidebar = self._box(Gtk.Orientation.VERTICAL, 8)
         sidebar.add_css_class("navigation-sidebar")
         sidebar.set_size_request(280, -1)
@@ -224,9 +237,19 @@ class FecloraGTK:
             button.connect("clicked", self._select_page, page_id)
             sidebar.append(button)
 
-        outer.append(sidebar)
-        outer.append(content)
-        self._present_content(outer, "Feclora", self.tr("overview"))
+        sidebar_scroller = Gtk.ScrolledWindow()
+        sidebar_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sidebar_scroller.set_child(sidebar)
+        self.navigation_split = Adw.NavigationSplitView()
+        self.navigation_split.set_sidebar(Adw.NavigationPage.new(sidebar_scroller, "Feclora"))
+        self.navigation_split.set_content(Adw.NavigationPage.new(content, self.tr("overview")))
+        self.navigation_split.set_min_sidebar_width(220)
+        self.navigation_split.set_max_sidebar_width(320)
+        self.navigation_split.set_sidebar_width_fraction(0.25)
+        self.navigation_split.set_vexpand(True)
+        self.navigation_split.connect("notify::collapsed", self._navigation_split_collapsed)
+        self._present_content(self.navigation_split, "Feclora", self.tr("overview"))
+        self._navigation_split_collapsed(self.navigation_split, None)
         self._select_page(None, "overview")
 
     def _clear_page(self) -> None:
@@ -238,7 +261,16 @@ class FecloraGTK:
 
     def _select_page(self, _button: Gtk.Button | None, page_id: str) -> None:
         self._clear_page()
-        self.page_title.set_text(self.tr(PAGE_MESSAGE_KEYS[page_id]))
+        page_title = self.tr(PAGE_MESSAGE_KEYS[page_id])
+        self.page_title.set_text(page_title)
+        if hasattr(self, "window_title"):
+            self.window_title.set_title(page_title)
+        if hasattr(self, "navigation_split") and self.navigation_split.get_collapsed():
+            self.navigation_split.set_show_content(True)
+        if hasattr(self, "navigation_split"):
+            content_page = self.navigation_split.get_content()
+            if content_page is not None:
+                content_page.set_title(page_title)
         if page_id == "overview":
             self.page_description.set_text("Estado del equipo y configuración local.")
             self.status_summary = Gtk.Label(label="Consultando el estado del sistema…", xalign=0)
