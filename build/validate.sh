@@ -288,4 +288,4 @@ require_text 'gi\.require_version\("Adw", "1"\)' src/feclora/gui_gtk.py "GTK fro
 require_text 'Adw\.ApplicationWindow\(application=application\)' src/feclora/gui_gtk.py "GTK frontend must use the libadwaita application window."
 require_text 'Adw\.ToolbarView\(\)' src/feclora/gui_gtk.py "GTK frontend must use libadwaita toolbar layout."
 require_text 'Adw\.ToastOverlay\(\)' src/feclora/gui_gtk.py "GTK frontend must provide libadwaita transient notifications."
-require_text 'libadwaita-gtk4' requirements-gui.txt "GUI runtime metadata must include Fedora libadwaita packages."
+require_text 'libadwaita' requirements-gui.txt "GUI runtime metadata must include Fedora libadwaita packages."
