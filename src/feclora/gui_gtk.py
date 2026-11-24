@@ -269,11 +269,17 @@ class FecloraGTK:
         page_scroller.set_child(self.page_body)
         content.append(page_scroller)
 
+        navigation_group = Adw.PreferencesGroup(title="Secciones")
+        sidebar.append(navigation_group)
+        self.navigation_rows: dict[str, Adw.ActionRow] = {}
         for page_id, _label in PAGES:
-            button = Gtk.Button(label=self.tr(PAGE_MESSAGE_KEYS[page_id]))
-            button.set_halign(Gtk.Align.FILL)
-            button.connect("clicked", self._select_page, page_id)
-            sidebar.append(button)
+            row = Adw.ActionRow(title=self.tr(PAGE_MESSAGE_KEYS[page_id]))
+            row.add_prefix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+            row.set_activatable(True)
+            row.add_css_class("navigation-row")
+            row.connect("activated", self._select_page, page_id)
+            navigation_group.add(row)
+            self.navigation_rows[page_id] = row
 
         sidebar_scroller = Gtk.ScrolledWindow()
         sidebar_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -297,7 +303,7 @@ class FecloraGTK:
             self.page_body.remove(child)
             child = following
 
-    def _select_page(self, _button: Gtk.Button | None, page_id: str) -> None:
+    def _select_page(self, _row: Gtk.Widget | None, page_id: str) -> None:
         self._clear_page()
         page_title = self.tr(PAGE_MESSAGE_KEYS[page_id])
         self.page_title.set_text(page_title)
