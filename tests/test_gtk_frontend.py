@@ -16,6 +16,18 @@ class GTKFrontendStructureTests(unittest.TestCase):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         }
 
+    def test_frontend_uses_libadwaita_application_shell(self):
+        self.assertIn('gi.require_version("Adw", "1")', self.source)
+        self.assertIn("Adw.ApplicationWindow(application=application)", self.source)
+        self.assertIn("Adw.ToolbarView()", self.source)
+        self.assertIn("Adw.HeaderBar()", self.source)
+        self.assertIn("Adw.WindowTitle(title, subtitle)", self.source)
+        self.assertIn("Adw.Clamp()", self.source)
+        self.assertIn("Adw.ToastOverlay()", self.source)
+        self.assertIn("Adw.Toast.new(message)", self.source)
+        self.assertIn('app = Adw.Application(application_id="org.feclora.Appliance")', self.source)
+        self.assertNotIn("Gtk.ApplicationWindow(application=application)", self.source)
+
     def test_frontend_fails_closed_to_native_wayland(self):
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', self.source)
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
