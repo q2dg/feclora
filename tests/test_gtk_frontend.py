@@ -69,10 +69,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         start = ast.unparse(self.methods["_start_disk_capture"])
         mode = ast.unparse(self.methods["_capture_mode_changed"])
         self.assertIn('"capture_btrfs_subvolume"', start)
+        self.assertIn('"receive_btrfs_subvolume"', start)
         self.assertIn("source_path", start)
+        self.assertIn("target_directory", start)
         self.assertIn("parent_path", start)
         self.assertIn("startswith(\"/\")", start)
         self.assertIn("kind == 4", mode)
+        self.assertIn("kind == 5", mode)
         self.assertIn("Subvolúmenes Btrfs (ruta manual)", mode)
 
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
