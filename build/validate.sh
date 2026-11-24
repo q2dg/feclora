@@ -356,9 +356,9 @@ require_text 'title="Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK clie
 require_text 'host_row\\.set_activatable_widget\\(self\\.client_server_host\\)' src/feclora/gui_gtk.py "GTK client server host row must preserve direct activation."
 require_text 'self\.client_confirmation\.set_placeholder_text\("Escribe exactamente ERASE destino o READ destino TO identidad"\)' src/feclora/gui_gtk.py "GTK client jobs must retain exact destructive/read confirmation guidance."
 
-require_text 'title="Repositorios SSHFS, NFS y SMB/CIFS"' src/feclora/gui_gtk.py "GTK repository definitions must use a semantic libadwaita preferences group."
-require_text 'title="Repositorios S3"' src/feclora/gui_gtk.py "GTK S3 definitions must use a semantic libadwaita preferences group."
-require_text 'title="Credenciales systemd cifradas"' src/feclora/gui_gtk.py "GTK protected credential management must use a semantic preferences group."
+require_text 'add_group("Repositorios SSHFS, NFS y SMB/CIFS"' src/feclora/gui_gtk.py "GTK repository definitions must use a semantic libadwaita preferences group."
+require_text 'add_group("Repositorios S3"' src/feclora/gui_gtk.py "GTK S3 definitions must use a semantic libadwaita preferences group."
+require_text 'add_group("Credenciales systemd cifradas"' src/feclora/gui_gtk.py "GTK protected credential management must use a semantic preferences group."
 require_text 'add_row\(remote_group, "Clave SSH protegida", self\.remote_identity\)' src/feclora/gui_gtk.py "GTK SSH identity selection must remain in the SSHFS repository preferences."
 require_text 'add_row\(remote_group, "Credencial SMB protegida", self\.remote_credential\)' src/feclora/gui_gtk.py "GTK SMB credential selection must remain in the SMB repository preferences."
 require_text 'self\.remote_credential\.set_visible\(provider == "smb"\)' src/feclora/gui_gtk.py "GTK SMB credentials must remain conditional on the SMB provider."
