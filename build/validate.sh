@@ -283,3 +283,9 @@ require_text 'self\.capture_passphrase\.set_text\(""\)' src/feclora/gui_gtk.py "
 
 require_text 'self\.active_capture_passphrase = ""' src/feclora/gui_gtk.py "GTK must clear a pending age passphrase after capture failure."
 require_text 'self\.capture_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK must disable capture cancellation after failure."
+
+require_text 'gi\.require_version\("Adw", "1"\)' src/feclora/gui_gtk.py "GTK frontend must require the supported libadwaita namespace."
+require_text 'Adw\.ApplicationWindow\(application=application\)' src/feclora/gui_gtk.py "GTK frontend must use the libadwaita application window."
+require_text 'Adw\.ToolbarView\(\)' src/feclora/gui_gtk.py "GTK frontend must use libadwaita toolbar layout."
+require_text 'Adw\.ToastOverlay\(\)' src/feclora/gui_gtk.py "GTK frontend must provide libadwaita transient notifications."
+require_text 'libadwaita-gtk4' requirements-gui.txt "GUI runtime metadata must include Fedora libadwaita packages."
