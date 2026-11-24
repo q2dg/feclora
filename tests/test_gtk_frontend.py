@@ -750,7 +750,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"encrypt": (self.capture_encrypt.get_active() or passphrase_encryption) and not qcow2', start)
         self.assertIn('if kind == 0 and not qcow2 and self.capture_passphrase_toggle.get_active():', start)
         self.assertIn('params["encrypt_passphrase"] = True', start)
-        self.assertIn("self.active_capture_passphrase = capture_passphrase", start)
+        self.assertIn("capture_passphrase = self.capture_passphrase.get_text()", start)
 
 
 
