@@ -359,3 +359,11 @@ if __name__ == "__main__":
         self.assertIn('"encrypt_passphrase": True', self.source)
         self.assertIn("self.capture_passphrase.set_text(\"\")", self.source)
         self.assertIn("self._capture_passphrase_failed", self.source)
+
+    def test_capture_failure_clears_pending_age_passphrase(self):
+        start = self.source.index("    def _capture_failed")
+        end = self.source.index("    def _refresh_status", start)
+        callback = self.source[start:end]
+        self.assertIn("self.active_capture_passphrase = \"\"", callback)
+        self.assertIn("self.capture_passphrase.set_text(\"\" )".replace(" ", ""), callback.replace(" ", ""))
+        self.assertIn("self.capture_cancel.set_sensitive(False)", callback)
