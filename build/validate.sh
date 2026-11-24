@@ -314,3 +314,12 @@ require_text 'Adw\.PreferencesGroup\(' src/feclora/gui_gtk.py "GTK system status
 require_text 'status_row = Adw\.ActionRow\(title="Resumen del sistema"\)' src/feclora/gui_gtk.py "GTK system status must use a semantic libadwaita status row."
 require_text 'refresh_row = Adw\.ActionRow\(title="Actualizar estado"\)' src/feclora/gui_gtk.py "GTK system refresh must use a libadwaita action row."
 require_text 'refresh_row\.set_activatable_widget\(refresh\)' src/feclora/gui_gtk.py "GTK system refresh row must preserve direct button activation."
+
+require_text 'title="Estado del servidor"' src/feclora/gui_gtk.py "GTK server health must use a libadwaita preferences group."
+require_text 'title="Identidad y certificados TLS"' src/feclora/gui_gtk.py "GTK TLS administration must use a semantic preferences group."
+require_text 'title="Servicios PXE"' src/feclora/gui_gtk.py "GTK PXE profile controls must use a semantic preferences group."
+require_text 'title="Respuestas PXE desatendidas"' src/feclora/gui_gtk.py "GTK unattended PXE answer actions must use a semantic preferences group."
+require_text 'title="Cifrado age y destinatarios"' src/feclora/gui_gtk.py "GTK age recipient and passphrase workflows must use a semantic preferences group."
+require_text 'row.set_activatable_widget(widget)' src/feclora/gui_gtk.py "GTK server preference rows must preserve direct control activation."
+require_text 'self.pxe_start.set_sensitive(False)' src/feclora/gui_gtk.py "GTK PXE services must remain disabled until profile validation succeeds."
+require_text 'self.pxe_passphrase.set_visibility(False)' src/feclora/gui_gtk.py "GTK one-shot PXE age passphrases must remain masked."
