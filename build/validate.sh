@@ -176,3 +176,5 @@ require_text '"build_recovery_iso".*"build_deployment_bundle"' src/feclora/api.p
 require_text 'json\.loads\(job_text\)' src/feclora/gui_gtk.py "GTK deployment bundle form must parse DeploymentJob JSON."
 
 require_text 'self\.api\.submit\("repository_images"' src/feclora/gui_gtk.py "GTK must load image manifests from the selected mounted repository."
+
+require_text 'self\.capture_repository\.connect\("notify::selected"' src/feclora/gui_gtk.py "GTK repository selection must refresh repository-scoped image catalogs."
