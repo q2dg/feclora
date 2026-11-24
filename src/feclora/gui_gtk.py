@@ -265,6 +265,7 @@ class FecloraGTK:
             self.capture_repository_label = Gtk.Label(label="Repositorio remoto", xalign=0)
             self.page_body.append(self.capture_repository_label)
             self.capture_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
+            self.capture_repository.connect("notify::selected", self._capture_repository_changed)
             self.page_body.append(self.capture_repository)
             self.capture_base_iso_label = Gtk.Label(label="Ruta absoluta de la ISO base", xalign=0)
             self.page_body.append(self.capture_base_iso_label)
@@ -337,7 +338,6 @@ class FecloraGTK:
             self.capture_result.set_wrap(True)
             self.page_body.append(self.capture_result)
             self.api.submit("inventory", on_success=self._populate_capture_devices, on_error=self._capture_failed)
-            self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
             self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
@@ -356,8 +356,21 @@ class FecloraGTK:
     def _populate_capture_repositories(self, result: dict[str, Any]) -> None:
         self.capture_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]
         labels = [str(item.get("id")) + (" · disponible" if item.get("mounted") and item.get("verified") and not item.get("read_only") else " · no disponible para escritura") for item in self.capture_repositories]
-        self.capture_repository.set_model(Gtk.StringList.new(labels or ["No hay repositorios remotos"]))
+        self.capture_repository.set_model(Gtk.StringList.new(labels or ["Repositorio local"]))
         self.capture_repository.set_selected(0)
+        if any(item.get("mounted") and item.get("verified") for item in self.capture_repositories):
+            self._capture_repository_changed(self.capture_repository, None)
+        else:
+            self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
+
+    def _capture_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        index = self.capture_repository.get_selected()
+        if index < len(getattr(self, "capture_repositories", [])):
+            repository = self.capture_repositories[index]
+            if repository.get("mounted") and repository.get("verified"):
+                self.api.submit("repository_images", {"repository_id": repository["id"]}, on_success=self._populate_capture_images, on_error=self._capture_failed)
+                return
+        self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
@@ -379,7 +392,9 @@ class FecloraGTK:
         self.capture_confirmation.set_visible(is_restore or is_clone or is_recovery_iso)
         self.capture_image_id_label.set_visible(not (is_restore or is_clone or is_image_build))
         self.capture_image_id.set_visible(not (is_restore or is_clone or is_image_build))
-        for widget in (self.capture_repository_label, self.capture_repository, self.capture_base_iso_label, self.capture_base_iso):
+        for widget in (self.capture_repository_label, self.capture_repository):
+            widget.set_visible(is_restore or is_image_build)
+        for widget in (self.capture_base_iso_label, self.capture_base_iso):
             widget.set_visible(is_image_build)
         for widget in (self.capture_target_wwn, self.capture_target_serial):
             widget.set_visible(is_recovery_iso)
@@ -543,6 +558,11 @@ class FecloraGTK:
                 expected = "ERASE " + target
                 action = {8: "restore_disk", 9: "restore_partition", 10: "restore_logical_volume", 13: "restore_stratis_filesystem"}[kind]
                 params = {"image_id": image["image_id"], "target": target, "confirmation": confirmation}
+                repository_index = self.capture_repository.get_selected()
+                if repository_index < len(getattr(self, "capture_repositories", [])):
+                    selected_repository = self.capture_repositories[repository_index]
+                    if selected_repository.get("mounted") and selected_repository.get("verified"):
+                        params["repository_id"] = selected_repository["id"]
             if confirmation != expected:
                 self.capture_result.set_text("Escribe exactamente: " + expected)
                 return
