@@ -42,15 +42,15 @@ require_text 'WAYLAND_DISPLAY' src/feclora/gui_gtk.py "The GTK frontend must req
 if grep -Eiq 'customtkinter|tkinter|xwayland|xorg' requirements-gui.txt src/feclora/gui_gtk.py src/feclora/gtk_api.py; then
   fail "The GTK4 target runtime must not depend on Tk or X11 compatibility."
 fi
-require_text 'attributes\("-fullscreen", True\)' src/feclora/gui.py "The CustomTkinter shell must request fullscreen mode."
-require_text 'overrideredirect\(True\)' src/feclora/gui.py "The CustomTkinter shell must remove window decorations."
-require_text 'WM_DELETE_WINDOW' src/feclora/gui.py "The CustomTkinter shell must suppress accidental window closure."
+require_text 'fullscreen\(\)' src/feclora/gui_gtk.py "The GTK kiosk window must request fullscreen mode."
+require_text 'set_decorated\(False\)' src/feclora/gui_gtk.py "The GTK kiosk window must remove window decorations."
+require_text 'close-request' src/feclora/gui_gtk.py "The GTK frontend must suppress ordinary window closure."
 if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
 require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The current UI must run as its unprivileged appliance user."
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "The existing interface must remain bootable until the CustomTkinter port reaches feature parity."
+require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "The existing interface must remain bootable until the GTK4 port reaches feature parity."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The current UI unit must report the QEMU smoke-test readiness event."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
