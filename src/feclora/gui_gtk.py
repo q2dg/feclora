@@ -1223,9 +1223,9 @@ class FecloraGTK:
             if not destination_dir.is_relative_to(home):
                 raise ValueError("Downloads debe permanecer dentro del directorio personal.")
             destination = destination_dir / filename
-            with destination.open("xb") as stream:
+            file_descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(file_descriptor, "wb") as stream:
                 stream.write(data)
-            destination.chmod(0o600)
         except (OSError, ValueError) as exc:
             self.image_result.set_text(f"No se pudo guardar el archivo: {exc}")
             return
