@@ -352,7 +352,7 @@ require_text 'client_refresh_row\\.set_activatable_widget\\(refresh\\)' src/fecl
 
 require_text 'title="Conexión e inspección autenticada"' src/feclora/gui_gtk.py "GTK client jobs must group authenticated server inspection controls."
 require_text 'title="Transferencia y protección"' src/feclora/gui_gtk.py "GTK client jobs must group transfer protection options."
-require_text 'title="Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK client jobs must group execution and status controls."
+require_text 'capture_group\\("Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK client jobs must group execution and status controls."
 require_text 'host_row\\.set_activatable_widget\\(self\\.client_server_host\\)' src/feclora/gui_gtk.py "GTK client server host row must preserve direct activation."
 require_text 'self\.client_confirmation\.set_placeholder_text\("Escribe exactamente ERASE destino o READ destino TO identidad"\)' src/feclora/gui_gtk.py "GTK client jobs must retain exact destructive/read confirmation guidance."
 
@@ -365,11 +365,11 @@ require_text 'self\.remote_credential\.set_visible\(provider == "smb"\)' src/fec
 require_text 'self\.remote_identity\.set_visible\(provider == "sshfs"\)' src/feclora/gui_gtk.py "GTK SSH identities must remain conditional on the SSHFS provider."
 require_text 'self\.api\.submit\("put_systemd_credential"' src/feclora/gui_gtk.py "GTK repository credential import must continue using the privileged credential API."
 
-require_text 'title="Inventario y selección de operación"' src/feclora/gui_gtk.py "GTK local operations must group operation selection in libadwaita preferences."
-require_text 'title="Origen, destino e imagen"' src/feclora/gui_gtk.py "GTK local operations must group source and target selection."
-require_text 'title="Confirmación y generación"' src/feclora/gui_gtk.py "GTK local operations must separate destructive confirmation and artifact generation."
-require_text 'title="Formato y protección"' src/feclora/gui_gtk.py "GTK local operations must group format and encryption controls."
-require_text 'title="Recuperación ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue controls must use a semantic preferences group."
+require_text 'capture_group\\("Inventario y selección de operación"' src/feclora/gui_gtk.py "GTK local operations must group operation selection in libadwaita preferences."
+require_text 'capture_group\\("Origen, destino e imagen"' src/feclora/gui_gtk.py "GTK local operations must group source and target selection."
+require_text 'capture_group\\("Confirmación y generación"' src/feclora/gui_gtk.py "GTK local operations must separate destructive confirmation and artifact generation."
+require_text 'capture_group\\("Formato y protección"' src/feclora/gui_gtk.py "GTK local operations must group format and encryption controls."
+require_text 'capture_group\\("Recuperación ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue controls must use a semantic preferences group."
 require_text 'title="Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK local operation progress and cancellation must use a semantic preferences group."
 require_text 'self\.capture_passphrase = Gtk\.PasswordEntry\(\)' src/feclora/gui_gtk.py "GTK local operation age passphrases must remain masked."
 require_text 'self\.capture_confirmation\.set_placeholder_text\("ERASE /dev/… o BUILD <imagen>"\)' src/feclora/gui_gtk.py "GTK destructive operation confirmation guidance must remain visible."
