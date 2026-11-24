@@ -253,6 +253,12 @@ class FecloraGTK:
             self._show_operation_log_page()
         elif page_id == "recovery-jobs":
             self._show_recovery_jobs_page()
+        elif page_id == "remote-jobs":
+            self._show_remote_jobs_page()
+        elif page_id == "deployments":
+            self._show_deployments_page()
+        elif page_id == "client-jobs":
+            self._show_client_jobs_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
@@ -355,6 +361,114 @@ class FecloraGTK:
             self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
+
+    def _history_page(self, title: str, columns: tuple[str, ...], action: str, key: str, renderer: Any) -> None:
+        self.page_description.set_text(title)
+        self.history_summary = Gtk.Label(label="Consultando registros…", xalign=0)
+        self.page_body.append(self.history_summary)
+        refresh = Gtk.Button(label="Actualizar")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", lambda _button: self._refresh_history(action, key, renderer))
+        self.page_body.append(refresh)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        self.history_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
+        scroller.set_child(self.history_grid)
+        self.page_body.append(scroller)
+        self.history_columns = columns
+        self._refresh_history(action, key, renderer)
+
+    def _refresh_history(self, action: str, key: str, renderer: Any) -> None:
+        self.history_summary.set_text("Consultando " + action + "…")
+        self.api.submit(action, on_success=lambda response: self._show_history_rows(response, key, renderer), on_error=self._history_failed)
+
+    def _show_history_rows(self, response: dict[str, Any], key: str, renderer: Any) -> None:
+        grid = self.history_grid
+        while child := grid.get_first_child():
+            grid.remove(child)
+        for column, heading in enumerate(self.history_columns):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+        rows = response.get(key) or []
+        for row, item in enumerate(rows, start=1):
+            for column, value in enumerate(renderer(item)):
+                label = Gtk.Label(label=str(value), xalign=0)
+                label.set_selectable(True)
+                label.set_wrap(True)
+                grid.attach(label, column, row, 1, 1)
+        self.history_summary.set_text(f"Registros: {len(rows)}")
+
+    def _history_failed(self, error: Exception) -> None:
+        self.history_summary.set_text("No se pudieron consultar los registros: " + str(error))
+
+    def _show_remote_jobs_page(self) -> None:
+        def render(item: dict[str, Any]) -> tuple[str, ...]:
+            clients = item.get("clients") or {}
+            return (
+                item.get("job_id") or "—", item.get("operation") or "—",
+                item.get("source_device") if item.get("operation") == "clone" else item.get("image_id") or "—",
+                item.get("target_type") or "—", item.get("transport") or "—",
+                item.get("job_state") or "—",
+                ", ".join(f"{mac}: {state.get('state', '—')}" for mac, state in clients.items()) or "No conectados",
+                item.get("event_count") or 0,
+            )
+        self._history_page("Trabajos remotos persistidos y estado de sus clientes.", ("ID", "Operación", "Imagen/origen", "Destino", "Transporte", "Estado", "Clientes", "Eventos"), "deployment_jobs", "jobs", render)
+
+    def _show_deployments_page(self) -> None:
+        def render(item: dict[str, Any]) -> tuple[str, ...]:
+            clients = item.get("clients") or {}
+            return (
+                item.get("job_id") or "—", item.get("job_state") or "—",
+                ", ".join(f"{mac}: {state}" for mac, state in clients.items()) or "—",
+                item.get("event_count") or 0,
+            )
+        self._history_page("Historial de despliegues y eventos persistidos.", ("Despliegue", "Estado", "Clientes", "Eventos"), "journals", "journals", render)
+
+    def _show_client_jobs_page(self) -> None:
+        def render(item: dict[str, Any]) -> tuple[str, ...]:
+            clients = item.get("clients") or {}
+            if not clients:
+                return (item.get("job_id") or "—", "—", "Sin clientes")
+            return tuple(
+                (item.get("job_id") or "—", mac, details.get("state") or "—")
+                for mac, details in clients.items()
+            )
+        def render_rows(item: dict[str, Any]) -> tuple[str, ...]:
+            return render(item)
+        self.page_description.set_text("Estado de los clientes asociados a los trabajos de despliegue.")
+        self.history_summary = Gtk.Label(label="Consultando clientes…", xalign=0)
+        self.page_body.append(self.history_summary)
+        refresh = Gtk.Button(label="Actualizar clientes")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", lambda _button: self.api.submit("deployment_jobs", on_success=self._show_client_job_rows, on_error=self._history_failed))
+        self.page_body.append(refresh)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        self.history_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
+        scroller.set_child(self.history_grid)
+        self.page_body.append(scroller)
+        self._show_client_job_rows({"jobs": []})
+        self.api.submit("deployment_jobs", on_success=self._show_client_job_rows, on_error=self._history_failed)
+
+    def _show_client_job_rows(self, response: dict[str, Any]) -> None:
+        grid = self.history_grid
+        while child := grid.get_first_child():
+            grid.remove(child)
+        for column, heading in enumerate(("Trabajo", "Cliente", "Estado")):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+        count = 0
+        for job in response.get("jobs") or []:
+            clients = job.get("clients") or {}
+            for mac, details in clients.items():
+                for column, value in enumerate((job.get("job_id") or "—", mac, details.get("state") or "—")):
+                    label = Gtk.Label(label=str(value), xalign=0)
+                    label.set_selectable(True)
+                    grid.attach(label, column, count + 1, 1, 1)
+                count += 1
+        self.history_summary.set_text(f"Clientes registrados: {count}")
 
     def _show_operation_log_page(self) -> None:
         self.page_description.set_text("Historial persistente de operaciones locales, incluidos errores y estados terminales.")
