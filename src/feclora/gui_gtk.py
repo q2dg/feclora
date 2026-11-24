@@ -262,7 +262,29 @@ class FecloraGTK:
             self.capture_confirmation = Gtk.Entry()
             self.capture_confirmation.set_placeholder_text("ERASE /dev/…")
             self.page_body.append(self.capture_confirmation)
-            self.capture_repository_label = Gtk.Label(label="Repositorio remoto", xalign=0)\n            self.page_body.append(self.capture_repository_label)\n            self.capture_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])\n            self.page_body.append(self.capture_repository)\n            self.capture_base_iso_label = Gtk.Label(label="Ruta absoluta de la ISO base", xalign=0)\n            self.page_body.append(self.capture_base_iso_label)\n            self.capture_base_iso = Gtk.Entry()\n            self.capture_base_iso.set_placeholder_text("/ruta/absoluta/feclora-live.iso")\n            self.page_body.append(self.capture_base_iso)\n            self.capture_target_wwn = Gtk.Entry()\n            self.capture_target_wwn.set_placeholder_text("WWN destino (opcional)")\n            self.page_body.append(self.capture_target_wwn)\n            self.capture_target_serial = Gtk.Entry()\n            self.capture_target_serial.set_placeholder_text("Número de serie destino (opcional)")\n            self.page_body.append(self.capture_target_serial)\n            self.capture_bundle_name = Gtk.Entry()\n            self.capture_bundle_name.set_text("fleet-deployment-bundle")\n            self.page_body.append(self.capture_bundle_name)\n            self.capture_deployment_job = Gtk.TextView()\n            self.capture_deployment_job.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)\n            self.capture_deployment_job.set_size_request(-1, 140)\n            self.page_body.append(self.capture_deployment_job)\n            self.capture_btrfs_source = Gtk.Entry()
+            self.capture_repository_label = Gtk.Label(label="Repositorio remoto", xalign=0)
+            self.page_body.append(self.capture_repository_label)
+            self.capture_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
+            self.page_body.append(self.capture_repository)
+            self.capture_base_iso_label = Gtk.Label(label="Ruta absoluta de la ISO base", xalign=0)
+            self.page_body.append(self.capture_base_iso_label)
+            self.capture_base_iso = Gtk.Entry()
+            self.capture_base_iso.set_placeholder_text("/ruta/absoluta/feclora-live.iso")
+            self.page_body.append(self.capture_base_iso)
+            self.capture_target_wwn = Gtk.Entry()
+            self.capture_target_wwn.set_placeholder_text("WWN destino (opcional)")
+            self.page_body.append(self.capture_target_wwn)
+            self.capture_target_serial = Gtk.Entry()
+            self.capture_target_serial.set_placeholder_text("Número de serie destino (opcional)")
+            self.page_body.append(self.capture_target_serial)
+            self.capture_bundle_name = Gtk.Entry()
+            self.capture_bundle_name.set_text("fleet-deployment-bundle")
+            self.page_body.append(self.capture_bundle_name)
+            self.capture_deployment_job = Gtk.TextView()
+            self.capture_deployment_job.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+            self.capture_deployment_job.set_size_request(-1, 140)
+            self.page_body.append(self.capture_deployment_job)
+            self.capture_btrfs_source = Gtk.Entry()
             self.capture_btrfs_source.set_placeholder_text("/ruta/al/subvolumen")
             self.page_body.append(Gtk.Label(label="Ruta absoluta del subvolumen Btrfs", xalign=0))
             self.page_body.append(self.capture_btrfs_source)
@@ -311,7 +333,8 @@ class FecloraGTK:
             self.capture_result.set_wrap(True)
             self.page_body.append(self.capture_result)
             self.api.submit("inventory", on_success=self._populate_capture_devices, on_error=self._capture_failed)
-            self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)\n            self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
+            self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
+            self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
@@ -326,7 +349,13 @@ class FecloraGTK:
         self.capture_image_select.set_model(Gtk.StringList.new(labels or ["No hay imágenes disponibles"]))
         self.capture_image_select.set_selected(0)
 
-    def _populate_capture_repositories(self, result: dict[str, Any]) -> None:\n        self.capture_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]\n        labels = [str(item.get("id")) + (" · disponible" if item.get("mounted") and item.get("verified") and not item.get("read_only") else " · no disponible para escritura") for item in self.capture_repositories]\n        self.capture_repository.set_model(Gtk.StringList.new(labels or ["No hay repositorios remotos"]))\n        self.capture_repository.set_selected(0)\n\n    def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+    def _populate_capture_repositories(self, result: dict[str, Any]) -> None:
+        self.capture_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]
+        labels = [str(item.get("id")) + (" · disponible" if item.get("mounted") and item.get("verified") and not item.get("read_only") else " · no disponible para escritura") for item in self.capture_repositories]
+        self.capture_repository.set_model(Gtk.StringList.new(labels or ["No hay repositorios remotos"]))
+        self.capture_repository.set_selected(0)
+
+    def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
         is_btrfs_capture = kind == 4
         is_btrfs_receive = kind == 5
@@ -342,10 +371,16 @@ class FecloraGTK:
         self.capture_target.set_visible(is_restore or is_clone)
         self.capture_image_select_label.set_visible(is_restore)
         self.capture_image_select.set_visible(is_restore)
-        self.capture_confirmation_label.set_visible(is_restore or is_clone)
+        self.capture_confirmation_label.set_visible(is_restore or is_clone or is_recovery_iso)
         self.capture_confirmation.set_visible(is_restore or is_clone or is_recovery_iso)
         self.capture_image_id_label.set_visible(not (is_restore or is_clone or is_image_build))
-        self.capture_image_id.set_visible(not (is_restore or is_clone or is_image_build))\n        for widget in (self.capture_repository_label, self.capture_repository, self.capture_base_iso_label, self.capture_base_iso):\n            widget.set_visible(is_image_build)\n        for widget in (self.capture_target_wwn, self.capture_target_serial):\n            widget.set_visible(is_recovery_iso)\n        self.capture_bundle_name.set_visible(is_bundle)\n        self.capture_deployment_job.set_visible(is_bundle)
+        self.capture_image_id.set_visible(not (is_restore or is_clone or is_image_build))
+        for widget in (self.capture_repository_label, self.capture_repository, self.capture_base_iso_label, self.capture_base_iso):
+            widget.set_visible(is_image_build)
+        for widget in (self.capture_target_wwn, self.capture_target_serial):
+            widget.set_visible(is_recovery_iso)
+        self.capture_bundle_name.set_visible(is_bundle)
+        self.capture_deployment_job.set_visible(is_bundle)
         self.capture_image_select_label.set_visible(is_restore or is_image_build)
         self.capture_image_select.set_visible(is_restore or is_image_build)
         self.capture_btrfs_source.set_visible(is_btrfs_capture)
@@ -390,8 +425,8 @@ class FecloraGTK:
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_format.set_visible(kind == 0)
-        self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12})
-        self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12})
+        self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+        self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
         self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
 
@@ -421,12 +456,60 @@ class FecloraGTK:
         index = self.capture_source.get_selected()
         image_id = self.capture_image_id.get_text().strip()
         kind = self.capture_kind.get_selected()
-        if kind in {14, 15}:\n            image_index = self.capture_image_select.get_selected()\n            repository_index = self.capture_repository.get_selected()\n            if image_index >= len(getattr(self, "capture_images", [])) or repository_index >= len(getattr(self, "capture_repositories", [])):\n                self.capture_result.set_text("Selecciona una imagen y un repositorio válidos.")\n                return\n            image = self.capture_images[image_index]\n            repository = self.capture_repositories[repository_index]\n            if image.get("image_type") != "disk":\n                self.capture_result.set_text("La generación necesita una imagen de disco completo.")\n                return\n            if not repository.get("mounted") or not repository.get("verified") or repository.get("read_only"):\n                self.capture_result.set_text("El repositorio debe estar montado, verificado y ser escribible.")\n                return\n            base_iso = self.capture_base_iso.get_text().strip()\n            if not base_iso.startswith("/"):\n                self.capture_result.set_text("Indica una ruta absoluta para la ISO base.")\n                return\n            params = {"image_id": image["image_id"], "repository_id": repository["id"]}\n            if kind == 14:\n                expected = "BUILD " + image["image_id"]\n                if self.capture_confirmation.get_text() != expected:\n                    self.capture_result.set_text("Escribe exactamente: " + expected)\n                    return\n                target_wwn = self.capture_target_wwn.get_text().strip() or None
+        if kind in {14, 15}:
+            image_index = self.capture_image_select.get_selected()
+            repository_index = self.capture_repository.get_selected()
+            if image_index >= len(getattr(self, "capture_images", [])) or repository_index >= len(getattr(self, "capture_repositories", [])):
+                self.capture_result.set_text("Selecciona una imagen y un repositorio válidos.")
+                return
+            image = self.capture_images[image_index]
+            repository = self.capture_repositories[repository_index]
+            if image.get("image_type") != "disk":
+                self.capture_result.set_text("La generación necesita una imagen de disco completo.")
+                return
+            if not repository.get("mounted") or not repository.get("verified") or repository.get("read_only"):
+                self.capture_result.set_text("El repositorio debe estar montado, verificado y ser escribible.")
+                return
+            base_iso = self.capture_base_iso.get_text().strip()
+            if not base_iso.startswith("/") or not base_iso.lower().endswith(".iso"):
+                self.capture_result.set_text("Indica una ruta absoluta a un archivo .iso.")
+                return
+            params = {"image_id": image["image_id"], "repository_id": repository["id"]}
+            if kind == 14:
+                expected = "BUILD " + image["image_id"]
+                if self.capture_confirmation.get_text() != expected:
+                    self.capture_result.set_text("Escribe exactamente: " + expected)
+                    return
+                target_wwn = self.capture_target_wwn.get_text().strip() or None
                 target_serial = self.capture_target_serial.get_text().strip() or None
                 if not target_wwn and not target_serial:
                     self.capture_result.set_text("Indica el WWN y/o número de serie del destino autorizado.")
                     return
-                params.update(base_iso_path=base_iso, target_wwn=target_wwn, target_serial=target_serial, confirm_build=expected)\n                action = "build_recovery_iso"\n            else:\n                import json\n                buffer = self.capture_deployment_job.get_buffer()\n                job_text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)\n                try:\n                    deployment_job = json.loads(job_text)\n                except json.JSONDecodeError as exc:\n                    self.capture_result.set_text("JSON DeploymentJob no válido: " + str(exc))\n                    return\n                if not isinstance(deployment_job, dict):\n                    self.capture_result.set_text("DeploymentJob debe ser un objeto JSON.")\n                    return\n                bundle_name = self.capture_bundle_name.get_text().strip()\n                if not bundle_name:\n                    self.capture_result.set_text("Indica un nombre de bundle.")\n                    return\n                params.update(base_iso_path=base_iso, bundle_name=bundle_name, deployment_job=deployment_job)\n                action = "build_deployment_bundle"\n            self.capture_start.set_sensitive(False)\n            self.capture_result.set_text("Solicitando generación…")\n            self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)\n            return\n        if kind in {8, 9, 10, 11, 12, 13}:
+                params.update(base_iso_path=base_iso, target_wwn=target_wwn, target_serial=target_serial, confirm_build=expected)
+                action = "build_recovery_iso"
+            else:
+                import json
+                buffer = self.capture_deployment_job.get_buffer()
+                job_text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+                try:
+                    deployment_job = json.loads(job_text)
+                except json.JSONDecodeError as exc:
+                    self.capture_result.set_text("JSON DeploymentJob no válido: " + str(exc))
+                    return
+                if not isinstance(deployment_job, dict):
+                    self.capture_result.set_text("DeploymentJob debe ser un objeto JSON.")
+                    return
+                bundle_name = self.capture_bundle_name.get_text().strip()
+                if not bundle_name:
+                    self.capture_result.set_text("Indica un nombre de bundle.")
+                    return
+                params.update(base_iso_path=base_iso, bundle_name=bundle_name, deployment_job=deployment_job)
+                action = "build_deployment_bundle"
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando generación…")
+            self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
+        if kind in {8, 9, 10, 11, 12, 13}:
             target_index = self.capture_target.get_selected()
             if target_index >= len(getattr(self, "capture_target_devices", [])):
                 self.capture_result.set_text("Selecciona un destino compatible.")
