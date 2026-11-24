@@ -174,3 +174,5 @@ require_text 'base_iso\.lower\(\)\.endswith\("\.iso"\)' src/feclora/gui_gtk.py "
 require_text '"restore_stratis_filesystem"' src/feclora/api.py "Stratis restoration must be present in the public API dispatch."
 require_text '"build_recovery_iso".*"build_deployment_bundle"' src/feclora/api.py "Recovery ISO and deployment bundle must be exposed by the public API dispatch."
 require_text 'json\.loads\(job_text\)' src/feclora/gui_gtk.py "GTK deployment bundle form must parse DeploymentJob JSON."
+
+require_text 'self\.api\.submit\("repository_images"' src/feclora/gui_gtk.py "GTK must load image manifests from the selected mounted repository."
