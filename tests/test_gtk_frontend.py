@@ -106,6 +106,21 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"interrupted"', status)
         self.assertIn("GLib.timeout_add_seconds", status)
         self.assertIn("Solicitar cancelación", self.source)
+    def test_image_page_inspects_browses_downloads_and_extracts_partition_images(self):
+        self.assertIn('self.api.submit("inspect_image_layout"', self.source)
+        self.assertIn('self.api.submit("browse_image"', self.source)
+        self.assertIn('self.api.submit("extract_partition_image"', self.source)
+        self.assertIn("base64.b64decode(encoded, validate=True)", self.source)
+        self.assertIn('destination.open("xb")', self.source)
+        self.assertIn("self.image_layout", self.source)
+
+    def test_proportional_restore_requires_smaller_target_and_kernel_identities(self):
+        self.assertIn('"Restauración proporcional a disco menor"', self.source)
+        self.assertIn('"restore_proportional_disk"', self.source)
+        self.assertIn('source_device.get("major_minor")', self.source)
+        self.assertIn('target_device.get("major_minor")', self.source)
+        self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
+
     def test_restore_and_clone_operations_use_inventory_images_and_exact_confirmation(self):
         self.assertIn('self.api.submit("images"', self.source)
         self.assertIn('"restore_disk"', self.source)
