@@ -363,6 +363,18 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('SMB/CIFS requiere usuario y credencial cifrada.', self.source)
         self.assertIn('{"sshfs": 0, "nfs": 1, "smb": 2}', self.source)
 
+    def test_system_status_uses_libadwaita_preferences_rows(self):
+        start = self.source.index("    def _show_system_page")
+        end = self.source.index("    def _show_server_status_page", start)
+        page = self.source[start:end]
+        self.assertIn("Adw.PreferencesGroup(", page)
+        self.assertIn('title="Estado del sistema"', page)
+        self.assertIn('status_row = Adw.ActionRow(title="Resumen del sistema")', page)
+        self.assertIn("status_row.add_suffix(self.status_summary)", page)
+        self.assertIn('refresh_row = Adw.ActionRow(title="Actualizar estado")', page)
+        self.assertIn("refresh_row.set_activatable_widget(refresh)", page)
+        self.assertIn("self._refresh_status(None)", page)
+
     def test_image_catalog_uses_libadwaita_loading_empty_and_error_states(self):
         self.assertIn("self.image_catalog_stack = Gtk.Stack()", self.source)
         self.assertIn('Adw.StatusPage(\n            title="No hay imágenes de disco"', self.source)
