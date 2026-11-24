@@ -305,9 +305,12 @@ class FecloraGTK:
         elif kind == 2:
             self.capture_devices = self._flatten_logical_volumes(self.capture_inventory)
             label = "Volúmenes lógicos sanos"
-        else:
+        elif kind == 3:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "dm" and str(d.get("filesystem") or "").lower() == "xfs" and isinstance(d.get("path"), str)]
             label = "Filesystems Stratis XFS"
+        else:
+            self.capture_devices = []
+            label = "Subvolúmenes Btrfs (ruta manual)"
         labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("lvm_name") or d.get("type")) for d in self.capture_devices]
         self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
@@ -345,8 +348,9 @@ class FecloraGTK:
         if kind == 4:
             source_path = self.capture_btrfs_source.get_text().strip()
             parent_path = self.capture_btrfs_parent.get_text().strip()
-            if not source_path.startswith("/") or not image_id:
-                self.capture_result.set_text("Indica una ruta absoluta de subvolumen Btrfs y un identificador de stream.")
+            import re
+            if not source_path.startswith("/") or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+                self.capture_result.set_text("Indica una ruta absoluta de subvolumen Btrfs y un identificador de stream válido.")
                 return
             if parent_path and not parent_path.startswith("/") :
                 self.capture_result.set_text("La ruta del padre incremental debe ser absoluta.")
