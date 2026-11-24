@@ -49,14 +49,22 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("status"', method)
         self.assertIn("_show_status", method)
 
-    def test_inventory_uses_real_inventory_api_and_renders_nested_devices(self):
+    def test_inventory_uses_real_inventory_api_and_semantic_hierarchical_rows(self):
         method = ast.get_source_segment(self.source, self.methods["_refresh_inventory"])
         self.assertIn('self.api.submit("inventory"', method)
         flatten = ast.get_source_segment(self.source, self.methods["_flatten_devices"])
         self.assertIn('device.get("children")', flatten)
         render = ast.get_source_segment(self.source, self.methods["_show_inventory"])
-        for field in ("path", "type", "size_bytes", "model", "filesystem", "mountpoints"):
-            self.assertIn(field, render)
+        subtitle = ast.get_source_segment(self.source, self.methods["_inventory_device_subtitle"])
+        append = ast.get_source_segment(self.source, self.methods["_append_inventory_device"])
+        for field in ("type", "size_bytes", "model", "filesystem", "mountpoints"):
+            self.assertIn(field, subtitle)
+        self.assertIn("Adw.PreferencesGroup(", render)
+        self.assertIn("Adw.StatusPage(", render)
+        self.assertIn("Adw.ActionRow(", append)
+        self.assertIn("device.get(\"children\")", append)
+        self.assertIn("self._append_inventory_device(group, child, depth + 1)", append)
+        self.assertNotIn("Gtk.Grid(", render)
 
     def test_disk_capture_uses_inventory_and_privileged_operation_api(self):
         populate = ast.get_source_segment(self.source, self.methods["_populate_capture_devices"])
