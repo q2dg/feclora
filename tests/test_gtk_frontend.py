@@ -53,6 +53,18 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("compression", start)
         self.assertIn("encrypt", start)
 
+    def test_lvm_and_stratis_capture_use_filtered_inventory_devices(self):
+        mode = ast.unparse(self.methods["_capture_mode_changed"])
+        flatten = ast.unparse(self.methods["_flatten_logical_volumes"])
+        start = ast.unparse(self.methods["_start_disk_capture"])
+        self.assertIn('"capture_logical_volume"', start)
+        self.assertIn('"capture_stratis_filesystem"', start)
+        self.assertIn('d.get("type") == "dm"', mode)
+        self.assertIn('"xfs"', mode)
+        self.assertIn('group.get("status") == "healthy"', flatten)
+        self.assertIn('volume.get("snapshot")', flatten)
+        self.assertIn('identity_counts.get(identity) != 1', flatten)
+
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
