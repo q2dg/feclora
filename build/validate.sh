@@ -178,3 +178,9 @@ require_text 'json\.loads\(job_text\)' src/feclora/gui_gtk.py "GTK deployment bu
 require_text 'self\.api\.submit\("repository_images"' src/feclora/gui_gtk.py "GTK must load image manifests from the selected mounted repository."
 
 require_text 'self\.capture_repository\.connect\("notify::selected"' src/feclora/gui_gtk.py "GTK repository selection must refresh repository-scoped image catalogs."
+
+require_text 'self\.api\.submit\("inspect_image_layout"' src/feclora/gui_gtk.py "GTK image page must inspect verified partition layouts."
+require_text 'self\.api\.submit\("browse_image"' src/feclora/gui_gtk.py "GTK image page must browse files inside disk images."
+require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK image page must expose partition extraction."
+require_text '"restore_proportional_disk"' src/feclora/gui_gtk.py "GTK must expose proportional restore to a smaller disk."
+require_text 'target_device\["size_bytes"\] >= source_device\["size_bytes"\]' src/feclora/gui_gtk.py "Proportional restore must reject targets that are not strictly smaller."
