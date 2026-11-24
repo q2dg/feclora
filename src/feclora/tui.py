@@ -99,7 +99,9 @@ MESSAGES = {
         "network": "Network",
         "client_jobs": "Client jobs",
         "system": "System",
-        "recovery_jobs": "ddrescue recovery"
+        "recovery_jobs": "ddrescue recovery",
+        "apply_ok": "Keyboard layout applied.",
+        "apply_error": "Could not apply keyboard layout:"
     },
     "es": {
         "first_title": "Bienvenido a Feclora",
@@ -123,7 +125,9 @@ MESSAGES = {
         "network": "Red",
         "client_jobs": "Tareas del cliente",
         "system": "Sistema",
-        "recovery_jobs": "Recuperaciones ddrescue"
+        "recovery_jobs": "Recuperaciones ddrescue",
+        "apply_ok": "Distribución del teclado aplicada.",
+        "apply_error": "No se pudo aplicar la distribución del teclado:"
     },
     "ca": {
         "first_title": "Benvingut a Feclora",
@@ -147,7 +151,9 @@ MESSAGES = {
         "network": "Xarxa",
         "client_jobs": "Tasques del client",
         "system": "Sistema",
-        "recovery_jobs": "Recuperacions ddrescue"
+        "recovery_jobs": "Recuperacions ddrescue",
+        "apply_ok": "S'ha aplicat la distribució del teclat.",
+        "apply_error": "No s'ha pogut aplicar la distribució del teclat:"
     },
     "gl": {
         "first_title": "Benvido a Feclora",
@@ -171,7 +177,9 @@ MESSAGES = {
         "network": "Rede",
         "client_jobs": "Tarefas do cliente",
         "system": "Sistema",
-        "recovery_jobs": "Recuperacións ddrescue"
+        "recovery_jobs": "Recuperacións ddrescue",
+        "apply_ok": "Distribución do teclado aplicada.",
+        "apply_error": "Non se puido aplicar a distribución do teclado:"
     },
     "eu": {
         "first_title": "Ongi etorri Feclora-ra",
@@ -195,7 +203,9 @@ MESSAGES = {
         "network": "Sarea",
         "client_jobs": "Bezeroaren lanak",
         "system": "Sistema",
-        "recovery_jobs": "ddrescue berreskuratzeak"
+        "recovery_jobs": "ddrescue berreskuratzeak",
+        "apply_ok": "Teklatuaren diseinua aplikatu da.",
+        "apply_error": "Ezin izan da teklatuaren diseinua aplikatu:"
     },
     "fr": {
         "first_title": "Bienvenue dans Feclora",
@@ -219,7 +229,9 @@ MESSAGES = {
         "network": "Réseau",
         "client_jobs": "Tâches du client",
         "system": "Système",
-        "recovery_jobs": "Récupérations ddrescue"
+        "recovery_jobs": "Récupérations ddrescue",
+        "apply_ok": "Disposition du clavier appliquée.",
+        "apply_error": "Impossible d’appliquer la disposition du clavier :"
     },
     "de": {
         "first_title": "Willkommen bei Feclora",
@@ -243,7 +255,9 @@ MESSAGES = {
         "network": "Netzwerk",
         "client_jobs": "Client-Aufträge",
         "system": "System",
-        "recovery_jobs": "ddrescue-Wiederherstellungen"
+        "recovery_jobs": "ddrescue-Wiederherstellungen",
+        "apply_ok": "Tastaturbelegung angewendet.",
+        "apply_error": "Tastaturbelegung konnte nicht angewendet werden:"
     },
     "it": {
         "first_title": "Benvenuto in Feclora",
@@ -267,7 +281,9 @@ MESSAGES = {
         "network": "Rete",
         "client_jobs": "Attività client",
         "system": "Sistema",
-        "recovery_jobs": "Ripristini ddrescue"
+        "recovery_jobs": "Ripristini ddrescue",
+        "apply_ok": "Layout della tastiera applicato.",
+        "apply_error": "Impossibile applicare il layout della tastiera:"
     },
     "pt": {
         "first_title": "Bem-vindo ao Feclora",
@@ -291,7 +307,11 @@ MESSAGES = {
         "network": "Rede",
         "client_jobs": "Tarefas do cliente",
         "system": "Sistema",
-        "recovery_jobs": "Recuperações ddrescue"
+        "recovery_jobs": "Recuperações ddrescue",
+        "apply_ok": "Layout do teclado aplicado.",
+        "apply_error": "Não foi possível aplicar o layout do teclado:",
+        "apply_ok": "Disposição do teclado aplicada.",
+        "apply_error": "Não foi possível aplicar a disposição do teclado:"
     },
     "ru": {
         "first_title": "Добро пожаловать в Feclora",
@@ -315,7 +335,9 @@ MESSAGES = {
         "network": "Сеть",
         "client_jobs": "Задания клиента",
         "system": "Система",
-        "recovery_jobs": "Восстановление ddrescue"
+        "recovery_jobs": "Восстановление ddrescue",
+        "apply_ok": "Раскладка клавиатуры применена.",
+        "apply_error": "Не удалось применить раскладку клавиатуры:"
     },
     "tr": {
         "first_title": "Feclora'ya hoş geldiniz",
@@ -339,7 +361,9 @@ MESSAGES = {
         "network": "Ağ",
         "client_jobs": "İstemci işleri",
         "system": "Sistem",
-        "recovery_jobs": "ddrescue kurtarmaları"
+        "recovery_jobs": "ddrescue kurtarmaları",
+        "apply_ok": "Klavye düzeni uygulandı.",
+        "apply_error": "Klavye düzeni uygulanamadı:"
     },
     "ar": {
         "first_title": "مرحبًا بك في Feclora",
@@ -363,7 +387,9 @@ MESSAGES = {
         "network": "الشبكة",
         "client_jobs": "مهام العميل",
         "system": "النظام",
-        "recovery_jobs": "استعادات ddrescue"
+        "recovery_jobs": "استعادات ddrescue",
+        "apply_ok": "تم تطبيق تخطيط لوحة المفاتيح.",
+        "apply_error": "تعذر تطبيق تخطيط لوحة المفاتيح:"
     },
     "ja": {
         "first_title": "Feclora へようこそ",
@@ -387,7 +413,9 @@ MESSAGES = {
         "network": "ネットワーク",
         "client_jobs": "クライアントジョブ",
         "system": "システム",
-        "recovery_jobs": "ddrescue 復旧"
+        "recovery_jobs": "ddrescue 復旧",
+        "apply_ok": "キーボード配列を適用しました。",
+        "apply_error": "キーボード配列を適用できませんでした:"
     },
     "br": {
         "first_title": "Bem-vindo ao Feclora",

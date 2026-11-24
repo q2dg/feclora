@@ -32,6 +32,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
 
     def test_every_language_catalog_has_the_same_complete_startup_and_navigation_keys(self):
         expected = set(MESSAGES["es"])
+        self.assertTrue({"apply_ok", "apply_error"} <= expected)
         for language, catalog in MESSAGES.items():
             with self.subTest(language=language):
                 self.assertEqual(set(catalog), expected)
