@@ -156,3 +156,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
+require_text 'self\.api\.submit\("images"' src/feclora/gui_gtk.py "GTK restore workflow must load image manifests through the privileged API."
+require_text '"restore_disk".*"restore_partition".*"restore_logical_volume"' src/feclora/gui_gtk.py "GTK must expose disk, partition and logical-volume restore operations."
+require_text '"clone_disk".*"clone_partition"' src/feclora/gui_gtk.py "GTK must expose disk and partition cloning."
