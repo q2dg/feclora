@@ -485,6 +485,36 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("inventory"', page)
 
 
+    def test_repository_controls_use_semantic_libadwaita_groups(self):
+        start = self.source.index("    def _show_repositories_page")
+        end = self.source.index("    def _refresh_repositories", start)
+        page = self.source[start:end]
+        for title in (
+            "Estado de los repositorios",
+            "Compatibilidad P2V heredada",
+            "Gestión de repositorios",
+            "Repositorios SSHFS, NFS y SMB/CIFS",
+            "Repositorios S3",
+            "Credenciales systemd cifradas",
+        ):
+            self.assertIn(f'title="{title}"', page)
+        for widget in (
+            "self.remote_provider", "self.remote_identity", "self.remote_known_hosts",
+            "self.remote_credential", "self.s3_credential", "self.credential_source",
+            "self.repository_confirmation", "self.credential_confirmation",
+        ):
+            self.assertIn(f"add_row(", page)
+            self.assertIn(widget, page)
+        for callback in (
+            "self._refresh_repositories", "self._run_repository_action",
+            "self._save_ssh_repository", "self._save_s3_repository",
+            "self._import_repository_credential", "self._remove_repository_credential",
+            "self._remote_provider_changed",
+        ):
+            self.assertIn(callback, page)
+        self.assertIn('self.remote_credential.set_visible(provider == "smb")', self.source)
+        self.assertIn('self.remote_identity.set_visible(provider == "sshfs")', self.source)
+
     def test_client_job_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_client_jobs_page")
         end = self.source.index("    def _show_client_job_rows", start)
