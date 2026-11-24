@@ -20,36 +20,38 @@ require_text() {
 
 for file in \
   build/build-iso.sh build/preflight.sh build/install-host-deps.sh kickstart/feclora-live.ks \
-  packages/base.txt packages/build-host.txt requirements-test.txt src/feclora/tui.py \
-  src/feclora/tui_api.py src/feclora/api.py \
+  packages/base.txt packages/build-host.txt requirements-test.txt requirements-gui.txt \
+  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
-  build/validate-text-boot.sh build/verify-iso-text-boot.sh \
+  tests/test_gui_api.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
   require_file "$file"
 done
 
 require_text '^#version=F45$' kickstart/feclora-live.ks "Kickstart must target Fedora 45."
 require_text 'packages/build-host\.txt' build/install-host-deps.sh "Build dependencies must come from the build-host package manifest."
-require_text '^python3-textual$' packages/base.txt "The Live image must install Textual."
-require_text '^textual==8\.1\.1$' requirements-test.txt "TUI tests must use the runtime Textual version."
-require_text 'create_subprocess_exec' src/feclora/tui_api.py "The TUI must invoke the API helper without a shell."
+require_text '^python3-textual$' packages/base.txt "The current Live image must keep Textual until GUI feature parity is reached."
+require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
+require_text '^customtkinter==6\.0\.0$' requirements-gui.txt "The CustomTkinter runtime dependency must remain pinned."
+require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
+require_text 'ThreadPoolExecutor|Queue' src/feclora/gui_api.py "The GUI API bridge must keep blocking subprocess work off Tk's main thread."
 if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
-  fail "TUI API requests must not use a command shell."
+  fail "API requests must not use a command shell."
 fi
 
-require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The TUI must run as its unprivileged appliance user."
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "tty1 must launch the Textual application."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The TUI unit must report the QEMU smoke-test readiness event."
+require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The current UI must run as its unprivileged appliance user."
+require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "The existing interface must remain bootable until the CustomTkinter port reaches feature parity."
+require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The current UI unit must report the QEMU smoke-test readiness event."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
-  fail "The TUI service must allow its scoped sudo helper to perform privileged appliance operations."
+  fail "The UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
-require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The default boot target must not require a graphical desktop."
-require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must be reserved for the Textual interface."
+require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The default boot target must remain text-only during the staged GUI migration."
+require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
-require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-recovery.service "Durable operations must recover before the TUI starts."
+require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-recovery.service "Durable operations must recover before the interface starts."
 require_text 'FECLORA_SELINUX_PERMISSIVE:-1' build/build-iso.sh "SELinux permissive mode must remain the diagnostic build default."
 require_text 'mkksiso --cmdline selinux=0' build/build-iso.sh "Only the temporary Anaconda build VM may disable SELinux."
 
@@ -58,7 +60,7 @@ if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox)([[:space:]]|$
   fail "The Live image package set must not include Cockpit, Weston or Firefox."
 fi
 if grep -Eiq 'cockpit|weston|firefox|webui' "$ROOT_DIR/build/build-iso.sh"; then
-  fail "ISO construction must stage only the Textual application."
+  fail "ISO construction must not stage an unrelated graphical desktop or web UI."
 fi
 
 if ! python3 - "$ROOT_DIR" <<'PY'
