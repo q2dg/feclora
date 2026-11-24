@@ -245,7 +245,7 @@ class FecloraGTK:
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue", "Restaurar disco", "Restaurar partición", "Restaurar volumen lógico", "Clonar disco", "Clonar partición", "Restaurar filesystem Stratis", "Construir ISO de recuperación", "Construir bundle de despliegue", "Restauración proporcional a disco menor"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue", "Restaurar disco", "Restaurar partición", "Restaurar volumen lógico", "Clonar disco", "Clonar partición", "Restaurar filesystem Stratis", "Construir ISO de recuperación", "Construir bundle de despliegue", "Restauración proporcional a disco menor", "Capturar disco virtual QCOW2 (P2V)"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.capture_source_label = Gtk.Label(label="Origen", xalign=0)
@@ -688,7 +688,7 @@ class FecloraGTK:
         self.capture_btrfs_receive_parent.set_visible(is_btrfs_receive)
         self.capture_retry.set_visible(is_recovery)
         self.capture_resume.set_visible(is_recovery)
-        if kind in {0, 6, 11, 16}:
+        if kind in {0, 6, 11, 16, 17}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
             label = "Discos" if kind == 0 else "Discos para recuperación ddrescue" if kind == 6 else "Discos de origen para restauración proporcional" if kind == 16 else "Discos de origen para clonación"
         elif kind in {1, 12}:
@@ -724,10 +724,10 @@ class FecloraGTK:
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_format.set_visible(kind == 0)
-        self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
-        self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+        self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
+        self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
         self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
-        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
+        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Capturar disco virtual QCOW2 (P2V)" if kind == 17 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
@@ -907,6 +907,20 @@ class FecloraGTK:
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando captura Btrfs…")
             self.api.submit("capture_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
+        if kind == 17:
+            if index >= len(getattr(self, "capture_devices", [])) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+                self.capture_result.set_text("Selecciona un disco de origen e indica un identificador de imagen válido.")
+                return
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id}
+            repository_index = self.capture_repository.get_selected()
+            if repository_index < len(getattr(self, "capture_repositories", [])):
+                repository = self.capture_repositories[repository_index]
+                if repository.get("mounted") and repository.get("verified") and not repository.get("read_only"):
+                    params["repository_id"] = repository["id"]
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando captura P2V…")
+            self.api.submit("capture_p2v", params, on_success=self._capture_accepted, on_error=self._capture_failed)
             return
         if index >= len(getattr(self, "capture_devices", [])):
             self.capture_result.set_text("Selecciona un disco de origen válido.")
