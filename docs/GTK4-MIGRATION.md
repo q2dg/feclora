@@ -160,3 +160,8 @@ Remote deployment and journal history now place their status and refresh control
 ## libadwaita client execution controls
 
 The client-job page now separates authenticated server connection and inspection, local target selection, transfer/protection options, and execution/status into Adw.PreferencesGroup sections with Adw.ActionRow controls. TLS inspection, interface and inventory discovery, eligible-target filtering, compression/encryption options, isolated-network IGMP acknowledgement, exact ERASE/READ confirmation text, and existing start/status callbacks are retained.
+
+
+## libadwaita repository administration
+
+The Repositories page now groups repository inventory, legacy P2V compatibility, managed repository actions, SSHFS/NFS/SMB definitions, S3 definitions, and encrypted systemd credential administration into Adw.PreferencesGroup sections. Editable fields and action buttons are presented through Adw.ActionRow controls. Provider-dependent SSH identity and SMB credential visibility, read-only flags, explicit removal phrases, protected credential references, and the existing repository/P2V API callbacks are retained. This is a presentation-only reorganization; mount, credential, validation and backend semantics are unchanged.
