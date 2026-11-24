@@ -610,6 +610,7 @@ class FecloraGTK:
         self.repositories_summary.set_text("Consultando repositorios de archivos y S3…")
         self.api.submit("remote_repositories", on_success=self._populate_remote_repositories, on_error=self._repositories_failed)
         self.api.submit("s3_repositories", on_success=self._populate_s3_repositories, on_error=self._repositories_failed)
+        self.api.submit("systemd_credentials", on_success=self._populate_repository_credentials, on_error=self._repositories_failed)
 
     def _populate_remote_repositories(self, response: dict[str, Any]) -> None:
         self.remote_repository_rows = [("NFS/SSH", item) for item in response.get("repositories", []) if isinstance(item, dict)]
@@ -682,10 +683,150 @@ class FecloraGTK:
     def _p2v_operation_failed(self, error: Exception) -> None:
         self.p2v_result.set_text("No se pudo iniciar la operación P2V: " + str(error))
 
+    def _populate_repository_credentials(self, response: dict[str, Any]) -> None:
+        self.repository_credentials = [item for item in response.get("credentials", []) if isinstance(item, dict)]
+        labels = ["Selecciona credencial…"] + [
+            f"{item.get('kind')}:{item.get('id')}" for item in self.repository_credentials
+        ]
+        self.credential_management.set_model(Gtk.StringList.new(labels))
+        self.credential_management.set_selected(0)
+
+    def _repository_action_done(self, response: dict[str, Any]) -> None:
+        self.repository_action_result.set_text("Acción completada: " + str(response))
+        self.repository_confirmation.set_text("")
+        self._refresh_repositories(None)
+
+    def _repository_action_failed(self, error: Exception) -> None:
+        self.repository_action_result.set_text("La operación de repositorio falló: " + str(error))
+
+    def _run_repository_action(self, _button: Gtk.Button) -> None:
+        selected = self.repository_management.get_selected()
+        rows = getattr(self, "repository_management_rows", [])
+        if selected == 0 or selected - 1 >= len(rows):
+            self.repository_action_result.set_text("Selecciona un repositorio.")
+            return
+        kind, item = rows[selected - 1]
+        identifier = item.get("id")
+        if not isinstance(identifier, str) or not identifier:
+            self.repository_action_result.set_text("El repositorio seleccionado no tiene un ID válido.")
+            return
+        actions = ("check", "mount", "unmount", "remove")
+        index = self.repository_action.get_selected()
+        if index >= len(actions):
+            self.repository_action_result.set_text("Selecciona una acción válida.")
+            return
+        action = actions[index]
+        if kind == "S3":
+            api_action = {"check": "check_s3_repository", "remove": "remove_s3_repository"}.get(action)
+            if api_action is None:
+                self.repository_action_result.set_text("S3 solo admite comprobar o eliminar su definición.")
+                return
+        else:
+            api_action = {
+                "check": "check_remote_repository", "mount": "mount_remote_repository",
+                "unmount": "unmount_remote_repository", "remove": "remove_remote_repository",
+            }[action]
+            mount_state = item.get("mount_state")
+            if action in {"mount", "remove"} and mount_state != "unmounted":
+                self.repository_action_result.set_text("La acción requiere que el estado de montaje sea unmounted.")
+                return
+            if action == "unmount" and mount_state != "identity_verified":
+                self.repository_action_result.set_text("Solo se desmonta un repositorio con identidad de montaje verificada.")
+                return
+        if action == "remove" and self.repository_confirmation.get_text().strip() != f"REMOVE {identifier}":
+            self.repository_action_result.set_text(f"Para eliminar escribe exactamente: REMOVE {identifier}")
+            return
+        self.repository_action_result.set_text(f"Ejecutando {api_action} para {identifier}…")
+        self.api.submit(api_action, {"id": identifier}, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+
+    def _save_ssh_repository(self, _button: Gtk.Button) -> None:
+        import re
+        identifier = self.remote_id.get_text().strip()
+        host = self.remote_host.get_text().strip()
+        remote_path = self.remote_path.get_text().strip()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not host or not remote_path.startswith("/"):
+            self.repository_action_result.set_text("ID inválido; servidor y ruta remota absoluta son obligatorios.")
+            return
+        port_text = self.remote_port.get_text().strip()
+        try:
+            port = int(port_text) if port_text else None
+        except ValueError:
+            self.repository_action_result.set_text("El puerto SSH debe ser un entero.")
+            return
+        if port is not None and not 1 <= port <= 65535:
+            self.repository_action_result.set_text("El puerto SSH debe estar entre 1 y 65535.")
+            return
+        params = {
+            "id": identifier, "provider": "sshfs", "host": host, "remote_path": remote_path,
+            "username": self.remote_username.get_text().strip() or None,
+            "credential_file": None, "identity_file": self.remote_identity.get_text().strip() or None,
+            "known_hosts_file": self.remote_known_hosts.get_text().strip() or None,
+            "port": port, "read_only": self.remote_read_only.get_active(),
+        }
+        self.repository_action_result.set_text("Guardando definición SSHFS…")
+        self.api.submit("add_remote_repository", params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+
+    def _save_s3_repository(self, _button: Gtk.Button) -> None:
+        import re
+        identifier = self.s3_id.get_text().strip()
+        region = self.s3_region.get_text().strip()
+        bucket = self.s3_bucket.get_text().strip()
+        credential_id = self.s3_credential.get_text().strip()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not region or not bucket or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", credential_id):
+            self.repository_action_result.set_text("ID, región, bucket y credencial S3 son obligatorios y deben ser válidos.")
+            return
+        params = {
+            "id": identifier, "endpoint_url": self.s3_endpoint.get_text().strip() or None,
+            "region": region, "bucket": bucket, "prefix": self.s3_prefix.get_text().strip(),
+            "credential_id": credential_id, "read_only": self.s3_read_only.get_active(),
+        }
+        self.repository_action_result.set_text("Guardando definición S3…")
+        self.api.submit("add_s3_repository", params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+
+    def _import_repository_credential(self, _button: Gtk.Button) -> None:
+        import re
+        identifier = self.credential_id.get_text().strip()
+        source_file = self.credential_source.get_text().strip()
+        kinds = ("s3", "smb", "ssh-key", "known-hosts")
+        selected = self.credential_kind.get_selected()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not source_file or selected >= len(kinds):
+            self.repository_action_result.set_text("Indica un ID válido, tipo y ruta del archivo fuente.")
+            return
+        params = {
+            "id": identifier, "kind": kinds[selected], "source_file": source_file,
+            "replace": self.credential_replace.get_active(),
+        }
+        self.repository_action_result.set_text("Importando credencial cifrada…")
+        self.api.submit("put_systemd_credential", params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+
+    def _remove_repository_credential(self, _button: Gtk.Button) -> None:
+        selected = self.credential_management.get_selected()
+        credentials = getattr(self, "repository_credentials", [])
+        if selected == 0 or selected - 1 >= len(credentials):
+            self.repository_action_result.set_text("Selecciona una credencial.")
+            return
+        item = credentials[selected - 1]
+        identifier, kind = item.get("id"), item.get("kind")
+        if not isinstance(identifier, str) or not isinstance(kind, str):
+            self.repository_action_result.set_text("La credencial seleccionada no es válida.")
+            return
+        if self.credential_confirmation.get_text().strip() != f"REMOVE {identifier}":
+            self.repository_action_result.set_text(f"Para eliminar escribe exactamente: REMOVE {identifier}")
+            return
+        self.repository_action_result.set_text("Eliminando credencial; el backend comprobará que no esté referenciada…")
+        self.api.submit("remove_systemd_credential", {"id": identifier, "kind": kind}, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+
     def _render_repositories(self) -> None:
         if not hasattr(self, "repositories_grid"):
             return
         rows = getattr(self, "remote_repository_rows", []) + getattr(self, "s3_repository_rows", [])
+        self.repository_management_rows = rows
+        if hasattr(self, "repository_management"):
+            labels = ["Selecciona repositorio…"] + [
+                f"{kind}: {item.get('id')}" for kind, item in rows
+            ]
+            self.repository_management.set_model(Gtk.StringList.new(labels))
+            self.repository_management.set_selected(0)
         grid = self.repositories_grid
         while child := grid.get_first_child():
             grid.remove(child)
