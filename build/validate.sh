@@ -348,3 +348,10 @@ require_text 'title="Servicio de despliegue"' src/feclora/gui_gtk.py "GTK remote
 require_text 'job_row\\.set_activatable_widget\\(self\\.remote_job_select\\)' src/feclora/gui_gtk.py "GTK remote job selection must remain directly activatable."
 require_text 'title="Historial de clientes"' src/feclora/gui_gtk.py "GTK client job history must use a semantic preferences group."
 require_text 'client_refresh_row\\.set_activatable_widget\\(refresh\\)' src/feclora/gui_gtk.py "GTK client history refresh must remain directly activatable."
+
+
+require_text 'title="Conexión e inspección autenticada"' src/feclora/gui_gtk.py "GTK client jobs must group authenticated server inspection controls."
+require_text 'title="Transferencia y protección"' src/feclora/gui_gtk.py "GTK client jobs must group transfer protection options."
+require_text 'title="Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK client jobs must group execution and status controls."
+require_text 'host_row\\.set_activatable_widget\\(self\\.client_server_host\\)' src/feclora/gui_gtk.py "GTK client server host row must preserve direct activation."
+require_text 'self\.client_confirmation\.set_placeholder_text\("Escribe exactamente ERASE destino o READ destino TO identidad"\)' src/feclora/gui_gtk.py "GTK client jobs must retain exact destructive/read confirmation guidance."
