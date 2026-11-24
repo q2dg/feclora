@@ -246,7 +246,8 @@ class FecloraGTK:
             self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue", "Restaurar disco", "Restaurar partición", "Restaurar volumen lógico", "Clonar disco", "Clonar partición", "Restaurar filesystem Stratis", "Construir ISO de recuperación", "Construir bundle de despliegue"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
-            self.page_body.append(Gtk.Label(label="Origen", xalign=0))
+            self.capture_source_label = Gtk.Label(label="Origen", xalign=0)
+            self.page_body.append(self.capture_source_label)
             self.capture_source = Gtk.DropDown.new_from_strings(["Cargando dispositivos…"])
             self.page_body.append(self.capture_source)
             self.capture_target_label = Gtk.Label(label="Destino", xalign=0)
@@ -265,7 +266,6 @@ class FecloraGTK:
             self.capture_repository_label = Gtk.Label(label="Repositorio remoto", xalign=0)
             self.page_body.append(self.capture_repository_label)
             self.capture_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
-            self.capture_repository.connect("notify::selected", self._capture_repository_changed)
             self.page_body.append(self.capture_repository)
             self.capture_base_iso_label = Gtk.Label(label="Ruta absoluta de la ISO base", xalign=0)
             self.page_body.append(self.capture_base_iso_label)
@@ -357,11 +357,10 @@ class FecloraGTK:
         self.capture_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]
         labels = [str(item.get("id")) + (" · disponible" if item.get("mounted") and item.get("verified") and not item.get("read_only") else " · no disponible para escritura") for item in self.capture_repositories]
         self.capture_repository.set_model(Gtk.StringList.new(labels or ["Repositorio local"]))
-        self.capture_repository.set_selected(0)
-        if any(item.get("mounted") and item.get("verified") for item in self.capture_repositories):
-            self._capture_repository_changed(self.capture_repository, None)
-        else:
-            self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
+        usable = next((i for i, item in enumerate(self.capture_repositories) if item.get("mounted") and item.get("verified")), None)
+        self.capture_repository.set_selected(usable if usable is not None else 0)
+        self.capture_repository.connect("notify::selected", self._capture_repository_changed)
+        self._capture_repository_changed(self.capture_repository, None)
 
     def _capture_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         index = self.capture_repository.get_selected()
@@ -383,7 +382,9 @@ class FecloraGTK:
         is_recovery_iso = kind == 14
         is_bundle = kind == 15
         is_image_build = is_recovery_iso or is_bundle
-        self.capture_source.set_visible(not (is_btrfs_capture or is_btrfs_receive or is_finalize or is_restore or is_image_build))
+        source_visible = not (is_btrfs_capture or is_btrfs_receive or is_finalize or is_restore or is_image_build)
+        self.capture_source_label.set_visible(source_visible)
+        self.capture_source.set_visible(source_visible)
         self.capture_target_label.set_visible(is_restore or is_clone)
         self.capture_target.set_visible(is_restore or is_clone)
         self.capture_image_select_label.set_visible(is_restore)
