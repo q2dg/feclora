@@ -124,7 +124,7 @@ without their existing systemd recovery handling.
 The operation log and persistent ddrescue recovery history use Adw.StatusPage inside Gtk.Stack containers for genuine empty results. Populated results retain their existing tabular views; backend inspection failures are presented as explicit status-page errors rather than being confused with an empty history. Refresh controls, operation cancellation confirmation and recovery data contracts remain unchanged.
 
 
-The Network page now groups IPv4 profile, interface, DHCP/static method, address, prefix, gateway and DNS controls in an Adw.PreferencesGroup with Adw.ActionRow entries. The existing validation, NetworkManager selection, rollback-protected apply action and conditional visibility of static fields are retained.
+The Network page uses Adw.ComboRow for active NetworkManager profile, interface/address binding and DHCP/static method selection, plus Adw.EntryRow for IPv4 address, prefix, gateway and DNS. The controls are direct children of the IPv4 Adw.PreferencesGroup rather than generic GTK widgets embedded in ActionRow suffixes. Existing validation, NetworkManager selection, rollback-protected apply action and conditional visibility of static fields are retained.
 
 
 ## libadwaita image catalog states
@@ -204,3 +204,16 @@ the active row displays a short current-page subtitle and a confirmation
 icon, while inactive rows retain the forward-navigation icon. Selection is
 updated centrally by the existing page callback, including the initial
 Overview selection; page IDs and compact-mode behavior are unchanged.
+
+
+## Native libadwaita control audit
+
+The migration is not a blanket replacement of GTK4 primitives: GTK remains the
+foundation for layout containers, text views, grids, stacks and scrolling.
+Where libadwaita provides a semantic preference control, prefer it over a
+generic GTK control embedded in an ActionRow. The Network page is the first
+completed pass of this refinement: its selectors use Adw.ComboRow (the
+accessible combo-box row) and its text fields use Adw.EntryRow. Other pages
+still contain Gtk.DropDown and Gtk.Entry controls and remain candidates for
+the same page-by-page review. This structural audit does not constitute a
+screen-reader, keyboard-only, contrast or live GTK runtime acceptance test.
