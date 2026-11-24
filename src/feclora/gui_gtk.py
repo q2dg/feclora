@@ -241,6 +241,8 @@ class FecloraGTK:
             self._refresh_inventory(None)
         elif page_id == "images":
             self._show_images_page()
+        elif page_id == "restore-profiles":
+            self._show_restore_profiles_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
@@ -343,6 +345,197 @@ class FecloraGTK:
             self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
+
+    def _show_restore_profiles_page(self) -> None:
+        self.page_description.set_text("Perfiles de restauración de un solo uso, vinculados a la identidad física del disco y con caducidad.")
+        self.profile_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
+        self.profile_repository.connect("notify::selected", self._profile_repository_changed)
+        self.page_body.append(Gtk.Label(label="Repositorio persistente (montado, verificado y escribible)", xalign=0))
+        self.page_body.append(self.profile_repository)
+        self.profile_image = Gtk.DropDown.new_from_strings(["Selecciona imagen RAW de disco…"])
+        self.page_body.append(Gtk.Label(label="Imagen RAW de disco", xalign=0))
+        self.page_body.append(self.profile_image)
+        self.profile_target = Gtk.DropDown.new_from_strings(["Cargando discos…"])
+        self.page_body.append(Gtk.Label(label="Disco destino con WWN o número de serie", xalign=0))
+        self.page_body.append(self.profile_target)
+        self.profile_name = Gtk.Entry()
+        self.profile_name.set_placeholder_text("Nombre descriptivo del perfil")
+        self.page_body.append(Gtk.Label(label="Nombre del perfil", xalign=0))
+        self.page_body.append(self.profile_name)
+        self.profile_expiry = Gtk.Entry()
+        self.profile_expiry.set_placeholder_text("2027-01-31T23:59:59+01:00")
+        self.page_body.append(Gtk.Label(label="Caducidad ISO-8601 con zona horaria", xalign=0))
+        self.page_body.append(self.profile_expiry)
+        create = Gtk.Button(label="Crear perfil (no ejecuta la restauración)")
+        create.set_halign(Gtk.Align.START)
+        create.connect("clicked", self._create_restore_profile)
+        self.page_body.append(create)
+        self.profile_select = Gtk.DropDown.new_from_strings(["Cargando perfiles…"])
+        self.page_body.append(Gtk.Label(label="Perfil guardado", xalign=0))
+        self.page_body.append(self.profile_select)
+        self.profile_confirmation = Gtk.Entry()
+        self.profile_confirmation.set_placeholder_text("ERASE /dev/…")
+        self.page_body.append(Gtk.Label(label="Confirmación exacta del disco detectado", xalign=0))
+        self.page_body.append(self.profile_confirmation)
+        execute = Gtk.Button(label="Ejecutar perfil de restauración")
+        execute.set_halign(Gtk.Align.START)
+        execute.connect("clicked", self._execute_selected_restore_profile)
+        self.page_body.append(execute)
+        self.profile_cancel = Gtk.Button(label="Solicitar cancelación de restauración")
+        self.profile_cancel.set_sensitive(False)
+        self.profile_cancel.connect("clicked", self._cancel_restore_profile_operation)
+        self.page_body.append(self.profile_cancel)
+        self.profile_result = Gtk.Label(label="", xalign=0)
+        self.profile_result.set_wrap(True)
+        self.profile_result.set_selectable(True)
+        self.page_body.append(self.profile_result)
+        self.api.submit("inventory", on_success=self._populate_profile_inventory, on_error=self._profile_failed)
+        self.api.submit("remote_repositories", on_success=self._populate_profile_repositories, on_error=self._profile_failed)
+
+    def _populate_profile_inventory(self, inventory: dict[str, Any]) -> None:
+        self.profile_inventory_devices = self._flatten_devices(inventory.get("devices"))
+        disks = [item for item in self.profile_inventory_devices if item.get("type") == "disk" and (item.get("wwn") or item.get("serial"))]
+        self.profile_target_devices = disks
+        labels = [f"{item.get('path')} · {item.get('model') or 'Disco'} · {item.get('wwn') or item.get('serial')}" for item in disks]
+        self.profile_target.set_model(Gtk.StringList.new(labels or ["No hay discos con identidad estable"]))
+        self.profile_target.set_selected(0)
+
+    def _populate_profile_repositories(self, result: dict[str, Any]) -> None:
+        self.profile_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict) and item.get("id") and item.get("mounted") and item.get("verified") and not item.get("read_only")]
+        labels = [str(item["id"]) + " · " + str(item.get("provider") or "filesystem") for item in self.profile_repositories]
+        self.profile_repository.set_model(Gtk.StringList.new(labels or ["No hay repositorios válidos"]))
+        self.profile_repository.set_selected(0)
+        self._load_restore_profiles_for_repository()
+
+    def _selected_profile_repository(self) -> dict[str, Any] | None:
+        index = self.profile_repository.get_selected()
+        return self.profile_repositories[index] if index < len(getattr(self, "profile_repositories", [])) else None
+
+    def _profile_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self._load_restore_profiles_for_repository()
+
+    def _load_restore_profiles_for_repository(self) -> None:
+        repository = self._selected_profile_repository()
+        self.profile_images = []
+        self.profile_records = []
+        if not repository:
+            self.profile_image.set_model(Gtk.StringList.new(["Selecciona un repositorio válido"]))
+            self.profile_select.set_model(Gtk.StringList.new(["No hay perfiles disponibles"]))
+            return
+        repository_id = repository["id"]
+        self.api.submit("repository_images", {"repository_id": repository_id}, on_success=self._populate_profile_images, on_error=self._profile_failed)
+        self.api.submit("restore_profiles", {"repository_id": repository_id}, on_success=self._populate_restore_profiles, on_error=self._profile_failed)
+
+    def _populate_profile_images(self, result: dict[str, Any]) -> None:
+        self.profile_images = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_type") == "disk" and item.get("image_format") == "raw" and item.get("image_id")]
+        labels = [str(item["image_id"]) + " · " + str(item.get("source_size_bytes", 0)) + " bytes" for item in self.profile_images]
+        self.profile_image.set_model(Gtk.StringList.new(labels or ["No hay imágenes RAW de disco"]))
+        self.profile_image.set_selected(0)
+
+    def _populate_restore_profiles(self, result: dict[str, Any]) -> None:
+        self.profile_records = [item for item in result.get("profiles", []) if isinstance(item, dict) and item.get("profile_id")]
+        labels = [
+            f"{item.get('profile_id')} · {item.get('name') or '—'} · {item.get('target_path') or 'Sin coincidencia'} · {'consumido' if item.get('consumed') else 'disponible'}"
+            for item in self.profile_records
+        ]
+        self.profile_select.set_model(Gtk.StringList.new(labels or ["No hay perfiles guardados"]))
+        self.profile_select.set_selected(0)
+        self.profile_result.set_text(f"Perfiles persistidos: {len(self.profile_records)}. Son de un solo uso y no se ejecutan al crearlos.")
+
+    def _create_restore_profile(self, _button: Gtk.Button) -> None:
+        import datetime
+        repository = self._selected_profile_repository()
+        image_index, target_index = self.profile_image.get_selected(), self.profile_target.get_selected()
+        if not repository or image_index >= len(getattr(self, "profile_images", [])) or target_index >= len(getattr(self, "profile_target_devices", [])):
+            self.profile_result.set_text("Selecciona repositorio, imagen RAW y disco con identidad estable.")
+            return
+        target = self.profile_target_devices[target_index]
+        name, expiry_text = self.profile_name.get_text().strip(), self.profile_expiry.get_text().strip()
+        if not name or not expiry_text:
+            self.profile_result.set_text("Indica nombre y caducidad del perfil.")
+            return
+        try:
+            expiry = datetime.datetime.fromisoformat(expiry_text.replace("Z", "+00:00"))
+            if expiry.tzinfo is None or expiry.utcoffset() is None or expiry <= datetime.datetime.now(datetime.timezone.utc):
+                raise ValueError("la fecha debe ser futura e incluir zona horaria")
+        except ValueError as exc:
+            self.profile_result.set_text("Caducidad ISO-8601 no válida: " + str(exc))
+            return
+        params = {
+            "name": name, "image_id": self.profile_images[image_index]["image_id"],
+            "target_wwn": target.get("wwn"), "target_serial": target.get("serial"),
+            "expires_at": expiry.isoformat(), "repository_id": repository["id"],
+        }
+        self.profile_result.set_text("Guardando perfil; todavía no se arma ni ejecuta…")
+        self.api.submit("create_restore_profile", params, on_success=self._restore_profile_created, on_error=self._profile_failed)
+
+    def _restore_profile_created(self, result: dict[str, Any]) -> None:
+        self.profile_result.set_text("Perfil guardado, no armado ni ejecutado: " + str(result.get("profile_id", "—")))
+        self._load_restore_profiles_for_repository()
+
+    def _execute_selected_restore_profile(self, _button: Gtk.Button) -> None:
+        index = self.profile_select.get_selected()
+        if index >= len(getattr(self, "profile_records", [])):
+            self.profile_result.set_text("Selecciona un perfil guardado.")
+            return
+        profile = self.profile_records[index]
+        target = profile.get("target_path")
+        expected = "ERASE " + target if target else ""
+        if profile.get("consumed") or not target or self.profile_confirmation.get_text() != expected:
+            self.profile_result.set_text("El perfil debe estar disponible y el disco detectado debe confirmarse exactamente: " + expected)
+            return
+        repository = self._selected_profile_repository()
+        if not repository:
+            self.profile_result.set_text("Selecciona el repositorio persistente del perfil.")
+            return
+        params = {"profile_id": profile["profile_id"], "target": target, "confirmation": expected, "repository_id": repository["id"]}
+        self.profile_result.set_text("Solicitando ejecución del perfil de un solo uso…")
+        self.api.submit("execute_restore_profile", params, on_success=self._restore_profile_operation_accepted, on_error=self._profile_failed)
+
+    def _restore_profile_operation_accepted(self, result: dict[str, Any]) -> None:
+        operation_id = result.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            self._profile_failed(RuntimeError("El backend no devolvió operation_id."))
+            return
+        self.profile_operation_id = operation_id
+        self.profile_cancel.set_sensitive(True)
+        self.profile_result.set_text("Restauración aceptada por el worker duradero: " + operation_id)
+        GLib.timeout_add_seconds(1, self._poll_restore_profile_operation)
+
+    def _poll_restore_profile_operation(self) -> bool:
+        operation_id = getattr(self, "profile_operation_id", None)
+        if not operation_id:
+            return GLib.SOURCE_REMOVE
+        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_restore_profile_operation_status, on_error=self._profile_operation_status_failed)
+        return GLib.SOURCE_REMOVE
+
+    def _show_restore_profile_operation_status(self, status: dict[str, Any]) -> None:
+        state = status.get("state", "unknown")
+        events = status.get("events") or []
+        self.profile_result.set_text("Restauración " + str(self.profile_operation_id) + ": " + str(state))
+        if state in {"completed", "failed", "cancelled", "interrupted"}:
+            terminal = events[-1].get("details", {}) if events else {}
+            self.profile_result.set_text("Restauración " + str(state) + ": " + str(terminal.get("error") or terminal.get("reason") or terminal))
+            self.profile_cancel.set_sensitive(False)
+            self.profile_operation_id = None
+            self.profile_confirmation.set_text("")
+            self._load_restore_profiles_for_repository()
+        else:
+            GLib.timeout_add_seconds(2, self._poll_restore_profile_operation)
+
+    def _profile_operation_status_failed(self, error: Exception) -> None:
+        self.profile_result.set_text("No se pudo consultar el estado; conserva el ID del trabajo: " + str(error))
+        GLib.timeout_add_seconds(5, self._poll_restore_profile_operation)
+
+    def _cancel_restore_profile_operation(self, _button: Gtk.Button) -> None:
+        operation_id = getattr(self, "profile_operation_id", None)
+        if operation_id:
+            self.profile_cancel.set_sensitive(False)
+            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._profile_failed)
+
+    def _profile_failed(self, error: Exception) -> None:
+        if hasattr(self, "profile_result"):
+            self.profile_result.set_text("Operación de perfil fallida: " + str(error))
 
     def _show_images_page(self) -> None:
         self.page_description.set_text("Inspección verificada de imágenes de disco, exploración de archivos y extracción de particiones.")
