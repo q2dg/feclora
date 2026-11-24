@@ -276,6 +276,29 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.pxe_passphrase.set_text("")', self.source)
         self.assertIn('self.pxe_passphrase.set_sensitive(False)', self.source)
 
+    def test_remote_deployment_definition_import_and_lifecycle_actions(self):
+        for action in (
+            'self.api.submit("deployment_jobs"',
+            'self.api.submit("remote_repositories"',
+            'self.api.submit("s3_repositories"',
+            'self.api.submit("create_deployment_job"',
+            'self.api.submit("import_deployment_job"',
+            'self.api.submit("deployment_service_status"',
+            'self.api.submit("start_deployment_service"',
+            'self.api.submit("arm_deployment_job"',
+            'self.api.submit("cancel_deployment_job"',
+            'self.api.submit("stop_deployment_service"',
+            'self.api.submit("reconcile_deployment_job"',
+        ):
+            self.assertIn(action, self.source)
+        self.assertIn('f"ARM PHYSICAL MULTICAST {job_id}', self.source)
+        self.assertIn('f"ARM MULTICAST {job_id}', self.source)
+        self.assertIn('f"CANCEL {job_id}"', self.source)
+        self.assertIn('f"RECONCILE {job_id}"', self.source)
+        self.assertIn('job.get("interrupted") or job.get("job_state") != "created"', self.source)
+        self.assertIn('def _stop_remote_job_after_status', self.source)
+        self.assertIn('self.remote_job_json.get_buffer().set_text', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
