@@ -123,6 +123,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_repository_page_lists_remote_and_s3_storage_state(self):
+        self.assertIn('self.api.submit("remote_repositories"', self.source)
+        self.assertIn('self.api.submit("s3_repositories"', self.source)
+        self.assertIn('item.get("mounted")', self.source)
+        self.assertIn('item.get("verified")', self.source)
+        self.assertIn('item.get("read_only")', self.source)
+
     def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
         for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
             self.assertIn(action, self.source)
