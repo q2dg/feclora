@@ -117,3 +117,8 @@ without their existing systemd recovery handling.
 - Capture failure handling also clears any pending age passphrase from both the
   in-memory handoff field and the GTK password entry, and disables the cancel
   control when the capture cannot be accepted.
+
+
+## libadwaita history states
+
+The operation log and persistent ddrescue recovery history use Adw.StatusPage inside Gtk.Stack containers for genuine empty results. Populated results retain their existing tabular views; backend inspection failures are presented as explicit status-page errors rather than being confused with an empty history. Refresh controls, operation cancellation confirmation and recovery data contracts remain unchanged.
