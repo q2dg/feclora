@@ -30,7 +30,7 @@ Implemented GTK workflows:
 - Repository inventory and management: SSHFS/S3 definition creation, remote repository check/mount/unmount/removal with mount-state guards, S3 check/removal, encrypted systemd credential import/removal with backend reference checks, remote deployment/client history, operation log with exact-phrase cancellation, and persistent ddrescue recovery history.
 
 Known remaining migration work includes the full server bootstrap/PXE controls,
-certificate lifecycle and PXE answer publication; repository editing and provider-specific SMB definition flows;
+certificate lifecycle and PXE answer publication; provider-specific NFS/SMB definition flows (SSHFS and S3 definition editing are available);
 remote job creation/inspection/import/reconciliation and deployment controls;
 client-job actions; remaining operational workflows
 present in Textual. These pages must not be treated as complete merely because
