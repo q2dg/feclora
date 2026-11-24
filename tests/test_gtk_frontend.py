@@ -363,6 +363,40 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('SMB/CIFS requiere usuario y credencial cifrada.', self.source)
         self.assertIn('{"sshfs": 0, "nfs": 1, "smb": 2}', self.source)
 
+    def test_server_administration_uses_libadwaita_preferences_groups(self):
+        start = self.source.index("    def _show_server_status_page")
+        end = self.source.index("\n    def ", start + 10)
+        page = self.source[start:end]
+        self.assertGreaterEqual(page.count("Adw.PreferencesGroup("), 4)
+        for title in (
+            'title="Estado del servidor"',
+            'title="Identidad y certificados TLS"',
+            'title="Servicios PXE"',
+            'title="Respuestas PXE desatendidas"',
+            'title="Cifrado age y destinatarios"',
+        ):
+            self.assertIn(title, page)
+        self.assertIn("def add_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget)", page)
+        self.assertIn("row.add_suffix(widget)", page)
+        self.assertIn("row.set_activatable_widget(widget)", page)
+        self.assertIn('self.pxe_passphrase.set_visibility(False)', page)
+        self.assertIn("self.pxe_start.set_sensitive(False)", page)
+        self.assertIn('self._refresh_server_status(None)', page)
+        for action in (
+            'self._bootstrap_server',
+            'self._renew_server_certificate',
+            'self._rotate_server_keypair',
+            'self._validate_pxe_profile',
+            'self._start_pxe_services',
+            'self._stop_pxe_services',
+            'self._publish_pxe_answer',
+            'self._revoke_pxe_answer',
+            'self._export_server_age_recipients',
+            'self._refresh_client_age_recipients',
+            'self._submit_pxe_passphrase',
+        ):
+            self.assertIn(action, page)
+
     def test_system_status_uses_libadwaita_preferences_rows(self):
         start = self.source.index("    def _show_system_page")
         end = self.source.index("    def _show_server_status_page", start)
