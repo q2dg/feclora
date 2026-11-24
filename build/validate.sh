@@ -308,6 +308,8 @@ require_text 'self\.recovery_jobs_stack\.set_visible_child_name\("jobs" if jobs 
 require_text 'Adw\.PreferencesGroup\(' src/feclora/gui_gtk.py "GTK network settings must use a libadwaita preferences group."
 require_text 'Adw\.ActionRow\(title=title\)' src/feclora/gui_gtk.py "GTK network settings must use semantic libadwaita action rows."
 require_text 'row\.set_activatable_widget\(widget\)' src/feclora/gui_gtk.py "GTK network setting rows must preserve direct control activation."
+require_text 'Adw\.ComboRow\(title=title\)' src/feclora/gui_gtk.py "GTK network selectors must use native libadwaita combo rows."
+require_text 'Adw\.EntryRow\(title=title\)' src/feclora/gui_gtk.py "GTK network text fields must use native libadwaita entry rows."
 
 require_text 'self\.image_catalog_stack = Gtk\.Stack\(\)' src/feclora/gui_gtk.py "GTK image catalog must use a stack for asynchronous states."
 require_text 'title="No hay imágenes de disco"' src/feclora/gui_gtk.py "GTK image catalog must use a libadwaita empty state."
