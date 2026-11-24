@@ -2,7 +2,8 @@
 
 ## Status
 
-The migration is staged. The existing Textual application remains the production
+All migrated operator pages are placed in a vertically scrollable content area so
+long forms remain reachable at kiosk resolution. The migration is staged. The existing Textual application remains the production
 boot interface until every operator workflow has been ported and accepted.
 
 The native frontend is `gui_gtk.py`, built with GTK4 and PyGObject.
