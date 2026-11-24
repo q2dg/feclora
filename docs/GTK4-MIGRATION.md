@@ -122,3 +122,6 @@ without their existing systemd recovery handling.
 ## libadwaita history states
 
 The operation log and persistent ddrescue recovery history use Adw.StatusPage inside Gtk.Stack containers for genuine empty results. Populated results retain their existing tabular views; backend inspection failures are presented as explicit status-page errors rather than being confused with an empty history. Refresh controls, operation cancellation confirmation and recovery data contracts remain unchanged.
+
+
+The Network page now groups IPv4 profile, interface, DHCP/static method, address, prefix, gateway and DNS controls in an Adw.PreferencesGroup with Adw.ActionRow entries. The existing validation, NetworkManager selection, rollback-protected apply action and conditional visibility of static fields are retained.
