@@ -91,7 +91,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_all_migrated_operations_are_exposed_by_api_dispatch(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         dispatch = api_source[api_source.index('    if action in {"capture_disk"'):]
-        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery", "restore_disk", "restore_partition", "restore_logical_volume", "restore_stratis_filesystem", "clone_disk", "clone_partition", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "capture_p2v"):
+        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery", "restore_disk", "restore_partition", "restore_logical_volume", "restore_stratis_filesystem", "clone_disk", "clone_partition", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "capture_p2v", "execute_restore_profile"):
             self.assertIn('"' + action + '"', dispatch)
 
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
@@ -122,6 +122,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('source_device.get("major_minor")', self.source)
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
+
+    def test_restore_profiles_are_bound_to_stable_disk_identity_and_single_use_confirmation(self):
+        for action in ('self.api.submit("restore_profiles"', 'self.api.submit("create_restore_profile"', 'self.api.submit("execute_restore_profile"'):
+            self.assertIn(action, self.source)
+        self.assertIn('item.get("wwn") or item.get("serial")', self.source)
+        self.assertIn('"target_wwn": target.get("wwn")', self.source)
+        self.assertIn('"target_serial": target.get("serial")', self.source)
+        self.assertIn('profile.get("consumed")', self.source)
+        self.assertIn('self.profile_confirmation.get_text() != expected', self.source)
+        self.assertIn('self.api.submit("cancel_local_operation"', self.source)
 
     def test_p2v_capture_uses_disk_inventory_and_qcow2_conversion_api(self):
         self.assertIn('"Capturar disco virtual QCOW2 (P2V)"', self.source)
