@@ -182,30 +182,122 @@ class FecloraGTK:
         self.page_title = Gtk.Label(label=self.tr("overview"), xalign=0)
         self.page_title.add_css_class("title-1")
         content.append(self.page_title)
-        self.page_description = Gtk.Label(
-            label="La migración de las pantallas operativas está en curso. "
-                  "La interfaz Textual sigue siendo la versión de producción.",
-            xalign=0,
-        )
+        self.page_description = Gtk.Label(label="", xalign=0)
         self.page_description.set_wrap(True)
         content.append(self.page_description)
+        self.page_body = self._box(Gtk.Orientation.VERTICAL, 10)
+        self.page_body.set_vexpand(True)
+        content.append(self.page_body)
 
         for page_id, _label in PAGES:
             button = Gtk.Button(label=self.tr(PAGE_MESSAGE_KEYS[page_id]))
             button.set_halign(Gtk.Align.FILL)
-            button.connect("clicked", self._select_placeholder, page_id)
+            button.connect("clicked", self._select_page, page_id)
             sidebar.append(button)
 
         outer.append(sidebar)
         outer.append(content)
         self.window.set_child(outer)
+        self._select_page(None, "overview")
+
+    def _clear_page(self) -> None:
+        child = self.page_body.get_first_child()
+        while child is not None:
+            following = child.get_next_sibling()
+            self.page_body.remove(child)
+            child = following
+
+    def _select_page(self, _button: Gtk.Button | None, page_id: str) -> None:
+        self._clear_page()
+        self.page_title.set_text(self.tr(PAGE_MESSAGE_KEYS[page_id]))
+        if page_id == "overview":
+            self.page_description.set_text("Estado del equipo y configuración local.")
+            self.status_summary = Gtk.Label(label="Consultando el estado del sistema…", xalign=0)
+            self.status_summary.set_selectable(True)
+            self.page_body.append(self.status_summary)
+            refresh = Gtk.Button(label="Actualizar estado")
+            refresh.set_halign(Gtk.Align.START)
+            refresh.connect("clicked", self._refresh_status)
+            self.page_body.append(refresh)
+            self._refresh_status(None)
+        elif page_id == "inventory":
+            self.page_description.set_text("Inventario de dispositivos de almacenamiento detectados.")
+            self.inventory_summary = Gtk.Label(label="Leyendo inventario…", xalign=0)
+            self.page_body.append(self.inventory_summary)
+            refresh = Gtk.Button(label="Actualizar inventario")
+            refresh.set_halign(Gtk.Align.START)
+            refresh.connect("clicked", self._refresh_inventory)
+            self.page_body.append(refresh)
+            scroller = Gtk.ScrolledWindow()
+            scroller.set_vexpand(True)
+            self.inventory_grid = Gtk.Grid(column_spacing=16, row_spacing=8)
+            scroller.set_child(self.inventory_grid)
+            self.page_body.append(scroller)
+            self._refresh_inventory(None)
+        else:
+            self.page_description.set_text(
+                "Esta pantalla aún no se ha migrado. Sus operaciones permanecen "
+                "disponibles en la interfaz de producción hasta completar la paridad."
+            )
+
+    def _refresh_status(self, _button: Gtk.Button | None) -> None:
+        self.status_summary.set_text("Consultando el estado local…")
+        self.api.submit("status", on_success=self._show_status, on_error=self._show_error)
+
+    def _show_status(self, status: dict[str, Any]) -> None:
+        if not hasattr(self, "status_summary"):
+            return
+        lines = [
+            f"Equipo: {status.get('hostname', '—')}",
+            f"Sistema: {status.get('platform', '—')}",
+            f"Servidor configurado: {'sí' if status.get('server_configured') else 'no'}",
+            f"Cliente configurado: {'sí' if status.get('client_configured') else 'no'}",
+        ]
+        lines.extend(f"Servicio {name}: {state}" for name, state in (status.get("services") or {}).items())
+        self.status_summary.set_text("\\n".join(lines))
+
+    @staticmethod
+    def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
+        if not isinstance(devices, list):
+            return []
+        flattened: list[dict[str, Any]] = []
+        for device in devices:
+            if not isinstance(device, dict):
+                continue
+            flattened.append(device)
+            flattened.extend(FecloraGTK._flatten_devices(device.get("children")))
+        return flattened
+
+    def _refresh_inventory(self, _button: Gtk.Button | None) -> None:
+        self.inventory_summary.set_text("Leyendo inventario de almacenamiento…")
+        self.api.submit("inventory", on_success=self._show_inventory, on_error=self._show_error)
+
+    def _show_inventory(self, inventory: dict[str, Any]) -> None:
+        if not hasattr(self, "inventory_grid"):
+            return
+        grid = self.inventory_grid
+        while child := grid.get_first_child():
+            grid.remove(child)
+        headers = ("Dispositivo", "Tipo", "Tamaño (bytes)", "Modelo", "Sistema de archivos", "Montajes")
+        for column, heading in enumerate(headers):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+        devices = self._flatten_devices(inventory.get("devices"))
+        for row, device in enumerate(devices, start=1):
+            values = (
+                device.get("path") or "—", device.get("type") or "—",
+                str(device.get("size_bytes") or "—"), device.get("model") or "—",
+                device.get("filesystem") or "—", ", ".join(device.get("mountpoints") or []) or "—",
+            )
+            for column, value in enumerate(values):
+                label = Gtk.Label(label=str(value), xalign=0)
+                label.set_selectable(True)
+                grid.attach(label, column, row, 1, 1)
+        self.inventory_summary.set_text(f"Dispositivos detectados: {len(devices)}")
 
     def _select_placeholder(self, _button: Gtk.Button, page_id: str) -> None:
-        self.page_title.set_text(self.tr(PAGE_MESSAGE_KEYS[page_id]))
-        self.page_description.set_text(
-            "Esta pantalla todavía no está migrada. El arranque de producción "
-            "permanece en Textual hasta completar y validar todos los flujos."
-        )
+        self._select_page(_button, page_id)
 
 
 def main() -> None:
