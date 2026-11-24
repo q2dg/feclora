@@ -10,7 +10,7 @@ The native frontend is `gui_gtk.py`, built with GTK4 and PyGObject.
 and marshals results/events onto the GLib main loop. The overview reads real
 system status, the inventory renders nested storage devices, and the operations
 page supports whole-disk capture (RAW/QCOW2), partition capture, LVM logical-volume
-capture, Stratis XFS filesystem capture and incremental Btrfs subvolume streams,
+capture, Stratis XFS filesystem capture and incremental Btrfs subvolume send/receive streams,
 compression, age encryption, progress
 polling and cancellation through the privileged API.
 Restore, clone, recovery and deployment operations remain in Textual; other
