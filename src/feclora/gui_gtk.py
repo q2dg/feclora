@@ -515,7 +515,7 @@ class FecloraGTK:
         self.page_body.append(management_title)
         self.repository_management = Gtk.DropDown.new_from_strings(["Actualiza para seleccionar…"])
         self.page_body.append(self.repository_management)
-        self.repository_action = Gtk.DropDown.new_from_strings(["Comprobar", "Montar", "Desmontar", "Eliminar"])
+        self.repository_action = Gtk.DropDown.new_from_strings(["Comprobar", "Montar", "Desmontar", "Eliminar", "Editar definición"])
         self.page_body.append(self.repository_action)
         self.repository_confirmation = Gtk.Entry()
         self.repository_confirmation.set_placeholder_text("Para eliminar: REMOVE identificador")
@@ -710,12 +710,39 @@ class FecloraGTK:
         if not isinstance(identifier, str) or not identifier:
             self.repository_action_result.set_text("El repositorio seleccionado no tiene un ID válido.")
             return
-        actions = ("check", "mount", "unmount", "remove")
+        actions = ("check", "mount", "unmount", "remove", "edit")
         index = self.repository_action.get_selected()
         if index >= len(actions):
             self.repository_action_result.set_text("Selecciona una acción válida.")
             return
         action = actions[index]
+        if action == "edit":
+            if kind == "S3":
+                self.s3_id.set_text(identifier)
+                self.s3_endpoint.set_text(item.get("endpoint_url") or "")
+                self.s3_region.set_text(item.get("region") or "")
+                self.s3_bucket.set_text(item.get("bucket") or "")
+                self.s3_prefix.set_text(item.get("prefix") or "")
+                self.s3_credential.set_text(item.get("credential_id") or "")
+                self.s3_read_only.set_active(bool(item.get("read_only")))
+                self.repository_action_result.set_text("Definición S3 cargada; guarda los cambios en el formulario S3.")
+                return
+            if item.get("mount_state") != "unmounted":
+                self.repository_action_result.set_text("Desmonta y verifica el estado unmounted antes de editar.")
+                return
+            if item.get("provider") != "sshfs":
+                self.repository_action_result.set_text("El formulario GTK actual solo edita definiciones SSHFS; NFS/SMB permanecen sin edición.")
+                return
+            self.remote_id.set_text(identifier)
+            self.remote_host.set_text(item.get("host") or "")
+            self.remote_path.set_text(item.get("remote_path") or "")
+            self.remote_username.set_text(item.get("username") or "")
+            self.remote_identity.set_text(item.get("identity_file") or "")
+            self.remote_known_hosts.set_text(item.get("known_hosts_file") or "")
+            self.remote_port.set_text(str(item.get("port") or ""))
+            self.remote_read_only.set_active(bool(item.get("read_only")))
+            self.repository_action_result.set_text("Definición SSHFS cargada; guarda los cambios en el formulario.")
+            return
         if kind == "S3":
             api_action = {"check": "check_s3_repository", "remove": "remove_s3_repository"}.get(action)
             if api_action is None:
@@ -763,8 +790,13 @@ class FecloraGTK:
             "known_hosts_file": self.remote_known_hosts.get_text().strip() or None,
             "port": port, "read_only": self.remote_read_only.get_active(),
         }
+        existing = next((item for _, item in getattr(self, "remote_repository_rows", []) if item.get("id") == identifier), None)
+        if existing and existing.get("mount_state") != "unmounted":
+            self.repository_action_result.set_text("No se puede editar una definición montada; desmonta primero.")
+            return
+        action = "update_remote_repository" if existing else "add_remote_repository"
         self.repository_action_result.set_text("Guardando definición SSHFS…")
-        self.api.submit("add_remote_repository", params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self.api.submit(action, params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
 
     def _save_s3_repository(self, _button: Gtk.Button) -> None:
         import re
@@ -780,8 +812,10 @@ class FecloraGTK:
             "region": region, "bucket": bucket, "prefix": self.s3_prefix.get_text().strip(),
             "credential_id": credential_id, "read_only": self.s3_read_only.get_active(),
         }
+        existing = next((item for _, item in getattr(self, "s3_repository_rows", []) if item.get("id") == identifier), None)
+        action = "update_s3_repository" if existing else "add_s3_repository"
         self.repository_action_result.set_text("Guardando definición S3…")
-        self.api.submit("add_s3_repository", params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self.api.submit(action, params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
 
     def _import_repository_credential(self, _button: Gtk.Button) -> None:
         import re
