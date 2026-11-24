@@ -123,6 +123,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_network_page_uses_active_profiles_and_validated_ipv4_checkpoint(self):
+        for action in ('self.api.submit("network_connection_profiles"', 'self.api.submit("network_interfaces"', 'self.api.submit("apply_network_profile"'):
+            self.assertIn(action, self.source)
+        self.assertIn('ipaddress.IPv4Address(self.network_address.get_text().strip())', self.source)
+        self.assertIn('"rollback_timeout": 120', self.source)
+        self.assertIn('interface.get("interface") != profile.get("device")', self.source)
+
     def test_restore_profiles_are_bound_to_stable_disk_identity_and_single_use_confirmation(self):
         for action in ('self.api.submit("restore_profiles"', 'self.api.submit("create_restore_profile"', 'self.api.submit("execute_restore_profile"'):
             self.assertIn(action, self.source)
