@@ -232,7 +232,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('f"REMOVE {identifier}"', self.source)
         self.assertIn('credential_management', self.source)
         self.assertIn('repository_management_rows', self.source)
-        self.assertIn('Definición SSHFS cargada', self.source)
+        self.assertIn('f"Definición {provider} cargada; guarda los cambios en el formulario."', self.source)
         self.assertIn('Definición S3 cargada', self.source)
         self.assertIn('action = "update_remote_repository" if existing else "add_remote_repository"', self.source)
         self.assertIn('action = "update_s3_repository" if existing else "add_s3_repository"', self.source)
