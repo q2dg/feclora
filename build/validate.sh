@@ -386,3 +386,12 @@ require_text 'self\.image_catalog_stack\.set_visible_child_name\("loading"\)' sr
 require_text 'self\.image_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK image extraction cancellation must remain disabled until accepted."
 require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK image integrity verification must retain its privileged API request."
 require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK partition extraction must retain its privileged API request."
+
+
+require_text 'title="Identidad del equipo"' src/feclora/gui_gtk.py "GTK overview must group host and platform identity."
+require_text 'title="Configuración de Feclora"' src/feclora/gui_gtk.py "GTK overview must group server/client configuration status."
+require_text 'title="Servicios del sistema"' src/feclora/gui_gtk.py "GTK overview must group local service status."
+require_text 'title="Acciones"' src/feclora/gui_gtk.py "GTK overview refresh must have a dedicated action group."
+require_text 'self\.overview_configuration\.set_text\(' src/feclora/gui_gtk.py "GTK overview must render server and client configuration status."
+require_text 'self\.overview_services\.set_text\(' src/feclora/gui_gtk.py "GTK overview must render local service status."
+require_text 'self\.api\.submit\("status"' src/feclora/gui_gtk.py "GTK overview must retain the local status API request."
