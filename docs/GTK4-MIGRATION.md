@@ -7,10 +7,12 @@ boot interface until every operator workflow has been ported and accepted.
 
 The native frontend is `gui_gtk.py`, built with GTK4 and PyGObject.
 `gtk_api.py` dispatches the existing allowlisted API calls in worker threads
-and marshals results/events onto the GLib main loop. The overview now reads the
-real system status and the inventory page renders the complete nested storage
-device list. Remaining navigation pages are still placeholders; this frontend
-is not production-ready.
+and marshals results/events onto the GLib main loop. The overview reads real
+system status, the inventory renders nested storage devices, and the operations
+page supports whole-disk capture (RAW/QCOW2) plus partition capture, compression,
+age encryption, progress polling and cancellation through the privileged API.
+Restore, clone, recovery and deployment operations remain in Textual; other
+navigation pages are still placeholders. This frontend is not production-ready.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
