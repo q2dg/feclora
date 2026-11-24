@@ -505,7 +505,7 @@ if __name__ == "__main__":
 
     def test_recovery_jobs_use_libadwaita_preference_groups(self):
         start = self.source.index("    def _show_recovery_jobs_page")
-        end = self.source.index("    def _show_remote_jobs_page", start)
+        end = self.source.index("    def _refresh_recovery_jobs", start)
         page = self.source[start:end]
         self.assertEqual(page.count("Adw.PreferencesGroup("), 2)
         self.assertIn('title="Estado de recuperación"', page)
