@@ -497,7 +497,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
             "Repositorios S3",
             "Credenciales systemd cifradas",
         ):
-            self.assertIn(f'title="{title}"', page)
+            self.assertIn('add_group("' + title + '"', page)
         for widget in (
             "self.remote_provider", "self.remote_identity", "self.remote_known_hosts",
             "self.remote_credential", "self.s3_credential", "self.credential_source",
