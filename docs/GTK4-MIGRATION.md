@@ -135,3 +135,8 @@ The image browser's repository catalog is presented through a `Gtk.Stack` with d
 ## libadwaita system status
 
 The System page now presents its read-only status summary and refresh action in an `Adw.PreferencesGroup` using `Adw.ActionRow` rows. The refresh button remains directly activatable from its row. The privileged status request and the displayed host, platform, service and certificate data are unchanged.
+
+
+## libadwaita server administration
+
+The Server page groups the server health summary, TLS identity and certificate actions, PXE profile controls, unattended PXE answer publication/revocation, and age recipient/passphrase workflows into semantic `Adw.PreferencesGroup` sections. Editable controls and action buttons use `Adw.ActionRow` suffixes with direct activation, while status/result labels remain selectable. Existing privileged API calls, exact confirmation requirements, PXE validation-before-start sequence, initially disabled PXE start control, and masked one-shot age passphrase handling are preserved.
