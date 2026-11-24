@@ -41,8 +41,9 @@ session is required.
 2. Port the welcome/setup flow and shared GTK application shell. The initial
    overview and storage inventory pages now call the real backend and render
    live results; structural regression tests cover these paths.
-3. Port every remaining page and action, preserving confirmation phrases,
-   validation, progress events, cancellation and error handling.
+3. Complete the operations page: port the remaining capture modes, restore,
+   clone, Btrfs receive, recovery and deployment-bundle actions, preserving
+   confirmation phrases, validation, progress events, cancellation and error handling.
 4. Port inventory, image browsing, restore profiles, network, repositories,
    server/PXE, remote deployment and recovery workflows; do not replace
    operational controls with read-only placeholders.
