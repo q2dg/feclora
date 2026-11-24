@@ -197,3 +197,10 @@ width constraints, compact-mode back navigation, and page identifiers. The
 sidebar entries are now activatable `Adw.ActionRow` items grouped under
 `Adw.PreferencesGroup`, replacing generic GTK buttons while preserving the
 existing page-selection callback and all page/API behavior.
+
+
+The navigation sidebar now also marks the current destination explicitly:
+the active row displays a short current-page subtitle and a confirmation
+icon, while inactive rows retain the forward-navigation icon. Selection is
+updated centrally by the existing page callback, including the initial
+Overview selection; page IDs and compact-mode behavior are unchanged.
