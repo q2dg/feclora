@@ -104,3 +104,7 @@ without their existing systemd recovery handling.
   is submitted with passphrase encryption enabled, and the secret is delivered
   to the accepted operation ID. The field is cleared immediately; delivery
   failure requests cancellation of the capture. QCOW2 remains unencrypted.
+
+- Capture failure handling also clears any pending age passphrase from both the
+  in-memory handoff field and the GTK password entry, and disables the cancel
+  control when the capture cannot be accepted.
