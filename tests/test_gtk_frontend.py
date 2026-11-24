@@ -363,6 +363,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('SMB/CIFS requiere usuario y credencial cifrada.', self.source)
         self.assertIn('{"sshfs": 0, "nfs": 1, "smb": 2}', self.source)
 
+    def test_operation_and_recovery_histories_use_libadwaita_empty_states(self):
+        self.assertIn("self.operation_log_stack = Gtk.Stack()", self.source)
+        self.assertIn('Adw.StatusPage(\n            title="Sin operaciones registradas"', self.source)
+        self.assertIn('self.operation_log_stack.set_visible_child_name("records" if operations else "empty")', self.source)
+        self.assertIn("self.recovery_jobs_stack = Gtk.Stack()", self.source)
+        self.assertIn('Adw.StatusPage(\n            title="Sin trabajos de recuperación"', self.source)
+        self.assertIn('self.recovery_jobs_stack.set_visible_child_name("jobs" if jobs else "empty")', self.source)
+        self.assertIn('self.operation_log_empty.set_title("No se pudo consultar el registro")', self.source)
+        self.assertIn('self.recovery_jobs_empty.set_title("No se pudieron consultar los trabajos")', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
