@@ -1924,21 +1924,51 @@ class FecloraGTK:
 
     def _show_operation_log_page(self) -> None:
         self.page_description.set_text("Historial persistente de operaciones locales, incluidos errores y estados terminales.")
+
+        status_group = Adw.PreferencesGroup(
+            title="Estado del registro",
+            description="Consulta el historial persistido de operaciones locales",
+        )
+        self.page_body.append(status_group)
         self.operation_log_summary = Gtk.Label(label="Consultando operaciones…", xalign=0)
-        self.page_body.append(self.operation_log_summary)
+        self.operation_log_summary.set_selectable(True)
+        summary_row = Adw.ActionRow(title="Resumen de operaciones")
+        summary_row.add_suffix(self.operation_log_summary)
+        status_group.add(summary_row)
         refresh = Gtk.Button(label="Actualizar registro")
-        refresh.set_halign(Gtk.Align.START)
         refresh.connect("clicked", self._refresh_operation_log)
-        self.page_body.append(refresh)
+        refresh_row = Adw.ActionRow(title="Actualizar historial")
+        refresh_row.add_suffix(refresh)
+        refresh_row.set_activatable_widget(refresh)
+        status_group.add(refresh_row)
+
+        cancel_group = Adw.PreferencesGroup(
+            title="Cancelación controlada",
+            description="La solicitud solo se acepta con la frase exacta CANCEL <operation_id>",
+        )
+        self.page_body.append(cancel_group)
         self.operation_select = Gtk.DropDown.new_from_strings(["Selecciona operación…"])
-        self.page_body.append(self.operation_select)
+        select_row = Adw.ActionRow(title="Operación local")
+        select_row.add_suffix(self.operation_select)
+        select_row.set_activatable_widget(self.operation_select)
+        cancel_group.add(select_row)
         self.operation_confirmation = Gtk.Entry()
         self.operation_confirmation.set_placeholder_text("CANCEL <operation_id>")
-        self.page_body.append(self.operation_confirmation)
-        cancel = Gtk.Button(label="Solicitar cancelación (confirmación exacta)")
-        cancel.set_halign(Gtk.Align.START)
+        confirmation_row = Adw.ActionRow(title="Confirmación exacta")
+        confirmation_row.add_suffix(self.operation_confirmation)
+        cancel_group.add(confirmation_row)
+        cancel = Gtk.Button(label="Solicitar cancelación")
         cancel.connect("clicked", self._cancel_selected_logged_operation)
-        self.page_body.append(cancel)
+        cancel_row = Adw.ActionRow(title="Cancelar operación seleccionada")
+        cancel_row.add_suffix(cancel)
+        cancel_row.set_activatable_widget(cancel)
+        cancel_group.add(cancel_row)
+
+        history_group = Adw.PreferencesGroup(
+            title="Operaciones registradas",
+            description="Los estados vacíos y los resultados se muestran por separado",
+        )
+        self.page_body.append(history_group)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.operation_log_stack = Gtk.Stack()
@@ -1951,7 +1981,7 @@ class FecloraGTK:
         )
         self.operation_log_stack.add_named(self.operation_log_empty, "empty")
         scroller.set_child(self.operation_log_stack)
-        self.page_body.append(scroller)
+        history_group.add(scroller)
         self._refresh_operation_log(None)
 
     def _refresh_operation_log(self, _button: Gtk.Button | None) -> None:
@@ -2017,12 +2047,29 @@ class FecloraGTK:
 
     def _show_recovery_jobs_page(self) -> None:
         self.page_description.set_text("Trabajos ddrescue persistentes. Los mapfiles permiten reanudar recuperaciones interrumpidas.")
+
+        status_group = Adw.PreferencesGroup(
+            title="Estado de recuperación",
+            description="Trabajos persistentes de ddrescue y sus mapfiles",
+        )
+        self.page_body.append(status_group)
         self.recovery_jobs_summary = Gtk.Label(label="Consultando trabajos…", xalign=0)
-        self.page_body.append(self.recovery_jobs_summary)
+        self.recovery_jobs_summary.set_selectable(True)
+        summary_row = Adw.ActionRow(title="Resumen de trabajos")
+        summary_row.add_suffix(self.recovery_jobs_summary)
+        status_group.add(summary_row)
         refresh = Gtk.Button(label="Actualizar recuperaciones")
-        refresh.set_halign(Gtk.Align.START)
         refresh.connect("clicked", self._refresh_recovery_jobs)
-        self.page_body.append(refresh)
+        refresh_row = Adw.ActionRow(title="Actualizar historial")
+        refresh_row.add_suffix(refresh)
+        refresh_row.set_activatable_widget(refresh)
+        status_group.add(refresh_row)
+
+        history_group = Adw.PreferencesGroup(
+            title="Trabajos ddrescue",
+            description="Progreso, bytes pendientes y resultados parciales de recuperación",
+        )
+        self.page_body.append(history_group)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.recovery_jobs_stack = Gtk.Stack()
@@ -2035,7 +2082,7 @@ class FecloraGTK:
         )
         self.recovery_jobs_stack.add_named(self.recovery_jobs_empty, "empty")
         scroller.set_child(self.recovery_jobs_stack)
-        self.page_body.append(scroller)
+        history_group.add(scroller)
         self._refresh_recovery_jobs(None)
 
     def _refresh_recovery_jobs(self, _button: Gtk.Button | None) -> None:
