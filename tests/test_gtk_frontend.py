@@ -487,3 +487,29 @@ if __name__ == "__main__":
         self.assertIn("self.profile_cancel.set_sensitive(False)", page)
         self.assertIn('self.api.submit("inventory"', page)
         self.assertIn('self.api.submit("remote_repositories"', page)
+
+
+    def test_operation_log_uses_libadwaita_preference_groups(self):
+        start = self.source.index("    def _show_operation_log_page")
+        end = self.source.index("    def _show_recovery_jobs_page", start)
+        page = self.source[start:end]
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 3)
+        self.assertIn('title="Estado del registro"', page)
+        self.assertIn('title="Cancelación controlada"', page)
+        self.assertIn('title="Operaciones registradas"', page)
+        self.assertIn("row.set_activatable_widget(self.operation_select)", page)
+        self.assertIn("row.set_activatable_widget(cancel)", page)
+        self.assertIn('self.operation_confirmation.set_placeholder_text("CANCEL <operation_id>")', page)
+        self.assertIn('title="Sin operaciones registradas"', page)
+        self.assertIn("self._refresh_operation_log(None)", page)
+
+    def test_recovery_jobs_use_libadwaita_preference_groups(self):
+        start = self.source.index("    def _show_recovery_jobs_page")
+        end = self.source.index("    def _show_remote_jobs_page", start)
+        page = self.source[start:end]
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 2)
+        self.assertIn('title="Estado de recuperación"', page)
+        self.assertIn('title="Trabajos ddrescue"', page)
+        self.assertIn('title="Sin trabajos de recuperación"', page)
+        self.assertIn("row.set_activatable_widget(refresh)", page)
+        self.assertIn("self._refresh_recovery_jobs(None)", page)
