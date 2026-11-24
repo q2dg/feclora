@@ -2922,24 +2922,20 @@ class FecloraGTK:
         self.capture_confirmation.set_visible(is_restore or is_clone or is_recovery_iso)
         self.capture_image_id_label.set_visible(not (is_restore or is_clone or is_image_build))
         self.capture_image_id.set_visible(not (is_restore or is_clone or is_image_build))
-        for widget in (self.capture_repository_label, self.capture_repository):
-            widget.set_visible(is_restore or is_image_build)
-        for widget in (self.capture_base_iso_label, self.capture_base_iso):
-            widget.set_visible(is_image_build)
-        for widget in (self.capture_target_wwn, self.capture_target_serial):
-            widget.set_visible(is_recovery_iso)
+        self.capture_repository_label.set_visible(is_restore or is_image_build)
+        self.capture_base_iso_label.set_visible(is_image_build)
+        self.capture_target_wwn_row.set_visible(is_recovery_iso)
+        self.capture_target_serial_row.set_visible(is_recovery_iso)
         self.capture_bundle_name_label.set_visible(is_bundle)
-        self.capture_bundle_name.set_visible(is_bundle)
         self.capture_deployment_job_label.set_visible(is_bundle)
-        self.capture_deployment_job.set_visible(is_bundle)
         self.capture_image_select_label.set_visible(is_restore or is_image_build)
         self.capture_image_select.set_visible(is_restore or is_image_build)
-        self.capture_btrfs_source.set_visible(is_btrfs_capture)
-        self.capture_btrfs_parent.set_visible(is_btrfs_capture)
-        self.capture_btrfs_target.set_visible(is_btrfs_receive)
-        self.capture_btrfs_receive_parent.set_visible(is_btrfs_receive)
-        self.capture_retry.set_visible(is_recovery)
-        self.capture_resume.set_visible(is_recovery)
+        self.capture_btrfs_source_row.set_visible(is_btrfs_capture)
+        self.capture_btrfs_parent_row.set_visible(is_btrfs_capture)
+        self.capture_btrfs_target_row.set_visible(is_btrfs_receive)
+        self.capture_btrfs_receive_parent_row.set_visible(is_btrfs_receive)
+        self.capture_retry_row.set_visible(is_recovery)
+        self.capture_resume_row.set_visible(is_recovery)
         if kind in {0, 6, 11, 16, 17}:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
             label = "Discos" if kind == 0 else "Discos para recuperación ddrescue" if kind == 6 else "Discos de origen para restauración proporcional" if kind == 16 else "Discos de origen P2V" if kind == 17 else "Discos de origen para clonación"
@@ -2975,10 +2971,9 @@ class FecloraGTK:
         self.capture_target.set_selected(0)
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
-        self.capture_format.set_visible(kind == 0)
-        self.capture_compression.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
-        self.capture_encrypt.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
-        self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
+        self.capture_compression_row.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
+        self.capture_encrypt_row.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
+        self.capture_image_id_label.set_title("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Capturar disco virtual QCOW2 (P2V)" if kind == 17 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
