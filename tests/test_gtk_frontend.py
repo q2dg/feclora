@@ -465,16 +465,18 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.image_catalog_stack.set_visible_child_name("error")', self.source)
         self.assertIn('self.image_select.set_model(Gtk.StringList.new(labels or []))', self.source)
 
-    def test_network_configuration_uses_libadwaita_preferences_rows(self):
-        self.assertIn('Adw.PreferencesGroup(\n            title="Conexión IPv4"', self.source)
-        self.assertIn("row = Adw.ActionRow(title=title)", self.source)
-        self.assertIn("row.add_suffix(widget)", self.source)
-        self.assertIn("row.set_activatable_widget(widget)", self.source)
-        self.assertIn('add_network_row("Método IPv4", self.network_method)', self.source)
-        self.assertIn('add_network_row("DNS IPv4 separados por comas", self.network_dns)', self.source)
-        self.assertIn("self._network_method_changed(self.network_method, None)", self.source)
-        self.assertIn("self.network_address_row = add_network_row", self.source)
-        self.assertIn("self.network_dns_row = add_network_row", self.source)
+    def test_network_configuration_uses_native_libadwaita_controls(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_network_page"])
+        self.assertIn('Adw.PreferencesGroup(\n            title="Conexión IPv4"', page)
+        self.assertIn("def add_network_combo(title: str, labels: list[str]) -> Adw.ComboRow:", page)
+        self.assertIn("def add_network_entry(title: str) -> Adw.EntryRow:", page)
+        self.assertEqual(page.count("add_network_combo("), 4)
+        self.assertEqual(page.count("add_network_entry("), 5)
+        self.assertNotIn("Gtk.DropDown", page)
+        self.assertNotIn("Gtk.Entry", page)
+        self.assertIn("self.network_address_row = self.network_address", page)
+        self.assertIn("self.network_dns_row = self.network_dns", page)
+        self.assertIn("self._network_method_changed(self.network_method, None)", page)
         self.assertIn("for row in (self.network_address_row, self.network_prefix_row, self.network_gateway_row, self.network_dns_row):", self.source)
         self.assertIn("row.set_visible(manual)", self.source)
 
