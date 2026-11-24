@@ -19,7 +19,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
 
     def test_language_options_match_available_message_catalogs(self):
         self.assertEqual({code for _, code in LANGUAGES}, set(MESSAGES))
-        self.assertEqual(len(LANGUAGES), 18)
+        self.assertEqual(len(LANGUAGES), 25)
         self.assertIn(("Português (Brasil)", "pt_BR"), LANGUAGES)
 
     def test_every_supported_language_can_be_saved_and_loaded(self):
