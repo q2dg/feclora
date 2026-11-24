@@ -424,7 +424,7 @@ class FecloraGTK:
         self._refresh_status(None)
 
     def _show_server_status_page(self) -> None:
-        self.page_description.set_text("Estado del servidor Feclora, servicios PXE e interfaces. Los controles de bootstrap, certificados y PXE siguen pendientes de migración.")
+        self.page_description.set_text("Administración del servidor, TLS, PXE, publicación/revocación de respuestas y gestión de destinatarios age.")
         self.server_status = Gtk.Label(label="Consultando estado del servidor…", xalign=0)
         self.server_status.set_wrap(True)
         self.server_status.set_selectable(True)
@@ -549,6 +549,10 @@ class FecloraGTK:
         self.pxe_passphrase_status = Gtk.Label(label="Consultando solicitud age…", xalign=0)
         self.pxe_passphrase_status.set_wrap(True)
         self.page_body.append(self.pxe_passphrase_status)
+        refresh_passphrase = Gtk.Button(label="Actualizar estado de frase age")
+        refresh_passphrase.set_halign(Gtk.Align.START)
+        refresh_passphrase.connect("clicked", lambda _button: self._refresh_pxe_passphrase_status())
+        self.page_body.append(refresh_passphrase)
         self.pxe_passphrase = Gtk.Entry()
         self.pxe_passphrase.set_visibility(False)
         self.pxe_passphrase.set_placeholder_text("Frase age de un solo uso")
