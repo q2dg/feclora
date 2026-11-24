@@ -347,6 +347,11 @@ class FecloraGTK:
             self.page_body.append(self.capture_compression)
             self.capture_encrypt = Gtk.CheckButton(label="Cifrar artefactos con age")
             self.page_body.append(self.capture_encrypt)
+            self.capture_passphrase = Gtk.PasswordEntry()
+            self.capture_passphrase.set_show_peek_icon(True)
+            self.capture_passphrase.set_placeholder_text("Frase age de un solo uso (solo disco RAW)")
+            self.page_body.append(Gtk.Label(label="Frase secreta para cifrado age", xalign=0))
+            self.page_body.append(self.capture_passphrase)
             self.capture_retry = Gtk.DropDown.new_from_strings([str(n) for n in range(11)])
             self.capture_retry.set_selected(3)
             self.page_body.append(Gtk.Label(label="Pasadas de reintento ddrescue", xalign=0))
@@ -2875,6 +2880,14 @@ class FecloraGTK:
         else:
             params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
             action = "capture_stratis_filesystem"
+        capture_passphrase = ""
+        if kind == 0 and not qcow2 and self.capture_encrypt.get_active():
+            capture_passphrase = self.capture_passphrase.get_text()
+            if not capture_passphrase:
+                self.capture_result.set_text("Indica una frase secreta para cifrar la captura RAW.")
+                return
+            params["encrypt_passphrase"] = True
+        self.active_capture_passphrase = capture_passphrase
         self.capture_start.set_sensitive(False)
         self.capture_result.set_text("Solicitando captura…")
         self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
@@ -2885,9 +2898,25 @@ class FecloraGTK:
             self._capture_failed(RuntimeError("El backend no devolvió operation_id."))
             return
         self.active_capture_id = operation_id
+        passphrase = getattr(self, "active_capture_passphrase", "")
+        self.active_capture_passphrase = ""
+        if passphrase:
+            self.capture_passphrase.set_text("")
+            self.api.submit(
+                "provide_capture_passphrase",
+                {"operation_id": operation_id, "passphrase": passphrase},
+                on_success=lambda _response: self.capture_result.set_text("Frase age entregada a la operación."),
+                on_error=self._capture_passphrase_failed,
+            )
         self.capture_cancel.set_sensitive(True)
         self.capture_result.set_text("Captura aceptada: " + operation_id)
         self._poll_capture_status()
+
+    def _capture_passphrase_failed(self, error: Exception) -> None:
+        self.capture_result.set_text("No se pudo entregar la frase age a la operación: " + str(error))
+        operation_id = getattr(self, "active_capture_id", None)
+        if operation_id:
+            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._capture_failed)
 
     def _poll_capture_status(self) -> bool:
         operation_id = getattr(self, "active_capture_id", None)
