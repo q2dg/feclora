@@ -453,6 +453,7 @@ class FecloraGTK:
             f"PXE: {pxe}",
         ]
         lines.extend(f"Servicio {name}: {state}" for name, state in (status.get("services") or {}).items())
+        lines.extend(f"Certificado {item.get('role') or '—'}: {item.get('status') or '—'}" for item in status.get("certificate_status") or [])
         lines.extend(f"Interfaz {item.get('interface')}: {item.get('address')}/{item.get('prefix_length')}" for item in interfaces)
         self.server_status.set_text("\n".join(lines))
 
