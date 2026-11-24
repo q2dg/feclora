@@ -119,6 +119,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_wwn and not target_serial', self.source)
         self.assertIn('base_iso.lower().endswith(".iso")', self.source)
         self.assertIn('self.api.submit("remote_repositories"', self.source)
+        self.assertIn('self.api.submit("repository_images"', self.source)
+        self.assertIn('params["repository_id"] = selected_repository["id"]', self.source)
         self.assertIn('repository.get("mounted")', self.source)
         self.assertIn('repository.get("verified")', self.source)
         self.assertIn('json.loads(job_text)', self.source)
