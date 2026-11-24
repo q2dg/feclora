@@ -485,6 +485,37 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("inventory"', page)
 
 
+    def test_local_operations_use_semantic_libadwaita_groups(self):
+        start = self.source.index('elif page_id == "operations":')
+        end = self.source.index('        else:\n            self.page_description.set_text("Esta pantalla aún no se ha migrado.', start)
+        page = self.source[start:end]
+        for title in (
+            "Inventario y selección de operación",
+            "Origen, destino e imagen",
+            "Confirmación y generación",
+            "Btrfs",
+            "Formato y protección",
+            "Recuperación ddrescue",
+            "Ejecución y seguimiento",
+        ):
+            self.assertIn(title, page)
+        for widget in (
+            "self.capture_kind", "self.capture_source", "self.capture_target",
+            "self.capture_image_select", "self.capture_confirmation",
+            "self.capture_repository", "self.capture_passphrase",
+            "self.capture_btrfs_source", "self.capture_btrfs_target",
+            "self.capture_retry", "self.capture_resume", "self.capture_start",
+            "self.capture_cancel", "self.capture_progress", "self.capture_result",
+        ):
+            self.assertIn(widget, page)
+        for callback in ("self._capture_mode_changed", "self._start_disk_capture", "self._cancel_disk_capture"):
+            self.assertIn(callback, page)
+        self.assertIn('self.capture_confirmation.set_placeholder_text("ERASE /dev/… o BUILD <imagen>")', page)
+        self.assertIn('self.capture_passphrase = Gtk.PasswordEntry()', page)
+        self.assertIn("self.capture_btrfs_source_row.set_visible(is_btrfs_capture)", self.source)
+        self.assertIn("self.capture_retry_row.set_visible(is_recovery)", self.source)
+        self.assertIn("self.capture_image_id_label.set_title(", self.source)
+
     def test_repository_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_repositories_page")
         end = self.source.index("    def _refresh_repositories", start)
