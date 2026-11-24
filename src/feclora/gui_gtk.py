@@ -2960,9 +2960,13 @@ class FecloraGTK:
         self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._capture_failed)
 
     def _capture_failed(self, error: Exception) -> None:
+        self.active_capture_passphrase = ""
+        if hasattr(self, "capture_passphrase"):
+            self.capture_passphrase.set_text("")
         if hasattr(self, "capture_result"):
             self.capture_result.set_text("Captura fallida: " + str(error))
             self.capture_start.set_sensitive(True)
+            self.capture_cancel.set_sensitive(False)
 
     def _refresh_status(self, _button: Gtk.Button | None) -> None:
         self.status_summary.set_text("Consultando el estado local…")
