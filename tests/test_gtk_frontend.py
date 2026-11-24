@@ -201,6 +201,19 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('confirmation != expected', self.source)
         self.assertIn('image.get("image_type") != expected_type', self.source)
 
+    def test_legacy_p2v_import_and_s3_export_are_available_in_gtk(self):
+        self.assertIn('Compatibilidad P2V heredada', self.source)
+        self.assertIn('def _import_legacy_p2v', self.source)
+        self.assertIn('def _export_legacy_p2v', self.source)
+        self.assertIn('self.api.submit("import_p2v"', self.source)
+        self.assertIn('self.api.submit("export_p2v_s3"', self.source)
+        self.assertIn('"source_image_id": source_image_id', self.source)
+        self.assertIn('"source_repository_id": sources[source_index - 1]["id"]', self.source)
+        self.assertIn('params["destination_repository_id"]', self.source)
+        self.assertIn('self.p2v_import_repository', self.source)
+        self.assertIn('self.p2v_export_repository', self.source)
+        self.assertIn('self.p2v_result.set_text', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
