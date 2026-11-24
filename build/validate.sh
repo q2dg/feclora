@@ -388,6 +388,10 @@ require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK ima
 require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK partition extraction must retain its privileged API request."
 
 
+require_text 'title="Idioma de la interfaz"' src/feclora/gui_gtk.py "GTK welcome must group interface language preferences."
+require_text 'title="Distribución del teclado"' src/feclora/gui_gtk.py "GTK welcome must group keyboard layout preferences."
+require_text 'title="Acciones"' src/feclora/gui_gtk.py "GTK welcome actions must use a semantic preferences group."
+require_text 'self\._keyboard_layout_applied\(layout\)' src/feclora/gui_gtk.py "GTK must retain the selected keyboard layout after a successful apply."
 require_text 'title="Estado del inventario"' src/feclora/gui_gtk.py "GTK inventory must group its live device count in libadwaita preferences."
 require_text 'title="Dispositivos detectados"' src/feclora/gui_gtk.py "GTK inventory must label the device summary semantically."
 require_text 'title="Acciones"' src/feclora/gui_gtk.py "GTK inventory refresh must use a semantic action group."
