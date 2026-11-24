@@ -2549,12 +2549,23 @@ class FecloraGTK:
 
     def _show_images_page(self) -> None:
         self.page_description.set_text("Inspección verificada de imágenes de disco, exploración de archivos y extracción de particiones.")
+
+        def add_image_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget, subtitle: str = "") -> Adw.ActionRow:
+            row = Adw.ActionRow(title=title, subtitle=subtitle)
+            row.add_suffix(widget)
+            row.set_activatable_widget(widget)
+            group.add(row)
+            return row
+
+        catalog_group = Adw.PreferencesGroup(
+            title="Repositorio e imagen",
+            description="Selecciona el repositorio y una imagen de disco disponible.",
+        )
+        self.page_body.append(catalog_group)
         self.image_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
-        self.image_repository_label = Gtk.Label(label="Repositorio", xalign=0)
-        self.page_body.append(self.image_repository_label)
-        self.page_body.append(self.image_repository)
+        add_image_row(catalog_group, "Repositorio", self.image_repository)
         self.image_select = Gtk.DropDown.new_from_strings(["Cargando imágenes de disco…"])
-        self.page_body.append(Gtk.Label(label="Imagen de disco", xalign=0))
+        add_image_row(catalog_group, "Imagen de disco", self.image_select)
         self.image_catalog_stack = Gtk.Stack()
         self.image_catalog_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.image_catalog_stack.add_named(self.image_select, "images")
@@ -2577,53 +2588,72 @@ class FecloraGTK:
         )
         self.image_catalog_stack.add_named(self.image_catalog_error, "error")
         self.image_catalog_stack.set_visible_child_name("loading")
-        self.page_body.append(self.image_catalog_stack)
+        catalog_group.add(self.image_catalog_stack)
+
+        inspect_group = Adw.PreferencesGroup(
+            title="Inspección y verificación",
+            description="Verifica el manifiesto, la tabla de particiones y los hashes de la imagen.",
+        )
+        self.page_body.append(inspect_group)
         inspect = Gtk.Button(label="Inspeccionar tabla de particiones")
-        inspect.set_halign(Gtk.Align.START)
+        add_image_row(inspect_group, "Inspección de estructura", inspect)
         inspect.connect("clicked", self._inspect_selected_image)
-        self.page_body.append(inspect)
         self.image_partition = Gtk.DropDown.new_from_strings(["Inspecciona primero la imagen…"])
-        self.page_body.append(Gtk.Label(label="Partición", xalign=0))
-        self.page_body.append(self.image_partition)
+        add_image_row(inspect_group, "Partición", self.image_partition)
+        verify = Gtk.Button(label="Verificar integridad completa")
+        add_image_row(inspect_group, "Verificación de integridad", verify)
+        verify.connect("clicked", self._verify_selected_image)
+
+        browse_group = Adw.PreferencesGroup(
+            title="Exploración y descarga",
+            description="Explora el filesystem de una partición verificada y guarda archivos en ~/Downloads.",
+        )
+        self.page_body.append(browse_group)
         self.image_browse_path = Gtk.Entry()
         self.image_browse_path.set_text("/")
-        self.page_body.append(Gtk.Label(label="Ruta dentro del filesystem", xalign=0))
-        self.page_body.append(self.image_browse_path)
+        add_image_row(browse_group, "Ruta dentro del filesystem", self.image_browse_path)
         browse = Gtk.Button(label="Explorar directorio")
-        browse.set_halign(Gtk.Align.START)
+        add_image_row(browse_group, "Exploración", browse)
         browse.connect("clicked", self._browse_selected_image)
-        self.page_body.append(browse)
         self.image_download_path = Gtk.Entry()
         self.image_download_path.set_placeholder_text("/ruta/al/archivo")
-        self.page_body.append(Gtk.Label(label="Archivo a descargar (ruta absoluta)", xalign=0))
-        self.page_body.append(self.image_download_path)
-        download = Gtk.Button(label="Descargar archivo en ~/Downloads")
-        download.set_halign(Gtk.Align.START)
+        add_image_row(browse_group, "Archivo de origen (ruta absoluta)", self.image_download_path)
+        download = Gtk.Button(label="Descargar en ~/Downloads")
+        add_image_row(browse_group, "Descarga segura", download)
         download.connect("clicked", self._download_selected_image_file)
-        self.page_body.append(download)
+
+        extraction_group = Adw.PreferencesGroup(
+            title="Extracción de particiones",
+            description="Extrae una partición como imagen en un repositorio montado, verificado y escribible.",
+        )
+        self.page_body.append(extraction_group)
         extract = Gtk.Button(label="Extraer partición como imagen")
-        extract.set_halign(Gtk.Align.START)
+        add_image_row(extraction_group, "Iniciar extracción", extract)
         extract.connect("clicked", self._extract_selected_partition)
-        self.page_body.append(extract)
         self.image_cancel = Gtk.Button(label="Cancelar extracción")
         self.image_cancel.set_sensitive(False)
+        add_image_row(extraction_group, "Cancelación", self.image_cancel)
         self.image_cancel.connect("clicked", self._cancel_image_extraction)
-        self.page_body.append(self.image_cancel)
-        verify = Gtk.Button(label="Verificar integridad completa de la imagen")
-        verify.set_halign(Gtk.Align.START)
-        verify.connect("clicked", self._verify_selected_image)
-        self.page_body.append(verify)
+
+        result_group = Adw.PreferencesGroup(
+            title="Resultado y actividad",
+            description="Estado de las operaciones y contenido del directorio inspeccionado.",
+        )
+        self.page_body.append(result_group)
         self.image_result = Gtk.Label(label="", xalign=0)
         self.image_result.set_wrap(True)
         self.image_result.set_selectable(True)
-        self.page_body.append(self.image_result)
+        result_row = Adw.ActionRow(title="Estado de la operación")
+        result_row.add_suffix(self.image_result)
+        result_group.add(result_row)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.image_listing = Gtk.Label(label="", xalign=0, yalign=0)
         self.image_listing.set_selectable(True)
         self.image_listing.set_wrap(True)
         scroller.set_child(self.image_listing)
-        self.page_body.append(scroller)
+        result_group.add(scroller)
+
         self.image_select.connect("notify::selected", self._image_selection_changed)
         self.image_partition.connect("notify::selected", self._image_partition_changed)
         self.api.submit("remote_repositories", on_success=self._populate_image_repositories, on_error=self._image_page_failed)
