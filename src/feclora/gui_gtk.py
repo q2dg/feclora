@@ -243,7 +243,7 @@ class FecloraGTK:
             self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.page_body.append(Gtk.Label(label="Origen", xalign=0))
@@ -257,6 +257,14 @@ class FecloraGTK:
             self.capture_btrfs_parent.set_placeholder_text("Opcional: ruta del subvolumen padre")
             self.page_body.append(Gtk.Label(label="Padre incremental (opcional)", xalign=0))
             self.page_body.append(self.capture_btrfs_parent)
+            self.capture_btrfs_target = Gtk.Entry()
+            self.capture_btrfs_target.set_placeholder_text("/directorio/destino/montado")
+            self.page_body.append(Gtk.Label(label="Directorio destino Btrfs ya montado", xalign=0))
+            self.page_body.append(self.capture_btrfs_target)
+            self.capture_btrfs_receive_parent = Gtk.Entry()
+            self.capture_btrfs_receive_parent.set_placeholder_text("Opcional: ruta del subvolumen padre recibido")
+            self.page_body.append(Gtk.Label(label="Padre recibido (opcional)", xalign=0))
+            self.page_body.append(self.capture_btrfs_receive_parent)
             self.capture_image_id = Gtk.Entry()
             self.capture_image_id.set_placeholder_text("Identificador de imagen")
             self.page_body.append(self.capture_image_id)
@@ -292,10 +300,13 @@ class FecloraGTK:
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
-        is_btrfs = kind == 4
-        self.capture_source.set_visible(not is_btrfs)
-        self.capture_btrfs_source.set_visible(is_btrfs)
-        self.capture_btrfs_parent.set_visible(is_btrfs)
+        is_btrfs_capture = kind == 4
+        is_btrfs_receive = kind == 5
+        self.capture_source.set_visible(not (is_btrfs_capture or is_btrfs_receive))
+        self.capture_btrfs_source.set_visible(is_btrfs_capture)
+        self.capture_btrfs_parent.set_visible(is_btrfs_capture)
+        self.capture_btrfs_target.set_visible(is_btrfs_receive)
+        self.capture_btrfs_receive_parent.set_visible(is_btrfs_receive)
         if kind == 0:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
             label = "Discos"
@@ -345,6 +356,19 @@ class FecloraGTK:
         index = self.capture_source.get_selected()
         image_id = self.capture_image_id.get_text().strip()
         kind = self.capture_kind.get_selected()
+        if kind == 5:
+            target_directory = self.capture_btrfs_target.get_text().strip()
+            parent_path = self.capture_btrfs_receive_parent.get_text().strip()
+            if not image_id or not target_directory.startswith("/") or (parent_path and not parent_path.startswith("/")):
+                self.capture_result.set_text("Indica el identificador del stream y un directorio destino absoluto; el padre, si se indica, también debe ser absoluto.")
+                return
+            params = {"image_id": image_id, "target_directory": target_directory}
+            if parent_path:
+                params["parent_path"] = parent_path
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando recepción Btrfs…")
+            self.api.submit("receive_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
         if kind == 4:
             source_path = self.capture_btrfs_source.get_text().strip()
             parent_path = self.capture_btrfs_parent.get_text().strip()
