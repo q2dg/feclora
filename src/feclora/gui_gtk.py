@@ -1899,8 +1899,16 @@ class FecloraGTK:
         self.page_body.append(cancel)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
+        self.operation_log_stack = Gtk.Stack()
         self.operation_log_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
-        scroller.set_child(self.operation_log_grid)
+        self.operation_log_stack.add_named(self.operation_log_grid, "records")
+        self.operation_log_empty = Adw.StatusPage(
+            title="Sin operaciones registradas",
+            description="Las operaciones locales aparecerán aquí cuando se ejecuten.",
+            icon_name="view-list-symbolic",
+        )
+        self.operation_log_stack.add_named(self.operation_log_empty, "empty")
+        scroller.set_child(self.operation_log_stack)
         self.page_body.append(scroller)
         self._refresh_operation_log(None)
 
@@ -1937,6 +1945,7 @@ class FecloraGTK:
                 label.set_wrap(True)
                 grid.attach(label, column, row, 1, 1)
         errors = response.get("inspection_errors") or []
+        self.operation_log_stack.set_visible_child_name("records" if operations else "empty")
         self.operation_log_summary.set_text(f"Operaciones registradas: {len(operations)} · errores de inspección: {len(errors)}" + (" · ATENCIÓN: existen registros que requieren inspección manual; no repitas esas operaciones." if errors else ""))
 
     def _cancel_selected_logged_operation(self, _button: Gtk.Button) -> None:
@@ -1957,6 +1966,9 @@ class FecloraGTK:
         self._refresh_operation_log(None)
 
     def _operation_log_failed(self, error: Exception) -> None:
+        self.operation_log_stack.set_visible_child_name("empty")
+        self.operation_log_empty.set_title("No se pudo consultar el registro")
+        self.operation_log_empty.set_description(str(error))
         self.operation_log_summary.set_text("No se pudo leer el registro de operaciones: " + str(error))
 
     def _show_recovery_jobs_page(self) -> None:
@@ -1969,8 +1981,16 @@ class FecloraGTK:
         self.page_body.append(refresh)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
+        self.recovery_jobs_stack = Gtk.Stack()
         self.recovery_jobs_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
-        scroller.set_child(self.recovery_jobs_grid)
+        self.recovery_jobs_stack.add_named(self.recovery_jobs_grid, "jobs")
+        self.recovery_jobs_empty = Adw.StatusPage(
+            title="Sin trabajos de recuperación",
+            description="Los trabajos ddrescue persistentes aparecerán aquí.",
+            icon_name="drive-harddisk-symbolic",
+        )
+        self.recovery_jobs_stack.add_named(self.recovery_jobs_empty, "empty")
+        scroller.set_child(self.recovery_jobs_stack)
         self.page_body.append(scroller)
         self._refresh_recovery_jobs(None)
 
@@ -2000,9 +2020,13 @@ class FecloraGTK:
                 label = Gtk.Label(label=str(value), xalign=0)
                 label.set_selectable(True)
                 grid.attach(label, column, row, 1, 1)
+        self.recovery_jobs_stack.set_visible_child_name("jobs" if jobs else "empty")
         self.recovery_jobs_summary.set_text(f"Trabajos de recuperación: {len(jobs)} · los trabajos interrumpidos conservan su mapfile para reanudación")
 
     def _recovery_jobs_failed(self, error: Exception) -> None:
+        self.recovery_jobs_stack.set_visible_child_name("empty")
+        self.recovery_jobs_empty.set_title("No se pudieron consultar los trabajos")
+        self.recovery_jobs_empty.set_description(str(error))
         self.recovery_jobs_summary.set_text("No se pudieron consultar los trabajos ddrescue: " + str(error))
 
     def _show_network_page(self) -> None:
