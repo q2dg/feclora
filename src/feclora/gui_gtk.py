@@ -531,7 +531,7 @@ class FecloraGTK:
     def _populate_s3_repositories(self, response: dict[str, Any]) -> None:
         self.s3_repository_rows = [("S3", item) for item in response.get("repositories", []) if isinstance(item, dict)]
         if hasattr(self, "p2v_export_repository"):
-            usable = [item for _, item in self.s3_repository_rows if not item.get("read_only")]
+            usable = [item for _, item in self.s3_repository_rows]
             self.p2v_export_repositories = usable
             labels = ["Selecciona repositorio S3…"] + [str(item.get("id")) for item in usable]
             self.p2v_export_repository.set_model(Gtk.StringList.new(labels))
