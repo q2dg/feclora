@@ -1001,6 +1001,7 @@ class FecloraGTK:
         self.repository_action_result.set_selectable(True)
         self.page_body.append(self.repository_action_result)
 
+        self._remote_provider_changed(self.remote_provider)
         self._refresh_repositories(None)
 
     def _refresh_repositories(self, _button: Gtk.Button | None) -> None:
