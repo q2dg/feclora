@@ -84,7 +84,7 @@ OPERATIONS = (
 COMPRESSION = (("Zstandard", "zstd"), ("LZ4", "lz4"), ("Gzip", "gzip"), ("XZ", "xz"), ("Sin compresión", "none"))
 # Keep this list aligned with MESSAGES and the supported keyboard locales.
 # Operational forms and messages are being migrated incrementally.
-LANGUAGES = (("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"), ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"), ("Português (Brasil)", "pt_BR"), ("Русский", "ru"), ("Türkçe", "tr"), ("العربية", "ar"), ("日本語", "ja"))
+LANGUAGES = (("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"), ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"), ("Português (Brasil)", "br"), ("Русский", "ru"), ("Türkçe", "tr"), ("العربية", "ar"), ("日本語", "ja"))
 MESSAGES = {
     "en": {
         "first_title": "Welcome to Feclora",
