@@ -317,8 +317,6 @@ MESSAGES = {
         "client_jobs": "Tarefas do cliente",
         "system": "Sistema",
         "recovery_jobs": "Recuperações ddrescue",
-        "apply_ok": "Layout do teclado aplicado.",
-        "apply_error": "Não foi possível aplicar o layout do teclado:",
         "apply_ok": "Disposição do teclado aplicada.",
         "apply_error": "Não foi possível aplicar a disposição do teclado:"
     },
@@ -451,8 +449,7 @@ MESSAGES = {
         "recovery_jobs": "Recuperações ddrescue",
         "apply_ok": "Layout do teclado aplicado.",
         "apply_error": "Não foi possível aplicar o layout do teclado:",
-    }
-,
+    },
     "zh_CN": {
         "first_title": "欢迎使用 Feclora",
         "tagline": "磁盘救援、磁盘映像与网络部署设备",
@@ -556,7 +553,8 @@ MESSAGES = {
         "recovery_jobs": "ddrescue 복구",
         "apply_ok": "키보드 배열을 적용했습니다.",
         "apply_error": "키보드 배열을 적용하지 못했습니다:"
-    },}
+    },
+}
 KEYBOARD_LAYOUTS = (
     ("English (US)", "us"), ("English (US, international)", "us-intl"),
     ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"),
