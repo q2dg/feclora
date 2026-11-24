@@ -318,18 +318,28 @@ class FecloraGTK:
             refresh.connect("clicked", self._refresh_status)
             self._refresh_status(None)
         elif page_id == "inventory":
-            self.page_description.set_text("Inventario de dispositivos de almacenamiento detectados.")
+            self.page_description.set_text("Inventario jerárquico de dispositivos, particiones y volúmenes detectados.")
+
+            status_group = Adw.PreferencesGroup(title="Estado del inventario")
+            self.page_body.append(status_group)
             self.inventory_summary = Gtk.Label(label="Leyendo inventario…", xalign=0)
-            self.page_body.append(self.inventory_summary)
+            self.inventory_summary.set_wrap(True)
+            self.inventory_summary.set_selectable(True)
+            status_row = Adw.ActionRow(title="Dispositivos detectados")
+            status_row.add_suffix(self.inventory_summary)
+            status_group.add(status_row)
+
+            actions_group = Adw.PreferencesGroup(title="Acciones")
+            self.page_body.append(actions_group)
             refresh = Gtk.Button(label="Actualizar inventario")
-            refresh.set_halign(Gtk.Align.START)
+            refresh_row = Adw.ActionRow(title="Detección de almacenamiento")
+            refresh_row.add_suffix(refresh)
+            refresh_row.set_activatable_widget(refresh)
+            actions_group.add(refresh_row)
             refresh.connect("clicked", self._refresh_inventory)
-            self.page_body.append(refresh)
-            scroller = Gtk.ScrolledWindow()
-            scroller.set_vexpand(True)
-            self.inventory_grid = Gtk.Grid(column_spacing=16, row_spacing=8)
-            scroller.set_child(self.inventory_grid)
-            self.page_body.append(scroller)
+
+            self.inventory_content = self._box(Gtk.Orientation.VERTICAL, 12)
+            self.page_body.append(self.inventory_content)
             self._refresh_inventory(None)
         elif page_id == "images":
             self._show_images_page()
@@ -3387,29 +3397,65 @@ class FecloraGTK:
         self.inventory_summary.set_text("Leyendo inventario de almacenamiento…")
         self.api.submit("inventory", on_success=self._show_inventory, on_error=self._show_error)
 
+    @staticmethod
+    def _inventory_device_subtitle(device: dict[str, Any]) -> str:
+        size = device.get("size_bytes")
+        mountpoints = device.get("mountpoints") or []
+        values = (
+            f"Tipo: {device.get('type') or '—'}",
+            f"Tamaño: {size if size is not None else '—'} bytes",
+            f"Modelo: {device.get('model') or '—'}",
+            f"Sistema de archivos: {device.get('filesystem') or '—'}",
+            f"Montajes: {', '.join(str(point) for point in mountpoints) if mountpoints else '—'}",
+        )
+        return " · ".join(values)
+
+    def _append_inventory_device(
+        self, group: Adw.PreferencesGroup, device: dict[str, Any], depth: int = 0
+    ) -> int:
+        path = str(device.get("path") or "Dispositivo sin ruta")
+        title = f"{'↳ ' if depth else ''}{path}"
+        row = Adw.ActionRow(
+            title=title,
+            subtitle=self._inventory_device_subtitle(device),
+        )
+        group.add(row)
+        count = 1
+        children = device.get("children")
+        if isinstance(children, list):
+            for child in children:
+                if isinstance(child, dict):
+                    count += self._append_inventory_device(group, child, depth + 1)
+        return count
+
     def _show_inventory(self, inventory: dict[str, Any]) -> None:
-        if not hasattr(self, "inventory_grid"):
+        if not hasattr(self, "inventory_content"):
             return
-        grid = self.inventory_grid
-        while child := grid.get_first_child():
-            grid.remove(child)
-        headers = ("Dispositivo", "Tipo", "Tamaño (bytes)", "Modelo", "Sistema de archivos", "Montajes")
-        for column, heading in enumerate(headers):
-            label = Gtk.Label(label=heading, xalign=0)
-            label.add_css_class("heading")
-            grid.attach(label, column, 0, 1, 1)
-        devices = self._flatten_devices(inventory.get("devices"))
-        for row, device in enumerate(devices, start=1):
-            values = (
-                device.get("path") or "—", device.get("type") or "—",
-                str(device.get("size_bytes") or "—"), device.get("model") or "—",
-                device.get("filesystem") or "—", ", ".join(device.get("mountpoints") or []) or "—",
+        while child := self.inventory_content.get_first_child():
+            self.inventory_content.remove(child)
+        roots = inventory.get("devices")
+        if not isinstance(roots, list):
+            roots = []
+        devices = [device for device in roots if isinstance(device, dict)]
+        if not devices:
+            self.inventory_content.append(Adw.StatusPage(
+                title="No se detectaron dispositivos",
+                description="La API de inventario no ha comunicado dispositivos de almacenamiento.",
+                icon_name="drive-harddisk-symbolic",
+            ))
+            self.inventory_summary.set_text("Dispositivos detectados: 0")
+            return
+
+        count = 0
+        for device in devices:
+            path = str(device.get("path") or "Dispositivo sin ruta")
+            group = Adw.PreferencesGroup(
+                title=path,
+                description="Dispositivo y componentes subordinados detectados.",
             )
-            for column, value in enumerate(values):
-                label = Gtk.Label(label=str(value), xalign=0)
-                label.set_selectable(True)
-                grid.attach(label, column, row, 1, 1)
-        self.inventory_summary.set_text(f"Dispositivos detectados: {len(devices)}")
+            self.inventory_content.append(group)
+            count += self._append_inventory_device(group, device)
+        self.inventory_summary.set_text(f"Dispositivos detectados: {count}")
 
     def _select_placeholder(self, _button: Gtk.Button, page_id: str) -> None:
         self._select_page(_button, page_id)
