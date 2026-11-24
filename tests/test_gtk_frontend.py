@@ -123,6 +123,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
+        for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
+            self.assertIn(action, self.source)
+        self.assertIn('"journals", "journals"', self.source)
+        self.assertIn('details.get("state")', self.source)
+
     def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
         self.assertIn('self.api.submit("local_operations"', self.source)
         self.assertIn('self.api.submit("recovery_jobs"', self.source)
