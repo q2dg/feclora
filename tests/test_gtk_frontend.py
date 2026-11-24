@@ -323,6 +323,23 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('getattr(self, "_remote_import_remote_rows", []) + getattr(self, "_remote_import_s3_rows", [])', self.source)
         self.assertIn('def _update_client_inventory_summary', self.source)
 
+    def test_remote_repository_provider_forms_cover_sshfs_nfs_and_smb(self):
+        for token in (
+            'Gtk.DropDown.new_from_strings(["SSHFS", "NFS", "SMB/CIFS"])',
+            'self._remote_provider_changed(self.remote_provider)',
+            'self.remote_identity.set_visible(provider == "sshfs")',
+            'self.remote_credential.set_visible(provider == "smb")',
+            '"provider": provider',
+            '"credential_file": credential_file',
+            '"identity_file": identity_file',
+            '"known_hosts_file": known_hosts_file',
+            'self._selected_remote_credential_path(self.remote_credential, "_remote_smb_credentials")',
+        ):
+            self.assertIn(token, self.source)
+        self.assertIn('SSHFS requiere usuario, clave privada y known_hosts protegidos.', self.source)
+        self.assertIn('SMB/CIFS requiere usuario y credencial cifrada.', self.source)
+        self.assertIn('{"sshfs": 0, "nfs": 1, "smb": 2}', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
