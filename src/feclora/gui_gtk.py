@@ -1945,6 +1945,8 @@ class FecloraGTK:
                 label.set_wrap(True)
                 grid.attach(label, column, row, 1, 1)
         errors = response.get("inspection_errors") or []
+        self.operation_log_empty.set_title("Sin operaciones registradas")
+        self.operation_log_empty.set_description("Las operaciones locales aparecerán aquí cuando se ejecuten.")
         self.operation_log_stack.set_visible_child_name("records" if operations else "empty")
         self.operation_log_summary.set_text(f"Operaciones registradas: {len(operations)} · errores de inspección: {len(errors)}" + (" · ATENCIÓN: existen registros que requieren inspección manual; no repitas esas operaciones." if errors else ""))
 
@@ -2020,6 +2022,8 @@ class FecloraGTK:
                 label = Gtk.Label(label=str(value), xalign=0)
                 label.set_selectable(True)
                 grid.attach(label, column, row, 1, 1)
+        self.recovery_jobs_empty.set_title("Sin trabajos de recuperación")
+        self.recovery_jobs_empty.set_description("Los trabajos ddrescue persistentes aparecerán aquí.")
         self.recovery_jobs_stack.set_visible_child_name("jobs" if jobs else "empty")
         self.recovery_jobs_summary.set_text(f"Trabajos de recuperación: {len(jobs)} · los trabajos interrumpidos conservan su mapfile para reanudación")
 
