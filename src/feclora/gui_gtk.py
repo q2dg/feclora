@@ -349,7 +349,6 @@ class FecloraGTK:
     def _show_restore_profiles_page(self) -> None:
         self.page_description.set_text("Perfiles de restauración de un solo uso, vinculados a la identidad física del disco y con caducidad.")
         self.profile_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
-        self.profile_repository.connect("notify::selected", self._profile_repository_changed)
         self.page_body.append(Gtk.Label(label="Repositorio persistente (montado, verificado y escribible)", xalign=0))
         self.page_body.append(self.profile_repository)
         self.profile_image = Gtk.DropDown.new_from_strings(["Selecciona imagen RAW de disco…"])
@@ -405,6 +404,7 @@ class FecloraGTK:
         labels = [str(item["id"]) + " · " + str(item.get("provider") or "filesystem") for item in self.profile_repositories]
         self.profile_repository.set_model(Gtk.StringList.new(labels or ["No hay repositorios válidos"]))
         self.profile_repository.set_selected(0)
+        self.profile_repository.connect("notify::selected", self._profile_repository_changed)
         self._load_restore_profiles_for_repository()
 
     def _selected_profile_repository(self) -> dict[str, Any] | None:
@@ -588,7 +588,6 @@ class FecloraGTK:
         self.image_listing.set_wrap(True)
         scroller.set_child(self.image_listing)
         self.page_body.append(scroller)
-        self.image_repository.connect("notify::selected", self._image_repository_changed)
         self.image_select.connect("notify::selected", self._image_selection_changed)
         self.image_partition.connect("notify::selected", self._image_partition_changed)
         self.api.submit("remote_repositories", on_success=self._populate_image_repositories, on_error=self._image_page_failed)
@@ -598,6 +597,7 @@ class FecloraGTK:
         labels = [str(item.get("id")) + (" · solo lectura" if item.get("read_only") else "") for item in self.image_repositories]
         self.image_repository.set_model(Gtk.StringList.new(labels or ["Repositorio local"]))
         self.image_repository.set_selected(0)
+        self.image_repository.connect("notify::selected", self._image_repository_changed)
         self._load_image_catalog()
 
     def _image_repository_id(self) -> str | None:
