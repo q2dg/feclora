@@ -1349,21 +1349,22 @@ class FecloraGTK:
         self.remote_job_select.set_selected(0)
 
     def _populate_remote_import_repositories(self, response: dict[str, Any]) -> None:
-        self._remote_import_rows = [
+        self._remote_import_remote_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("mounted") and item.get("verified")
         ]
         self._render_remote_import_repositories()
 
     def _populate_remote_import_s3_repositories(self, response: dict[str, Any]) -> None:
-        self._remote_import_rows = getattr(self, "_remote_import_rows", []) + [
+        self._remote_import_s3_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("mounted") and item.get("verified")
         ]
         self._render_remote_import_repositories()
 
     def _render_remote_import_repositories(self) -> None:
-        rows = getattr(self, "_remote_import_rows", [])
+        rows = getattr(self, "_remote_import_remote_rows", []) + getattr(self, "_remote_import_s3_rows", [])
+        self._remote_import_rows = rows
         self.remote_import_repository.set_model(Gtk.StringList.new(
             ["Selecciona repositorio…"] + [str(item.get("id")) for item in rows]
         ))
@@ -1591,6 +1592,7 @@ class FecloraGTK:
         ]
         self.client_interface.set_model(Gtk.StringList.new(labels))
         self.client_interface.set_selected(0)
+        self._update_client_inventory_summary()
 
     def _populate_client_inventory(self, inventory: dict[str, Any]) -> None:
         self._client_inventory_devices = self._flatten_devices(inventory.get("devices"))
@@ -1616,9 +1618,15 @@ class FecloraGTK:
                 if len(matches) == 1:
                     logical.append({**matches[0], "path": volume.get("path"), "size_bytes": size})
         self._client_logical_volumes = logical
-        self.history_summary.set_text(
-            f"Dispositivos locales: {len(self._client_inventory_devices)} · volúmenes LVM elegibles: {len(logical)} · interfaces activas: {len(self._client_network_interfaces)}"
-        )
+        self._update_client_inventory_summary()
+
+    def _update_client_inventory_summary(self) -> None:
+        if hasattr(self, "history_summary"):
+            self.history_summary.set_text(
+                f"Dispositivos locales: {len(getattr(self, '_client_inventory_devices', []))} · "
+                f"volúmenes LVM elegibles: {len(getattr(self, '_client_logical_volumes', []))} · "
+                f"interfaces activas: {len(getattr(self, '_client_network_interfaces', []))}"
+            )
 
     def _inspect_client_job(self, _button: Gtk.Button) -> None:
         host = self.client_server_host.get_text().strip()
