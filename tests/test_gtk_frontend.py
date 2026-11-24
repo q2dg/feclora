@@ -371,7 +371,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('Adw.StatusPage(\n            title="Sin trabajos de recuperación"', self.source)
         self.assertIn('self.recovery_jobs_stack.set_visible_child_name("jobs" if jobs else "empty")', self.source)
         self.assertIn('self.operation_log_empty.set_title("No se pudo consultar el registro")', self.source)
+        self.assertIn('self.operation_log_empty.set_title("Sin operaciones registradas")', self.source)
         self.assertIn('self.recovery_jobs_empty.set_title("No se pudieron consultar los trabajos")', self.source)
+        self.assertIn('self.recovery_jobs_empty.set_title("Sin trabajos de recuperación")', self.source)
 
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
