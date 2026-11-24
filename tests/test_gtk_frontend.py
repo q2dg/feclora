@@ -91,7 +91,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_all_migrated_operations_are_exposed_by_api_dispatch(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         dispatch = api_source[api_source.index('    if action in {"capture_disk"'):]
-        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery"):
+        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery", "restore_disk", "restore_partition", "restore_logical_volume", "restore_stratis_filesystem", "clone_disk", "clone_partition", "build_recovery_iso", "build_deployment_bundle"):
             self.assertIn('"' + action + '"', dispatch)
 
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
@@ -119,6 +119,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_wwn and not target_serial', self.source)
         self.assertIn('base_iso.lower().endswith(".iso")', self.source)
         self.assertIn('self.api.submit("remote_repositories"', self.source)
+        self.assertIn('repository.get("mounted")', self.source)
+        self.assertIn('repository.get("verified")', self.source)
+        self.assertIn('json.loads(job_text)', self.source)
         self.assertIn('confirmation != expected', self.source)
         self.assertIn('image.get("image_type") != expected_type', self.source)
 
