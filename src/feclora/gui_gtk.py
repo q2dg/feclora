@@ -239,11 +239,13 @@ class FecloraGTK:
             scroller.set_child(self.inventory_grid)
             self.page_body.append(scroller)
             self._refresh_inventory(None)
+        elif page_id == "images":
+            self._show_images_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue", "Restaurar disco", "Restaurar partición", "Restaurar volumen lógico", "Clonar disco", "Clonar partición", "Restaurar filesystem Stratis", "Construir ISO de recuperación", "Construir bundle de despliegue"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs", "Recibir stream Btrfs", "Recuperar disco con ddrescue", "Finalizar recuperación ddrescue", "Restaurar disco", "Restaurar partición", "Restaurar volumen lógico", "Clonar disco", "Clonar partición", "Restaurar filesystem Stratis", "Construir ISO de recuperación", "Construir bundle de despliegue", "Restauración proporcional a disco menor"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.capture_source_label = Gtk.Label(label="Origen", xalign=0)
@@ -342,6 +344,280 @@ class FecloraGTK:
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
+    def _show_images_page(self) -> None:
+        self.page_description.set_text("Inspección verificada de imágenes de disco, exploración de archivos y extracción de particiones.")
+        self.image_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
+        self.image_repository_label = Gtk.Label(label="Repositorio", xalign=0)
+        self.page_body.append(self.image_repository_label)
+        self.page_body.append(self.image_repository)
+        self.image_select = Gtk.DropDown.new_from_strings(["Cargando imágenes de disco…"])
+        self.page_body.append(Gtk.Label(label="Imagen de disco", xalign=0))
+        self.page_body.append(self.image_select)
+        inspect = Gtk.Button(label="Inspeccionar tabla de particiones")
+        inspect.set_halign(Gtk.Align.START)
+        inspect.connect("clicked", self._inspect_selected_image)
+        self.page_body.append(inspect)
+        self.image_partition = Gtk.DropDown.new_from_strings(["Inspecciona primero la imagen…"])
+        self.page_body.append(Gtk.Label(label="Partición", xalign=0))
+        self.page_body.append(self.image_partition)
+        self.image_browse_path = Gtk.Entry()
+        self.image_browse_path.set_text("/")
+        self.page_body.append(Gtk.Label(label="Ruta dentro del filesystem", xalign=0))
+        self.page_body.append(self.image_browse_path)
+        browse = Gtk.Button(label="Explorar directorio")
+        browse.set_halign(Gtk.Align.START)
+        browse.connect("clicked", self._browse_selected_image)
+        self.page_body.append(browse)
+        self.image_download_path = Gtk.Entry()
+        self.image_download_path.set_placeholder_text("/ruta/al/archivo")
+        self.page_body.append(Gtk.Label(label="Archivo a descargar (ruta absoluta)", xalign=0))
+        self.page_body.append(self.image_download_path)
+        download = Gtk.Button(label="Descargar archivo en ~/Downloads")
+        download.set_halign(Gtk.Align.START)
+        download.connect("clicked", self._download_selected_image_file)
+        self.page_body.append(download)
+        extract = Gtk.Button(label="Extraer partición como imagen")
+        extract.set_halign(Gtk.Align.START)
+        extract.connect("clicked", self._extract_selected_partition)
+        self.page_body.append(extract)
+        self.image_cancel = Gtk.Button(label="Cancelar extracción")
+        self.image_cancel.set_sensitive(False)
+        self.image_cancel.connect("clicked", self._cancel_image_extraction)
+        self.page_body.append(self.image_cancel)
+        self.image_result = Gtk.Label(label="", xalign=0)
+        self.image_result.set_wrap(True)
+        self.image_result.set_selectable(True)
+        self.page_body.append(self.image_result)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        self.image_listing = Gtk.Label(label="", xalign=0, yalign=0)
+        self.image_listing.set_selectable(True)
+        self.image_listing.set_wrap(True)
+        scroller.set_child(self.image_listing)
+        self.page_body.append(scroller)
+        self.image_repository.connect("notify::selected", self._image_repository_changed)
+        self.image_select.connect("notify::selected", self._image_selection_changed)
+        self.image_partition.connect("notify::selected", self._image_partition_changed)
+        self.api.submit("remote_repositories", on_success=self._populate_image_repositories, on_error=self._image_page_failed)
+
+    def _populate_image_repositories(self, result: dict[str, Any]) -> None:
+        self.image_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]
+        labels = [str(item.get("id")) + (" · solo lectura" if item.get("read_only") else "") for item in self.image_repositories]
+        self.image_repository.set_model(Gtk.StringList.new(labels or ["Repositorio local"]))
+        self.image_repository.set_selected(0)
+        self._load_image_catalog()
+
+    def _image_repository_id(self) -> str | None:
+        index = self.image_repository.get_selected()
+        if index < len(getattr(self, "image_repositories", [])):
+            return self.image_repositories[index].get("id")
+        return None
+
+    def _image_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self._load_image_catalog()
+
+    def _load_image_catalog(self) -> None:
+        repository_id = self._image_repository_id()
+        if repository_id:
+            self.api.submit("repository_images", {"repository_id": repository_id}, on_success=self._populate_image_catalog, on_error=self._image_page_failed)
+        else:
+            self.api.submit("images", on_success=self._populate_image_catalog, on_error=self._image_page_failed)
+
+    def _populate_image_catalog(self, result: dict[str, Any]) -> None:
+        self.image_catalog = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_type") == "disk" and item.get("image_id")]
+        labels = [str(item["image_id"]) + " · " + str(item.get("source_size_bytes", 0)) + " bytes" for item in self.image_catalog]
+        self.image_select.set_model(Gtk.StringList.new(labels or ["No hay imágenes de disco"]))
+        self.image_select.set_selected(0)
+        self._reset_image_layout()
+
+    def _image_selection_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self._reset_image_layout()
+
+    def _reset_image_layout(self) -> None:
+        self.image_layout = None
+        self.image_session_id = ""
+        self.image_partition.set_model(Gtk.StringList.new(["Inspecciona primero la imagen…"]))
+        self.image_partition.set_selected(0)
+        self.image_listing.set_text("")
+        self.image_result.set_text("")
+
+    def _selected_image(self) -> dict[str, Any] | None:
+        index = self.image_select.get_selected()
+        return self.image_catalog[index] if index < len(getattr(self, "image_catalog", [])) else None
+
+    def _inspect_selected_image(self, _button: Gtk.Button) -> None:
+        image = self._selected_image()
+        if not image:
+            self.image_result.set_text("Selecciona una imagen de disco.")
+            return
+        params = {"image_id": image["image_id"]}
+        repository_id = self._image_repository_id()
+        if repository_id:
+            params["repository_id"] = repository_id
+        self.image_result.set_text("Verificando manifiesto y tabla de particiones…")
+        self.api.submit("inspect_image_layout", params, on_success=self._show_image_layout, on_error=self._image_page_failed)
+
+    def _show_image_layout(self, layout: dict[str, Any]) -> None:
+        image = self._selected_image()
+        if not image or layout.get("image_id") != image["image_id"]:
+            self._reset_image_layout()
+            self.image_result.set_text("La respuesta corresponde a otra imagen; vuelve a inspeccionar.")
+            return
+        self.image_layout = layout
+        partitions = layout.get("partitions") or []
+        labels = ["Selecciona una partición…"] + [
+            f"{item.get('node')} · {item.get('uuid') or item.get('name') or item.get('selector')} · {item.get('size_bytes', 0)} bytes"
+            for item in partitions if item.get("selector")
+        ]
+        self.image_partition.set_model(Gtk.StringList.new(labels))
+        self.image_partition.set_selected(0)
+        self.image_result.set_text(f"{layout.get('message', 'Tabla verificada')} · {len(partitions)} particiones · {layout.get('source_size_bytes', 0)} bytes · sector lógico {layout.get('logical_sector_size', '—')} bytes")
+
+    def _selected_image_partition(self) -> tuple[dict[str, Any], int, str]:
+        image = self._selected_image()
+        layout = getattr(self, "image_layout", None)
+        index = self.image_partition.get_selected()
+        if not image or not layout or layout.get("image_id") != image["image_id"]:
+            raise ValueError("Inspecciona la imagen de disco seleccionada antes de continuar.")
+        if index == 0 or index > len(layout.get("partitions", [])):
+            raise ValueError("Selecciona una partición de la tabla verificada.")
+        part = layout["partitions"][index - 1]
+        return image, index, part["selector"]
+
+    def _image_browse_params(self, download: bool = False) -> dict[str, Any]:
+        image, index, _selector = self._selected_image_partition()
+        params = {"image_id": image["image_id"], "partition_index": index, "path": self.image_browse_path.get_text().strip() or "/"}
+        repository_id = self._image_repository_id()
+        if repository_id:
+            params["repository_id"] = repository_id
+        if getattr(self, "image_session_id", ""):
+            params["session_id"] = self.image_session_id
+        if download:
+            params["download"] = True
+        return params
+
+    def _browse_selected_image(self, _button: Gtk.Button) -> None:
+        try:
+            params = self._image_browse_params()
+        except ValueError as exc:
+            self.image_result.set_text(str(exc))
+            return
+        self.api.submit("browse_image", params, on_success=self._show_image_directory, on_error=self._image_page_failed)
+
+    def _show_image_directory(self, result: dict[str, Any]) -> None:
+        self.image_session_id = result.get("session_id", "")
+        self.image_browse_path.set_text(result.get("path", "/"))
+        entries = result.get("entries") or []
+        self.image_listing.set_text("\\n".join(
+            f"{item.get('kind', '—'):9} {item.get('name', '—')} {item.get('size_bytes', '') if item.get('kind') == 'file' else ''}"
+            for item in entries
+        ) or "(directorio vacío)")
+        self.image_result.set_text(f"{result.get('partition', '—')} · {result.get('filesystem', '—')} · {result.get('path', '/')}")
+
+    def _download_selected_image_file(self, _button: Gtk.Button) -> None:
+        path = self.image_download_path.get_text().strip()
+        if not path.startswith("/") or "\\x00" in path:
+            self.image_result.set_text("Indica una ruta absoluta de archivo dentro de la imagen.")
+            return
+        try:
+            params = self._image_browse_params(download=True)
+            params["path"] = path
+        except ValueError as exc:
+            self.image_result.set_text(str(exc))
+            return
+        self.api.submit("browse_image", params, on_success=self._save_image_download, on_error=self._image_page_failed)
+
+    def _save_image_download(self, result: dict[str, Any]) -> None:
+        import base64
+        filename, encoded = result.get("filename"), result.get("content_base64")
+        if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(encoded, str):
+            self.image_result.set_text("El backend devolvió datos de descarga no válidos.")
+            return
+        try:
+            data = base64.b64decode(encoded, validate=True)
+            download_dir = Path.home() / "Downloads"
+            download_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            home = Path.home().resolve(strict=True)
+            destination_dir = download_dir.resolve(strict=True)
+            if not destination_dir.is_relative_to(home):
+                raise ValueError("Downloads debe permanecer dentro del directorio personal.")
+            destination = destination_dir / filename
+            with destination.open("xb") as stream:
+                stream.write(data)
+            destination.chmod(0o600)
+        except (OSError, ValueError) as exc:
+            self.image_result.set_text(f"No se pudo guardar el archivo: {exc}")
+            return
+        self.image_result.set_text(f"Archivo guardado: {destination}")
+
+    def _image_partition_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self.image_session_id = ""
+        self.image_listing.set_text("")
+
+    def _extract_selected_partition(self, _button: Gtk.Button) -> None:
+        try:
+            image, _index, selector = self._selected_image_partition()
+        except ValueError as exc:
+            self.image_result.set_text(str(exc))
+            return
+        repository_id = self._image_repository_id()
+        repository = next((item for item in getattr(self, "image_repositories", []) if item.get("id") == repository_id), None)
+        if repository and (repository.get("read_only") or not repository.get("mounted") or not repository.get("verified")):
+            self.image_result.set_text("La extracción requiere un repositorio montado, verificado y escribible.")
+            return
+        params = {"image_id": image["image_id"], "selector": selector}
+        if repository_id:
+            params["repository_id"] = repository_id
+        self.image_result.set_text("Solicitando extracción de partición…")
+        self.api.submit("extract_partition_image", params, on_success=self._image_extraction_accepted, on_error=self._image_page_failed)
+
+    def _image_extraction_accepted(self, result: dict[str, Any]) -> None:
+        operation_id = result.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            self.image_result.set_text("El backend no devolvió operation_id.")
+            return
+        self.image_operation_id = operation_id
+        self.image_cancel.set_sensitive(True)
+        self.image_result.set_text("Extracción aceptada: " + operation_id)
+        GLib.timeout_add_seconds(1, self._poll_image_extraction)
+
+    def _poll_image_extraction(self) -> bool:
+        operation_id = getattr(self, "image_operation_id", None)
+        if not operation_id:
+            return GLib.SOURCE_REMOVE
+        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_image_extraction_status, on_error=self._image_extraction_status_failed)
+        return GLib.SOURCE_REMOVE
+
+    def _show_image_extraction_status(self, status: dict[str, Any]) -> None:
+        events = status.get("events") or []
+        event = next((item for item in reversed(events) if item.get("state") == "progress"), None)
+        details = event.get("details", {}) if event else {}
+        total, done = details.get("bytes_total"), details.get("bytes_done", 0)
+        progress = f" · {round(done / total * 100, 1)}%" if isinstance(total, int) and total > 0 and isinstance(done, int) else ""
+        state = status.get("state", "unknown")
+        self.image_result.set_text(f"Extracción {self.image_operation_id}: {state}{progress}")
+        if state in {"completed", "failed", "cancelled", "interrupted"}:
+            terminal = events[-1].get("details", {}) if events else {}
+            self.image_result.set_text(f"Extracción {state}: {terminal.get('error') or terminal.get('reason') or terminal}")
+            self.image_cancel.set_sensitive(False)
+            self.image_operation_id = None
+        else:
+            GLib.timeout_add_seconds(2, self._poll_image_extraction)
+
+    def _image_extraction_status_failed(self, error: Exception) -> None:
+        self.image_result.set_text("No se pudo consultar el progreso; el trabajo conserva su ID: " + str(error))
+        GLib.timeout_add_seconds(5, self._poll_image_extraction)
+
+    def _cancel_image_extraction(self, _button: Gtk.Button) -> None:
+        operation_id = getattr(self, "image_operation_id", None)
+        if operation_id:
+            self.image_cancel.set_sensitive(False)
+            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._image_page_failed)
+
+    def _image_page_failed(self, error: Exception) -> None:
+        if hasattr(self, "image_result"):
+            self.image_result.set_text("Operación de imagen fallida: " + str(error))
+
     def _populate_capture_devices(self, inventory: dict[str, Any]) -> None:
         self.capture_inventory = inventory
         self.capture_inventory_devices = self._flatten_devices(inventory.get("devices"))
@@ -377,12 +653,13 @@ class FecloraGTK:
         is_btrfs_receive = kind == 5
         is_recovery = kind == 6
         is_finalize = kind == 7
-        is_restore = kind in {8, 9, 10, 13}
+        is_restore = kind in {8, 9, 10, 13, 16}
+        is_proportional = kind == 16
         is_clone = kind in {11, 12}
         is_recovery_iso = kind == 14
         is_bundle = kind == 15
         is_image_build = is_recovery_iso or is_bundle
-        source_visible = not (is_btrfs_capture or is_btrfs_receive or is_finalize or is_restore or is_image_build)
+        source_visible = not (is_btrfs_capture or is_btrfs_receive or is_finalize or (is_restore and not is_proportional) or is_image_build)
         self.capture_source_label.set_visible(source_visible)
         self.capture_source.set_visible(source_visible)
         self.capture_target_label.set_visible(is_restore or is_clone)
@@ -439,7 +716,7 @@ class FecloraGTK:
         labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("lvm_name") or d.get("type")) for d in self.capture_devices]
         self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
-        target_type = "disk" if kind in {8, 11} else "part"
+        target_type = "disk" if kind in {8, 11, 16} else "part"
         self.capture_target_devices = (self._flatten_logical_volumes(self.capture_inventory) if kind == 10 else [d for d in self.capture_inventory_devices if d.get("type") == "dm" and str(d.get("filesystem") or "").lower() == "xfs" and isinstance(d.get("path"), str)] if kind == 13 else [d for d in self.capture_inventory_devices if d.get("type") == target_type and isinstance(d.get("path"), str)])
         target_labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("type")) for d in self.capture_target_devices]
         self.capture_target.set_model(Gtk.StringList.new(target_labels or ["No hay destinos compatibles"]))
@@ -531,7 +808,7 @@ class FecloraGTK:
             self.capture_result.set_text("Solicitando generación…")
             self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
             return
-        if kind in {8, 9, 10, 11, 12, 13}:
+        if kind in {8, 9, 10, 11, 12, 13, 16}:
             target_index = self.capture_target.get_selected()
             if target_index >= len(getattr(self, "capture_target_devices", [])):
                 self.capture_result.set_text("Selecciona un destino compatible.")
@@ -552,13 +829,26 @@ class FecloraGTK:
                     self.capture_result.set_text("Selecciona una imagen compatible.")
                     return
                 image = self.capture_images[image_index]
-                expected_type = {8: "disk", 9: "partition", 10: "logical_volume", 13: "stratis_filesystem"}[kind]
+                expected_type = {8: "disk", 9: "partition", 10: "logical_volume", 13: "stratis_filesystem", 16: "disk"}[kind]
                 if image.get("image_type") != expected_type:
                     self.capture_result.set_text("La imagen seleccionada no corresponde al tipo de restauración.")
                     return
                 expected = "ERASE " + target
-                action = {8: "restore_disk", 9: "restore_partition", 10: "restore_logical_volume", 13: "restore_stratis_filesystem"}[kind]
+                action = {8: "restore_disk", 9: "restore_partition", 10: "restore_logical_volume", 13: "restore_stratis_filesystem", 16: "restore_proportional_disk"}[kind]
                 params = {"image_id": image["image_id"], "target": target, "confirmation": confirmation}
+                if kind == 16:
+                    if index >= len(getattr(self, "capture_devices", [])):
+                        self.capture_result.set_text("Selecciona el disco de origen de referencia.")
+                        return
+                    source_device = self.capture_devices[index]
+                    target_device = self.capture_target_devices[target_index]
+                    if not source_device.get("major_minor") or not target_device.get("major_minor"):
+                        self.capture_result.set_text("Actualiza el inventario: ambos discos necesitan identidad major:minor.")
+                        return
+                    if not isinstance(source_device.get("size_bytes"), int) or not isinstance(target_device.get("size_bytes"), int) or target_device["size_bytes"] >= source_device["size_bytes"]:
+                        self.capture_result.set_text("El destino debe ser estrictamente menor que el disco de origen de referencia.")
+                        return
+                    params.update(source=source_device["path"], source_major_minor=source_device["major_minor"], target_major_minor=target_device["major_minor"])
                 repository_index = self.capture_repository.get_selected()
                 if repository_index < len(getattr(self, "capture_repositories", [])):
                     selected_repository = self.capture_repositories[repository_index]
