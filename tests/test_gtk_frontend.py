@@ -111,6 +111,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"restore_disk"', self.source)
         self.assertIn('"restore_partition"', self.source)
         self.assertIn('"restore_logical_volume"', self.source)
+        self.assertIn('"restore_stratis_filesystem"', self.source)
         self.assertIn('"clone_disk"', self.source)
         self.assertIn('"clone_partition"', self.source)
         self.assertIn('confirmation != expected', self.source)
