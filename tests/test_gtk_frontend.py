@@ -352,3 +352,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_raw_disk_capture_supports_one_shot_age_passphrase_delivery(self):
+        self.assertIn("self.capture_passphrase = Gtk.PasswordEntry()", self.source)
+        self.assertIn('"provide_capture_passphrase"', self.source)
+        self.assertIn('"encrypt_passphrase": True', self.source)
+        self.assertIn("self.capture_passphrase.set_text(\"\")", self.source)
+        self.assertIn("self._capture_passphrase_failed", self.source)
