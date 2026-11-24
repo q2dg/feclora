@@ -289,3 +289,8 @@ require_text 'Adw\.ApplicationWindow\(application=application\)' src/feclora/gui
 require_text 'Adw\.ToolbarView\(\)' src/feclora/gui_gtk.py "GTK frontend must use libadwaita toolbar layout."
 require_text 'Adw\.ToastOverlay\(\)' src/feclora/gui_gtk.py "GTK frontend must provide libadwaita transient notifications."
 require_text 'libadwaita' requirements-gui.txt "GUI runtime metadata must include Fedora libadwaita packages."
+
+require_text 'Adw\.NavigationSplitView\(\)' src/feclora/gui_gtk.py "GTK frontend must use adaptive libadwaita navigation."
+require_text 'Adw\.NavigationPage\.new\(sidebar_scroller' src/feclora/gui_gtk.py "GTK frontend must wrap the navigation sidebar in an Adw page."
+require_text 'notify::collapsed' src/feclora/gui_gtk.py "GTK frontend must respond to compact navigation transitions."
+require_text 'set_show_content\(True\)' src/feclora/gui_gtk.py "GTK frontend must reveal the selected page in compact navigation."
