@@ -231,5 +231,12 @@ require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "
 require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK image page must support full artifact integrity verification."
 require_text 'operation_confirmation\.get_text\(\) != expected' src/feclora/gui_gtk.py "GTK operation cancellation must require the exact operation ID phrase."
 
-require_text 'self\.api\.submit\("pxe_service_status"' src/feclora/gui_gtk.py "GTK server status must include PXE service health."
+require_text 'self\.api\.submit\("pxe_service_status"' src/feclora/gui_gtk.py
+require_text 'self\.api\.submit\("bootstrap_server"' src/feclora/gui_gtk.py "GTK must expose guarded server bootstrap."
+require_text 'self\.api\.submit\("renew_server_certificate"' src/feclora/gui_gtk.py "GTK must expose confirmed server certificate renewal."
+require_text 'self\.api\.submit\("rotate_server_keypair"' src/feclora/gui_gtk.py "GTK must expose confirmed TLS keypair rotation."
+require_text 'self\.api\.submit\("validate_pxe_profile"' src/feclora/gui_gtk.py "GTK must validate PXE profiles before enabling service startup."
+require_text 'self\.api\.submit\("start_pxe_services"' src/feclora/gui_gtk.py "GTK must expose validated PXE service startup."
+require_text 'self\.api\.submit\("stop_pxe_services"' src/feclora/gui_gtk.py "GTK must expose PXE service shutdown."
+ "GTK server status must include PXE service health."
 require_text 'status\.get\("certificate_status"\)' src/feclora/gui_gtk.py "GTK system status must include certificate health."
