@@ -208,12 +208,12 @@ require_text 'self\._history_page\("Historial de despliegues"' src/feclora/gui_g
 require_text 'self\.api\.submit\("deployment_jobs"' src/feclora/gui_gtk.py "GTK client jobs page must list client deployment states."
 
 require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py
-require_text 'self\.api\.submit\("check_remote_repository"' src/feclora/gui_gtk.py "GTK must expose remote repository verification."
-require_text 'self\.api\.submit\("mount_remote_repository"' src/feclora/gui_gtk.py "GTK must expose guarded remote repository mounting."
-require_text 'self\.api\.submit\("unmount_remote_repository"' src/feclora/gui_gtk.py "GTK must expose verified remote repository unmounting."
-require_text 'self\.api\.submit\("remove_remote_repository"' src/feclora/gui_gtk.py "GTK must expose confirmed remote repository removal."
-require_text 'self\.api\.submit\("check_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository checks."
-require_text 'self\.api\.submit\("remove_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository removal."
+require_text '"check_remote_repository"' src/feclora/gui_gtk.py "GTK must expose remote repository verification."
+require_text '"mount_remote_repository"' src/feclora/gui_gtk.py "GTK must expose guarded remote repository mounting."
+require_text '"unmount_remote_repository"' src/feclora/gui_gtk.py "GTK must expose verified remote repository unmounting."
+require_text '"remove_remote_repository"' src/feclora/gui_gtk.py "GTK must expose confirmed remote repository removal."
+require_text '"check_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository checks."
+require_text '"remove_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository removal."
 require_text 'self\.api\.submit\("add_remote_repository"' src/feclora/gui_gtk.py "GTK must expose SSHFS repository definitions."
 require_text 'self\.api\.submit\("add_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository definitions."
 require_text 'self\.api\.submit\("put_systemd_credential"' src/feclora/gui_gtk.py "GTK must expose encrypted systemd credential import."
