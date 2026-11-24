@@ -122,6 +122,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('repository.get("mounted")', self.source)
         self.assertIn('repository.get("verified")', self.source)
         self.assertIn('json.loads(job_text)', self.source)
+        self.assertIn("capture_bundle_name_label.set_visible(is_bundle)", self.source)
+        self.assertIn("capture_deployment_job_label.set_visible(is_bundle)", self.source)
         self.assertIn('confirmation != expected', self.source)
         self.assertIn('image.get("image_type") != expected_type', self.source)
 
