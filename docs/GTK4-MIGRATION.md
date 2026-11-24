@@ -16,7 +16,8 @@ The operations page also exposes ddrescue disk recovery (retry-pass and resume
 controls), recovery finalization, whole-disk/partition/logical-volume/Stratis restoration
 and whole-disk/partition cloning. Restore and clone actions retain exact destructive
 confirmation phrases and use the privileged asynchronous operation API. Recovery ISO and deployment-bundle generation now use GTK image/repository
-selectors, repository write-state checks and DeploymentJob JSON validation; other
+selectors, repository write-state checks and DeploymentJob JSON validation. Restore
+images are loaded from the selected mounted repository when one is chosen; other
 navigation pages are still placeholders. This frontend is not production-ready.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
