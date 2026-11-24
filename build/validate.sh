@@ -41,6 +41,10 @@ require_text 'GDK_BACKEND.*wayland' src/feclora/gui_gtk.py "The GTK frontend mus
 require_text 'WAYLAND_DISPLAY' src/feclora/gui_gtk.py "The GTK frontend must require a Wayland compositor socket."
 require_text 'self\.api\.submit\("status"' src/feclora/gui_gtk.py "GTK overview must call the real status API."
 require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK inventory must call the real inventory API."
+require_text 'self\.api\.submit\("capture_disk"' src/feclora/gui_gtk.py "GTK operations must invoke the real disk capture API."
+require_text 'self\.api\.submit\("local_operation_status"' src/feclora/gui_gtk.py "GTK disk capture must poll real operation status."
+require_text 'self\.api\.submit\("cancel_local_operation"' src/feclora/gui_gtk.py "GTK disk capture must expose operation cancellation."
+require_text 'def _show_capture_status' src/feclora/gui_gtk.py "GTK disk capture must handle operation progress and terminal states."
 if grep -Eiq 'customtkinter|tkinter|xwayland|xorg' requirements-gui.txt src/feclora/gui_gtk.py src/feclora/gtk_api.py; then
   fail "The GTK4 target runtime must not depend on Tk or X11 compatibility."
 fi
