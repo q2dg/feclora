@@ -4416,8 +4416,11 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _cancel_local_operation(params)
     if action == "local_operations":
         return _local_operations(params)
-    if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_p2v", "import_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
-                  "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "execute_restore_profile"}:
+    if action in {"capture_disk", "capture_partition", "capture_logical_volume", "capture_stratis_filesystem",
+                  "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery",
+                  "capture_p2v", "import_p2v", "export_p2v_s3", "restore_disk", "restore_partition",
+                  "restore_logical_volume", "clone_disk", "clone_partition", "extract_partition_image",
+                  "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk", "execute_restore_profile"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
     raise APIError("unsupported API action")
 
