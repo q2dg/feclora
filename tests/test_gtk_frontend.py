@@ -363,6 +363,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('SMB/CIFS requiere usuario y credencial cifrada.', self.source)
         self.assertIn('{"sshfs": 0, "nfs": 1, "smb": 2}', self.source)
 
+    def test_network_configuration_uses_libadwaita_preferences_rows(self):
+        self.assertIn('Adw.PreferencesGroup(\n            title="Conexión IPv4"', self.source)
+        self.assertIn("row = Adw.ActionRow(title=title)", self.source)
+        self.assertIn("row.add_suffix(widget)", self.source)
+        self.assertIn("row.set_activatable_widget(widget)", self.source)
+        self.assertIn('add_network_row("Método IPv4", self.network_method)', self.source)
+        self.assertIn('add_network_row("DNS IPv4 separados por comas", self.network_dns)', self.source)
+        self.assertIn("self._network_method_changed(self.network_method, None)", self.source)
+
     def test_operation_and_recovery_histories_use_libadwaita_empty_states(self):
         self.assertIn("self.operation_log_stack = Gtk.Stack()", self.source)
         self.assertIn('Adw.StatusPage(\n            title="Sin operaciones registradas"', self.source)
