@@ -61,7 +61,7 @@ automated tests and build instructions.
 
 ## Built on
 
-Fedora, Python, Textual, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
+Fedora, Python, GTK4, PyGObject, Textual, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
 dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and QEMU/KVM.
 
 ## License
