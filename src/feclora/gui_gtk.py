@@ -527,6 +527,15 @@ class FecloraGTK:
         refresh.set_halign(Gtk.Align.START)
         refresh.connect("clicked", self._refresh_operation_log)
         self.page_body.append(refresh)
+        self.operation_select = Gtk.DropDown.new_from_strings(["Selecciona operación…"])
+        self.page_body.append(self.operation_select)
+        self.operation_confirmation = Gtk.Entry()
+        self.operation_confirmation.set_placeholder_text("CANCEL <operation_id>")
+        self.page_body.append(self.operation_confirmation)
+        cancel = Gtk.Button(label="Solicitar cancelación (confirmación exacta)")
+        cancel.set_halign(Gtk.Align.START)
+        cancel.connect("clicked", self._cancel_selected_logged_operation)
+        self.page_body.append(cancel)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.operation_log_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
@@ -548,6 +557,10 @@ class FecloraGTK:
             label.add_css_class("heading")
             grid.attach(label, column, 0, 1, 1)
         operations = response.get("operations") or []
+        self.operation_log_records = [item for item in operations if isinstance(item, dict) and item.get("operation_id")]
+        options = [str(item["operation_id"]) + " · " + str(item.get("action") or "—") + " · " + str(item.get("state") or "unknown") for item in self.operation_log_records]
+        self.operation_select.set_model(Gtk.StringList.new(options or ["No hay operaciones registradas"]))
+        self.operation_select.set_selected(0)
         for row, item in enumerate(operations, start=1):
             events = item.get("events") or []
             latest = events[-1] if events else {}
@@ -564,6 +577,23 @@ class FecloraGTK:
                 grid.attach(label, column, row, 1, 1)
         errors = response.get("inspection_errors") or []
         self.operation_log_summary.set_text(f"Operaciones registradas: {len(operations)} · errores de inspección: {len(errors)}" + (" · ATENCIÓN: existen registros que requieren inspección manual; no repitas esas operaciones." if errors else ""))
+
+    def _cancel_selected_logged_operation(self, _button: Gtk.Button) -> None:
+        index = self.operation_select.get_selected()
+        if index >= len(getattr(self, "operation_log_records", [])):
+            self.operation_log_summary.set_text("Selecciona una operación registrada.")
+            return
+        operation_id = self.operation_log_records[index]["operation_id"]
+        expected = "CANCEL " + operation_id
+        if self.operation_confirmation.get_text() != expected:
+            self.operation_log_summary.set_text("Escribe exactamente: " + expected)
+            return
+        self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=self._operation_cancelled, on_error=self._operation_log_failed)
+
+    def _operation_cancelled(self, result: dict[str, Any]) -> None:
+        self.operation_confirmation.set_text("")
+        self.operation_log_summary.set_text("Resultado de cancelación: " + str(result))
+        self._refresh_operation_log(None)
 
     def _operation_log_failed(self, error: Exception) -> None:
         self.operation_log_summary.set_text("No se pudo leer el registro de operaciones: " + str(error))
@@ -959,6 +989,10 @@ class FecloraGTK:
         self.image_cancel.set_sensitive(False)
         self.image_cancel.connect("clicked", self._cancel_image_extraction)
         self.page_body.append(self.image_cancel)
+        verify = Gtk.Button(label="Verificar integridad completa de la imagen")
+        verify.set_halign(Gtk.Align.START)
+        verify.connect("clicked", self._verify_selected_image)
+        self.page_body.append(verify)
         self.image_result = Gtk.Label(label="", xalign=0)
         self.image_result.set_wrap(True)
         self.image_result.set_selectable(True)
@@ -1019,6 +1053,22 @@ class FecloraGTK:
     def _selected_image(self) -> dict[str, Any] | None:
         index = self.image_select.get_selected()
         return self.image_catalog[index] if index < len(getattr(self, "image_catalog", [])) else None
+
+    def _verify_selected_image(self, _button: Gtk.Button) -> None:
+        image = self._selected_image()
+        if not image:
+            self.image_result.set_text("Selecciona una imagen de disco.")
+            return
+        params = {"image_id": image["image_id"]}
+        repository_id = self._image_repository_id()
+        if repository_id:
+            params["repository_id"] = repository_id
+        self.image_result.set_text("Verificando todos los artefactos y sus hashes…")
+        self.api.submit("verify_image", params, on_success=self._show_image_verification, on_error=self._image_page_failed)
+
+    def _show_image_verification(self, result: dict[str, Any]) -> None:
+        import json
+        self.image_result.set_text("Resultado de verificación: " + json.dumps(result, ensure_ascii=False))
 
     def _inspect_selected_image(self, _button: Gtk.Button) -> None:
         image = self._selected_image()
