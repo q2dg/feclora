@@ -21,11 +21,11 @@ require_text() {
 for file in \
   build/build-iso.sh build/preflight.sh build/install-host-deps.sh kickstart/feclora-live.ks \
   packages/base.txt packages/build-host.txt requirements-test.txt requirements-gui.txt \
-  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui.py src/feclora/gui_api.py src/feclora/gui_gtk.py src/feclora/gtk_api.py src/feclora/api.py \
+  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_gtk.py src/feclora/gtk_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
-  tests/test_gui_api.py tests/test_gtk_api.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
+  tests/test_gtk_api.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
   require_file "$file"
 done
