@@ -280,3 +280,6 @@ require_text 'status\.get\("certificate_status"\)' src/feclora/gui_gtk.py "GTK s
 require_text 'self\.capture_passphrase = Gtk\.PasswordEntry\(\)' src/feclora/gui_gtk.py "GTK RAW capture must provide a masked age passphrase field."
 require_text '"provide_capture_passphrase"' src/feclora/gui_gtk.py "GTK must deliver the one-shot age passphrase to the accepted operation."
 require_text 'self\.capture_passphrase\.set_text\(""\)' src/feclora/gui_gtk.py "GTK must clear the age passphrase field after submission."
+
+require_text 'self\.active_capture_passphrase = ""' src/feclora/gui_gtk.py "GTK must clear a pending age passphrase after capture failure."
+require_text 'self\.capture_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK must disable capture cancellation after failure."
