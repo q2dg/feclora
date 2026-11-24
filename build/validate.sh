@@ -200,3 +200,5 @@ require_text '"rollback_timeout": 120' src/feclora/gui_gtk.py "GTK network chang
 
 require_text 'self\.api\.submit\("local_operations"' src/feclora/gui_gtk.py "GTK operation log must read durable local operation history."
 require_text 'self\.api\.submit\("recovery_jobs"' src/feclora/gui_gtk.py "GTK recovery history must read persistent ddrescue jobs."
+
+require_text 'page_scroller\.set_child\(self\.page_body\)' src/feclora/gui_gtk.py "GTK navigation must keep long operator forms accessible in a scroll container."
