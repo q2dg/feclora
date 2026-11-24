@@ -22,25 +22,25 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', self.source)
 
     def test_overview_uses_real_status_api(self):
-        method = ast.unparse(self.methods["_refresh_status"])
+        method = ast.get_source_segment(self.source, self.methods["_refresh_status"])
         self.assertIn('self.api.submit("status"', method)
         self.assertIn("_show_status", method)
 
     def test_inventory_uses_real_inventory_api_and_renders_nested_devices(self):
-        method = ast.unparse(self.methods["_refresh_inventory"])
+        method = ast.get_source_segment(self.source, self.methods["_refresh_inventory"])
         self.assertIn('self.api.submit("inventory"', method)
-        flatten = ast.unparse(self.methods["_flatten_devices"])
+        flatten = ast.get_source_segment(self.source, self.methods["_flatten_devices"])
         self.assertIn('device.get("children")', flatten)
-        render = ast.unparse(self.methods["_show_inventory"])
+        render = ast.get_source_segment(self.source, self.methods["_show_inventory"])
         for field in ("path", "type", "size_bytes", "model", "filesystem", "mountpoints"):
             self.assertIn(field, render)
 
     def test_disk_capture_uses_inventory_and_privileged_operation_api(self):
-        populate = ast.unparse(self.methods["_populate_capture_devices"])
-        mode = ast.unparse(self.methods["_capture_mode_changed"])
-        start = ast.unparse(self.methods["_start_disk_capture"])
-        poll = ast.unparse(self.methods["_poll_capture_status"])
-        cancel = ast.unparse(self.methods["_cancel_disk_capture"])
+        populate = ast.get_source_segment(self.source, self.methods["_populate_capture_devices"])
+        mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
+        start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
+        poll = ast.get_source_segment(self.source, self.methods["_poll_capture_status"])
+        cancel = ast.get_source_segment(self.source, self.methods["_cancel_disk_capture"])
         self.assertIn('self.api.submit("inventory"', self.source)
         self.assertIn('action = "capture_disk"', start)
         self.assertIn('action = "capture_partition"', start)
@@ -54,9 +54,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("encrypt", start)
 
     def test_lvm_and_stratis_capture_use_filtered_inventory_devices(self):
-        mode = ast.unparse(self.methods["_capture_mode_changed"])
-        flatten = ast.unparse(self.methods["_flatten_logical_volumes"])
-        start = ast.unparse(self.methods["_start_disk_capture"])
+        mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
+        flatten = ast.get_source_segment(self.source, self.methods["_flatten_logical_volumes"])
+        start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
         self.assertIn('"capture_logical_volume"', start)
         self.assertIn('"capture_stratis_filesystem"', start)
         self.assertIn('d.get("type") == "dm"', mode)
@@ -66,8 +66,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('identity_counts.get(identity) != 1', flatten)
 
     def test_btrfs_capture_uses_absolute_paths_and_incremental_parent(self):
-        start = ast.unparse(self.methods["_start_disk_capture"])
-        mode = ast.unparse(self.methods["_capture_mode_changed"])
+        start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
+        mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
         self.assertIn('"capture_btrfs_subvolume"', start)
         self.assertIn('"receive_btrfs_subvolume"', start)
         self.assertIn("source_path", start)
@@ -83,7 +83,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
 
     def test_disk_capture_polls_terminal_states_and_exposes_cancel(self):
-        status = ast.unparse(self.methods["_show_capture_status"])
+        status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         self.assertIn('"completed"', status)
         self.assertIn('"failed"', status)
         self.assertIn('"cancelled"', status)
