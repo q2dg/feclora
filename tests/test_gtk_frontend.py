@@ -239,6 +239,24 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit(api_action', self.source)
         self.assertIn('self.api.submit(action, params', self.source)
 
+    def test_server_bootstrap_tls_and_pxe_controls_use_existing_api_contracts(self):
+        for action in (
+            'self.api.submit("bootstrap_server"',
+            'self.api.submit("renew_server_certificate"',
+            'self.api.submit("rotate_server_keypair"',
+            'self.api.submit("validate_pxe_profile"',
+            'self.api.submit("start_pxe_services"',
+            'self.api.submit("stop_pxe_services"',
+        ):
+            self.assertIn(action, self.source)
+        self.assertIn('"interface": selected.get("interface")', self.source)
+        self.assertIn('"prefix_length": selected.get("prefix_length")', self.source)
+        self.assertIn('"RENEW SERVER CERTIFICATE"', self.source)
+        self.assertIn('"ROTATE SERVER TLS KEYPAIR"', self.source)
+        self.assertIn('"authoritative_confirmed": self.pxe_authoritative.get_active()', self.source)
+        self.assertIn('self._pxe_pending_profile = profile', self.source)
+        self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
