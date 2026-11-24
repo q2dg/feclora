@@ -19,7 +19,7 @@ Implemented GTK workflows:
 - Disk, partition, LVM and Stratis restoration; proportional disk restore with
   kernel major:minor identity checks and a strictly smaller target preflight.
 - Disk and partition cloning with exact destructive confirmation.
-- QCOW2 P2V capture.
+- QCOW2 P2V capture; legacy QCOW2 bundle import from local/mounted filesystem repositories and export from S3 to local/mounted filesystem repositories.
 - Recovery ISO and deployment-bundle generation with repository state checks.
 - Image integrity verification, verified partition-table inspection, filesystem
   browsing, safe file download under `~/Downloads`, and partition extraction.
@@ -31,9 +31,9 @@ Implemented GTK workflows:
   exact-phrase cancellation, and persistent ddrescue recovery history.
 
 Known remaining migration work includes the full server bootstrap/PXE controls,
-certificate lifecycle and PXE answer publication; repository management actions;
+certificate lifecycle and PXE answer publication; repository definition/credential management and mount/unmount/remove actions;
 remote job creation/inspection/import/reconciliation and deployment controls;
-client-job actions; P2V import and S3 export; and remaining operational workflows
+client-job actions; remaining operational workflows
 present in Textual. These pages must not be treated as complete merely because
 their status/history views are present.
 
