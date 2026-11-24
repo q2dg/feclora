@@ -2318,37 +2318,30 @@ class FecloraGTK:
         )
         self.page_body.append(network_group)
 
-        def add_network_row(title: str, widget: Gtk.Widget) -> Adw.ActionRow:
-            row = Adw.ActionRow(title=title)
-            row.add_suffix(widget)
-            row.set_activatable_widget(widget)
+        def add_network_combo(title: str, labels: list[str]) -> Adw.ComboRow:
+            row = Adw.ComboRow(title=title)
+            row.set_model(Gtk.StringList.new(labels))
             network_group.add(row)
             return row
 
-        self.network_profile = Gtk.DropDown.new_from_strings(["Cargando perfiles…"])
+        def add_network_entry(title: str) -> Adw.EntryRow:
+            row = Adw.EntryRow(title=title)
+            network_group.add(row)
+            return row
+
+        self.network_profile = add_network_combo("Perfil activo de NetworkManager", ["Cargando perfiles…"])
         self.network_profile.connect("notify::selected", self._network_profile_changed)
-        add_network_row("Perfil activo de NetworkManager", self.network_profile)
-        self.network_interface = Gtk.DropDown.new_from_strings(["Selecciona interfaz y dirección…"])
-        add_network_row("Dirección IPv4 actualmente asociada", self.network_interface)
-        self.network_method = Gtk.DropDown.new_from_strings(["Automática (DHCP)", "Manual (IPv4 estática)"])
+        self.network_interface = add_network_combo("Dirección IPv4 actualmente asociada", ["Selecciona interfaz y dirección…"])
+        self.network_method = add_network_combo("Método IPv4", ["Automática (DHCP)", "Manual (IPv4 estática)"])
         self.network_method.connect("notify::selected", self._network_method_changed)
-        add_network_row("Método IPv4", self.network_method)
-        self.network_address = Gtk.Entry()
-        self.network_address.set_placeholder_text("192.0.2.10")
-        self.network_address.set_width_chars(18)
-        self.network_address_row = add_network_row("Dirección IPv4", self.network_address)
-        self.network_prefix = Gtk.Entry()
-        self.network_prefix.set_placeholder_text("24")
-        self.network_prefix.set_width_chars(6)
-        self.network_prefix_row = add_network_row("Prefijo CIDR (1–32)", self.network_prefix)
-        self.network_gateway = Gtk.Entry()
-        self.network_gateway.set_placeholder_text("192.0.2.1 (opcional)")
-        self.network_gateway.set_width_chars(18)
-        self.network_gateway_row = add_network_row("Gateway IPv4 (opcional)", self.network_gateway)
-        self.network_dns = Gtk.Entry()
-        self.network_dns.set_placeholder_text("1.1.1.1, 8.8.8.8")
-        self.network_dns.set_width_chars(24)
-        self.network_dns_row = add_network_row("DNS IPv4 separados por comas", self.network_dns)
+        self.network_address = add_network_entry("Dirección IPv4")
+        self.network_address_row = self.network_address
+        self.network_prefix = add_network_entry("Prefijo CIDR (1–32)")
+        self.network_prefix_row = self.network_prefix
+        self.network_gateway = add_network_entry("Gateway IPv4 (opcional)")
+        self.network_gateway_row = self.network_gateway
+        self.network_dns = add_network_entry("DNS IPv4 separados por comas")
+        self.network_dns_row = self.network_dns
         apply = Gtk.Button(label="Aplicar configuración (rollback automático si falla)")
         apply.set_halign(Gtk.Align.START)
         apply.connect("clicked", self._apply_network_profile)
@@ -2373,7 +2366,7 @@ class FecloraGTK:
         self.network_interfaces = [item for item in result.get("interfaces", []) if isinstance(item, dict)]
         self._update_network_interface_options()
 
-    def _network_profile_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+    def _network_profile_changed(self, _row: Adw.ComboRow, _pspec: Any) -> None:
         self._update_network_interface_options()
 
     def _update_network_interface_options(self) -> None:
@@ -2386,7 +2379,7 @@ class FecloraGTK:
         self.network_interface.set_model(Gtk.StringList.new(labels or ["No hay direcciones IPv4 activas en esa interfaz"]))
         self.network_interface.set_selected(0)
 
-    def _network_method_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+    def _network_method_changed(self, _row: Adw.ComboRow, _pspec: Any) -> None:
         manual = self.network_method.get_selected() == 1
         for row in (self.network_address_row, self.network_prefix_row, self.network_gateway_row, self.network_dns_row):
             row.set_visible(manual)
