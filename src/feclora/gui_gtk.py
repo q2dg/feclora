@@ -6,7 +6,10 @@ enabled during the staged migration.
 """
 from __future__ import annotations
 
+import base64
+import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -497,6 +500,65 @@ class FecloraGTK:
         self.pxe_result.set_selectable(True)
         self.page_body.append(self.pxe_result)
         self._pxe_profile = None
+        answer_title = Gtk.Label(label="Respuestas PXE desatendidas", xalign=0)
+        answer_title.add_css_class("heading")
+        self.page_body.append(answer_title)
+        self.pxe_answer_source = Gtk.DropDown.new_from_strings(["Archivo local", "URL HTTP/HTTPS", "Repositorio montado"])
+        self.page_body.append(self.pxe_answer_source)
+        self.pxe_answer_job_id = Gtk.Entry()
+        self.pxe_answer_job_id.set_placeholder_text("UUID del DeploymentJob (opcional para archivo local)")
+        self.pxe_answer_path = Gtk.Entry()
+        self.pxe_answer_path.set_placeholder_text("Ruta local / URL / ruta relativa en repositorio")
+        self.pxe_answer_repository = Gtk.DropDown.new_from_strings(["Selecciona repositorio…"])
+        self.page_body.append(self.pxe_answer_job_id)
+        self.page_body.append(self.pxe_answer_path)
+        self.page_body.append(self.pxe_answer_repository)
+        publish = Gtk.Button(label="Validar y publicar respuesta PXE")
+        publish.set_halign(Gtk.Align.START)
+        publish.connect("clicked", self._publish_pxe_answer)
+        self.page_body.append(publish)
+        self.pxe_answer_revoke_id = Gtk.Entry()
+        self.pxe_answer_revoke_id.set_placeholder_text("UUID de respuesta publicada")
+        self.page_body.append(self.pxe_answer_revoke_id)
+        revoke = Gtk.Button(label="Revocar respuesta PXE")
+        revoke.set_halign(Gtk.Align.START)
+        revoke.connect("clicked", self._revoke_pxe_answer)
+        self.page_body.append(revoke)
+        self.pxe_answer_result = Gtk.Label(label="Sin publicación solicitada.", xalign=0)
+        self.pxe_answer_result.set_wrap(True)
+        self.pxe_answer_result.set_selectable(True)
+        self.page_body.append(self.pxe_answer_result)
+
+        age_title = Gtk.Label(label="Cifrado age e inventario de destinatarios", xalign=0)
+        age_title.add_css_class("heading")
+        self.page_body.append(age_title)
+        self.server_age_directory = Gtk.Entry()
+        self.server_age_directory.set_placeholder_text("Directorio de exportación protegido del servidor")
+        self.page_body.append(self.server_age_directory)
+        export_age = Gtk.Button(label="Exportar destinatarios age del servidor")
+        export_age.set_halign(Gtk.Align.START)
+        export_age.connect("clicked", self._export_server_age_recipients)
+        self.page_body.append(export_age)
+        self.client_age_path = Gtk.Entry()
+        self.client_age_path.set_placeholder_text("Ruta del inventario age del cliente")
+        self.page_body.append(self.client_age_path)
+        refresh_age = Gtk.Button(label="Actualizar inventario age del cliente")
+        refresh_age.set_halign(Gtk.Align.START)
+        refresh_age.connect("clicked", self._refresh_client_age_recipients)
+        self.page_body.append(refresh_age)
+        self.pxe_passphrase_status = Gtk.Label(label="Consultando solicitud age…", xalign=0)
+        self.pxe_passphrase_status.set_wrap(True)
+        self.page_body.append(self.pxe_passphrase_status)
+        self.pxe_passphrase = Gtk.Entry()
+        self.pxe_passphrase.set_visibility(False)
+        self.pxe_passphrase.set_placeholder_text("Frase age de un solo uso")
+        self.page_body.append(self.pxe_passphrase)
+        passphrase_button = Gtk.Button(label="Entregar frase al worker PXE")
+        passphrase_button.set_halign(Gtk.Align.START)
+        passphrase_button.connect("clicked", self._submit_pxe_passphrase)
+        self.page_body.append(passphrase_button)
+        self._refresh_pxe_answer_repositories()
+        self._refresh_pxe_passphrase_status()
         self._refresh_server_status(None)
 
     def _refresh_server_status(self, _button: Gtk.Button | None) -> None:
@@ -612,6 +674,153 @@ class FecloraGTK:
 
     def _pxe_action_failed(self, error: Exception) -> None:
         self.pxe_result.set_text("Error en servicios PXE: " + str(error))
+
+    def _refresh_pxe_answer_repositories(self) -> None:
+        self._pxe_answer_remote_rows = []
+        self.api.submit("remote_repositories", on_success=self._pxe_answer_remote_repositories, on_error=self._pxe_answer_repository_error)
+        self.api.submit("s3_repositories", on_success=self._pxe_answer_s3_repositories, on_error=self._pxe_answer_repository_error)
+
+    def _pxe_answer_remote_repositories(self, response: dict[str, Any]) -> None:
+        self._pxe_answer_remote_rows = [
+            item for item in response.get("repositories", [])
+            if isinstance(item, dict) and item.get("mounted") and item.get("verified")
+        ]
+        self._render_pxe_answer_repositories()
+
+    def _pxe_answer_s3_repositories(self, response: dict[str, Any]) -> None:
+        self._pxe_answer_s3_rows = [
+            item for item in response.get("repositories", [])
+            if isinstance(item, dict) and item.get("mounted") and item.get("verified")
+        ]
+        self._render_pxe_answer_repositories()
+
+    def _pxe_answer_repository_error(self, error: Exception) -> None:
+        self.pxe_answer_result.set_text("No se pudieron cargar los repositorios para respuestas PXE: " + str(error))
+
+    def _render_pxe_answer_repositories(self) -> None:
+        rows = getattr(self, "_pxe_answer_remote_rows", []) + getattr(self, "_pxe_answer_s3_rows", [])
+        self._pxe_answer_repository_rows = rows
+        labels = ["Selecciona repositorio…"] + [str(item.get("id")) for item in rows]
+        self.pxe_answer_repository.set_model(Gtk.StringList.new(labels))
+        self.pxe_answer_repository.set_selected(0)
+
+    def _publish_pxe_answer(self, _button: Gtk.Button) -> None:
+        import uuid as uuid_module
+        source_index = self.pxe_answer_source.get_selected()
+        source = ("upload", "url", "repository")[source_index] if source_index < 3 else ""
+        value = self.pxe_answer_path.get_text().strip()
+        job_id = self.pxe_answer_job_id.get_text().strip()
+        request: dict[str, Any] = {"source": source}
+        try:
+            if source == "upload":
+                if not value:
+                    raise ValueError("Indica la ruta local del archivo JSON.")
+                payload = Path(value).expanduser().read_bytes()
+                if not 1 <= len(payload) <= 64 * 1024:
+                    raise ValueError("El archivo debe tener entre 1 byte y 64 KiB.")
+                if not job_id:
+                    try:
+                        document = json.loads(payload)
+                        if isinstance(document, dict):
+                            job_id = str(document.get("job_id") or "")
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        pass
+                if not job_id:
+                    job_id = str(uuid_module.uuid4())
+                request["answer_base64"] = base64.b64encode(payload).decode("ascii")
+            elif source == "url":
+                if not value or not job_id:
+                    raise ValueError("Indica URL HTTP/HTTPS y UUID del trabajo.")
+                request["url"] = value
+            elif source == "repository":
+                selected = self.pxe_answer_repository.get_selected()
+                rows = getattr(self, "_pxe_answer_repository_rows", [])
+                if selected == 0 or selected - 1 >= len(rows) or not value or not job_id:
+                    raise ValueError("Selecciona repositorio, UUID y ruta relativa.")
+                request["repository_id"] = rows[selected - 1].get("id")
+                request["source_path"] = value
+            else:
+                raise ValueError("Selecciona un origen válido.")
+        except (OSError, ValueError) as error:
+            self.pxe_answer_result.set_text("No se puede preparar la publicación: " + str(error))
+            return
+        request["job_id"] = job_id
+        self.pxe_answer_result.set_text("El backend validará la respuesta y el estado activo de PXE antes de publicarla…")
+        self.api.submit("publish_pxe_answer", request, on_success=self._pxe_answer_published, on_error=self._pxe_answer_failed)
+
+    def _pxe_answer_published(self, result: dict[str, Any]) -> None:
+        job_id = str(result.get("job_id") or "")
+        self.pxe_answer_revoke_id.set_text(job_id)
+        self.pxe_answer_result.set_text(str(result.get("message") or result))
+        self._refresh_pxe_passphrase_status()
+
+    def _pxe_answer_failed(self, error: Exception) -> None:
+        self.pxe_answer_result.set_text("No se publicó la respuesta PXE: " + str(error))
+
+    def _revoke_pxe_answer(self, _button: Gtk.Button) -> None:
+        job_id = self.pxe_answer_revoke_id.get_text().strip()
+        if not job_id:
+            self.pxe_answer_result.set_text("Indica el UUID de la respuesta que quieres revocar.")
+            return
+        self.pxe_answer_result.set_text("Revocando respuesta y script iPXE…")
+        self.api.submit("revoke_pxe_answer", {"job_id": job_id}, on_success=self._pxe_answer_revoked, on_error=self._pxe_answer_failed)
+
+    def _pxe_answer_revoked(self, result: dict[str, Any]) -> None:
+        self.pxe_answer_result.set_text(str(result.get("message") or result))
+        self._refresh_pxe_passphrase_status()
+
+    def _export_server_age_recipients(self, _button: Gtk.Button) -> None:
+        directory = self.server_age_directory.get_text().strip()
+        if not directory:
+            self.server_status.set_text("Indica el directorio de exportación protegido.")
+            return
+        self.api.submit("export_server_age_recipients", {"export_directory": directory}, on_success=self._server_action_done, on_error=self._server_action_failed)
+
+    def _refresh_client_age_recipients(self, _button: Gtk.Button) -> None:
+        path = self.client_age_path.get_text().strip()
+        if not path:
+            self.server_status.set_text("Indica la ruta del inventario de destinatarios del cliente.")
+            return
+        self.api.submit("refresh_client_age_recipients", {"inventory_path": path}, on_success=self._server_action_done, on_error=self._server_action_failed)
+
+    def _refresh_pxe_passphrase_status(self) -> None:
+        self.pxe_passphrase_status.set_text("Consultando estado de la solicitud age…")
+        self.api.submit("pxe_age_passphrase_status", on_success=self._pxe_passphrase_status_loaded, on_error=self._pxe_passphrase_status_failed)
+
+    def _pxe_passphrase_status_loaded(self, result: dict[str, Any]) -> None:
+        if result.get("waiting"):
+            self.pxe_passphrase_status.set_text("El worker PXE está esperando una frase age de un solo uso.")
+            self.pxe_passphrase.set_sensitive(True)
+        elif result.get("submitted"):
+            self.pxe_passphrase_status.set_text("La frase ya fue entregada al worker PXE.")
+            self.pxe_passphrase.set_sensitive(False)
+        elif result.get("available"):
+            self.pxe_passphrase_status.set_text("No hay ninguna frase age pendiente.")
+            self.pxe_passphrase.set_sensitive(False)
+        else:
+            self.pxe_passphrase_status.set_text("Este entorno no es un cliente Live PXE desatendido.")
+            self.pxe_passphrase.set_sensitive(False)
+
+    def _pxe_passphrase_status_failed(self, error: Exception) -> None:
+        self.pxe_passphrase_status.set_text("No se pudo consultar la solicitud age: " + str(error))
+        self.pxe_passphrase.set_sensitive(False)
+
+    def _submit_pxe_passphrase(self, _button: Gtk.Button) -> None:
+        passphrase = self.pxe_passphrase.get_text()
+        if not passphrase:
+            self.pxe_passphrase_status.set_text("Introduce la frase age pendiente.")
+            return
+        self.pxe_passphrase.set_sensitive(False)
+        self.api.submit("provide_pxe_age_passphrase", {"passphrase": passphrase}, on_success=self._pxe_passphrase_submitted, on_error=self._pxe_passphrase_submit_failed)
+
+    def _pxe_passphrase_submitted(self, result: dict[str, Any]) -> None:
+        self.pxe_passphrase.set_text("")
+        self.pxe_passphrase_status.set_text(str(result.get("message") or result))
+        self._refresh_pxe_passphrase_status()
+
+    def _pxe_passphrase_submit_failed(self, error: Exception) -> None:
+        self.pxe_passphrase.set_sensitive(True)
+        self.pxe_passphrase_status.set_text("No se pudo entregar la frase age: " + str(error))
 
     def _server_status_part(self, key: str, value: dict[str, Any]) -> None:
         self.server_status_parts[key] = value
