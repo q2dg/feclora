@@ -21,7 +21,7 @@ require_text() {
 for file in \
   build/build-iso.sh build/preflight.sh build/install-host-deps.sh kickstart/feclora-live.ks \
   packages/base.txt packages/build-host.txt requirements-test.txt requirements-gui.txt \
-  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_api.py src/feclora/api.py \
+  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui.py src/feclora/gui_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
@@ -37,6 +37,9 @@ require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must u
 require_text '^customtkinter==6\.0\.0$' requirements-gui.txt "The CustomTkinter runtime dependency must remain pinned."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
 require_text 'ThreadPoolExecutor|Queue' src/feclora/gui_api.py "The GUI API bridge must keep blocking subprocess work off Tk's main thread."
+require_text 'attributes\("-fullscreen", True\)' src/feclora/gui.py "The CustomTkinter shell must request fullscreen mode."
+require_text 'overrideredirect\(True\)' src/feclora/gui.py "The CustomTkinter shell must remove window decorations."
+require_text 'WM_DELETE_WINDOW' src/feclora/gui.py "The CustomTkinter shell must suppress accidental window closure."
 if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
