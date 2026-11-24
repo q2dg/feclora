@@ -252,6 +252,8 @@ class FecloraGTK:
             self.capture_image_id = Gtk.Entry()
             self.capture_image_id.set_placeholder_text("Identificador de imagen")
             self.page_body.append(self.capture_image_id)
+            self.capture_format_label = Gtk.Label(label="Formato de imagen", xalign=0)
+            self.page_body.append(self.capture_format_label)
             self.capture_format = Gtk.DropDown.new_from_strings(["RAW de Feclora", "QCOW2"])
             self.page_body.append(self.capture_format)
             self.capture_compression = Gtk.DropDown.new_from_strings(["Zstandard", "LZ4", "Gzip", "XZ", "Sin compresión"])
@@ -287,6 +289,8 @@ class FecloraGTK:
         self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
         self.capture_summary.set_text(("Particiones" if kind == 1 else "Discos") + " detectados: " + str(len(self.capture_devices)))
+        self.capture_format_label.set_visible(kind == 0)
+        self.capture_format.set_visible(kind == 0)
         self.capture_start.set_label("Iniciar captura de partición" if kind == 1 else "Iniciar captura de disco")
 
     def _start_disk_capture(self, _button: Gtk.Button) -> None:
