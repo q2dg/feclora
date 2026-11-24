@@ -1,8 +1,10 @@
 # Feclora
 
 Feclora is a Fedora-based Live appliance for disk and partition imaging,
-local and remote cloning, recovery and network deployment. Its keyboard-first
-Textual interface runs directly on tty1 without a graphical desktop.
+local and remote cloning, recovery and network deployment. Its current
+keyboard-first Textual interface runs directly on tty1. A staged migration to
+a CustomTkinter kiosk on Weston is underway; the production boot path remains
+Textual until the graphical interface reaches full feature parity.
 
 ## What it does
 
