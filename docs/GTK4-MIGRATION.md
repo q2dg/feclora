@@ -12,7 +12,11 @@ system status, the inventory renders nested storage devices, and the operations
 page supports whole-disk capture (RAW/QCOW2), partition capture, LVM logical-volume
 capture, Stratis XFS filesystem capture and incremental Btrfs subvolume send/receive streams,
 compression, age encryption, progress polling and cancellation through the privileged API.
-The operations page also exposes ddrescue disk recovery (retry-pass and resume
+The GTK Images page now inspects whole-disk manifests and verified partition tables,
+browses filesystem directories, downloads individual files safely under ~/Downloads,
+and extracts selected partitions through the durable operation worker. Proportional
+restore to a smaller disk is also exposed with kernel major:minor identity checks and
+a strict target-smaller-than-source preflight. The operations page also exposes ddrescue disk recovery (retry-pass and resume
 controls), recovery finalization, whole-disk/partition/logical-volume/Stratis restoration
 and whole-disk/partition cloning. Restore and clone actions retain exact destructive
 confirmation phrases and use the privileged asynchronous operation API. Recovery ISO and deployment-bundle generation now use GTK image/repository
@@ -74,7 +78,8 @@ without their existing systemd recovery handling.
 
 ## Acceptance criteria
 
-- All 14 current navigation pages and every implemented operation are present.
+- All 14 current navigation pages and every implemented operation are present in the
+   migrated frontend before the production boot switch.
 - All 25 interface-language catalogs remain available.
 - API requests remain restricted to the existing root-owned allowlisted helper.
 - Long-running actions do not block the GTK/GLib main loop; progress and
