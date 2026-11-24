@@ -177,6 +177,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('confirmation != expected', self.source)
         self.assertIn('image.get("image_type") != expected_type', self.source)
 
+    def test_navigation_content_is_scrollable_for_full_operator_forms(self):
+        self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
+        self.assertIn("page_scroller.set_child(self.page_body)", self.source)
+
     def test_kiosk_window_is_fullscreen_and_not_decorated_or_closable(self):
         self.assertIn("self.window.fullscreen()", self.source)
         self.assertIn("self.window.set_decorated(False)", self.source)
