@@ -1232,7 +1232,7 @@ class FecloraGTK:
             self.repository_action_result.set_text("No se puede editar una definición montada; desmonta primero.")
             return
         action = "update_remote_repository" if existing else "add_remote_repository"
-        self.repository_action_result.set_text("Guardando definición SSHFS…")
+        self.repository_action_result.set_text(f"Guardando definición {provider.upper()}…")
         self.api.submit(action, params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
 
     def _select_remote_credential(self, selector: Gtk.DropDown, attribute: str, path: Any) -> None:
