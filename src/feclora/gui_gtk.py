@@ -929,16 +929,17 @@ class FecloraGTK:
         self.remote_host = Gtk.Entry()
         self.remote_host.set_placeholder_text("Servidor o dirección")
         self.remote_path = Gtk.Entry()
-        self.remote_path.set_placeholder_text("Ruta remota absoluta")
+        self.remote_path.set_placeholder_text("Ruta exportada NFS, recurso SMB o ruta SSHFS")
+        self.remote_provider = Gtk.DropDown.new_from_strings(["SSHFS", "NFS", "SMB/CIFS"])
+        self.remote_provider.connect("notify::selected", self._remote_provider_changed)
         self.remote_username = Gtk.Entry()
-        self.remote_username.set_placeholder_text("Usuario SSH")
-        self.remote_identity = Gtk.Entry()
-        self.remote_identity.set_placeholder_text("Ruta de clave SSH protegida (opcional)")
-        self.remote_known_hosts = Gtk.Entry()
-        self.remote_known_hosts.set_placeholder_text("Ruta known_hosts protegida (opcional)")
+        self.remote_username.set_placeholder_text("Usuario SSH/SMB")
+        self.remote_identity = Gtk.DropDown.new_from_strings(["Selecciona clave SSH…"])
+        self.remote_known_hosts = Gtk.DropDown.new_from_strings(["Selecciona known_hosts…"])
+        self.remote_credential = Gtk.DropDown.new_from_strings(["Selecciona credencial SMB…"])
         self.remote_port = Gtk.Entry()
-        self.remote_port.set_placeholder_text("Puerto SSH (opcional)")
-        for widget in (self.remote_id, self.remote_host, self.remote_path, self.remote_username, self.remote_identity, self.remote_known_hosts, self.remote_port):
+        self.remote_port.set_placeholder_text("Puerto SSH/SMB (opcional)")
+        for widget in (self.remote_id, self.remote_provider, self.remote_host, self.remote_path, self.remote_username, self.remote_identity, self.remote_known_hosts, self.remote_credential, self.remote_port):
             self.page_body.append(widget)
         self.remote_read_only = Gtk.CheckButton(label="Montar solo lectura")
         self.page_body.append(self.remote_read_only)
@@ -1086,6 +1087,28 @@ class FecloraGTK:
         ]
         self.credential_management.set_model(Gtk.StringList.new(labels))
         self.credential_management.set_selected(0)
+        self._populate_remote_credential_selector("ssh-key", self.remote_identity)
+        self._populate_remote_credential_selector("known-hosts", self.remote_known_hosts)
+        self._populate_remote_credential_selector("smb", self.remote_credential)
+
+    def _populate_remote_credential_selector(self, kind: str, selector: Gtk.DropDown) -> None:
+        credentials = [
+            item for item in getattr(self, "repository_credentials", [])
+            if item.get("kind") == kind and item.get("path")
+        ]
+        setattr(self, f"_remote_{kind.replace('-', '_')}_credentials", credentials)
+        selector.set_model(Gtk.StringList.new(
+            ["Selecciona credencial…"] + [str(item.get("id")) for item in credentials]
+        ))
+        selector.set_selected(0)
+
+    def _remote_provider_changed(self, _widget: Gtk.DropDown, _pspec: Any = None) -> None:
+        provider = ("sshfs", "nfs", "smb")[min(self.remote_provider.get_selected(), 2)]
+        self.remote_username.set_visible(provider in {"sshfs", "smb"})
+        self.remote_identity.set_visible(provider == "sshfs")
+        self.remote_known_hosts.set_visible(provider == "sshfs")
+        self.remote_credential.set_visible(provider == "smb")
+        self.remote_port.set_visible(provider in {"sshfs", "smb"})
 
     def _repository_action_done(self, response: dict[str, Any]) -> None:
         self.repository_action_result.set_text("Acción completada: " + str(response))
@@ -1126,18 +1149,23 @@ class FecloraGTK:
             if item.get("mount_state") != "unmounted":
                 self.repository_action_result.set_text("Desmonta y verifica el estado unmounted antes de editar.")
                 return
-            if item.get("provider") != "sshfs":
-                self.repository_action_result.set_text("El formulario GTK actual solo edita definiciones SSHFS; NFS/SMB permanecen sin edición.")
+            provider = item.get("provider")
+            provider_index = {"sshfs": 0, "nfs": 1, "smb": 2}.get(provider)
+            if provider_index is None:
+                self.repository_action_result.set_text("Proveedor de repositorio no reconocido.")
                 return
             self.remote_id.set_text(identifier)
+            self.remote_provider.set_selected(provider_index)
             self.remote_host.set_text(item.get("host") or "")
             self.remote_path.set_text(item.get("remote_path") or "")
             self.remote_username.set_text(item.get("username") or "")
-            self.remote_identity.set_text(item.get("identity_file") or "")
-            self.remote_known_hosts.set_text(item.get("known_hosts_file") or "")
+            self._select_remote_credential(self.remote_identity, "_remote_ssh_key_credentials", item.get("identity_file"))
+            self._select_remote_credential(self.remote_known_hosts, "_remote_known_hosts_credentials", item.get("known_hosts_file"))
+            self._select_remote_credential(self.remote_credential, "_remote_smb_credentials", item.get("credential_file"))
             self.remote_port.set_text(str(item.get("port") or ""))
             self.remote_read_only.set_active(bool(item.get("read_only")))
-            self.repository_action_result.set_text("Definición SSHFS cargada; guarda los cambios en el formulario.")
+            self._remote_provider_changed(self.remote_provider)
+            self.repository_action_result.set_text(f"Definición {provider} cargada; guarda los cambios en el formulario.")
             return
         if kind == "S3":
             api_action = {"check": "check_s3_repository", "remove": "remove_s3_repository"}.get(action)
@@ -1167,23 +1195,35 @@ class FecloraGTK:
         identifier = self.remote_id.get_text().strip()
         host = self.remote_host.get_text().strip()
         remote_path = self.remote_path.get_text().strip()
-        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not host or not remote_path.startswith("/"):
-            self.repository_action_result.set_text("ID inválido; servidor y ruta remota absoluta son obligatorios.")
+        providers = ("sshfs", "nfs", "smb")
+        provider_index = self.remote_provider.get_selected()
+        provider = providers[provider_index] if provider_index < len(providers) else ""
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not host or not remote_path:
+            self.repository_action_result.set_text("ID inválido; servidor y ruta remota son obligatorios.")
             return
         port_text = self.remote_port.get_text().strip()
         try:
-            port = int(port_text) if port_text else None
+            port = int(port_text) if port_text and provider in {"sshfs", "smb"} else None
         except ValueError:
-            self.repository_action_result.set_text("El puerto SSH debe ser un entero.")
+            self.repository_action_result.set_text("El puerto debe ser un entero.")
             return
         if port is not None and not 1 <= port <= 65535:
-            self.repository_action_result.set_text("El puerto SSH debe estar entre 1 y 65535.")
+            self.repository_action_result.set_text("El puerto debe estar entre 1 y 65535.")
+            return
+        username = self.remote_username.get_text().strip() or None if provider in {"sshfs", "smb"} else None
+        identity_file = self._selected_remote_credential_path(self.remote_identity, "_remote_ssh_key_credentials") if provider == "sshfs" else None
+        known_hosts_file = self._selected_remote_credential_path(self.remote_known_hosts, "_remote_known_hosts_credentials") if provider == "sshfs" else None
+        credential_file = self._selected_remote_credential_path(self.remote_credential, "_remote_smb_credentials") if provider == "smb" else None
+        if provider == "sshfs" and (not username or not identity_file or not known_hosts_file):
+            self.repository_action_result.set_text("SSHFS requiere usuario, clave privada y known_hosts protegidos.")
+            return
+        if provider == "smb" and (not username or not credential_file):
+            self.repository_action_result.set_text("SMB/CIFS requiere usuario y credencial cifrada.")
             return
         params = {
-            "id": identifier, "provider": "sshfs", "host": host, "remote_path": remote_path,
-            "username": self.remote_username.get_text().strip() or None,
-            "credential_file": None, "identity_file": self.remote_identity.get_text().strip() or None,
-            "known_hosts_file": self.remote_known_hosts.get_text().strip() or None,
+            "id": identifier, "provider": provider, "host": host, "remote_path": remote_path,
+            "username": username, "credential_file": credential_file,
+            "identity_file": identity_file, "known_hosts_file": known_hosts_file,
             "port": port, "read_only": self.remote_read_only.get_active(),
         }
         existing = next((item for _, item in getattr(self, "remote_repository_rows", []) if item.get("id") == identifier), None)
@@ -1193,6 +1233,19 @@ class FecloraGTK:
         action = "update_remote_repository" if existing else "add_remote_repository"
         self.repository_action_result.set_text("Guardando definición SSHFS…")
         self.api.submit(action, params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+
+    def _select_remote_credential(self, selector: Gtk.DropDown, attribute: str, path: Any) -> None:
+        credentials = getattr(self, attribute, [])
+        index = next((i for i, item in enumerate(credentials) if item.get("path") == path), -1)
+        selector.set_selected(index + 1 if index >= 0 else 0)
+
+    def _selected_remote_credential_path(self, selector: Gtk.DropDown, attribute: str) -> str | None:
+        credentials = getattr(self, attribute, [])
+        selected = selector.get_selected()
+        if selected == 0 or selected - 1 >= len(credentials):
+            return None
+        path = credentials[selected - 1].get("path")
+        return path if isinstance(path, str) and path else None
 
     def _save_s3_repository(self, _button: Gtk.Button) -> None:
         import re
