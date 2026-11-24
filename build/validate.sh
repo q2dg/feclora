@@ -388,6 +388,12 @@ require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK ima
 require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK partition extraction must retain its privileged API request."
 
 
+require_text 'title="Estado del inventario"' src/feclora/gui_gtk.py "GTK inventory must group its live device count in libadwaita preferences."
+require_text 'title="Dispositivos detectados"' src/feclora/gui_gtk.py "GTK inventory must label the device summary semantically."
+require_text 'title="Acciones"' src/feclora/gui_gtk.py "GTK inventory refresh must use a semantic action group."
+require_text 'Adw\.StatusPage\(' src/feclora/gui_gtk.py "GTK inventory must provide a native empty state."
+require_text 'Adw\.ActionRow\(' src/feclora/gui_gtk.py "GTK inventory devices must use semantic action rows."
+require_text 'self\._append_inventory_device\(group, child, depth \+ 1\)' src/feclora/gui_gtk.py "GTK inventory must preserve nested device hierarchy."
 require_text 'title="Identidad del equipo"' src/feclora/gui_gtk.py "GTK overview must group host and platform identity."
 require_text 'title="Configuración de Feclora"' src/feclora/gui_gtk.py "GTK overview must group server/client configuration status."
 require_text 'title="Servicios del sistema"' src/feclora/gui_gtk.py "GTK overview must group local service status."
