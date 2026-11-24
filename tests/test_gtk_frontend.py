@@ -120,6 +120,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('base_iso.lower().endswith(".iso")', self.source)
         self.assertIn('self.api.submit("remote_repositories"', self.source)
         self.assertIn('self.api.submit("repository_images"', self.source)
+        self.assertIn('self.capture_repository.connect("notify::selected"', self.source)
+        self.assertIn("self.capture_source_label.set_visible(source_visible)", self.source)
         self.assertIn('params["repository_id"] = selected_repository["id"]', self.source)
         self.assertIn('repository.get("mounted")', self.source)
         self.assertIn('repository.get("verified")', self.source)
