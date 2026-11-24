@@ -265,6 +265,8 @@ class FecloraGTK:
             self.capture_btrfs_receive_parent.set_placeholder_text("Opcional: ruta del subvolumen padre recibido")
             self.page_body.append(Gtk.Label(label="Padre recibido (opcional)", xalign=0))
             self.page_body.append(self.capture_btrfs_receive_parent)
+            self.capture_image_id_label = Gtk.Label(label="Identificador de imagen", xalign=0)
+            self.page_body.append(self.capture_image_id_label)
             self.capture_image_id = Gtk.Entry()
             self.capture_image_id.set_placeholder_text("Identificador de imagen")
             self.page_body.append(self.capture_image_id)
@@ -330,6 +332,7 @@ class FecloraGTK:
         self.capture_format.set_visible(kind == 0)
         self.capture_compression.set_visible(kind != 5)
         self.capture_encrypt.set_visible(kind != 5)
+        self.capture_image_id_label.set_text("Identificador del stream Btrfs" if kind in {4, 5} else "Identificador de imagen")
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
@@ -361,7 +364,7 @@ class FecloraGTK:
         if kind == 5:
             target_directory = self.capture_btrfs_target.get_text().strip()
             parent_path = self.capture_btrfs_receive_parent.get_text().strip()
-            if not image_id or not target_directory.startswith("/") or (parent_path and not parent_path.startswith("/")):
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id) or not target_directory.startswith("/") or (parent_path and not parent_path.startswith("/")):
                 self.capture_result.set_text("Indica el identificador del stream y un directorio destino absoluto; el padre, si se indica, también debe ser absoluto.")
                 return
             params = {"image_id": image_id, "target_directory": target_directory}
