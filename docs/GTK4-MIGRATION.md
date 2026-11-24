@@ -108,10 +108,10 @@ without their existing systemd recovery handling.
   keyboard and pointer operation, VT2 maintenance access and recovery after
   application restart.
 
-- RAW whole-disk capture now supports the Textual one-shot age passphrase
-  workflow: the secret is entered in a masked GTK password field, the capture
-  is submitted with passphrase encryption enabled, and the secret is delivered
-  to the accepted operation ID. The field is cleared immediately; delivery
+- RAW whole-disk capture preserves both mutually exclusive Textual age
+  encryption modes: recipient-based encryption and one-shot passphrase
+  encryption. The passphrase mode uses a masked GTK password field; the secret
+  is delivered only to the accepted operation ID, then cleared. Delivery
   failure requests cancellation of the capture. QCOW2 remains unencrypted.
 
 - Capture failure handling also clears any pending age passphrase from both the
@@ -217,3 +217,11 @@ accessible combo-box row) and its text fields use Adw.EntryRow. Other pages
 still contain Gtk.DropDown and Gtk.Entry controls and remain candidates for
 the same page-by-page review. This structural audit does not constitute a
 screen-reader, keyboard-only, contrast or live GTK runtime acceptance test.
+
+
+The local capture form keeps recipient-based age encryption separate from
+one-shot passphrase encryption. The two controls are mutually exclusive, the
+passphrase entry is exposed only for RAW whole-disk capture when that mode is
+selected, and the submitted API payload distinguishes the passphrase mode with
+`encrypt_passphrase`. This preserves the Textual encryption contract rather
+than treating the password as a generic replacement for recipient encryption.
