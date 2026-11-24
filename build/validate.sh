@@ -207,7 +207,11 @@ require_text 'self\._history_page\("Trabajos remotos"' src/feclora/gui_gtk.py "G
 require_text 'self\._history_page\("Historial de despliegues"' src/feclora/gui_gtk.py "GTK deployment history page must render journals."
 require_text 'self\.api\.submit\("deployment_jobs"' src/feclora/gui_gtk.py "GTK client jobs page must list client deployment states."
 
-require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py "GTK repository inventory must include S3 repositories."
+require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py
+require_text 'self\.api\.submit\("import_p2v"' src/feclora/gui_gtk.py "GTK must expose legacy P2V bundle import."
+require_text 'self\.api\.submit\("export_p2v_s3"' src/feclora/gui_gtk.py "GTK must expose legacy P2V export from S3."
+require_text 'def _import_legacy_p2v' src/feclora/gui_gtk.py "GTK must validate and submit legacy P2V imports."
+require_text 'def _export_legacy_p2v' src/feclora/gui_gtk.py "GTK must validate and submit legacy P2V S3 exports." "GTK repository inventory must include S3 repositories."
 require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "GTK repository inventory must include filesystem repositories."
 
 require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK image page must support full artifact integrity verification."
