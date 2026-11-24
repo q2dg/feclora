@@ -363,6 +363,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('SMB/CIFS requiere usuario y credencial cifrada.', self.source)
         self.assertIn('{"sshfs": 0, "nfs": 1, "smb": 2}', self.source)
 
+    def test_image_catalog_uses_libadwaita_loading_empty_and_error_states(self):
+        self.assertIn("self.image_catalog_stack = Gtk.Stack()", self.source)
+        self.assertIn('Adw.StatusPage(\n            title="No hay imágenes de disco"', self.source)
+        self.assertIn('Adw.StatusPage(\n            title="Cargando catálogo"', self.source)
+        self.assertIn('Adw.StatusPage(\n            title="No se pudo cargar el catálogo"', self.source)
+        self.assertIn('self.image_catalog_stack.set_visible_child_name("loading")', self.source)
+        self.assertIn('self.image_catalog_stack.set_visible_child_name("images" if self.image_catalog else "empty")', self.source)
+        self.assertIn('self.image_catalog_stack.set_visible_child_name("error")', self.source)
+        self.assertIn('self.image_select.set_model(Gtk.StringList.new(labels or []))', self.source)
+
     def test_network_configuration_uses_libadwaita_preferences_rows(self):
         self.assertIn('Adw.PreferencesGroup(\n            title="Conexión IPv4"', self.source)
         self.assertIn("row = Adw.ActionRow(title=title)", self.source)
