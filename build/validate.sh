@@ -21,11 +21,11 @@ require_text() {
 for file in \
   build/build-iso.sh build/preflight.sh build/install-host-deps.sh kickstart/feclora-live.ks \
   packages/base.txt packages/build-host.txt requirements-test.txt requirements-gui.txt \
-  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui.py src/feclora/gui_api.py src/feclora/api.py \
+  src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui.py src/feclora/gui_api.py src/feclora/gui_gtk.py src/feclora/gtk_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
-  tests/test_gui_api.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
+  tests/test_gui_api.py tests/test_gtk_api.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
   require_file "$file"
 done
@@ -34,9 +34,9 @@ require_text '^#version=F45$' kickstart/feclora-live.ks "Kickstart must target F
 require_text 'packages/build-host\.txt' build/install-host-deps.sh "Build dependencies must come from the build-host package manifest."
 require_text '^python3-textual$' packages/base.txt "The current Live image must keep Textual until GUI feature parity is reached."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
-require_text '^customtkinter==6\.0\.0$' requirements-gui.txt "The CustomTkinter runtime dependency must remain pinned."
+require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
-require_text 'ThreadPoolExecutor|Queue' src/feclora/gui_api.py "The GUI API bridge must keep blocking subprocess work off Tk's main thread."
+require_text 'ThreadPoolExecutor|GLib\.idle_add' src/feclora/gtk_api.py "The GTK API bridge must keep blocking subprocess work off the GLib main loop."\nrequire_text 'GDK_BACKEND.*wayland' src/feclora/gui_gtk.py "The GTK frontend must force the native Wayland backend."\nrequire_text 'WAYLAND_DISPLAY' src/feclora/gui_gtk.py "The GTK frontend must require a Wayland compositor socket."\nif grep -Eiq 'customtkinter|tkinter|xwayland|xorg' requirements-gui.txt src/feclora/gui_gtk.py src/feclora/gtk_api.py; then\n  fail "The GTK4 target runtime must not depend on Tk or X11 compatibility."\nfi
 require_text 'attributes\("-fullscreen", True\)' src/feclora/gui.py "The CustomTkinter shell must request fullscreen mode."
 require_text 'overrideredirect\(True\)' src/feclora/gui.py "The CustomTkinter shell must remove window decorations."
 require_text 'WM_DELETE_WINDOW' src/feclora/gui.py "The CustomTkinter shell must suppress accidental window closure."
