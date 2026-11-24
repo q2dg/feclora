@@ -467,14 +467,27 @@ class FecloraGTK:
 
     def _show_system_page(self) -> None:
         self.page_description.set_text("Estado del sistema, servicios y certificados detectados por el backend privilegiado.")
+        system_group = Adw.PreferencesGroup(
+            title="Estado del sistema",
+            description="Información obtenida del backend privilegiado; esta vista no modifica la configuración.",
+        )
         self.status_summary = Gtk.Label(label="Consultando estado del sistema…", xalign=0)
         self.status_summary.set_wrap(True)
         self.status_summary.set_selectable(True)
-        self.page_body.append(self.status_summary)
-        refresh = Gtk.Button(label="Actualizar estado del sistema")
-        refresh.set_halign(Gtk.Align.START)
+        self.status_summary.set_max_width_chars(72)
+        status_row = Adw.ActionRow(title="Resumen del sistema")
+        status_row.set_subtitle("Host, plataforma, servicios y certificados")
+        status_row.add_suffix(self.status_summary)
+        system_group.add(status_row)
+        refresh = Gtk.Button(label="Actualizar")
+        refresh.set_valign(Gtk.Align.CENTER)
         refresh.connect("clicked", self._refresh_status)
-        self.page_body.append(refresh)
+        refresh_row = Adw.ActionRow(title="Actualizar estado")
+        refresh_row.set_subtitle("Consultar de nuevo el estado actual")
+        refresh_row.add_suffix(refresh)
+        refresh_row.set_activatable_widget(refresh)
+        system_group.add(refresh_row)
+        self.page_body.append(system_group)
         self._refresh_status(None)
 
     def _show_server_status_page(self) -> None:
