@@ -339,3 +339,12 @@ require_text 'title="Estado de recuperación"' src/feclora/gui_gtk.py "GTK ddres
 require_text 'title="Trabajos ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue records must use a semantic history group."
 require_text 'row\.set_activatable_widget\(cancel\)' src/feclora/gui_gtk.py "GTK operation cancellation rows must preserve direct button activation."
 require_text 'self\.operation_confirmation\.set_placeholder_text\("CANCEL <operation_id>"\)' src/feclora/gui_gtk.py "GTK operation cancellation must retain the exact confirmation phrase."
+
+
+require_text 'title="Consulta del historial"' src/feclora/gui_gtk.py "GTK remote and deployment histories must group status and refresh controls."
+require_text 'title="Definición del trabajo"' src/feclora/gui_gtk.py "GTK remote jobs must group validated definition creation."
+require_text 'title="Importar definición"' src/feclora/gui_gtk.py "GTK remote jobs must group import source controls."
+require_text 'title="Servicio de despliegue"' src/feclora/gui_gtk.py "GTK remote jobs must group guarded deployment service actions."
+require_text 'job_row\\.set_activatable_widget\\(self\\.remote_job_select\\)' src/feclora/gui_gtk.py "GTK remote job selection must remain directly activatable."
+require_text 'title="Historial de clientes"' src/feclora/gui_gtk.py "GTK client job history must use a semantic preferences group."
+require_text 'client_refresh_row\\.set_activatable_widget\\(refresh\\)' src/feclora/gui_gtk.py "GTK client history refresh must remain directly activatable."
