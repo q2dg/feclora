@@ -116,6 +116,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"clone_partition"', self.source)
         self.assertIn('"build_recovery_iso"', self.source)
         self.assertIn('"build_deployment_bundle"', self.source)
+        self.assertIn('target_wwn and not target_serial', self.source)
+        self.assertIn('base_iso.lower().endswith(".iso")', self.source)
         self.assertIn('self.api.submit("remote_repositories"', self.source)
         self.assertIn('confirmation != expected', self.source)
         self.assertIn('image.get("image_type") != expected_type', self.source)
