@@ -1294,6 +1294,215 @@ class FecloraGTK:
                 item.get("event_count") or 0,
             )
         self._history_page("Trabajos remotos persistidos y estado de sus clientes.", ("ID", "Operación", "Imagen/origen", "Destino", "Transporte", "Estado", "Clientes", "Eventos"), "deployment_jobs", "jobs", render)
+        title = Gtk.Label(label="Crear / importar definición de trabajo", xalign=0)
+        title.add_css_class("heading")
+        self.page_body.append(title)
+        self.remote_job_json = Gtk.TextView()
+        self.remote_job_json.set_monospace(True)
+        self.remote_job_json.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.remote_job_json.set_size_request(-1, 180)
+        self.page_body.append(self.remote_job_json)
+        create = Gtk.Button(label="Validar y guardar definición JSON")
+        create.set_halign(Gtk.Align.START)
+        create.connect("clicked", self._create_remote_job)
+        self.page_body.append(create)
+        self.remote_import_source = Gtk.DropDown.new_from_strings(["Archivo local", "URL HTTP/HTTPS", "Repositorio montado"])
+        self.page_body.append(self.remote_import_source)
+        self.remote_import_path = Gtk.Entry()
+        self.remote_import_path.set_placeholder_text("Ruta local / URL / ruta relativa")
+        self.page_body.append(self.remote_import_path)
+        self.remote_import_repository = Gtk.DropDown.new_from_strings(["Selecciona repositorio…"])
+        self.page_body.append(self.remote_import_repository)
+        import_job = Gtk.Button(label="Importar y validar definición")
+        import_job.set_halign(Gtk.Align.START)
+        import_job.connect("clicked", self._import_remote_job)
+        self.page_body.append(import_job)
+        action_title = Gtk.Label(label="Acciones del servicio de despliegue", xalign=0)
+        action_title.add_css_class("heading")
+        self.page_body.append(action_title)
+        self.remote_job_select = Gtk.DropDown.new_from_strings(["Actualizando trabajos…"])
+        self.page_body.append(self.remote_job_select)
+        self.remote_job_action = Gtk.DropDown.new_from_strings(["Consultar estado", "Iniciar servicio", "Autorizar trabajo", "Cancelar trabajo", "Detener servicio", "Reconciliar interrumpido"])
+        self.page_body.append(self.remote_job_action)
+        self.remote_job_confirmation = Gtk.Entry()
+        self.remote_job_confirmation.set_placeholder_text("Frase exacta requerida por la acción seleccionada")
+        self.page_body.append(self.remote_job_confirmation)
+        run_action = Gtk.Button(label="Ejecutar acción")
+        run_action.set_halign(Gtk.Align.START)
+        run_action.connect("clicked", self._run_remote_job_action)
+        self.page_body.append(run_action)
+        self.remote_job_result = Gtk.Label(label="Sin acción ejecutada.", xalign=0)
+        self.remote_job_result.set_wrap(True)
+        self.remote_job_result.set_selectable(True)
+        self.page_body.append(self.remote_job_result)
+        self._remote_jobs = []
+        self.api.submit("deployment_jobs", on_success=self._populate_remote_job_controls, on_error=self._history_failed)
+        self.api.submit("remote_repositories", on_success=self._populate_remote_import_repositories, on_error=self._history_failed)
+        self.api.submit("s3_repositories", on_success=self._populate_remote_import_s3_repositories, on_error=self._history_failed)
+
+    def _populate_remote_job_controls(self, response: dict[str, Any]) -> None:
+        self._remote_jobs = [item for item in response.get("jobs", []) if isinstance(item, dict)]
+        labels = ["Selecciona trabajo…"] + [
+            f"{item.get('job_id')} · {item.get('job_state')}" for item in self._remote_jobs if item.get("job_id")
+        ]
+        self.remote_job_select.set_model(Gtk.StringList.new(labels))
+        self.remote_job_select.set_selected(0)
+
+    def _populate_remote_import_repositories(self, response: dict[str, Any]) -> None:
+        self._remote_import_rows = [
+            item for item in response.get("repositories", [])
+            if isinstance(item, dict) and item.get("mounted") and item.get("verified")
+        ]
+        self._render_remote_import_repositories()
+
+    def _populate_remote_import_s3_repositories(self, response: dict[str, Any]) -> None:
+        self._remote_import_rows = getattr(self, "_remote_import_rows", []) + [
+            item for item in response.get("repositories", [])
+            if isinstance(item, dict) and item.get("mounted") and item.get("verified")
+        ]
+        self._render_remote_import_repositories()
+
+    def _render_remote_import_repositories(self) -> None:
+        rows = getattr(self, "_remote_import_rows", [])
+        self.remote_import_repository.set_model(Gtk.StringList.new(
+            ["Selecciona repositorio…"] + [str(item.get("id")) for item in rows]
+        ))
+        self.remote_import_repository.set_selected(0)
+
+    def _remote_job_json_text(self) -> str:
+        buffer = self.remote_job_json.get_buffer()
+        start, end = buffer.get_bounds()
+        return buffer.get_text(start, end, True)
+
+    def _create_remote_job(self, _button: Gtk.Button) -> None:
+        try:
+            job = json.loads(self._remote_job_json_text())
+            if not isinstance(job, dict):
+                raise ValueError("La definición debe ser un objeto JSON.")
+        except (json.JSONDecodeError, ValueError) as error:
+            self.remote_job_result.set_text("JSON no válido: " + str(error))
+            return
+        self.remote_job_result.set_text("Validando y guardando definición; no se inicia ningún servicio…")
+        self.api.submit("create_deployment_job", {"job": job}, on_success=self._remote_job_action_done, on_error=self._remote_job_action_failed)
+
+    def _import_remote_job(self, _button: Gtk.Button) -> None:
+        import base64
+        source_index = self.remote_import_source.get_selected()
+        source = ("upload", "url", "repository")[source_index] if source_index < 3 else ""
+        value = self.remote_import_path.get_text().strip()
+        params: dict[str, Any] = {"source": source}
+        if source == "upload":
+            try:
+                if not value:
+                    raise ValueError("Indica la ruta local del archivo JSON.")
+                payload = Path(value).expanduser().read_bytes()
+                if not 1 <= len(payload) <= 64 * 1024:
+                    raise ValueError("El archivo debe tener entre 1 byte y 64 KiB.")
+                params["answer_base64"] = base64.b64encode(payload).decode("ascii")
+            except (OSError, ValueError) as error:
+                self.remote_job_result.set_text("No se pudo leer el archivo: " + str(error))
+                return
+        elif source == "url":
+            if not value:
+                self.remote_job_result.set_text("Indica una URL HTTP o HTTPS.")
+                return
+            params["url"] = value
+        elif source == "repository":
+            selected = self.remote_import_repository.get_selected()
+            rows = getattr(self, "_remote_import_rows", [])
+            if selected == 0 or selected - 1 >= len(rows) or not value:
+                self.remote_job_result.set_text("Selecciona repositorio y ruta relativa.")
+                return
+            params["repository_id"] = rows[selected - 1].get("id")
+            params["source_path"] = value
+        else:
+            self.remote_job_result.set_text("Selecciona un origen válido.")
+            return
+        self.remote_job_result.set_text("Descargando y validando definición; no se iniciará ningún servicio…")
+        self.api.submit("import_deployment_job", params, on_success=self._remote_job_imported, on_error=self._remote_job_action_failed)
+
+    def _remote_job_imported(self, result: dict[str, Any]) -> None:
+        job = result.get("job")
+        if not isinstance(job, dict):
+            self.remote_job_result.set_text("El backend no devolvió una definición válida.")
+            return
+        self.remote_job_json.get_buffer().set_text(json.dumps(job, ensure_ascii=False, indent=2) + "\n")
+        self.remote_job_result.set_text(str(result.get("message") or "Definición importada; revísala y guárdala explícitamente."))
+
+    @staticmethod
+    def _gtk_deployment_arm_phrase(job: dict[str, Any]) -> str:
+        job_id = str(job.get("job_id") or "")
+        if job.get("operation") == "clone" and job.get("transport") == "multicast":
+            return f"ARM PHYSICAL MULTICAST {job_id} FROM {job.get('source_device')} IGMP-VERIFIED"
+        if job.get("transport") == "multicast":
+            return f"ARM MULTICAST {job_id} IGMP-VERIFIED"
+        if job.get("operation") == "clone":
+            return f"ARM {job_id} AND READ {job.get('source_device')}"
+        return f"ARM {job_id}"
+
+    def _run_remote_job_action(self, _button: Gtk.Button) -> None:
+        selected = self.remote_job_select.get_selected()
+        jobs = getattr(self, "_remote_jobs", [])
+        if selected == 0 or selected - 1 >= len(jobs):
+            self.remote_job_result.set_text("Selecciona un trabajo persistido.")
+            return
+        job = jobs[selected - 1]
+        job_id = str(job.get("job_id") or "")
+        confirmation = self.remote_job_confirmation.get_text()
+        actions = ("status", "start", "arm", "cancel", "stop", "reconcile")
+        action_index = self.remote_job_action.get_selected()
+        if not job_id or action_index >= len(actions):
+            self.remote_job_result.set_text("Trabajo o acción no válidos.")
+            return
+        action = actions[action_index]
+        if action == "start":
+            if job.get("interrupted") or job.get("job_state") != "created":
+                self.remote_job_result.set_text("Solo se inicia el servicio de una definición nueva no interrumpida.")
+                return
+            self._submit_remote_job_action("start_deployment_service", {"job_id": job_id})
+        elif action == "status":
+            self._submit_remote_job_action("deployment_service_status", {"job_id": job_id})
+        elif action == "arm":
+            expected = self._gtk_deployment_arm_phrase(job)
+            if job.get("job_state") != "created" or confirmation != expected:
+                self.remote_job_result.set_text(f"El trabajo debe estar creado y requiere escribir exactamente: {expected}")
+                return
+            self._submit_remote_job_action("arm_deployment_job", {"job_id": job_id, "confirmation": confirmation})
+        elif action == "cancel":
+            expected = f"CANCEL {job_id}"
+            if confirmation != expected:
+                self.remote_job_result.set_text(f"Escribe exactamente: {expected}")
+                return
+            self._submit_remote_job_action("cancel_deployment_job", {"job_id": job_id, "confirmation": confirmation})
+        elif action == "reconcile":
+            expected = f"RECONCILE {job_id}"
+            if not job.get("interrupted") or confirmation != expected:
+                self.remote_job_result.set_text(f"El trabajo debe estar interrumpido y requiere escribir exactamente: {expected}")
+                return
+            self._submit_remote_job_action("reconcile_deployment_job", {"job_id": job_id, "confirmation": confirmation})
+        elif action == "stop":
+            self.remote_job_result.set_text("Comprobando que no haya workers ni clientes activos antes de detener…")
+            self.api.submit("deployment_service_status", {"job_id": job_id}, on_success=lambda result: self._stop_remote_job_after_status(job_id, result), on_error=self._remote_job_action_failed)
+
+    def _stop_remote_job_after_status(self, job_id: str, status: dict[str, Any]) -> None:
+        clients = status.get("clients") or []
+        running_clients = any(isinstance(item, dict) and item.get("state") == "running" for item in clients)
+        if status.get("worker_active") or status.get("job_state") == "running" or running_clients:
+            self.remote_job_result.set_text("No se detiene un worker ni una operación de cliente en curso.")
+            return
+        self._submit_remote_job_action("stop_deployment_service", {"job_id": job_id})
+
+    def _submit_remote_job_action(self, action: str, params: dict[str, Any]) -> None:
+        self.remote_job_result.set_text(f"Ejecutando {action}…")
+        self.api.submit(action, params, on_success=self._remote_job_action_done, on_error=self._remote_job_action_failed)
+
+    def _remote_job_action_done(self, result: dict[str, Any]) -> None:
+        self.remote_job_confirmation.set_text("")
+        self.remote_job_result.set_text(json.dumps(result, ensure_ascii=False, indent=2))
+        self.api.submit("deployment_jobs", on_success=self._populate_remote_job_controls, on_error=self._remote_job_action_failed)
+
+    def _remote_job_action_failed(self, error: Exception) -> None:
+        self.remote_job_result.set_text("Acción remota no completada: " + str(error))
 
     def _show_deployments_page(self) -> None:
         def render(item: dict[str, Any]) -> tuple[str, ...]:
