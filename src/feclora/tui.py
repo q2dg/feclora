@@ -52,6 +52,15 @@ PAGES = (
     ("recovery-jobs", "Recuperaciones ddrescue"),
 )
 
+PAGE_MESSAGE_KEYS = {
+    "overview": "overview", "operations": "operations",
+    "restore-profiles": "restore_profiles", "inventory": "inventory",
+    "images": "images", "server": "server", "remote-jobs": "remote_jobs",
+    "deployments": "deployments", "repositories": "repositories",
+    "operation-log": "operation_log", "network": "network",
+    "client-jobs": "client_jobs", "system": "system",
+    "recovery-jobs": "recovery_jobs",
+}
 OPERATIONS = (
     ("Capturar disco", "capture_disk"),
     ("Recuperar disco con ddrescue", "recover_disk"),
@@ -75,7 +84,7 @@ OPERATIONS = (
 COMPRESSION = (("Zstandard", "zstd"), ("LZ4", "lz4"), ("Gzip", "gzip"), ("XZ", "xz"), ("Sin compresión", "none"))
 # Keep this list aligned with MESSAGES and the supported keyboard locales.
 # Operational forms and messages are being migrated incrementally.
-LANGUAGES = (("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"), ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"), ("Português (Brasil)", "br"), ("Русский", "ru"), ("Türkçe", "tr"), ("العربية", "ar"), ("日本語", "ja"))
+LANGUAGES = (("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"), ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"), ("Português (Brasil)", "pt_BR"), ("Русский", "ru"), ("Türkçe", "tr"), ("العربية", "ar"), ("日本語", "ja"))
 MESSAGES = {
     "en": {
         "first_title": "Welcome to Feclora",
@@ -417,7 +426,7 @@ MESSAGES = {
         "apply_ok": "キーボード配列を適用しました。",
         "apply_error": "キーボード配列を適用できませんでした:"
     },
-    "br": {
+    "pt_BR": {
         "first_title": "Bem-vindo ao Feclora",
         "tagline": "Sistema de resgate, imagens de disco e implantação em rede",
         "language": "Idioma da interface",
@@ -440,13 +449,15 @@ MESSAGES = {
         "client_jobs": "Tarefas do cliente",
         "system": "Sistema",
         "recovery_jobs": "Recuperações ddrescue"
+        "apply_ok": "Layout do teclado aplicado.",
+        "apply_error": "Não foi possível aplicar o layout do teclado:",
     }
 }
 KEYBOARD_LAYOUTS = (
     ("English (US)", "us"), ("English (US, international)", "us-intl"),
     ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"),
     ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"),
-    ("Português (Brasil)", "br"), ("Русский", "ru"), ("Türkçe", "tr"),
+    ("Português (Brasil)", "pt_BR"), ("Русский", "ru"), ("Türkçe", "tr"),
     ("العربية", "ar"), ("日本語", "ja"), ("中文 (US físico)", "zh"),
 )
 
@@ -1070,7 +1081,7 @@ class FecloraTUI(App[None]):
             return
         self._current_page = page_id
         self._selected_page_row = None
-        self.query_one("#page-title", Static).update(page[1])
+        self.query_one("#page-title", Static).update(self._text(PAGE_MESSAGE_KEYS[page_id]))
         table = self.query_one("#inventory-table", DataTable)
         page_table = self.query_one("#page-table", DataTable)
         operation_form = self.query_one("#operations-form", Vertical)
@@ -2764,16 +2775,8 @@ class FecloraTUI(App[None]):
         self.query_one("#continue", Button).label = self._text("continue")
         self.query_one("#open-terminal", Button).label = self._text("terminal")
         self.query_one("#navigation-title", Static).update(f"Feclora · {self._text('overview')}")
-        page_keys = {
-            "overview": "overview", "operations": "operations",
-            "restore-profiles": "restore_profiles", "inventory": "inventory",
-            "images": "images", "server": "server", "remote-jobs": "remote_jobs",
-            "deployments": "deployments", "repositories": "repositories",
-            "operation-log": "operation_log", "network": "network",
-            "client-jobs": "client_jobs", "system": "system",
-            "recovery-jobs": "recovery_jobs",
-        }
-        for page_id, message_key in page_keys.items():
+        self.query_one("#page-title", Static).update(self._text(PAGE_MESSAGE_KEYS[self._current_page]))
+        for page_id, message_key in PAGE_MESSAGE_KEYS.items():
             self.query_one(f"#nav-{page_id}", Button).label = self._text(message_key)
 
     async def apply_keyboard_layout(self) -> None:

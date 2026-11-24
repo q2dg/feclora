@@ -37,6 +37,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(language=language):
                 self.assertEqual(set(catalog), expected)
                 self.assertTrue(all(catalog[key].strip() for key in expected))
+                self.assertIn("apply_ok", catalog)
+                self.assertIn("apply_error", catalog)
 
     def test_unknown_saved_language_falls_back_to_spanish(self):
         with tempfile.TemporaryDirectory() as temporary:
