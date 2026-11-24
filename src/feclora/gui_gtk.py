@@ -473,6 +473,43 @@ class FecloraGTK:
         self.repositories_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
         scroller.set_child(self.repositories_grid)
         self.page_body.append(scroller)
+
+        p2v_title = Gtk.Label(label="Compatibilidad P2V heredada", xalign=0)
+        p2v_title.add_css_class("heading")
+        self.page_body.append(p2v_title)
+        self.page_body.append(Gtk.Label(label="Importa bundles QCOW2 heredados desde un repositorio de archivos; exporta bundles heredados desde S3.", xalign=0))
+        self.p2v_import_repository = Gtk.DropDown.new_from_strings(["Repositorio local"])
+        self.page_body.append(Gtk.Label(label="Repositorio de origen para importar", xalign=0))
+        self.page_body.append(self.p2v_import_repository)
+        self.p2v_source_image_id = Gtk.Entry()
+        self.p2v_source_image_id.set_placeholder_text("Identificador QCOW2 heredado")
+        self.page_body.append(self.p2v_source_image_id)
+        self.p2v_import_image_id = Gtk.Entry()
+        self.p2v_import_image_id.set_placeholder_text("Nuevo identificador de imagen Feclora")
+        self.page_body.append(self.p2v_import_image_id)
+        p2v_import = Gtk.Button(label="Importar bundle P2V heredado")
+        p2v_import.set_halign(Gtk.Align.START)
+        p2v_import.connect("clicked", self._import_legacy_p2v)
+        self.page_body.append(p2v_import)
+
+        self.p2v_export_repository = Gtk.DropDown.new_from_strings(["Selecciona repositorio S3…"])
+        self.page_body.append(Gtk.Label(label="Repositorio S3 de origen para exportar", xalign=0))
+        self.page_body.append(self.p2v_export_repository)
+        self.p2v_export_image_id = Gtk.Entry()
+        self.p2v_export_image_id.set_placeholder_text("Identificador QCOW2 heredado")
+        self.page_body.append(self.p2v_export_image_id)
+        self.p2v_export_destination = Gtk.DropDown.new_from_strings(["Repositorio local"])
+        self.page_body.append(Gtk.Label(label="Destino (opcional; vacío = repositorio local)", xalign=0))
+        self.page_body.append(self.p2v_export_destination)
+        p2v_export = Gtk.Button(label="Exportar bundle P2V desde S3")
+        p2v_export.set_halign(Gtk.Align.START)
+        p2v_export.connect("clicked", self._export_legacy_p2v)
+        self.page_body.append(p2v_export)
+        self.p2v_result = Gtk.Label(label="", xalign=0)
+        self.p2v_result.set_wrap(True)
+        self.p2v_result.set_selectable(True)
+        self.page_body.append(self.p2v_result)
+
         self._refresh_repositories(None)
 
     def _refresh_repositories(self, _button: Gtk.Button | None) -> None:
@@ -482,11 +519,74 @@ class FecloraGTK:
 
     def _populate_remote_repositories(self, response: dict[str, Any]) -> None:
         self.remote_repository_rows = [("NFS/SSH", item) for item in response.get("repositories", []) if isinstance(item, dict)]
+        if hasattr(self, "p2v_import_repository"):
+            usable = [item for item in self.remote_repository_rows if item[1].get("mounted") and item[1].get("verified") and not item[1].get("read_only")]
+            self.p2v_import_repositories = usable
+            labels = ["Repositorio local"] + [str(item.get("id")) for _, item in usable]
+            self.p2v_import_repository.set_model(Gtk.StringList.new(labels))
+            self.p2v_export_destinations = usable
+            self.p2v_export_destination.set_model(Gtk.StringList.new(["Repositorio local"] + [str(item.get("id")) for _, item in usable]))
         self._render_repositories()
 
     def _populate_s3_repositories(self, response: dict[str, Any]) -> None:
         self.s3_repository_rows = [("S3", item) for item in response.get("repositories", []) if isinstance(item, dict)]
+        if hasattr(self, "p2v_export_repository"):
+            usable = [item for _, item in self.s3_repository_rows if not item.get("read_only")]
+            self.p2v_export_repositories = usable
+            labels = ["Selecciona repositorio S3…"] + [str(item.get("id")) for item in usable]
+            self.p2v_export_repository.set_model(Gtk.StringList.new(labels))
+            self.p2v_export_repository.set_selected(0)
         self._render_repositories()
+
+    def _import_legacy_p2v(self, _button: Gtk.Button) -> None:
+        import re
+        source_image_id = self.p2v_source_image_id.get_text().strip()
+        image_id = self.p2v_import_image_id.get_text().strip()
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", source_image_id) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+            self.p2v_result.set_text("Indica identificadores válidos para la imagen QCOW2 de origen y la nueva imagen.")
+            return
+        params = {"source_image_id": source_image_id, "image_id": image_id}
+        selected = self.p2v_import_repository.get_selected()
+        repositories = getattr(self, "p2v_import_repositories", [])
+        if selected:
+            if selected - 1 >= len(repositories):
+                self.p2v_result.set_text("Selecciona un repositorio de archivos válido.")
+                return
+            params["repository_id"] = repositories[selected - 1][1]["id"]
+        self.p2v_result.set_text("Solicitando importación P2V…")
+        self.api.submit("import_p2v", params, on_success=self._p2v_operation_accepted, on_error=self._p2v_operation_failed)
+
+    def _export_legacy_p2v(self, _button: Gtk.Button) -> None:
+        import re
+        image_id = self.p2v_export_image_id.get_text().strip()
+        source_index = self.p2v_export_repository.get_selected()
+        sources = getattr(self, "p2v_export_repositories", [])
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+            self.p2v_result.set_text("Indica un identificador QCOW2 heredado válido.")
+            return
+        if source_index == 0 or source_index - 1 >= len(sources):
+            self.p2v_result.set_text("Selecciona un repositorio S3 de origen escribible.")
+            return
+        params = {"image_id": image_id, "source_repository_id": sources[source_index - 1]["id"]}
+        destination_index = self.p2v_export_destination.get_selected()
+        destinations = getattr(self, "p2v_export_destinations", [])
+        if destination_index:
+            if destination_index - 1 >= len(destinations):
+                self.p2v_result.set_text("Selecciona un repositorio de destino válido.")
+                return
+            params["destination_repository_id"] = destinations[destination_index - 1][1]["id"]
+        self.p2v_result.set_text("Solicitando exportación P2V desde S3…")
+        self.api.submit("export_p2v_s3", params, on_success=self._p2v_operation_accepted, on_error=self._p2v_operation_failed)
+
+    def _p2v_operation_accepted(self, result: dict[str, Any]) -> None:
+        operation_id = result.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            self._p2v_operation_failed(RuntimeError("El backend no devolvió operation_id."))
+            return
+        self.p2v_result.set_text("Operación P2V aceptada: " + operation_id + ". Consulta Operation Log para ver progreso, resultado y errores.")
+
+    def _p2v_operation_failed(self, error: Exception) -> None:
+        self.p2v_result.set_text("No se pudo iniciar la operación P2V: " + str(error))
 
     def _render_repositories(self) -> None:
         if not hasattr(self, "repositories_grid"):
