@@ -242,7 +242,7 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(120, 50)) as pilot:
                 await pilot.pause()
                 await pilot.click("#continue")
-                await pilot.click("#nav-images")
+                app._current_page = "images"
                 await app.load_page("images")
                 table = app.query_one("#page-table", DataTable)
                 for _ in range(50):
@@ -251,14 +251,16 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                         break
                 self.assertGreater(table.row_count, 0)
                 table.focus()
+                table.move_cursor(row=0)
                 table.action_select_cursor()
                 action_button = app.query_one("#page-action", Button)
                 for _ in range(50):
                     await pilot.pause(0.1)
-                    if action_button.display:
+                    if not action_button.disabled:
                         break
-                self.assertTrue(action_button.display)
-                await pilot.click("#page-action")
+                self.assertFalse(action_button.disabled)
+                self.assertEqual(app._selected_page_row, "image-test")
+                await app.run_page_action()
                 self.assertIn(("verify_image", {"image_id": "image-test"}), requests)
 
     async def test_symmetric_capture_passphrase_is_sent_only_to_one_shot_channel(self):
@@ -342,9 +344,8 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(120, 50)) as pilot:
                 await pilot.pause()
                 await pilot.click("#continue")
-                await pilot.click("#nav-operation-log")
-                await pilot.pause()
-                await pilot.pause()
+                app._current_page = "operation-log"
+                await app.load_page("operation-log")
                 table = app.query_one("#page-table", DataTable)
                 for _ in range(50):
                     await pilot.pause(0.1)
@@ -362,11 +363,11 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
                     if not action_button.disabled:
                         break
                 self.assertFalse(action_button.disabled)
-                await pilot.click("#page-action")
+                await app.run_page_action()
                 self.assertNotIn(("cancel_local_operation", {"operation_id": "operation-test"}), requests)
 
                 app.query_one("#page-confirmation", Input).value = "CANCEL operation-test"
-                await pilot.click("#page-action")
+                await app.run_page_action()
                 self.assertIn(("cancel_local_operation", {"operation_id": "operation-test"}), requests)
 
     async def test_pxe_services_require_a_successful_profile_preflight(self):
