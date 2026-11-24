@@ -13,8 +13,10 @@ page supports whole-disk capture (RAW/QCOW2), partition capture, LVM logical-vol
 capture, Stratis XFS filesystem capture and incremental Btrfs subvolume send/receive streams,
 compression, age encryption, progress polling and cancellation through the privileged API.
 The operations page also exposes ddrescue disk recovery (retry-pass and resume
-controls) and recovery finalization.
-Restore, clone, recovery and deployment operations remain in Textual; other
+controls), recovery finalization, whole-disk/partition/logical-volume restoration
+and whole-disk/partition cloning. Restore and clone actions retain exact destructive
+confirmation phrases and use the privileged asynchronous operation API. Recovery ISO
+and deployment-bundle workflows remain in Textual; other
 navigation pages are still placeholders. This frontend is not production-ready.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
@@ -46,8 +48,8 @@ session is required.
 2. Port the welcome/setup flow and shared GTK application shell. The initial
    overview and storage inventory pages now call the real backend and render
    live results; structural regression tests cover these paths.
-3. Complete the operations page: port the remaining capture modes, restore,
-   clone, Btrfs receive, recovery and deployment-bundle actions, preserving
+3. Complete the operations page: port the remaining capture modes and the
+   recovery ISO/deployment-bundle actions, preserving
    confirmation phrases, validation, progress events, cancellation and error handling.
 4. Port inventory, image browsing, restore profiles, network, repositories,
    server/PXE, remote deployment and recovery workflows; do not replace
