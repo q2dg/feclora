@@ -189,3 +189,8 @@ require_text '"restore_proportional_disk"' src/feclora/api.py "Proportional rest
 require_text '"extract_partition_image"' src/feclora/api.py "Partition extraction must be available through the privileged API dispatch."
 
 require_text 'self\.api\.submit\("capture_p2v"' src/feclora/gui_gtk.py "GTK must expose virtual-disk QCOW2 P2V capture."
+
+require_text 'self\.api\.submit\("restore_profiles"' src/feclora/gui_gtk.py "GTK restore profiles page must load persisted profiles."
+require_text 'self\.api\.submit\("create_restore_profile"' src/feclora/gui_gtk.py "GTK restore profiles page must create bound single-use profiles."
+require_text 'self\.api\.submit\("execute_restore_profile"' src/feclora/gui_gtk.py "GTK restore profiles page must execute selected profiles through the durable worker."
+require_text 'self\.api\.submit\("capture_p2v"' src/feclora/gui_gtk.py "GTK must expose P2V capture."
