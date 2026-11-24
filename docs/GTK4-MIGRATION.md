@@ -27,9 +27,9 @@ Implemented GTK workflows:
   timezone-aware expiry and exact destination confirmation.
 - NetworkManager IPv4 DHCP/static configuration with the existing 120-second
   rollback checkpoint.
-- Repository inventory and management: SSHFS/S3 definition creation/editing, remote repository check/mount/unmount/removal with mount-state guards, S3 check/removal, encrypted systemd credential import/removal with backend reference checks; remote deployment definition creation/import, exact-phrase arm/cancel/reconcile actions, guarded service start/stop/status; authenticated Client inspection, local disk/partition/healthy-LVM target selection, exact READ/ERASE confirmation, multicast IGMP confirmation, client start/status; operation log with exact-phrase cancellation and persistent ddrescue recovery history.
+- Repository inventory and management: SSHFS/NFS/SMB/S3 definition creation/editing, remote repository check/mount/unmount/removal with mount-state guards, S3 check/removal, encrypted systemd credential import/removal with backend reference checks; remote deployment definition creation/import, exact-phrase arm/cancel/reconcile actions, guarded service start/stop/status; authenticated Client inspection, local disk/partition/healthy-LVM target selection, exact READ/ERASE confirmation, multicast IGMP confirmation, client start/status; operation log with exact-phrase cancellation and persistent ddrescue recovery history.
 
-Known remaining migration work includes full certificate lifecycle parity beyond renewal/key rotation; provider-specific NFS/SMB definition flows (SSHFS and S3 definition editing are available); and any remaining operational workflows present in Textual that have not yet been audited and ported. These pages must not be treated as complete merely because
+Known remaining migration work includes full certificate lifecycle parity beyond renewal/key rotation; any remaining operational workflows present in Textual that have not yet been audited and ported. These pages must not be treated as complete merely because
 their status/history views are present.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
