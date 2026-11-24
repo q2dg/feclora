@@ -506,6 +506,113 @@ class FecloraGTK:
         self.api.submit("pxe_service_status", on_success=lambda value: self._server_status_part("pxe", value), on_error=self._server_status_failed)
         self.api.submit("network_interfaces", on_success=lambda value: self._server_status_part("interfaces", value), on_error=self._server_status_failed)
 
+    def _server_action_done(self, result: dict[str, Any]) -> None:
+        message = result.get("message") or str(result)
+        self.server_status.set_text(str(message))
+        self._refresh_server_status(None)
+
+    def _server_action_failed(self, error: Exception) -> None:
+        self.server_status.set_text("Error de administración del servidor: " + str(error))
+
+    def _selected_server_interface(self) -> dict[str, Any] | None:
+        selected = self.server_interface.get_selected()
+        interfaces = getattr(self, "server_interfaces", [])
+        if selected >= len(interfaces):
+            return None
+        return interfaces[selected]
+
+    def _bootstrap_server(self, _button: Gtk.Button) -> None:
+        selected = self._selected_server_interface()
+        if not selected:
+            self.server_status.set_text("Selecciona una interfaz con dirección IPv4.")
+            return
+        params = {
+            "interface": selected.get("interface"), "address": selected.get("address"),
+            "prefix_length": selected.get("prefix_length"),
+        }
+        self.api.submit("bootstrap_server", params, on_success=self._server_action_done, on_error=self._server_action_failed)
+
+    def _renew_server_certificate(self, _button: Gtk.Button) -> None:
+        confirmation = self.server_renew_confirmation.get_text().strip()
+        if confirmation != "RENEW SERVER CERTIFICATE":
+            self.server_status.set_text("Escribe exactamente RENEW SERVER CERTIFICATE.")
+            return
+        self.api.submit("renew_server_certificate", {"confirmation": confirmation}, on_success=self._server_action_done, on_error=self._server_action_failed)
+        self.server_renew_confirmation.set_text("")
+
+    def _rotate_server_keypair(self, _button: Gtk.Button) -> None:
+        confirmation = self.server_rotate_confirmation.get_text().strip()
+        if confirmation != "ROTATE SERVER TLS KEYPAIR":
+            self.server_status.set_text("Escribe exactamente ROTATE SERVER TLS KEYPAIR.")
+            return
+        self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=self._server_action_done, on_error=self._server_action_failed)
+        self.server_rotate_confirmation.set_text("")
+
+    def _validate_pxe_profile(self, _button: Gtk.Button) -> None:
+        selected = self._selected_server_interface()
+        if not selected:
+            self.pxe_result.set_text("Selecciona la interfaz y dirección IPv4 del servidor.")
+            return
+        try:
+            port = int(self.pxe_port.get_text().strip())
+            max_clients_text = self.pxe_max_clients.get_text().strip()
+            max_duration_text = self.pxe_max_duration.get_text().strip()
+            mode = "isolated" if self.pxe_mode.get_selected() == 1 else "proxy"
+            profile = {
+                "interface": selected["interface"], "address": selected["address"],
+                "prefix_length": selected["prefix_length"], "mode": mode,
+                "pool_start": self.pxe_pool_start.get_text().strip() or None if mode == "isolated" else None,
+                "pool_end": self.pxe_pool_end.get_text().strip() or None if mode == "isolated" else None,
+                "lease_time": self.pxe_lease.get_text().strip(),
+                "gateway": self.pxe_gateway.get_text().strip() or None if mode == "isolated" else None,
+                "dns_server": self.pxe_dns.get_text().strip() or None if mode == "isolated" else None,
+                "http_port": port,
+                "authoritative_confirmed": self.pxe_authoritative.get_active() if mode == "isolated" else False,
+                "max_clients": int(max_clients_text) if max_clients_text else None,
+                "max_duration_seconds": int(max_duration_text) if max_duration_text else None,
+            }
+        except ValueError:
+            self.pxe_result.set_text("Puerto, límite de clientes y duración deben ser números enteros.")
+            self.pxe_start.set_sensitive(False)
+            self._pxe_profile = None
+            return
+        self.pxe_result.set_text("Validando perfil PXE…")
+        self.pxe_start.set_sensitive(False)
+        self._pxe_profile = None
+        self._pxe_pending_profile = profile
+        self.api.submit("validate_pxe_profile", profile, on_success=self._pxe_profile_validated, on_error=self._pxe_profile_rejected)
+
+    def _pxe_profile_validated(self, result: dict[str, Any]) -> None:
+        self._pxe_profile = getattr(self, "_pxe_pending_profile", None)
+        if self._pxe_profile is None:
+            self.pxe_result.set_text("No se conservó el perfil validado; vuelve a validarlo.")
+            return
+        self.pxe_start.set_sensitive(True)
+        self.pxe_result.set_text(str(result.get("message") or result))
+
+    def _pxe_profile_rejected(self, error: Exception) -> None:
+        self._pxe_profile = None
+        self.pxe_start.set_sensitive(False)
+        self.pxe_result.set_text("El perfil PXE no pasó la validación: " + str(error))
+
+    def _start_pxe_services(self, _button: Gtk.Button) -> None:
+        if self._pxe_profile is None:
+            self.pxe_result.set_text("Valida un perfil PXE antes de iniciar servicios.")
+            return
+        self.pxe_result.set_text("Iniciando servicios PXE…")
+        self.api.submit("start_pxe_services", self._pxe_profile, on_success=self._pxe_action_done, on_error=self._pxe_action_failed)
+
+    def _stop_pxe_services(self, _button: Gtk.Button) -> None:
+        self.pxe_result.set_text("Deteniendo servicios PXE…")
+        self.api.submit("stop_pxe_services", on_success=self._pxe_action_done, on_error=self._pxe_action_failed)
+
+    def _pxe_action_done(self, result: dict[str, Any]) -> None:
+        self.pxe_result.set_text(str(result.get("message") or result))
+        self._refresh_server_status(None)
+
+    def _pxe_action_failed(self, error: Exception) -> None:
+        self.pxe_result.set_text("Error en servicios PXE: " + str(error))
+
     def _server_status_part(self, key: str, value: dict[str, Any]) -> None:
         self.server_status_parts[key] = value
         if set(self.server_status_parts) != {"status", "pxe", "interfaces"}:
@@ -513,6 +620,15 @@ class FecloraGTK:
         status = self.server_status_parts["status"]
         pxe = self.server_status_parts["pxe"]
         interfaces = self.server_status_parts["interfaces"].get("interfaces") or []
+        self.server_interfaces = [
+            item for item in interfaces
+            if isinstance(item, dict) and item.get("interface") and item.get("address")
+            and isinstance(item.get("prefix_length"), int)
+        ]
+        if hasattr(self, "server_interface"):
+            labels = [f"{item['interface']} · {item['address']}/{item['prefix_length']}" for item in self.server_interfaces]
+            self.server_interface.set_model(Gtk.StringList.new(labels or ["No hay interfaces IPv4 disponibles"]))
+            self.server_interface.set_selected(0)
         lines = [
             f"Equipo: {status.get('hostname', '—')}",
             f"Sistema: {status.get('platform', '—')}",
