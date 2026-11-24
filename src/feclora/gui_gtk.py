@@ -2425,6 +2425,7 @@ class FecloraGTK:
         self._load_image_catalog()
 
     def _load_image_catalog(self) -> None:
+        self.image_catalog_stack.set_visible_child_name("loading")
         repository_id = self._image_repository_id()
         if repository_id:
             self.api.submit("repository_images", {"repository_id": repository_id}, on_success=self._populate_image_catalog, on_error=self._image_page_failed)
@@ -2639,6 +2640,11 @@ class FecloraGTK:
             self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._image_page_failed)
 
     def _image_page_failed(self, error: Exception) -> None:
+        if hasattr(self, "image_catalog_stack"):
+            self.image_catalog_error.set_description(
+                "No se pudo consultar el repositorio seleccionado. " + str(error)
+            )
+            self.image_catalog_stack.set_visible_child_name("error")
         if hasattr(self, "image_result"):
             self.image_result.set_text("Operación de imagen fallida: " + str(error))
 
