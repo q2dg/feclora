@@ -214,6 +214,27 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.p2v_export_repository', self.source)
         self.assertIn('self.p2v_result.set_text', self.source)
 
+    def test_repository_management_and_credential_controls_use_allowlisted_api(self):
+        for action in (
+            'self.api.submit("check_remote_repository"',
+            'self.api.submit("mount_remote_repository"',
+            'self.api.submit("unmount_remote_repository"',
+            'self.api.submit("remove_remote_repository"',
+            'self.api.submit("check_s3_repository"',
+            'self.api.submit("remove_s3_repository"',
+            'self.api.submit("add_remote_repository"',
+            'self.api.submit("add_s3_repository"',
+            'self.api.submit("systemd_credentials"',
+            'self.api.submit("put_systemd_credential"',
+            'self.api.submit("remove_systemd_credential"',
+        ):
+            self.assertIn(action, self.source)
+        self.assertIn('mount_state != "unmounted"', self.source)
+        self.assertIn('mount_state != "identity_verified"', self.source)
+        self.assertIn('f"REMOVE {identifier}"', self.source)
+        self.assertIn('credential_management', self.source)
+        self.assertIn('repository_management_rows', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
