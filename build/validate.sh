@@ -244,6 +244,16 @@ require_text 'self\.api\.submit\("pxe_age_passphrase_status"' src/feclora/gui_gt
 require_text 'self\.api\.submit\("provide_pxe_age_passphrase"' src/feclora/gui_gtk.py "GTK must expose secure one-shot PXE age passphrase delivery."
 require_text 'self\.api\.submit\("export_server_age_recipients"' src/feclora/gui_gtk.py "GTK must expose server age recipient export."
 require_text 'self\.api\.submit\("refresh_client_age_recipients"' src/feclora/gui_gtk.py "GTK must expose client age recipient inventory refresh."
+require_text 'self\.api\.submit\("create_deployment_job"' src/feclora/gui_gtk.py "GTK must expose remote deployment definition creation."
+require_text 'self\.api\.submit\("import_deployment_job"' src/feclora/gui_gtk.py "GTK must expose bounded remote deployment definition import."
+require_text 'self\.api\.submit\("arm_deployment_job"' src/feclora/gui_gtk.py "GTK must expose exact-phrase deployment authorization."
+require_text 'self\.api\.submit\("cancel_deployment_job"' src/feclora/gui_gtk.py "GTK must expose confirmed deployment cancellation."
+require_text 'self\.api\.submit\("reconcile_deployment_job"' src/feclora/gui_gtk.py "GTK must expose confirmed interrupted deployment reconciliation."
+require_text 'self\.api\.submit\("start_deployment_service"' src/feclora/gui_gtk.py "GTK must expose deployment service startup."
+require_text 'self\.api\.submit\("stop_deployment_service"' src/feclora/gui_gtk.py "GTK must expose guarded deployment service shutdown."
+require_text 'self\.api\.submit\("deployment_service_status"' src/feclora/gui_gtk.py "GTK must expose deployment service status checks."
+require_text 'def _stop_remote_job_after_status' src/feclora/gui_gtk.py "GTK must preflight active clients before stopping deployment workers."
+
 require_text 'base64\.b64encode\(payload\)\.decode\("ascii"\)' src/feclora/gui_gtk.py "GTK must bound and encode local PXE answer uploads."
 require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk.py "GTK must mask one-shot age passphrases."
 
