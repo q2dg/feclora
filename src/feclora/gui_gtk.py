@@ -19,19 +19,22 @@ os.environ.pop("DISPLAY", None)
 
 import gi
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, GLib
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk, GLib
 
 from feclora.gtk_api import GtkAPIClient
 from feclora.ui_catalog import KEYBOARD_LAYOUTS, LANGUAGES, MESSAGES, PAGES, PAGE_MESSAGE_KEYS
 
 
 class FecloraGTK:
-    def __init__(self, application: Gtk.Application) -> None:
+    def __init__(self, application: Adw.Application) -> None:
         self.application = application
         self.language = self._load_language()
         self.keyboard_layout = "us"
         self.api = GtkAPIClient()
-        self.window = Gtk.ApplicationWindow(application=application)
+        self.window = Adw.ApplicationWindow(application=application)
+        self.toast_overlay = Adw.ToastOverlay()
+        self.window.set_content(self.toast_overlay)
         self.window.set_title("Feclora")
         self.window.set_decorated(False)
         self.window.set_deletable(False)
@@ -84,6 +87,8 @@ class FecloraGTK:
             self.status_summary.set_text(message)
         if hasattr(self, "inventory_summary"):
             self.inventory_summary.set_text(message)
+        if hasattr(self, "toast_overlay"):
+            self.toast_overlay.add_toast(Adw.Toast.new(message))
 
     def _accept_keyboard_layout(self, result: dict[str, Any]) -> None:
         layout = result.get("layout")
@@ -96,6 +101,14 @@ class FecloraGTK:
     @staticmethod
     def _box(orientation: Gtk.Orientation, spacing: int = 12) -> Gtk.Box:
         return Gtk.Box(orientation=orientation, spacing=spacing)
+
+    def _present_content(self, content: Gtk.Widget, title: str, subtitle: str = "") -> None:
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        header.set_title_widget(Adw.WindowTitle(title, subtitle))
+        toolbar.add_top_bar(header)
+        toolbar.set_content(content)
+        self.toast_overlay.set_child(toolbar)
 
     def _show_welcome(self) -> None:
         root = self._box(Gtk.Orientation.VERTICAL, 18)
@@ -137,7 +150,10 @@ class FecloraGTK:
         terminal_button.connect("clicked", self._open_root_terminal)
         root.append(terminal_button)
 
-        self.window.set_child(root)
+        clamp = Adw.Clamp()
+        clamp.set_maximum_size(560)
+        clamp.set_child(root)
+        self._present_content(clamp, "Feclora", self.tr("first_title"))
         self.window.present()
 
     def _language_changed(self, dropdown: Gtk.DropDown, _param: Any) -> None:
@@ -174,6 +190,7 @@ class FecloraGTK:
     def _show_navigation(self) -> None:
         outer = self._box(Gtk.Orientation.HORIZONTAL, 0)
         sidebar = self._box(Gtk.Orientation.VERTICAL, 8)
+        sidebar.add_css_class("navigation-sidebar")
         sidebar.set_size_request(280, -1)
         sidebar.set_margin_top(24)
         sidebar.set_margin_start(12)
@@ -209,7 +226,7 @@ class FecloraGTK:
 
         outer.append(sidebar)
         outer.append(content)
-        self.window.set_child(outer)
+        self._present_content(outer, "Feclora", self.tr("overview"))
         self._select_page(None, "overview")
 
     def _clear_page(self) -> None:
@@ -3031,10 +3048,10 @@ class FecloraGTK:
 def main() -> None:
     if not os.environ.get("WAYLAND_DISPLAY"):
         raise RuntimeError("Feclora GTK requires a native Wayland session (WAYLAND_DISPLAY missing)")
-    app = Gtk.Application(application_id="org.feclora.Appliance")
+    app = Adw.Application(application_id="org.feclora.Appliance")
     frontend: FecloraGTK | None = None
 
-    def activate(application: Gtk.Application) -> None:
+    def activate(application: Adw.Application) -> None:
         nonlocal frontend
         if frontend is None:
             frontend = FecloraGTK(application)
