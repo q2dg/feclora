@@ -167,3 +167,6 @@ require_text '"restore_stratis_filesystem"' src/feclora/gui_gtk.py "GTK must exp
 require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "GTK image-building workflows must load repository state."
 require_text '"build_recovery_iso"' src/feclora/gui_gtk.py "GTK must expose recovery ISO generation."
 require_text '"build_deployment_bundle"' src/feclora/gui_gtk.py "GTK must expose deployment bundle generation."
+
+require_text 'target_wwn and not target_serial' src/feclora/gui_gtk.py "GTK recovery ISO generation must require a target identity selector."
+require_text 'base_iso\.lower\(\)\.endswith\("\.iso"\)' src/feclora/gui_gtk.py "GTK recovery artifacts must require an ISO base path."
