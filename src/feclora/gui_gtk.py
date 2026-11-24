@@ -128,48 +128,75 @@ class FecloraGTK:
         root = self._box(Gtk.Orientation.VERTICAL, 18)
         root.set_halign(Gtk.Align.CENTER)
         root.set_valign(Gtk.Align.CENTER)
-        root.set_margin_top(48)
-        root.set_margin_bottom(48)
-        root.set_margin_start(64)
-        root.set_margin_end(64)
+        root.set_margin_top(32)
+        root.set_margin_bottom(32)
+        root.set_margin_start(24)
+        root.set_margin_end(24)
 
         title = Gtk.Label(label=self.tr("first_title"))
         title.add_css_class("title-1")
         root.append(title)
         tagline = Gtk.Label(label=self.tr("tagline"))
         tagline.set_wrap(True)
+        tagline.set_justify(Gtk.Justification.CENTER)
         root.append(tagline)
 
-        root.append(Gtk.Label(label=self.tr("language")))
+        language_group = Adw.PreferencesGroup(title="Idioma de la interfaz", description="Selecciona el idioma que utilizará Feclora.")
+        root.append(language_group)
         self.language_dropdown = Gtk.DropDown.new_from_strings([label for label, _code in LANGUAGES])
         self.language_dropdown.set_selected(next((i for i, (_label, code) in enumerate(LANGUAGES) if code == self.language), 1))
+        self.language_dropdown.set_valign(Gtk.Align.CENTER)
         self.language_dropdown.connect("notify::selected", self._language_changed)
-        root.append(self.language_dropdown)
+        language_row = Adw.ActionRow(title=self.tr("language"))
+        language_row.add_suffix(self.language_dropdown)
+        language_row.set_activatable_widget(self.language_dropdown)
+        language_group.add(language_row)
 
-        root.append(Gtk.Label(label=self.tr("keyboard")))
+        keyboard_group = Adw.PreferencesGroup(title="Distribución del teclado", description="La distribución se aplica al sistema mediante la API local.")
+        root.append(keyboard_group)
         self.keyboard_dropdown = Gtk.DropDown.new_from_strings([label for label, _value in KEYBOARD_LAYOUTS])
-        root.append(self.keyboard_dropdown)
+        keyboard_values = [value for _label, value in KEYBOARD_LAYOUTS]
+        self.keyboard_dropdown.set_selected(keyboard_values.index(self.keyboard_layout) if self.keyboard_layout in keyboard_values else 0)
+        self.keyboard_dropdown.set_valign(Gtk.Align.CENTER)
+        keyboard_row = Adw.ActionRow(title=self.tr("keyboard"))
+        keyboard_row.add_suffix(self.keyboard_dropdown)
+        keyboard_row.set_activatable_widget(self.keyboard_dropdown)
+        keyboard_group.add(keyboard_row)
 
-        self.status = Gtk.Label(label=self.tr("language_scope"))
+        self.status = Gtk.Label(label=self.tr("language_scope"), xalign=0)
         self.status.set_wrap(True)
-        root.append(self.status)
+        self.status.set_selectable(True)
+        status_row = Adw.ActionRow(title="Estado de configuración")
+        status_row.add_suffix(self.status)
+        keyboard_group.add(status_row)
 
+        actions_group = Adw.PreferencesGroup(title="Acciones")
+        root.append(actions_group)
         apply_button = Gtk.Button(label=self.tr("apply_keyboard"))
         apply_button.connect("clicked", self._apply_keyboard)
-        root.append(apply_button)
+        apply_row = Adw.ActionRow(title="Aplicar distribución seleccionada")
+        apply_row.add_suffix(apply_button)
+        apply_row.set_activatable_widget(apply_button)
+        actions_group.add(apply_row)
         continue_button = Gtk.Button(label=self.tr("continue"))
+        continue_button.add_css_class("suggested-action")
         continue_button.connect("clicked", self._continue)
-        root.append(continue_button)
+        continue_row = Adw.ActionRow(title="Guardar preferencias y continuar")
+        continue_row.add_suffix(continue_button)
+        continue_row.set_activatable_widget(continue_button)
+        actions_group.add(continue_row)
         terminal_button = Gtk.Button(label=self.tr("terminal"))
         terminal_button.connect("clicked", self._open_root_terminal)
-        root.append(terminal_button)
+        terminal_row = Adw.ActionRow(title="Mantenimiento")
+        terminal_row.add_suffix(terminal_button)
+        terminal_row.set_activatable_widget(terminal_button)
+        actions_group.add(terminal_row)
 
         clamp = Adw.Clamp()
-        clamp.set_maximum_size(560)
+        clamp.set_maximum_size(680)
         clamp.set_child(root)
         self._present_content(clamp, "Feclora", self.tr("first_title"))
         self.window.present()
-
     def _language_changed(self, dropdown: Gtk.DropDown, _param: Any) -> None:
         index = dropdown.get_selected()
         if index < len(LANGUAGES):
@@ -182,9 +209,13 @@ class FecloraGTK:
         self.status.set_text("Aplicando distribución del teclado…")
         self.api.submit(
             "set_keyboard_layout", {"layout": layout},
-            on_success=lambda _result: self.status.set_text(self.tr("apply_ok")),
+            on_success=lambda _result: self._keyboard_layout_applied(layout),
             on_error=self._show_error,
         )
+
+    def _keyboard_layout_applied(self, layout: str) -> None:
+        self.keyboard_layout = layout
+        self.status.set_text(self.tr("apply_ok"))
 
     def _open_root_terminal(self, _button: Gtk.Button) -> None:
         self.api.submit(
