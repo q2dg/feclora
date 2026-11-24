@@ -215,6 +215,11 @@ require_text '"remove_remote_repository"' src/feclora/gui_gtk.py "GTK must expos
 require_text '"check_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository checks."
 require_text '"remove_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository removal."
 require_text 'add_remote_repository' src/feclora/gui_gtk.py "GTK must expose SSHFS repository definitions."
+require_text 'Gtk\.DropDown\.new_from_strings\(\["SSHFS", "NFS", "SMB/CIFS"\]\)' src/feclora/gui_gtk.py "GTK must expose all managed SSHFS, NFS and SMB repository providers."
+require_text 'self\.remote_credential\.set_visible\(provider == "smb"\)' src/feclora/gui_gtk.py "GTK must expose encrypted SMB credentials only for SMB provider."
+require_text 'self\._selected_remote_credential_path\(self\.remote_credential' src/feclora/gui_gtk.py "GTK SMB repository definitions must reference protected systemd credentials."
+require_text 'self\.remote_identity\.set_visible\(provider == "sshfs"\)' src/feclora/gui_gtk.py "GTK SSHFS definitions must use protected SSH key and known_hosts selectors."
+
 require_text 'add_s3_repository' src/feclora/gui_gtk.py "GTK must expose S3 repository definitions."
 require_text 'update_remote_repository' src/feclora/gui_gtk.py "GTK must expose SSHFS repository definition updates."
 require_text 'update_s3_repository' src/feclora/gui_gtk.py "GTK must expose S3 repository definition updates."
