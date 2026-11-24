@@ -98,3 +98,9 @@ without their existing systemd recovery handling.
 - Manual kiosk testing verifies fullscreen behavior, no close/minimize route,
   keyboard and pointer operation, VT2 maintenance access and recovery after
   application restart.
+
+- RAW whole-disk capture now supports the Textual one-shot age passphrase
+  workflow: the secret is entered in a masked GTK password field, the capture
+  is submitted with passphrase encryption enabled, and the secret is delivered
+  to the accepted operation ID. The field is cleared immediately; delivery
+  failure requests cancellation of the capture. QCOW2 remains unencrypted.
