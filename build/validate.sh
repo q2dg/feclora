@@ -197,3 +197,6 @@ require_text 'self\.api\.submit\("capture_p2v"' src/feclora/gui_gtk.py "GTK must
 
 require_text 'self\.api\.submit\("apply_network_profile"' src/feclora/gui_gtk.py "GTK network page must apply NetworkManager profiles through the privileged API."
 require_text '"rollback_timeout": 120' src/feclora/gui_gtk.py "GTK network changes must retain the automatic rollback checkpoint."
+
+require_text 'self\.api\.submit\("local_operations"' src/feclora/gui_gtk.py "GTK operation log must read durable local operation history."
+require_text 'self\.api\.submit\("recovery_jobs"' src/feclora/gui_gtk.py "GTK recovery history must read persistent ddrescue jobs."
