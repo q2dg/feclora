@@ -22,7 +22,10 @@ controls), recovery finalization, whole-disk/partition/logical-volume/Stratis re
 and whole-disk/partition cloning. Restore and clone actions retain exact destructive
 confirmation phrases and use the privileged asynchronous operation API. Recovery ISO and deployment-bundle generation now use GTK image/repository
 selectors, repository write-state checks and DeploymentJob JSON validation. Restore
-images are loaded from the selected mounted repository when one is chosen; The Repositories page now inventories filesystem and S3 repositories with mounted,
+images are loaded from the selected mounted repository when one is chosen; The System page now renders host, platform, service and certificate status. The Server
+page reports Feclora/PXE service and interface readiness, but its bootstrap, PXE
+configuration, certificate lifecycle and answer-publication controls remain in Textual.
+The Repositories page now inventories filesystem and S3 repositories with mounted,
 verified and read-only state. The Remote Jobs, Deployment History and Client Jobs pages now render persisted
 job metadata, deployment journals, client states and event counts. The Operation Log
 page renders durable local operation records, progress, terminal
