@@ -160,3 +160,6 @@ printf 'Static validation passed. This does not prove that the ISO builds or boo
 require_text 'self\.api\.submit\("images"' src/feclora/gui_gtk.py "GTK restore workflow must load image manifests through the privileged API."
 require_text '"restore_disk".*"restore_partition".*"restore_logical_volume"' src/feclora/gui_gtk.py "GTK must expose disk, partition and logical-volume restore operations."
 require_text '"clone_disk".*"clone_partition"' src/feclora/gui_gtk.py "GTK must expose disk and partition cloning."
+
+require_text '"restore_stratis_filesystem"' src/feclora/api.py "Privileged API dispatch must expose Stratis filesystem restoration."
+require_text '"restore_stratis_filesystem"' src/feclora/gui_gtk.py "GTK must expose Stratis filesystem restoration."
