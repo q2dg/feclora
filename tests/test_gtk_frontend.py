@@ -371,6 +371,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('add_network_row("Método IPv4", self.network_method)', self.source)
         self.assertIn('add_network_row("DNS IPv4 separados por comas", self.network_dns)', self.source)
         self.assertIn("self._network_method_changed(self.network_method, None)", self.source)
+        self.assertIn("self.network_address_row = add_network_row", self.source)
+        self.assertIn("self.network_dns_row = add_network_row", self.source)
+        self.assertIn("for row in (self.network_address_row, self.network_prefix_row, self.network_gateway_row, self.network_dns_row):", self.source)
+        self.assertIn("row.set_visible(manual)", self.source)
 
     def test_operation_and_recovery_histories_use_libadwaita_empty_states(self):
         self.assertIn("self.operation_log_stack = Gtk.Stack()", self.source)
