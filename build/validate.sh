@@ -187,3 +187,5 @@ require_text 'target_device\["size_bytes"\] >= source_device\["size_bytes"\]' sr
 
 require_text '"restore_proportional_disk"' src/feclora/api.py "Proportional restore must be available through the privileged API dispatch."
 require_text '"extract_partition_image"' src/feclora/api.py "Partition extraction must be available through the privileged API dispatch."
+
+require_text 'self\.api\.submit\("capture_p2v"' src/feclora/gui_gtk.py "GTK must expose virtual-disk QCOW2 P2V capture."
