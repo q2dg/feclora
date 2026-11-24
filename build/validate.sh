@@ -291,6 +291,9 @@ require_text 'Adw\.ToastOverlay\(\)' src/feclora/gui_gtk.py "GTK frontend must p
 require_text 'libadwaita' requirements-gui.txt "GUI runtime metadata must include Fedora libadwaita packages."
 
 require_text 'Adw\.NavigationSplitView\(\)' src/feclora/gui_gtk.py "GTK frontend must use adaptive libadwaita navigation."
+require_text 'Adw\.PreferencesGroup\(title="Secciones"\)' src/feclora/gui_gtk.py "GTK navigation must group page destinations semantically."
+require_text 'row\.connect\("activated", self\._select_page, page_id\)' src/feclora/gui_gtk.py "GTK navigation rows must preserve page selection callbacks."
+require_text 'row\.set_activatable\(True\)' src/feclora/gui_gtk.py "GTK navigation rows must be keyboard and pointer activatable."
 require_text 'Adw\.NavigationPage\.new\(sidebar_scroller' src/feclora/gui_gtk.py "GTK frontend must wrap the navigation sidebar in an Adw page."
 require_text 'notify::collapsed' src/feclora/gui_gtk.py "GTK frontend must respond to compact navigation transitions."
 require_text 'set_show_content\(True\)' src/feclora/gui_gtk.py "GTK frontend must reveal the selected page in compact navigation."
