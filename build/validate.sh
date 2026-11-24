@@ -25,7 +25,7 @@ for file in \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
-  tests/test_gtk_api.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
+  tests/test_gtk_api.py tests/test_gtk_frontend.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
   require_file "$file"
 done
@@ -39,6 +39,8 @@ require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API
 require_text 'ThreadPoolExecutor|GLib\.idle_add' src/feclora/gtk_api.py "The GTK API bridge must keep blocking subprocess work off the GLib main loop."
 require_text 'GDK_BACKEND.*wayland' src/feclora/gui_gtk.py "The GTK frontend must force the native Wayland backend."
 require_text 'WAYLAND_DISPLAY' src/feclora/gui_gtk.py "The GTK frontend must require a Wayland compositor socket."
+require_text 'self\.api\.submit\("status"' src/feclora/gui_gtk.py "GTK overview must call the real status API."
+require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK inventory must call the real inventory API."
 if grep -Eiq 'customtkinter|tkinter|xwayland|xorg' requirements-gui.txt src/feclora/gui_gtk.py src/feclora/gtk_api.py; then
   fail "The GTK4 target runtime must not depend on Tk or X11 compatibility."
 fi
