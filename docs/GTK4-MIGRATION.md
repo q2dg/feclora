@@ -175,3 +175,8 @@ The local operations form now uses separate Adw.PreferencesGroup sections for op
 ## libadwaita image operations
 
 The Images page now separates repository/image selection, partition inspection and integrity verification, filesystem browsing/download, partition extraction, and operation results into semantic Adw.PreferencesGroup sections with Adw.ActionRow controls. The existing loading/empty/error catalog stack remains intact. Repository selection, verified-layout checks, safe download handling, writable-repository requirements, extraction cancellation/progress, and all privileged API requests are unchanged.
+
+
+## libadwaita overview status
+
+The Overview page now separates host/platform identity, Feclora server/client configuration, and local service status into dedicated Adw.PreferencesGroup sections with Adw.ActionRow summaries. The refresh action is presented in its own semantic row. The existing status API request and source fields are unchanged; the response is rendered into the corresponding summaries.
