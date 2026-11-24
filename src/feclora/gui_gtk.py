@@ -259,6 +259,8 @@ class FecloraGTK:
             self._show_deployments_page()
         elif page_id == "client-jobs":
             self._show_client_jobs_page()
+        elif page_id == "repositories":
+            self._show_repositories_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
@@ -401,6 +403,63 @@ class FecloraGTK:
 
     def _history_failed(self, error: Exception) -> None:
         self.history_summary.set_text("No se pudieron consultar los registros: " + str(error))
+
+    def _show_repositories_page(self) -> None:
+        self.page_description.set_text("Estado de los repositorios de archivos remotos y S3 disponibles para las operaciones.")
+        self.repositories_summary = Gtk.Label(label="Consultando repositorios…", xalign=0)
+        self.page_body.append(self.repositories_summary)
+        refresh = Gtk.Button(label="Actualizar repositorios")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", self._refresh_repositories)
+        self.page_body.append(refresh)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        self.repositories_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
+        scroller.set_child(self.repositories_grid)
+        self.page_body.append(scroller)
+        self._refresh_repositories(None)
+
+    def _refresh_repositories(self, _button: Gtk.Button | None) -> None:
+        self.repositories_summary.set_text("Consultando repositorios de archivos y S3…")
+        self.api.submit("remote_repositories", on_success=self._populate_remote_repositories, on_error=self._repositories_failed)
+        self.api.submit("s3_repositories", on_success=self._populate_s3_repositories, on_error=self._repositories_failed)
+
+    def _populate_remote_repositories(self, response: dict[str, Any]) -> None:
+        self.remote_repository_rows = [("NFS/SSH", item) for item in response.get("repositories", []) if isinstance(item, dict)]
+        self._render_repositories()
+
+    def _populate_s3_repositories(self, response: dict[str, Any]) -> None:
+        self.s3_repository_rows = [("S3", item) for item in response.get("repositories", []) if isinstance(item, dict)]
+        self._render_repositories()
+
+    def _render_repositories(self) -> None:
+        if not hasattr(self, "repositories_grid"):
+            return
+        rows = getattr(self, "remote_repository_rows", []) + getattr(self, "s3_repository_rows", [])
+        grid = self.repositories_grid
+        while child := grid.get_first_child():
+            grid.remove(child)
+        for column, heading in enumerate(("Tipo", "Identificador", "Nombre", "Estado", "Montado", "Verificado", "Solo lectura")):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+        for row, (kind, item) in enumerate(rows, start=1):
+            values = (
+                kind, item.get("id") or item.get("repository_id") or "—",
+                item.get("name") or item.get("id") or "—",
+                item.get("state") or item.get("status") or "—",
+                "sí" if item.get("mounted") else "no",
+                "sí" if item.get("verified") else "no",
+                "sí" if item.get("read_only") else "no",
+            )
+            for column, value in enumerate(values):
+                label = Gtk.Label(label=str(value), xalign=0)
+                label.set_selectable(True)
+                grid.attach(label, column, row, 1, 1)
+        self.repositories_summary.set_text(f"Repositorios disponibles: {len(rows)}")
+
+    def _repositories_failed(self, error: Exception) -> None:
+        self.repositories_summary.set_text("No se pudieron consultar los repositorios: " + str(error))
 
     def _show_remote_jobs_page(self) -> None:
         def render(item: dict[str, Any]) -> tuple[str, ...]:
