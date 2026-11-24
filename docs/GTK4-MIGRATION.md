@@ -14,7 +14,7 @@ page supports whole-disk capture (RAW/QCOW2), partition capture, LVM logical-vol
 capture, Stratis XFS filesystem capture and incremental Btrfs subvolume send/receive streams,
 compression, age encryption, progress polling and cancellation through the privileged API.
 The GTK Images page now inspects whole-disk manifests and verified partition tables,
-browses filesystem directories, downloads individual files safely under ~/Downloads,
+verifies all image artifacts, browses filesystem directories, downloads individual files safely under ~/Downloads,
 and extracts selected partitions through the durable operation worker. Proportional
 restore to a smaller disk is also exposed with kernel major:minor identity checks and
 a strict target-smaller-than-source preflight. The operations page also exposes ddrescue disk recovery (retry-pass and resume
