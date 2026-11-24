@@ -547,6 +547,37 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.remote_credential.set_visible(provider == "smb")', self.source)
         self.assertIn('self.remote_identity.set_visible(provider == "sshfs")', self.source)
 
+    def test_images_page_uses_semantic_libadwaita_groups(self):
+        start = self.source.index("    def _show_images_page")
+        end = self.source.index("    def _populate_image_repositories", start)
+        page = self.source[start:end]
+        for title in (
+            "Repositorio e imagen",
+            "Inspección y verificación",
+            "Exploración y descarga",
+            "Extracción de particiones",
+            "Resultado y actividad",
+        ):
+            self.assertIn(f'title="{title}"', page)
+            self.assertIn("Adw.PreferencesGroup(", page)
+        self.assertIn("def add_image_row(", page)
+        self.assertIn("row.add_suffix(widget)", page)
+        self.assertIn("row.set_activatable_widget(widget)", page)
+        for widget in (
+            "self.image_repository", "self.image_select", "self.image_partition",
+            "self.image_browse_path", "self.image_download_path", "self.image_cancel",
+        ):
+            self.assertIn(widget, page)
+        for callback in (
+            "self._inspect_selected_image", "self._verify_selected_image",
+            "self._browse_selected_image", "self._download_selected_image_file",
+            "self._extract_selected_partition", "self._cancel_image_extraction",
+        ):
+            self.assertIn(callback, page)
+        for state in ('"images"', '"empty"', '"loading"', '"error"'):
+            self.assertIn(state, page)
+        self.assertIn('self.api.submit("remote_repositories"', page)
+
     def test_client_job_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_client_jobs_page")
         end = self.source.index("    def _show_client_job_rows", start)
