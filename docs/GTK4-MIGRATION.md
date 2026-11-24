@@ -13,7 +13,7 @@ results onto the GLib main loop. All navigation content is vertically scrollable
 
 Implemented GTK workflows:
 
-- Overview, nested storage inventory, system status and server/PXE status views.
+- Overview, nested storage inventory, system status, server bootstrap, confirmed certificate renewal/TLS key rotation, and PXE profile validation/start/stop controls.
 - Whole-disk RAW/QCOW2, partition, LVM, Stratis XFS and Btrfs send/receive capture.
 - ddrescue recovery/resume and finalization; progress polling and cancellation.
 - Disk, partition, LVM and Stratis restoration; proportional disk restore with
@@ -29,8 +29,7 @@ Implemented GTK workflows:
   rollback checkpoint.
 - Repository inventory and management: SSHFS/S3 definition creation, remote repository check/mount/unmount/removal with mount-state guards, S3 check/removal, encrypted systemd credential import/removal with backend reference checks, remote deployment/client history, operation log with exact-phrase cancellation, and persistent ddrescue recovery history.
 
-Known remaining migration work includes the full server bootstrap/PXE controls,
-certificate lifecycle and PXE answer publication; provider-specific NFS/SMB definition flows (SSHFS and S3 definition editing are available);
+Known remaining migration work includes PXE answer publication/revocation and the age passphrase workflow; full certificate lifecycle parity beyond renewal/key rotation; provider-specific NFS/SMB definition flows (SSHFS and S3 definition editing are available);
 remote job creation/inspection/import/reconciliation and deployment controls;
 client-job actions; remaining operational workflows
 present in Textual. These pages must not be treated as complete merely because
