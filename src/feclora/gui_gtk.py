@@ -1189,7 +1189,7 @@ class FecloraGTK:
         self.image_session_id = result.get("session_id", "")
         self.image_browse_path.set_text(result.get("path", "/"))
         entries = result.get("entries") or []
-        self.image_listing.set_text("\\n".join(
+        self.image_listing.set_text("\n".join(
             f"{item.get('kind', '—'):9} {item.get('name', '—')} {item.get('size_bytes', '') if item.get('kind') == 'file' else ''}"
             for item in entries
         ) or "(directorio vacío)")
@@ -1698,7 +1698,7 @@ class FecloraGTK:
             f"Cliente configurado: {'sí' if status.get('client_configured') else 'no'}",
         ]
         lines.extend(f"Servicio {name}: {state}" for name, state in (status.get("services") or {}).items())
-        self.status_summary.set_text("\\n".join(lines))
+        self.status_summary.set_text("\n".join(lines))
 
     @staticmethod
     def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
