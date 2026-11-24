@@ -155,3 +155,8 @@ The local operation log now separates status/refresh, exact-phrase cancellation,
 ## libadwaita remote deployment history
 
 Remote deployment and journal history now place their status and refresh controls in an Adw.PreferencesGroup with Adw.ActionRow entries. Remote job definition, import-source selection and deployment-service actions are grouped into semantic preference sections; the JSON editor, exact confirmation entry, repository lookups, and existing privileged callbacks remain intact. Client job history status and refresh are likewise grouped without changing TLS inspection, target selection, confirmation, start, or status workflows.
+
+
+## libadwaita client execution controls
+
+The client-job page now separates authenticated server connection and inspection, local target selection, transfer/protection options, and execution/status into Adw.PreferencesGroup sections with Adw.ActionRow controls. TLS inspection, interface and inventory discovery, eligible-target filtering, compression/encryption options, isolated-network IGMP acknowledgement, exact ERASE/READ confirmation text, and existing start/status callbacks are retained.
