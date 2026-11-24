@@ -39,6 +39,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.navigation_split.set_show_content(False)", self.source)
         self.assertIn("self.window_title.set_title(page_title)", self.source)
 
+    def test_navigation_sidebar_uses_activatable_libadwaita_rows(self):
+        method = ast.get_source_segment(self.source, self.methods["_show_navigation"])
+        self.assertIn('Adw.PreferencesGroup(title="Secciones")', method)
+        self.assertIn("Adw.ActionRow(title=self.tr(PAGE_MESSAGE_KEYS[page_id]))", method)
+        self.assertIn('row.connect("activated", self._select_page, page_id)', method)
+        self.assertIn("row.set_activatable(True)", method)
+        self.assertIn("self.navigation_rows[page_id] = row", method)
+        self.assertNotIn("Gtk.Button(label=self.tr(PAGE_MESSAGE_KEYS[page_id]))", method)
+
     def test_frontend_fails_closed_to_native_wayland(self):
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', self.source)
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
