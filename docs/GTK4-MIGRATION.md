@@ -21,7 +21,9 @@ controls), recovery finalization, whole-disk/partition/logical-volume/Stratis re
 and whole-disk/partition cloning. Restore and clone actions retain exact destructive
 confirmation phrases and use the privileged asynchronous operation API. Recovery ISO and deployment-bundle generation now use GTK image/repository
 selectors, repository write-state checks and DeploymentJob JSON validation. Restore
-images are loaded from the selected mounted repository when one is chosen; The Network page also reads active NetworkManager profiles and live IPv4 bindings,
+images are loaded from the selected mounted repository when one is chosen; The Operation Log page renders durable local operation records, progress, terminal
+errors, and partial-destination warnings; the ddrescue history page lists persistent
+recovery jobs, rescued/unresolved byte counts, and progress. The Network page also reads active NetworkManager profiles and live IPv4 bindings,
 validates static IPv4/prefix/gateway/DNS input, and applies DHCP or static changes
 through the existing 120-second rollback checkpoint. The remaining navigation pages
 are still placeholders. The Restore Profiles page now
