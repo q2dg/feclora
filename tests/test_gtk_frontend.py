@@ -124,6 +124,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_system_and_server_pages_render_service_certificate_and_pxe_status(self):
+        self.assertIn('self.api.submit("pxe_service_status"', self.source)
+        self.assertIn('self.api.submit("network_interfaces"', self.source)
+        self.assertIn('status.get("certificate_status")', self.source)
+        self.assertIn('def _show_system_page', self.source)
+        self.assertIn('def _show_server_status_page', self.source)
+
     def test_repository_page_lists_remote_and_s3_storage_state(self):
         self.assertIn('self.api.submit("remote_repositories"', self.source)
         self.assertIn('self.api.submit("s3_repositories"', self.source)
