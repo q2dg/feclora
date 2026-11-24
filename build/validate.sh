@@ -323,3 +323,10 @@ require_text 'title="Cifrado age y destinatarios"' src/feclora/gui_gtk.py "GTK a
 require_text 'row.set_activatable_widget(widget)' src/feclora/gui_gtk.py "GTK server preference rows must preserve direct control activation."
 require_text 'self.pxe_start.set_sensitive(False)' src/feclora/gui_gtk.py "GTK PXE services must remain disabled until profile validation succeeds."
 require_text 'self.pxe_passphrase.set_visibility(False)' src/feclora/gui_gtk.py "GTK one-shot PXE age passphrases must remain masked."
+
+
+require_text 'title="Origen y destino"' src/feclora/gui_gtk.py "GTK restore profiles must group source and target selection."
+require_text 'title="Definición del perfil"' src/feclora/gui_gtk.py "GTK restore profiles must separate profile creation from execution."
+require_text 'title="Ejecución controlada"' src/feclora/gui_gtk.py "GTK restore profiles must group guarded execution controls."
+require_text 'row\.set_activatable_widget\(widget\)' src/feclora/gui_gtk.py "GTK restore profile rows must preserve direct control activation."
+require_text 'self\.profile_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK restore profile cancellation must remain disabled until an operation is active."
