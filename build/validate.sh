@@ -294,3 +294,8 @@ require_text 'Adw\.NavigationSplitView\(\)' src/feclora/gui_gtk.py "GTK frontend
 require_text 'Adw\.NavigationPage\.new\(sidebar_scroller' src/feclora/gui_gtk.py "GTK frontend must wrap the navigation sidebar in an Adw page."
 require_text 'notify::collapsed' src/feclora/gui_gtk.py "GTK frontend must respond to compact navigation transitions."
 require_text 'set_show_content\(True\)' src/feclora/gui_gtk.py "GTK frontend must reveal the selected page in compact navigation."
+
+
+require_text 'Adw\.StatusPage\(' src/feclora/gui_gtk.py "GTK histories must use native libadwaita empty and error states."
+require_text 'self\.operation_log_stack\.set_visible_child_name\("records" if operations else "empty"\)' src/feclora/gui_gtk.py "GTK operation history must distinguish empty from populated results."
+require_text 'self\.recovery_jobs_stack\.set_visible_child_name\("jobs" if jobs else "empty"\)' src/feclora/gui_gtk.py "GTK recovery history must distinguish empty from populated results."
