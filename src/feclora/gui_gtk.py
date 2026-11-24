@@ -245,6 +245,10 @@ class FecloraGTK:
             self._show_restore_profiles_page()
         elif page_id == "network":
             self._show_network_page()
+        elif page_id == "operation-log":
+            self._show_operation_log_page()
+        elif page_id == "recovery-jobs":
+            self._show_recovery_jobs_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
@@ -347,6 +351,101 @@ class FecloraGTK:
             self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
+
+    def _show_operation_log_page(self) -> None:
+        self.page_description.set_text("Historial persistente de operaciones locales, incluidos errores y estados terminales.")
+        self.operation_log_summary = Gtk.Label(label="Consultando operaciones…", xalign=0)
+        self.page_body.append(self.operation_log_summary)
+        refresh = Gtk.Button(label="Actualizar registro")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", self._refresh_operation_log)
+        self.page_body.append(refresh)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        self.operation_log_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
+        scroller.set_child(self.operation_log_grid)
+        self.page_body.append(scroller)
+        self._refresh_operation_log(None)
+
+    def _refresh_operation_log(self, _button: Gtk.Button | None) -> None:
+        self.operation_log_summary.set_text("Leyendo el registro duradero…")
+        self.api.submit("local_operations", on_success=self._show_operation_log, on_error=self._operation_log_failed)
+
+    def _show_operation_log(self, response: dict[str, Any]) -> None:
+        grid = self.operation_log_grid
+        while child := grid.get_first_child():
+            grid.remove(child)
+        headers = ("ID", "Acción", "Estado", "Último evento", "Progreso", "Detalles")
+        for column, heading in enumerate(headers):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+        operations = response.get("operations") or []
+        for row, item in enumerate(operations, start=1):
+            events = item.get("events") or []
+            latest = events[-1] if events else {}
+            details = latest.get("details") or {}
+            progress = next((event.get("details") or {} for event in reversed(events) if event.get("state") == "progress"), {})
+            total, done = progress.get("bytes_total"), progress.get("bytes_done", 0)
+            progress_text = f"{done} / {total} bytes" if isinstance(total, int) and isinstance(done, int) else "—"
+            detail_text = details.get("error") or details.get("reason") or ("Destino posiblemente parcial" if details.get("destination_may_be_partial") else "—")
+            values = (item.get("operation_id") or "—", item.get("action") or "—", item.get("state") or "unknown", latest.get("timestamp") or "—", progress_text, detail_text)
+            for column, value in enumerate(values):
+                label = Gtk.Label(label=str(value), xalign=0)
+                label.set_selectable(True)
+                label.set_wrap(True)
+                grid.attach(label, column, row, 1, 1)
+        errors = response.get("inspection_errors") or []
+        self.operation_log_summary.set_text(f"Operaciones registradas: {len(operations)} · errores de inspección: {len(errors)}" + (" · ATENCIÓN: existen registros que requieren inspección manual; no repitas esas operaciones." if errors else ""))
+
+    def _operation_log_failed(self, error: Exception) -> None:
+        self.operation_log_summary.set_text("No se pudo leer el registro de operaciones: " + str(error))
+
+    def _show_recovery_jobs_page(self) -> None:
+        self.page_description.set_text("Trabajos ddrescue persistentes. Los mapfiles permiten reanudar recuperaciones interrumpidas.")
+        self.recovery_jobs_summary = Gtk.Label(label="Consultando trabajos…", xalign=0)
+        self.page_body.append(self.recovery_jobs_summary)
+        refresh = Gtk.Button(label="Actualizar recuperaciones")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", self._refresh_recovery_jobs)
+        self.page_body.append(refresh)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        self.recovery_jobs_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
+        scroller.set_child(self.recovery_jobs_grid)
+        self.page_body.append(scroller)
+        self._refresh_recovery_jobs(None)
+
+    def _refresh_recovery_jobs(self, _button: Gtk.Button | None) -> None:
+        self.recovery_jobs_summary.set_text("Leyendo trabajos ddrescue…")
+        self.api.submit("recovery_jobs", on_success=self._show_recovery_jobs, on_error=self._recovery_jobs_failed)
+
+    def _show_recovery_jobs(self, response: dict[str, Any]) -> None:
+        grid = self.recovery_jobs_grid
+        while child := grid.get_first_child():
+            grid.remove(child)
+        headers = ("Trabajo", "Estado", "Origen", "Recuperado", "Pendiente", "Progreso")
+        for column, heading in enumerate(headers):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+        jobs = response.get("jobs") or []
+        for row, item in enumerate(jobs, start=1):
+            size, rescued = item.get("source_size_bytes"), item.get("rescued_bytes")
+            progress = item.get("progress_percent")
+            recovered = f"{rescued:,} / {size:,} bytes" if isinstance(rescued, int) and isinstance(size, int) else "—"
+            unresolved = item.get("unresolved_bytes")
+            pending = f"{unresolved:,} bytes" if isinstance(unresolved, int) else "—"
+            percent = f"{progress:.2f}%" if isinstance(progress, (int, float)) else "—"
+            values = (item.get("job_id") or "—", item.get("state") or "—", item.get("source_path") or "—", recovered, pending, percent)
+            for column, value in enumerate(values):
+                label = Gtk.Label(label=str(value), xalign=0)
+                label.set_selectable(True)
+                grid.attach(label, column, row, 1, 1)
+        self.recovery_jobs_summary.set_text(f"Trabajos de recuperación: {len(jobs)} · los trabajos interrumpidos conservan su mapfile para reanudación")
+
+    def _recovery_jobs_failed(self, error: Exception) -> None:
+        self.recovery_jobs_summary.set_text("No se pudieron consultar los trabajos ddrescue: " + str(error))
 
     def _show_network_page(self) -> None:
         self.page_description.set_text("Configuración IPv4 de perfiles activos de NetworkManager, con aplicación protegida por checkpoint y rollback.")
