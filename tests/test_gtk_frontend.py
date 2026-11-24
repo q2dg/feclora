@@ -299,6 +299,24 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('def _stop_remote_job_after_status', self.source)
         self.assertIn('self.remote_job_json.get_buffer().set_text', self.source)
 
+    def test_authenticated_client_inspection_start_and_status_workflows(self):
+        for action in (
+            'self.api.submit("network_interfaces"',
+            'self.api.submit("inventory"',
+            'self.api.submit("inspect_remote_job"',
+            'self.api.submit("start_client_job"',
+            'self.api.submit("client_job_status"',
+        ):
+            self.assertIn(action, self.source)
+        self.assertIn('"network_interface": interface["interface"]', self.source)
+        self.assertIn('"source_address": interface["address"]', self.source)
+        self.assertIn('f"ERASE {target}"', self.source)
+        self.assertIn('f"READ {target} TO {inspection.get(\'server_identity\')}"', self.source)
+        self.assertIn('self.client_confirmation.get_text()', self.source)
+        self.assertIn('self.client_igmp.get_active() if job.get("transport") == "multicast" else False', self.source)
+        self.assertIn('self._client_logical_volumes', self.source)
+        self.assertIn('self._client_eligible_targets', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
