@@ -299,3 +299,7 @@ require_text 'set_show_content\(True\)' src/feclora/gui_gtk.py "GTK frontend mus
 require_text 'Adw\.StatusPage\(' src/feclora/gui_gtk.py "GTK histories must use native libadwaita empty and error states."
 require_text 'self\.operation_log_stack\.set_visible_child_name\("records" if operations else "empty"\)' src/feclora/gui_gtk.py "GTK operation history must distinguish empty from populated results."
 require_text 'self\.recovery_jobs_stack\.set_visible_child_name\("jobs" if jobs else "empty"\)' src/feclora/gui_gtk.py "GTK recovery history must distinguish empty from populated results."
+
+require_text 'Adw\.PreferencesGroup\(' src/feclora/gui_gtk.py "GTK network settings must use a libadwaita preferences group."
+require_text 'Adw\.ActionRow\(title=title\)' src/feclora/gui_gtk.py "GTK network settings must use semantic libadwaita action rows."
+require_text 'row\.set_activatable_widget\(widget\)' src/feclora/gui_gtk.py "GTK network setting rows must preserve direct control activation."
