@@ -184,3 +184,6 @@ require_text 'self\.api\.submit\("browse_image"' src/feclora/gui_gtk.py "GTK ima
 require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK image page must expose partition extraction."
 require_text '"restore_proportional_disk"' src/feclora/gui_gtk.py "GTK must expose proportional restore to a smaller disk."
 require_text 'target_device\["size_bytes"\] >= source_device\["size_bytes"\]' src/feclora/gui_gtk.py "Proportional restore must reject targets that are not strictly smaller."
+
+require_text '"restore_proportional_disk"' src/feclora/api.py "Proportional restore must be available through the privileged API dispatch."
+require_text '"extract_partition_image"' src/feclora/api.py "Partition extraction must be available through the privileged API dispatch."
