@@ -50,7 +50,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
             self.assertIn(title, welcome)
         self.assertEqual(welcome.count("Adw.PreferencesGroup("), 3)
         self.assertIn("Adw.ActionRow(", welcome)
-        self.assertIn("self.keyboard_layout", welcome)
+        self.assertIn("self.keyboard_selection", welcome)
         self.assertIn("self.keyboard_dropdown.set_selected(", welcome)
         self.assertIn("set_activatable_widget", welcome)
 
@@ -60,6 +60,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"set_keyboard_layout"', apply)
         self.assertIn("_keyboard_layout_applied(layout)", apply)
         self.assertIn("self.keyboard_layout = layout", accepted)
+        self.assertIn("self.keyboard_selection = layout", accepted)
+        language = ast.get_source_segment(self.source, self.methods["_language_changed"])
+        self.assertIn("self.keyboard_selection = KEYBOARD_LAYOUTS[keyboard_index][1]", language)
         self.assertIn("apply_ok", accepted)
     def test_overview_uses_real_status_api(self):
         method = ast.get_source_segment(self.source, self.methods["_refresh_status"])
