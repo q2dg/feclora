@@ -7,7 +7,13 @@ every operator workflow has been ported, tested and accepted. All 14 navigation
 pages now have GTK content, but several are read-only or have incomplete controls;
 page presence is not feature parity.
 
-The native frontend is `gui_gtk.py`, built with GTK4 and PyGObject.
+The native frontend is `gui_gtk.py`, built with GTK4, PyGObject and libadwaita.
+The application uses `Adw.Application`/`Adw.ApplicationWindow`, an
+`Adw.ToolbarView` with `Adw.HeaderBar` and `Adw.WindowTitle`, an `Adw.Clamp`
+for the welcome flow, and an `Adw.ToastOverlay` for transient error feedback.
+The existing fullscreen, undecorated kiosk policy is retained. The graphical
+runtime requires Fedora's `libadwaita` and `libadwaita-gtk4` RPMs; no PyPI
+binding, GNOME Shell, Mutter or X11 compatibility layer is required.
 `gtk_api.py` dispatches allowlisted API calls in worker threads and marshals
 results onto the GLib main loop. All navigation content is vertically scrollable.
 
@@ -33,8 +39,8 @@ Known remaining migration work includes full certificate lifecycle parity beyond
 their status/history views are present.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
-GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
-runtime is retained. The frontend is not production-ready.
+GTK4/PyGObject with libadwaita is the sole graphical frontend target; no Tk or
+X11 compatibility runtime is retained. The frontend is not production-ready.
 
 ## Target runtime: native Wayland only
 
