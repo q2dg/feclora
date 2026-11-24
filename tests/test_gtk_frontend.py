@@ -471,3 +471,19 @@ if __name__ == "__main__":
         self.assertIn("self.active_capture_passphrase = \"\"", callback)
         self.assertIn("self.capture_passphrase.set_text(\"\" )".replace(" ", ""), callback.replace(" ", ""))
         self.assertIn("self.capture_cancel.set_sensitive(False)", callback)
+
+
+    def test_restore_profiles_use_libadwaita_preference_groups(self):
+        start = self.source.index("    def _show_restore_profiles_page")
+        end = self.source.index("    def _populate_profile_inventory", start)
+        page = self.source[start:end]
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 3)
+        self.assertIn('title="Origen y destino"', page)
+        self.assertIn('title="Definición del perfil"', page)
+        self.assertIn('title="Ejecución controlada"', page)
+        self.assertIn("row.add_suffix(widget)", page)
+        self.assertIn("row.set_activatable_widget(widget)", page)
+        self.assertIn('self.profile_confirmation.set_placeholder_text("ERASE /dev/…")', page)
+        self.assertIn("self.profile_cancel.set_sensitive(False)", page)
+        self.assertIn('self.api.submit("inventory"', page)
+        self.assertIn('self.api.submit("remote_repositories"', page)
