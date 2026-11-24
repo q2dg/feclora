@@ -243,7 +243,7 @@ class FecloraGTK:
             self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.page_body.append(Gtk.Label(label="Origen", xalign=0))
@@ -278,20 +278,52 @@ class FecloraGTK:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
     def _populate_capture_devices(self, inventory: dict[str, Any]) -> None:
+        self.capture_inventory = inventory
         self.capture_inventory_devices = self._flatten_devices(inventory.get("devices"))
         self._capture_mode_changed(self.capture_kind, None)
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
-        device_type = "part" if kind == 1 else "disk"
-        self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == device_type and isinstance(d.get("path"), str)]
-        labels = [str(d.get("path")) + " · " + str(d.get("model") or device_type) for d in self.capture_devices]
+        if kind == 0:
+            self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
+            label = "Discos"
+        elif kind == 1:
+            self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "part" and isinstance(d.get("path"), str)]
+            label = "Particiones"
+        elif kind == 2:
+            self.capture_devices = self._flatten_logical_volumes(self.capture_inventory)
+            label = "Volúmenes lógicos sanos"
+        else:
+            self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "dm" and str(d.get("filesystem") or "").lower() == "xfs" and isinstance(d.get("path"), str)]
+            label = "Filesystems Stratis XFS"
+        labels = [str(d.get("path")) + " · " + str(d.get("model") or d.get("lvm_name") or d.get("type")) for d in self.capture_devices]
         self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
-        self.capture_summary.set_text(("Particiones" if kind == 1 else "Discos") + " detectados: " + str(len(self.capture_devices)))
+        self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_format.set_visible(kind == 0)
-        self.capture_start.set_label("Iniciar captura de partición" if kind == 1 else "Iniciar captura de disco")
+        self.capture_start.set_label("Iniciar captura: " + label.lower())
+
+    def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
+        groups = inventory.get("volume_topology", {}).get("volume_groups", [])
+        volumes = [v for group in groups if group.get("status") == "healthy" for v in group.get("logical_volumes", [])]
+        identity_counts: dict[str, int] = {}
+        for volume in volumes:
+            identity = volume.get("major_minor")
+            if identity:
+                identity_counts[identity] = identity_counts.get(identity, 0) + 1
+        result = []
+        for group in groups:
+            if group.get("status") != "healthy":
+                continue
+            for volume in group.get("logical_volumes", []):
+                identity, size = volume.get("major_minor"), volume.get("size_bytes")
+                if volume.get("hidden") or volume.get("snapshot") or not identity or identity_counts.get(identity) != 1 or not isinstance(size, int) or size <= 0 or volume.get("health") not in (None, "", "-", "ok", "healthy"):
+                    continue
+                matches = [d for d in self.capture_inventory_devices if d.get("major_minor") == identity]
+                if len(matches) == 1:
+                    result.append({**matches[0], "path": volume.get("path"), "lvm_name": volume.get("name"), "size_bytes": size})
+        return result
 
     def _start_disk_capture(self, _button: Gtk.Button) -> None:
         import re
@@ -305,12 +337,19 @@ class FecloraGTK:
             return
         qcow2 = self.capture_kind.get_selected() == 0 and self.capture_format.get_selected() == 1
         compression = ("zstd", "lz4", "gzip", "xz", "none")[self.capture_compression.get_selected()]
-        if self.capture_kind.get_selected() == 1:
-            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "partition_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
-            action = "capture_partition"
-        else:
+        kind = self.capture_kind.get_selected()
+        if kind == 0:
             params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "image_format": "qcow2" if qcow2 else "raw", "compression": "none" if qcow2 else compression, "encrypt": self.capture_encrypt.get_active() and not qcow2}
             action = "capture_disk"
+        elif kind == 1:
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "partition_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
+            action = "capture_partition"
+        elif kind == 2:
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
+            action = "capture_logical_volume"
+        else:
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
+            action = "capture_stratis_filesystem"
         self.capture_start.set_sensitive(False)
         self.capture_result.set_text("Solicitando captura…")
         self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
