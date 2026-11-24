@@ -2356,7 +2356,29 @@ class FecloraGTK:
         self.page_body.append(self.image_repository)
         self.image_select = Gtk.DropDown.new_from_strings(["Cargando imágenes de disco…"])
         self.page_body.append(Gtk.Label(label="Imagen de disco", xalign=0))
-        self.page_body.append(self.image_select)
+        self.image_catalog_stack = Gtk.Stack()
+        self.image_catalog_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.image_catalog_stack.add_named(self.image_select, "images")
+        self.image_catalog_empty = Adw.StatusPage(
+            title="No hay imágenes de disco",
+            description="Este repositorio todavía no contiene imágenes de disco inspeccionables.",
+            icon_name="drive-harddisk-symbolic",
+        )
+        self.image_catalog_stack.add_named(self.image_catalog_empty, "empty")
+        self.image_catalog_loading = Adw.StatusPage(
+            title="Cargando catálogo",
+            description="Consultando las imágenes disponibles en el repositorio seleccionado.",
+            icon_name="content-loading-symbolic",
+        )
+        self.image_catalog_stack.add_named(self.image_catalog_loading, "loading")
+        self.image_catalog_error = Adw.StatusPage(
+            title="No se pudo cargar el catálogo",
+            description="Comprueba el repositorio y vuelve a seleccionarlo para reintentar.",
+            icon_name="dialog-error-symbolic",
+        )
+        self.image_catalog_stack.add_named(self.image_catalog_error, "error")
+        self.image_catalog_stack.set_visible_child_name("loading")
+        self.page_body.append(self.image_catalog_stack)
         inspect = Gtk.Button(label="Inspeccionar tabla de particiones")
         inspect.set_halign(Gtk.Align.START)
         inspect.connect("clicked", self._inspect_selected_image)
@@ -2435,8 +2457,9 @@ class FecloraGTK:
     def _populate_image_catalog(self, result: dict[str, Any]) -> None:
         self.image_catalog = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_type") == "disk" and item.get("image_id")]
         labels = [str(item["image_id"]) + " · " + str(item.get("source_size_bytes", 0)) + " bytes" for item in self.image_catalog]
-        self.image_select.set_model(Gtk.StringList.new(labels or ["No hay imágenes de disco"]))
+        self.image_select.set_model(Gtk.StringList.new(labels or []))
         self.image_select.set_selected(0)
+        self.image_catalog_stack.set_visible_child_name("images" if self.image_catalog else "empty")
         self._reset_image_layout()
 
     def _image_selection_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
