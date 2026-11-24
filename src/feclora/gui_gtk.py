@@ -311,7 +311,7 @@ class FecloraGTK:
         operation_id = getattr(self, "active_capture_id", None)
         if not operation_id:
             return GLib.SOURCE_REMOVE
-        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_capture_status, on_error=self._capture_failed)
+        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_capture_status, on_error=self._capture_status_failed)
         return GLib.SOURCE_REMOVE
 
     def _show_capture_status(self, status: dict[str, Any]) -> None:
@@ -326,11 +326,19 @@ class FecloraGTK:
         state = status.get("state", "unknown")
         self.capture_result.set_text("Operación " + str(self.active_capture_id) + ": " + str(state))
         if state in {"completed", "failed", "cancelled", "interrupted"}:
+            terminal = events[-1].get("details", {}) if events else {}
+            detail = terminal.get("error") or terminal.get("reason") or terminal
+            self.capture_result.set_text("Operación " + str(state) + ": " + str(detail))
             self.capture_start.set_sensitive(True)
             self.capture_cancel.set_sensitive(False)
             self.active_capture_id = None
             return
         GLib.timeout_add_seconds(2, self._poll_capture_status)
+
+    def _capture_status_failed(self, error: Exception) -> None:
+        self.capture_result.set_text("No se pudo consultar el progreso; la operación sigue identificada como activa: " + str(error))
+        self.capture_cancel.set_sensitive(True)
+        GLib.timeout_add_seconds(5, self._poll_capture_status)
 
     def _cancel_disk_capture(self, _button: Gtk.Button) -> None:
         operation_id = getattr(self, "active_capture_id", None)
