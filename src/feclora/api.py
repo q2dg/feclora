@@ -1757,7 +1757,7 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "encrypt_passphrase", "age_passphrase"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "image_format", "encrypt_passphrase", "age_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "recover_disk": {"source", "image_id", "retry_passes", "resume", "repository_id"},
