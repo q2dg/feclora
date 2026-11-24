@@ -239,11 +239,96 @@ class FecloraGTK:
             scroller.set_child(self.inventory_grid)
             self.page_body.append(scroller)
             self._refresh_inventory(None)
+        elif page_id == "operations":
+            self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
+            self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
+            self.page_body.append(self.capture_summary)
+            self.page_body.append(Gtk.Label(label="Disco de origen", xalign=0))
+            self.capture_source = Gtk.DropDown.new_from_strings(["Cargando discos…"])
+            self.page_body.append(self.capture_source)
+            self.capture_image_id = Gtk.Entry()
+            self.capture_image_id.set_placeholder_text("Identificador de imagen")
+            self.page_body.append(self.capture_image_id)
+            self.capture_format = Gtk.DropDown.new_from_strings(["RAW de Feclora", "QCOW2"])
+            self.page_body.append(self.capture_format)
+            self.capture_compression = Gtk.DropDown.new_from_strings(["Zstandard", "LZ4", "Gzip", "XZ", "Sin compresión"])
+            self.page_body.append(self.capture_compression)
+            self.capture_encrypt = Gtk.CheckButton(label="Cifrar artefactos con age")
+            self.page_body.append(self.capture_encrypt)
+            self.capture_start = Gtk.Button(label="Iniciar captura de disco")
+            self.capture_start.connect("clicked", self._start_disk_capture)
+            self.page_body.append(self.capture_start)
+            self.capture_progress = Gtk.ProgressBar()
+            self.page_body.append(self.capture_progress)
+            self.capture_result = Gtk.Label(label="", xalign=0)
+            self.capture_result.set_wrap(True)
+            self.page_body.append(self.capture_result)
+            self.api.submit("inventory", on_success=self._populate_capture_devices, on_error=self._capture_failed)
         else:
-            self.page_description.set_text(
-                "Esta pantalla aún no se ha migrado. Sus operaciones permanecen "
-                "disponibles en la interfaz de producción hasta completar la paridad."
-            )
+            self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
+
+    def _populate_capture_devices(self, inventory: dict[str, Any]) -> None:
+        devices = self._flatten_devices(inventory.get("devices"))
+        self.capture_devices = [d for d in devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
+        labels = [str(d.get("path")) + " · " + str(d.get("model") or "disco") for d in self.capture_devices]
+        self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay discos detectados"]))
+        self.capture_source.set_selected(0)
+        self.capture_summary.set_text("Discos detectados: " + str(len(self.capture_devices)))
+
+    def _start_disk_capture(self, _button: Gtk.Button) -> None:
+        import re
+        index = self.capture_source.get_selected()
+        image_id = self.capture_image_id.get_text().strip()
+        if index >= len(getattr(self, "capture_devices", [])):
+            self.capture_result.set_text("Selecciona un disco de origen válido.")
+            return
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+            self.capture_result.set_text("Identificador no válido.")
+            return
+        qcow2 = self.capture_format.get_selected() == 1
+        compression = ("zstd", "lz4", "gzip", "xz", "none")[self.capture_compression.get_selected()]
+        params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "image_format": "qcow2" if qcow2 else "raw", "compression": "none" if qcow2 else compression, "encrypt": self.capture_encrypt.get_active() and not qcow2}
+        self.capture_start.set_sensitive(False)
+        self.capture_result.set_text("Solicitando captura…")
+        self.api.submit("capture_disk", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+
+    def _capture_accepted(self, result: dict[str, Any]) -> None:
+        operation_id = result.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            self._capture_failed(RuntimeError("El backend no devolvió operation_id."))
+            return
+        self.active_capture_id = operation_id
+        self.capture_result.set_text("Captura aceptada: " + operation_id)
+        self._poll_capture_status()
+
+    def _poll_capture_status(self) -> bool:
+        operation_id = getattr(self, "active_capture_id", None)
+        if not operation_id:
+            return GLib.SOURCE_REMOVE
+        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_capture_status, on_error=self._capture_failed)
+        return GLib.SOURCE_REMOVE
+
+    def _show_capture_status(self, status: dict[str, Any]) -> None:
+        events = status.get("events") or []
+        event = next((e for e in reversed(events) if e.get("state") == "progress"), None)
+        details = event.get("details", {}) if event else {}
+        total, done = details.get("bytes_total"), details.get("bytes_done", 0)
+        if isinstance(total, int) and total > 0 and isinstance(done, int):
+            fraction = max(0.0, min(1.0, done / total))
+            self.capture_progress.set_fraction(fraction)
+            self.capture_progress.set_text(str(round(fraction * 100, 1)) + "%")
+        state = status.get("state", "unknown")
+        self.capture_result.set_text("Operación " + str(self.active_capture_id) + ": " + str(state))
+        if state in {"completed", "failed", "cancelled", "interrupted"}:
+            self.capture_start.set_sensitive(True)
+            self.active_capture_id = None
+            return
+        GLib.timeout_add_seconds(2, self._poll_capture_status)
+
+    def _capture_failed(self, error: Exception) -> None:
+        if hasattr(self, "capture_result"):
+            self.capture_result.set_text("Captura fallida: " + str(error))
+            self.capture_start.set_sensitive(True)
 
     def _refresh_status(self, _button: Gtk.Button | None) -> None:
         self.status_summary.set_text("Consultando el estado local…")
