@@ -163,3 +163,7 @@ require_text '"clone_disk".*"clone_partition"' src/feclora/gui_gtk.py "GTK must 
 
 require_text '"restore_stratis_filesystem"' src/feclora/api.py "Privileged API dispatch must expose Stratis filesystem restoration."
 require_text '"restore_stratis_filesystem"' src/feclora/gui_gtk.py "GTK must expose Stratis filesystem restoration."
+
+require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "GTK image-building workflows must load repository state."
+require_text '"build_recovery_iso"' src/feclora/gui_gtk.py "GTK must expose recovery ISO generation."
+require_text '"build_deployment_bundle"' src/feclora/gui_gtk.py "GTK must expose deployment bundle generation."
