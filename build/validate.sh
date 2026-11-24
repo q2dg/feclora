@@ -258,6 +258,10 @@ require_text 'self\.api\.submit\("start_client_job"' src/feclora/gui_gtk.py "GTK
 require_text 'self\.api\.submit\("client_job_status"' src/feclora/gui_gtk.py "GTK must expose persistent client job status."
 require_text 'self\.api\.submit\("network_interfaces"' src/feclora/gui_gtk.py "GTK client must select an active IPv4 network binding."
 require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK client must inspect local storage inventory before target selection."
+require_text 'self\._remote_import_remote_rows =' src/feclora/gui_gtk.py "GTK remote imports must preserve remote filesystem repository results."
+require_text 'self\._remote_import_s3_rows =' src/feclora/gui_gtk.py "GTK remote imports must preserve S3 repository results independently."
+require_text 'def _update_client_inventory_summary' src/feclora/gui_gtk.py "GTK client must refresh local target inventory and active network summary."
+
 require_text 'f"ERASE \{target\}"' src/feclora/gui_gtk.py "GTK destructive client operations must require exact target confirmation."
 require_text 'f"READ \{target\} TO \{inspection.get' src/feclora/gui_gtk.py "GTK capture client operations must bind confirmation to server identity."
 
