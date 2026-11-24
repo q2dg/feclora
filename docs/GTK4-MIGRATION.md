@@ -188,3 +188,12 @@ The Inventory page now presents storage topology as one `Adw.PreferencesGroup` p
 ## libadwaita welcome and input preferences
 
 The welcome screen now organizes interface language, keyboard layout, configuration status, and actions into semantic `Adw.PreferencesGroup` and `Adw.ActionRow` sections. The selected keyboard layout is initialized from the current in-memory setting, and a successful privileged apply updates that setting so rebuilding the welcome screen after a language change does not reset the selection. Language persistence and keyboard API behavior remain unchanged.
+
+
+## libadwaita navigation sidebar
+
+The adaptive `Adw.NavigationSplitView` keeps its existing sidebar/content pages,
+width constraints, compact-mode back navigation, and page identifiers. The
+sidebar entries are now activatable `Adw.ActionRow` items grouped under
+`Adw.PreferencesGroup`, replacing generic GTK buttons while preserving the
+existing page-selection callback and all page/API behavior.
