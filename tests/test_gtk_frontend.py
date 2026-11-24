@@ -257,6 +257,25 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self._pxe_pending_profile = profile', self.source)
         self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
 
+    def test_pxe_answer_publication_revocation_and_age_workflows(self):
+        for action in (
+            'self.api.submit("publish_pxe_answer"',
+            'self.api.submit("revoke_pxe_answer"',
+            'self.api.submit("pxe_age_passphrase_status"',
+            'self.api.submit("provide_pxe_age_passphrase"',
+            'self.api.submit("export_server_age_recipients"',
+            'self.api.submit("refresh_client_age_recipients"',
+        ):
+            self.assertIn(action, self.source)
+        self.assertIn('"source": source', self.source)
+        self.assertIn('"answer_base64": base64.b64encode(payload).decode("ascii")', self.source)
+        self.assertIn('request["repository_id"]', self.source)
+        self.assertIn('request["source_path"]', self.source)
+        self.assertIn('self.pxe_answer_revoke_id.set_text(job_id)', self.source)
+        self.assertIn('self.pxe_passphrase.set_visibility(False)', self.source)
+        self.assertIn('self.pxe_passphrase.set_text("")', self.source)
+        self.assertIn('self.pxe_passphrase.set_sensitive(False)', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
