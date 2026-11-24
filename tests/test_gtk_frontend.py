@@ -317,6 +317,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self._client_logical_volumes', self.source)
         self.assertIn('self._client_eligible_targets', self.source)
 
+    def test_remote_repository_selector_handles_async_source_completion_order(self):
+        self.assertIn('self._remote_import_remote_rows =', self.source)
+        self.assertIn('self._remote_import_s3_rows =', self.source)
+        self.assertIn('getattr(self, "_remote_import_remote_rows", []) + getattr(self, "_remote_import_s3_rows", [])', self.source)
+        self.assertIn('def _update_client_inventory_summary', self.source)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
