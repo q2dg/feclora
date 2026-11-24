@@ -216,6 +216,8 @@ require_text '"check_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 
 require_text '"remove_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository removal."
 require_text 'self\.api\.submit\("add_remote_repository"' src/feclora/gui_gtk.py "GTK must expose SSHFS repository definitions."
 require_text 'self\.api\.submit\("add_s3_repository"' src/feclora/gui_gtk.py "GTK must expose S3 repository definitions."
+require_text 'update_remote_repository' src/feclora/gui_gtk.py "GTK must expose SSHFS repository definition updates."
+require_text 'update_s3_repository' src/feclora/gui_gtk.py "GTK must expose S3 repository definition updates."
 require_text 'self\.api\.submit\("put_systemd_credential"' src/feclora/gui_gtk.py "GTK must expose encrypted systemd credential import."
 require_text 'self\.api\.submit\("remove_systemd_credential"' src/feclora/gui_gtk.py "GTK must expose guarded encrypted credential removal."
 require_text 'self\.api\.submit\("systemd_credentials"' src/feclora/gui_gtk.py "GTK must load the encrypted credential inventory."
