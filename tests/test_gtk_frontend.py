@@ -123,6 +123,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
+        self.assertIn('self.api.submit("local_operations"', self.source)
+        self.assertIn('self.api.submit("recovery_jobs"', self.source)
+        self.assertIn('details.get("destination_may_be_partial")', self.source)
+        self.assertIn('item.get("unresolved_bytes")', self.source)
+        self.assertIn('item.get("progress_percent")', self.source)
+
     def test_network_page_uses_active_profiles_and_validated_ipv4_checkpoint(self):
         for action in ('self.api.submit("network_connection_profiles"', 'self.api.submit("network_interfaces"', 'self.api.submit("apply_network_profile"'):
             self.assertIn(action, self.source)
