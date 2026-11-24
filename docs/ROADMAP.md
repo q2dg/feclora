@@ -94,10 +94,10 @@ authenticated transport provide the trust boundary. Age encryption is optional.
   and uses Fedora's `python3-textual`; UI tests use the pinned test dependency.
   CI verifies the helper allowlist and backend dispatch. CI and GitHub Pages
   also validate local documentation links/assets and illustrated guide cards.
-  Localization remains partial: the selector exposes only the English and
-  Spanish catalogs, while only startup and primary navigation are translated;
-  operational forms and messages remain Spanish. Full TUI localization is still
-  outstanding. Also review scanner findings and maintain the
+  Localization remains partial: the selector exposes 18 language catalogs,
+  while only startup and primary navigation are translated; operational forms
+  and messages remain Spanish. Full TUI localization is still outstanding.
+  Also review scanner findings and maintain the
   backup/upgrade/rollback and release-evidence runbook.
 
 ## Maintainer-run release acceptance
