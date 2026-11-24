@@ -243,6 +243,8 @@ class FecloraGTK:
             self._show_images_page()
         elif page_id == "restore-profiles":
             self._show_restore_profiles_page()
+        elif page_id == "network":
+            self._show_network_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
@@ -345,6 +347,119 @@ class FecloraGTK:
             self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
+
+    def _show_network_page(self) -> None:
+        self.page_description.set_text("Configuración IPv4 de perfiles activos de NetworkManager, con aplicación protegida por checkpoint y rollback.")
+        self.network_profile = Gtk.DropDown.new_from_strings(["Cargando perfiles…"])
+        self.network_profile.connect("notify::selected", self._network_profile_changed)
+        self.page_body.append(Gtk.Label(label="Perfil activo de NetworkManager", xalign=0))
+        self.page_body.append(self.network_profile)
+        self.network_interface = Gtk.DropDown.new_from_strings(["Selecciona interfaz y dirección…"])
+        self.page_body.append(Gtk.Label(label="Dirección IPv4 actualmente asociada", xalign=0))
+        self.page_body.append(self.network_interface)
+        self.network_method = Gtk.DropDown.new_from_strings(["Automática (DHCP)", "Manual (IPv4 estática)"])
+        self.network_method.connect("notify::selected", self._network_method_changed)
+        self.page_body.append(Gtk.Label(label="Método IPv4", xalign=0))
+        self.page_body.append(self.network_method)
+        self.network_address = Gtk.Entry()
+        self.network_address.set_placeholder_text("192.0.2.10")
+        self.page_body.append(Gtk.Label(label="Dirección IPv4", xalign=0))
+        self.page_body.append(self.network_address)
+        self.network_prefix = Gtk.Entry()
+        self.network_prefix.set_placeholder_text("24")
+        self.page_body.append(Gtk.Label(label="Prefijo CIDR (1–32)", xalign=0))
+        self.page_body.append(self.network_prefix)
+        self.network_gateway = Gtk.Entry()
+        self.network_gateway.set_placeholder_text("192.0.2.1 (opcional)")
+        self.page_body.append(Gtk.Label(label="Gateway IPv4 (opcional)", xalign=0))
+        self.page_body.append(self.network_gateway)
+        self.network_dns = Gtk.Entry()
+        self.network_dns.set_placeholder_text("1.1.1.1, 8.8.8.8")
+        self.page_body.append(Gtk.Label(label="DNS IPv4 separados por comas", xalign=0))
+        self.page_body.append(self.network_dns)
+        apply = Gtk.Button(label="Aplicar configuración (rollback automático si falla)")
+        apply.set_halign(Gtk.Align.START)
+        apply.connect("clicked", self._apply_network_profile)
+        self.page_body.append(apply)
+        self.network_result = Gtk.Label(label="", xalign=0)
+        self.network_result.set_wrap(True)
+        self.page_body.append(self.network_result)
+        self.api.submit("network_connection_profiles", on_success=self._populate_network_profiles, on_error=self._network_failed)
+        self.api.submit("network_interfaces", on_success=self._populate_network_interfaces, on_error=self._network_failed)
+
+    def _populate_network_profiles(self, result: dict[str, Any]) -> None:
+        self.network_profiles = [item for item in result.get("profiles", []) if isinstance(item, dict)]
+        active = [item for item in self.network_profiles if item.get("uuid") and item.get("active") and item.get("device")]
+        labels = [f"{item.get('name') or item.get('id')} · {item.get('device')}" for item in active]
+        self.network_active_profiles = active
+        self.network_profile.set_model(Gtk.StringList.new(labels or ["No hay perfiles activos asociados a interfaces"]))
+        self.network_profile.set_selected(0)
+        self._update_network_interface_options()
+
+    def _populate_network_interfaces(self, result: dict[str, Any]) -> None:
+        self.network_interfaces = [item for item in result.get("interfaces", []) if isinstance(item, dict)]
+        self._update_network_interface_options()
+
+    def _network_profile_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self._update_network_interface_options()
+
+    def _update_network_interface_options(self) -> None:
+        index = self.network_profile.get_selected()
+        profile = self.network_active_profiles[index] if index < len(getattr(self, "network_active_profiles", [])) else None
+        interface_name = profile.get("device") if profile else None
+        candidates = [item for item in getattr(self, "network_interfaces", []) if item.get("binding") and item.get("interface") == interface_name]
+        labels = [f"{item.get('interface')} · {item.get('address')}/{item.get('prefix_length')}" for item in candidates]
+        self.network_interface_records = candidates
+        self.network_interface.set_model(Gtk.StringList.new(labels or ["No hay direcciones IPv4 activas en esa interfaz"]))
+        self.network_interface.set_selected(0)
+
+    def _network_method_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        manual = self.network_method.get_selected() == 1
+        for widget in (self.network_address, self.network_prefix, self.network_gateway, self.network_dns):
+            widget.set_visible(manual)
+
+    def _apply_network_profile(self, _button: Gtk.Button) -> None:
+        import ipaddress
+        profile_index = self.network_profile.get_selected()
+        interface_index = self.network_interface.get_selected()
+        if profile_index >= len(getattr(self, "network_active_profiles", [])) or interface_index >= len(getattr(self, "network_interface_records", [])):
+            self.network_result.set_text("Selecciona un perfil activo y una dirección IPv4 de su interfaz.")
+            return
+        profile = self.network_active_profiles[profile_index]
+        interface = self.network_interface_records[interface_index]
+        if not profile.get("active") or not profile.get("device") or interface.get("interface") != profile.get("device"):
+            self.network_result.set_text("El perfil debe estar activo y coincidir con la interfaz seleccionada.")
+            return
+        method = "manual" if self.network_method.get_selected() == 1 else "auto"
+        params: dict[str, Any] = {
+            "uuid": profile["uuid"], "interface": interface["interface"], "method": method,
+            "address": None, "prefix_length": None, "gateway": None, "dns": [],
+            "rollback_timeout": 120,
+        }
+        if method == "manual":
+            try:
+                address = ipaddress.IPv4Address(self.network_address.get_text().strip())
+                prefix = int(self.network_prefix.get_text().strip())
+                if not 1 <= prefix <= 32:
+                    raise ValueError("el prefijo debe estar entre 1 y 32")
+                gateway_text = self.network_gateway.get_text().strip()
+                gateway = ipaddress.IPv4Address(gateway_text) if gateway_text else None
+                dns = [str(ipaddress.IPv4Address(value.strip())) for value in self.network_dns.get_text().split(",") if value.strip()]
+            except ValueError as exc:
+                self.network_result.set_text("Dirección, prefijo, gateway o DNS no válido: " + str(exc))
+                return
+            params.update(address=str(address), prefix_length=prefix, gateway=str(gateway) if gateway else None, dns=dns)
+        self.network_result.set_text("Aplicando perfil con checkpoint de 120 segundos…")
+        self.api.submit("apply_network_profile", params, on_success=self._network_applied, on_error=self._network_failed)
+
+    def _network_applied(self, result: dict[str, Any]) -> None:
+        self.network_result.set_text(str(result.get("message") or "Perfil aplicado y verificado; checkpoint confirmado."))
+        self.api.submit("network_connection_profiles", on_success=self._populate_network_profiles, on_error=self._network_failed)
+        self.api.submit("network_interfaces", on_success=self._populate_network_interfaces, on_error=self._network_failed)
+
+    def _network_failed(self, error: Exception) -> None:
+        if hasattr(self, "network_result"):
+            self.network_result.set_text("No se pudo completar la operación de red: " + str(error))
 
     def _show_restore_profiles_page(self) -> None:
         self.page_description.set_text("Perfiles de restauración de un solo uso, vinculados a la identidad física del disco y con caducidad.")
