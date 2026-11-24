@@ -497,12 +497,19 @@ class FecloraGTK:
             self.capture_format_label = capture_row(format_group, "Formato de imagen", self.capture_format)
             self.capture_compression = Gtk.DropDown.new_from_strings(["Zstandard", "LZ4", "Gzip", "XZ", "Sin compresión"])
             self.capture_compression_row = capture_row(format_group, "Compresión", self.capture_compression)
-            self.capture_encrypt = Gtk.CheckButton(label="Cifrar artefactos con age")
-            self.capture_encrypt_row = capture_row(format_group, "Cifrado", self.capture_encrypt)
+            self.capture_encrypt = Gtk.CheckButton(label="Cifrar con destinatarios age")
+            self.capture_encrypt_row = capture_row(format_group, "Cifrado con destinatarios", self.capture_encrypt)
+            self.capture_passphrase_toggle = Gtk.CheckButton(label="Cifrar con frase secreta de un solo uso")
+            self.capture_passphrase_toggle_row = capture_row(format_group, "Cifrado con frase secreta", self.capture_passphrase_toggle)
             self.capture_passphrase = Gtk.PasswordEntry()
-            self.capture_passphrase_row = capture_row(format_group, "Frase secreta para cifrado age", self.capture_passphrase)
+            self.capture_passphrase_row = capture_row(format_group, "Frase secreta de un solo uso", self.capture_passphrase)
             self.capture_passphrase.set_show_peek_icon(True)
             self.capture_passphrase.set_placeholder_text("Frase age de un solo uso (solo disco RAW)")
+            self.capture_encrypt.connect("toggled", self._capture_encryption_changed)
+            self.capture_passphrase_toggle.connect("toggled", self._capture_encryption_changed)
+            self.capture_format.connect("notify::selected", self._capture_mode_changed)
+            self.capture_passphrase_row.set_visible(False)
+            self.capture_passphrase_toggle_row.set_visible(False)
 
             recovery_group = capture_group("Recuperación ddrescue")
             self.capture_retry = Gtk.DropDown.new_from_strings([str(n) for n in range(11)])
@@ -3093,9 +3100,24 @@ class FecloraGTK:
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_compression_row.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
-        self.capture_encrypt_row.set_visible(kind not in {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})
+        recipient_encryption_visible = kind in {0, 1, 2, 3, 4} and not (kind == 0 and self.capture_format.get_selected() == 1)
+        passphrase_encryption_visible = kind == 0 and self.capture_format.get_selected() == 0
+        self.capture_encrypt_row.set_visible(recipient_encryption_visible)
+        self.capture_passphrase_toggle_row.set_visible(passphrase_encryption_visible)
+        self.capture_passphrase_row.set_visible(passphrase_encryption_visible and self.capture_passphrase_toggle.get_active())
         self.capture_image_id_label.set_title("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Capturar disco virtual QCOW2 (P2V)" if kind == 17 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
+
+    def _capture_encryption_changed(self, widget: Gtk.CheckButton) -> None:
+        if widget.get_active():
+            if widget is self.capture_encrypt:
+                self.capture_passphrase_toggle.set_active(False)
+                self.capture_passphrase.set_text("")
+            else:
+                self.capture_encrypt.set_active(False)
+        elif widget is self.capture_passphrase_toggle:
+            self.capture_passphrase.set_text("")
+        self._capture_mode_changed(self.capture_kind, None)
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
@@ -3300,7 +3322,13 @@ class FecloraGTK:
         compression = ("zstd", "lz4", "gzip", "xz", "none")[self.capture_compression.get_selected()]
         kind = self.capture_kind.get_selected()
         if kind == 0:
-            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "image_format": "qcow2" if qcow2 else "raw", "compression": "none" if qcow2 else compression, "encrypt": self.capture_encrypt.get_active() and not qcow2}
+            passphrase_encryption = self.capture_passphrase_toggle.get_active() and not qcow2
+            params = {
+                "source": self.capture_devices[index]["path"], "image_id": image_id,
+                "image_format": "qcow2" if qcow2 else "raw",
+                "compression": "none" if qcow2 else compression,
+                "encrypt": (self.capture_encrypt.get_active() or passphrase_encryption) and not qcow2,
+            }
             action = "capture_disk"
         elif kind == 1:
             params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "partition_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
@@ -3312,7 +3340,7 @@ class FecloraGTK:
             params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
             action = "capture_stratis_filesystem"
         capture_passphrase = ""
-        if kind == 0 and not qcow2 and self.capture_encrypt.get_active():
+        if kind == 0 and not qcow2 and self.capture_passphrase_toggle.get_active():
             capture_passphrase = self.capture_passphrase.get_text()
             if not capture_passphrase:
                 self.capture_result.set_text("Indica una frase secreta para cifrar la captura RAW.")
