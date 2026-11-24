@@ -1,0 +1,2 @@
+# Pinned GUI toolkit for the CustomTkinter migration.
+customtkinter==6.0.0
