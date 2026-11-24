@@ -5,10 +5,12 @@
 The migration is staged. The existing Textual application remains the production
 boot interface until every operator workflow has been ported and accepted.
 
-The native frontend prototype is `gui_gtk.py`, built with GTK4 and PyGObject.
+The native frontend is `gui_gtk.py`, built with GTK4 and PyGObject.
 `gtk_api.py` dispatches the existing allowlisted API calls in worker threads
-and marshals results/events onto the GLib main loop. The initial navigation
-pages are placeholders; this prototype is not production-ready.
+and marshals results/events onto the GLib main loop. The overview now reads the
+real system status and the inventory page renders the complete nested storage
+device list. Remaining navigation pages are still placeholders; this frontend
+is not production-ready.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
@@ -36,8 +38,10 @@ session is required.
 
 1. Keep the current Textual application bootable while sharing catalog data
    and introducing the GTK/GLib API bridge.
-2. Port the welcome/setup flow and shared GTK application shell.
-3. Port every existing page and action, preserving confirmation phrases,
+2. Port the welcome/setup flow and shared GTK application shell. The initial
+   overview and storage inventory pages now call the real backend and render
+   live results; structural regression tests cover these paths.
+3. Port every remaining page and action, preserving confirmation phrases,
    validation, progress events, cancellation and error handling.
 4. Port inventory, image browsing, restore profiles, network, repositories,
    server/PXE, remote deployment and recovery workflows; do not replace
