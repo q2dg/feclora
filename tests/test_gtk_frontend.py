@@ -485,6 +485,33 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("inventory"', page)
 
 
+    def test_client_job_controls_use_semantic_libadwaita_groups(self):
+        start = self.source.index("    def _show_client_jobs_page")
+        end = self.source.index("    def _show_client_job_rows", start)
+        page = self.source[start:end]
+        for title in (
+            "Conexión e inspección autenticada",
+            "Destino local",
+            "Transferencia y protección",
+            "Ejecución y seguimiento",
+        ):
+            self.assertIn(f'title="{title}"', page)
+        for widget in (
+            "self.client_server_host", "self.client_job_id", "self.client_interface",
+            "self.client_target", "self.client_compression", "self.client_encrypt",
+            "self.client_igmp", "self.client_confirmation",
+        ):
+            self.assertIn(f"row.add_suffix({widget})", page)
+        for callback in (
+            "self._inspect_client_job", "self._start_client_job",
+            "self._refresh_client_job_status", "self._update_client_confirmation",
+        ):
+            self.assertIn(callback, page)
+        self.assertIn('self.client_confirmation.set_placeholder_text("Escribe exactamente ERASE destino o READ destino TO identidad")', page)
+        self.assertIn('self.api.submit("network_interfaces"', page)
+        self.assertIn('self.api.submit("inventory"', page)
+
+
 if __name__ == "__main__":
     unittest.main()
 
