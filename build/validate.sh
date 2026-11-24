@@ -202,3 +202,7 @@ require_text 'self\.api\.submit\("local_operations"' src/feclora/gui_gtk.py "GTK
 require_text 'self\.api\.submit\("recovery_jobs"' src/feclora/gui_gtk.py "GTK recovery history must read persistent ddrescue jobs."
 
 require_text 'page_scroller\.set_child\(self\.page_body\)' src/feclora/gui_gtk.py "GTK navigation must keep long operator forms accessible in a scroll container."
+
+require_text 'self\._history_page\("Trabajos remotos"' src/feclora/gui_gtk.py "GTK remote jobs page must list persistent deployment jobs."
+require_text 'self\._history_page\("Historial de despliegues"' src/feclora/gui_gtk.py "GTK deployment history page must render journals."
+require_text 'self\.api\.submit\("deployment_jobs"' src/feclora/gui_gtk.py "GTK client jobs page must list client deployment states."
