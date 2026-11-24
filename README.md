@@ -5,7 +5,8 @@ local and remote cloning, recovery and network deployment. Its current
 keyboard-first Textual interface runs directly on tty1. A staged migration to a native GTK4 kiosk on Weston/Wayland is underway; no
 XWayland or Xorg compatibility layer is part of the target. The production
 boot path remains Textual until the graphical interface reaches full feature
-parity.
+parity. The GTK4 prototype already has live system-overview and nested storage-
+inventory screens; the other operator workflows are still being ported.
 
 ## What it does
 
