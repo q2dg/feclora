@@ -253,6 +253,14 @@ require_text 'self\.api\.submit\("start_deployment_service"' src/feclora/gui_gtk
 require_text 'self\.api\.submit\("stop_deployment_service"' src/feclora/gui_gtk.py "GTK must expose guarded deployment service shutdown."
 require_text 'self\.api\.submit\("deployment_service_status"' src/feclora/gui_gtk.py "GTK must expose deployment service status checks."
 require_text 'def _stop_remote_job_after_status' src/feclora/gui_gtk.py "GTK must preflight active clients before stopping deployment workers."
+require_text 'self\.api\.submit\("inspect_remote_job"' src/feclora/gui_gtk.py "GTK must expose authenticated remote client inspection."
+require_text 'self\.api\.submit\("start_client_job"' src/feclora/gui_gtk.py "GTK must expose explicitly confirmed client operation startup."
+require_text 'self\.api\.submit\("client_job_status"' src/feclora/gui_gtk.py "GTK must expose persistent client job status."
+require_text 'self\.api\.submit\("network_interfaces"' src/feclora/gui_gtk.py "GTK client must select an active IPv4 network binding."
+require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK client must inspect local storage inventory before target selection."
+require_text 'f"ERASE \{target\}"' src/feclora/gui_gtk.py "GTK destructive client operations must require exact target confirmation."
+require_text 'f"READ \{target\} TO \{inspection.get' src/feclora/gui_gtk.py "GTK capture client operations must bind confirmation to server identity."
+
 
 require_text 'base64\.b64encode\(payload\)\.decode\("ascii"\)' src/feclora/gui_gtk.py "GTK must bound and encode local PXE answer uploads."
 require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk.py "GTK must mask one-shot age passphrases."
