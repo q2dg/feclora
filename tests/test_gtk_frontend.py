@@ -37,6 +37,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_disk_capture_uses_inventory_and_privileged_operation_api(self):
         populate = ast.unparse(self.methods["_populate_capture_devices"])
+        mode = ast.unparse(self.methods["_capture_mode_changed"])
         start = ast.unparse(self.methods["_start_disk_capture"])
         poll = ast.unparse(self.methods["_poll_capture_status"])
         cancel = ast.unparse(self.methods["_cancel_disk_capture"])
@@ -45,7 +46,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('action = "capture_partition"', start)
         self.assertIn('self.api.submit("local_operation_status"', poll)
         self.assertIn('self.api.submit("cancel_local_operation"', cancel)
-        self.assertIn('d.get("type") == device_type', populate)
+        self.assertIn('self._flatten_devices(inventory.get("devices"))', populate)
+        self.assertIn('d.get("type") == device_type', mode)
         self.assertIn("image_id", start)
         self.assertIn("image_format", start)
         self.assertIn("compression", start)
