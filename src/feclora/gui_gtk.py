@@ -261,6 +261,10 @@ class FecloraGTK:
             self._show_client_jobs_page()
         elif page_id == "repositories":
             self._show_repositories_page()
+        elif page_id == "system":
+            self._show_system_page()
+        elif page_id == "server":
+            self._show_server_status_page()
         elif page_id == "operations":
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
@@ -403,6 +407,57 @@ class FecloraGTK:
 
     def _history_failed(self, error: Exception) -> None:
         self.history_summary.set_text("No se pudieron consultar los registros: " + str(error))
+
+    def _show_system_page(self) -> None:
+        self.page_description.set_text("Estado del sistema, servicios y certificados detectados por el backend privilegiado.")
+        self.status_summary = Gtk.Label(label="Consultando estado del sistema…", xalign=0)
+        self.status_summary.set_wrap(True)
+        self.status_summary.set_selectable(True)
+        self.page_body.append(self.status_summary)
+        refresh = Gtk.Button(label="Actualizar estado del sistema")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", self._refresh_status)
+        self.page_body.append(refresh)
+        self._refresh_status(None)
+
+    def _show_server_status_page(self) -> None:
+        self.page_description.set_text("Estado del servidor Feclora, servicios PXE e interfaces. Los controles de bootstrap, certificados y PXE siguen pendientes de migración.")
+        self.server_status = Gtk.Label(label="Consultando estado del servidor…", xalign=0)
+        self.server_status.set_wrap(True)
+        self.server_status.set_selectable(True)
+        self.page_body.append(self.server_status)
+        refresh = Gtk.Button(label="Actualizar estado del servidor")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", self._refresh_server_status)
+        self.page_body.append(refresh)
+        self._refresh_server_status(None)
+
+    def _refresh_server_status(self, _button: Gtk.Button | None) -> None:
+        self.server_status_parts: dict[str, Any] = {}
+        self.server_status.set_text("Consultando estado, PXE e interfaces…")
+        self.api.submit("status", on_success=lambda value: self._server_status_part("status", value), on_error=self._server_status_failed)
+        self.api.submit("pxe_service_status", on_success=lambda value: self._server_status_part("pxe", value), on_error=self._server_status_failed)
+        self.api.submit("network_interfaces", on_success=lambda value: self._server_status_part("interfaces", value), on_error=self._server_status_failed)
+
+    def _server_status_part(self, key: str, value: dict[str, Any]) -> None:
+        self.server_status_parts[key] = value
+        if set(self.server_status_parts) != {"status", "pxe", "interfaces"}:
+            return
+        status = self.server_status_parts["status"]
+        pxe = self.server_status_parts["pxe"]
+        interfaces = self.server_status_parts["interfaces"].get("interfaces") or []
+        lines = [
+            f"Equipo: {status.get('hostname', '—')}",
+            f"Sistema: {status.get('platform', '—')}",
+            f"Servidor configurado: {'sí' if status.get('server_configured') else 'no'}",
+            f"PXE: {pxe}",
+        ]
+        lines.extend(f"Servicio {name}: {state}" for name, state in (status.get("services") or {}).items())
+        lines.extend(f"Interfaz {item.get('interface')}: {item.get('address')}/{item.get('prefix_length')}" for item in interfaces)
+        self.server_status.set_text("\n".join(lines))
+
+    def _server_status_failed(self, error: Exception) -> None:
+        self.server_status.set_text("No se pudo consultar el estado del servidor: " + str(error))
 
     def _show_repositories_page(self) -> None:
         self.page_description.set_text("Estado de los repositorios de archivos remotos y S3 disponibles para las operaciones.")
