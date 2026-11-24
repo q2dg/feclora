@@ -170,3 +170,8 @@ The Repositories page now groups repository inventory, legacy P2V compatibility,
 ## libadwaita local operations
 
 The local operations form now uses separate Adw.PreferencesGroup sections for operation selection, source/target/image selection, destructive confirmation and artifact generation, Btrfs paths, format/encryption, ddrescue recovery, and execution progress. Controls use Adw.ActionRow suffixes while mode-dependent visibility is applied to complete rows, including Btrfs and recovery-specific fields. The operation selector, device filtering, exact ERASE/BUILD confirmation, one-shot masked age passphrase, progress/cancellation controls, and all existing privileged API calls remain unchanged.
+
+
+## libadwaita image operations
+
+The Images page now separates repository/image selection, partition inspection and integrity verification, filesystem browsing/download, partition extraction, and operation results into semantic Adw.PreferencesGroup sections with Adw.ActionRow controls. The existing loading/empty/error catalog stack remains intact. Repository selection, verified-layout checks, safe download handling, writable-repository requirements, extraction cancellation/progress, and all privileged API requests are unchanged.
