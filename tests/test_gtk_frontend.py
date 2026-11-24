@@ -222,8 +222,6 @@ class GTKFrontendStructureTests(unittest.TestCase):
             '"mount": "mount_remote_repository"',
             '"unmount": "unmount_remote_repository"',
             '"remove": "remove_remote_repository"',
-            'self.api.submit("add_remote_repository"',
-            'self.api.submit("add_s3_repository"',
             'self.api.submit("systemd_credentials"',
             'self.api.submit("put_systemd_credential"',
             'self.api.submit("remove_systemd_credential"',
@@ -239,6 +237,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('action = "update_remote_repository" if existing else "add_remote_repository"', self.source)
         self.assertIn('action = "update_s3_repository" if existing else "add_s3_repository"', self.source)
         self.assertIn('self.api.submit(api_action', self.source)
+        self.assertIn('self.api.submit(action, params', self.source)
 
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
