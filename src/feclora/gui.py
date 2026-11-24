@@ -11,7 +11,7 @@ from typing import Any
 
 import customtkinter as ctk
 
-from feclora.gui_api import TkAPIClient, TUIAPIError
+from feclora.gui_api import TkAPIClient
 from feclora.ui_catalog import KEYBOARD_LAYOUTS, LANGUAGES, MESSAGES, PAGES, PAGE_MESSAGE_KEYS
 
 
@@ -72,6 +72,14 @@ class FecloraGUI(ctk.CTk):
         )
 
     @staticmethod
+    def _language_label(language: str) -> str:
+        return next((label for label, code in LANGUAGES if code == language), "Español")
+
+    @staticmethod
+    def _keyboard_label(layout: str) -> str:
+        return next((label for label, value in KEYBOARD_LAYOUTS if value == layout), "English (US)")
+
+    @staticmethod
     def _ignore_window_close() -> None:
         return None
 
@@ -94,7 +102,7 @@ class FecloraGUI(ctk.CTk):
         if layout in {value for _label, value in KEYBOARD_LAYOUTS}:
             self._keyboard_layout = layout
             if hasattr(self, "_keyboard_menu"):
-                self._keyboard_menu.set(layout)
+                self._keyboard_menu.set(self._keyboard_label(layout))
 
     def _clear(self) -> None:
         for child in self.winfo_children():
@@ -120,12 +128,12 @@ class FecloraGUI(ctk.CTk):
         )
         self._language_menu = ctk.CTkOptionMenu(
             panel,
-            values=[code for _label, code in LANGUAGES],
+            values=[label for label, _code in LANGUAGES],
             command=self._change_language,
             width=360,
             height=42,
         )
-        self._language_menu.set(self._language)
+        self._language_menu.set(self._language_label(self._language))
         self._language_menu.pack(pady=(0, 12))
 
         ctk.CTkLabel(panel, text=self._text("keyboard"), anchor="w").pack(
@@ -133,11 +141,11 @@ class FecloraGUI(ctk.CTk):
         )
         self._keyboard_menu = ctk.CTkOptionMenu(
             panel,
-            values=[value for _label, value in KEYBOARD_LAYOUTS],
+            values=[label for label, _value in KEYBOARD_LAYOUTS],
             width=360,
             height=42,
         )
-        self._keyboard_menu.set(self._keyboard_layout)
+        self._keyboard_menu.set(self._keyboard_label(self._keyboard_layout))
         self._keyboard_menu.pack(pady=(0, 12))
 
         self._status_label = ctk.CTkLabel(
@@ -162,14 +170,16 @@ class FecloraGUI(ctk.CTk):
             hover_color="#496582", width=250, height=42,
         ).pack(pady=(18, 28))
 
-    def _change_language(self, language: str) -> None:
-        if language not in MESSAGES:
+    def _change_language(self, label: str) -> None:
+        language = next((code for name, code in LANGUAGES if name == label), None)
+        if language is None or language not in MESSAGES:
             return
         self._language = language
         self._show_welcome()
 
     def _apply_keyboard_layout(self) -> None:
-        layout = self._keyboard_menu.get()
+        layout_label = self._keyboard_menu.get()
+        layout = next((value for label, value in KEYBOARD_LAYOUTS if label == layout_label), "us")
         self._status_label.configure(text="Aplicando distribución del teclado…")
         self._api.submit(
             "set_keyboard_layout",
@@ -188,7 +198,8 @@ class FecloraGUI(ctk.CTk):
         )
 
     def _continue_to_shell(self) -> None:
-        self._language = self._language_menu.get()
+        language_label = self._language_menu.get()
+        self._language = next((code for label, code in LANGUAGES if label == language_label), "es")
         try:
             self._save_language(self._language)
         except OSError as exc:
