@@ -2404,12 +2404,14 @@ class FecloraTUI(App[None]):
     def _load_language(cls) -> str:
         try:
             language = cls._language_path().read_text(encoding="utf-8").strip()
-        except FileNotFoundError:
+        except (FileNotFoundError, UnicodeError):
             return "es"
         return language if language in {code for _, code in LANGUAGES} else "es"
 
     @classmethod
     def _save_language(cls, language: str) -> None:
+        if language not in MESSAGES:
+            raise ValueError("unsupported interface language")
         path = cls._language_path()
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         path.write_text(language + "\n", encoding="utf-8")

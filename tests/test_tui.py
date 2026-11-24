@@ -27,6 +27,22 @@ class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
             with patch.object(FecloraTUI, "_language_path", return_value=language_path):
                 self.assertEqual(FecloraTUI._load_language(), "es")
 
+
+    def test_invalid_saved_language_encoding_falls_back_to_spanish(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            language_path = Path(temporary) / "language"
+            language_path.write_bytes(b"\xff\xfe")
+            with patch.object(FecloraTUI, "_language_path", return_value=language_path):
+                self.assertEqual(FecloraTUI._load_language(), "es")
+
+    def test_save_language_rejects_missing_translation_catalog(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            language_path = Path(temporary) / "language"
+            with patch.object(FecloraTUI, "_language_path", return_value=language_path):
+                with self.assertRaisesRegex(ValueError, "unsupported interface language"):
+                    FecloraTUI._save_language("ca")
+            self.assertFalse(language_path.exists())
+
     def test_unknown_runtime_language_uses_spanish_fallback(self):
         app = FecloraTUI()
         app._language = "ca"
