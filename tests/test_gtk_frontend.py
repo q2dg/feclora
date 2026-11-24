@@ -91,7 +91,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_all_migrated_operations_are_exposed_by_api_dispatch(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         dispatch = api_source[api_source.index('    if action in {"capture_disk"'):]
-        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery", "restore_disk", "restore_partition", "restore_logical_volume", "restore_stratis_filesystem", "clone_disk", "clone_partition", "build_recovery_iso", "build_deployment_bundle"):
+        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery", "restore_disk", "restore_partition", "restore_logical_volume", "restore_stratis_filesystem", "clone_disk", "clone_partition", "build_recovery_iso", "build_deployment_bundle", "restore_proportional_disk"):
             self.assertIn('"' + action + '"', dispatch)
 
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
@@ -113,6 +113,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("base64.b64decode(encoded, validate=True)", self.source)
         self.assertIn('destination.open("xb")', self.source)
         self.assertIn("self.image_layout", self.source)
+        self.assertIn('self.api.submit("repository_images"', self.source)
+        self.assertIn('self.image_session_id = result.get("session_id", "")', self.source)
 
     def test_proportional_restore_requires_smaller_target_and_kernel_identities(self):
         self.assertIn('"Restauración proporcional a disco menor"', self.source)
