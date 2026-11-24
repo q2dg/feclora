@@ -426,16 +426,6 @@ class FecloraGTK:
         self._history_page("Historial de despliegues y eventos persistidos.", ("Despliegue", "Estado", "Clientes", "Eventos"), "journals", "journals", render)
 
     def _show_client_jobs_page(self) -> None:
-        def render(item: dict[str, Any]) -> tuple[str, ...]:
-            clients = item.get("clients") or {}
-            if not clients:
-                return (item.get("job_id") or "—", "—", "Sin clientes")
-            return tuple(
-                (item.get("job_id") or "—", mac, details.get("state") or "—")
-                for mac, details in clients.items()
-            )
-        def render_rows(item: dict[str, Any]) -> tuple[str, ...]:
-            return render(item)
         self.page_description.set_text("Estado de los clientes asociados a los trabajos de despliegue.")
         self.history_summary = Gtk.Label(label="Consultando clientes…", xalign=0)
         self.page_body.append(self.history_summary)
