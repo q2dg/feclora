@@ -48,6 +48,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.navigation_rows[page_id] = row", method)
         self.assertNotIn("Gtk.Button(label=self.tr(PAGE_MESSAGE_KEYS[page_id]))", method)
 
+    def test_navigation_marks_the_current_page_in_sidebar(self):
+        show = ast.get_source_segment(self.source, self.methods["_show_navigation"])
+        select = ast.get_source_segment(self.source, self.methods["_select_page"])
+        self.assertIn("self.navigation_icons: dict[str, Gtk.Image] = {}", show)
+        self.assertIn("self.navigation_icons[page_id] = icon", show)
+        self.assertIn('row.set_subtitle("Página actual" if selected else "")', select)
+        self.assertIn('icon.set_from_icon_name("emblem-ok-symbolic" if selected else "go-next-symbolic")', select)
+        self.assertIn("for navigation_id, row in self.navigation_rows.items()", select)
+
     def test_frontend_fails_closed_to_native_wayland(self):
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', self.source)
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
