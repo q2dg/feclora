@@ -88,6 +88,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("kind == 6", mode)
         self.assertIn("kind == 7", mode)
 
+    def test_all_migrated_operations_are_exposed_by_api_dispatch(self):
+        api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
+        dispatch = api_source[api_source.index('    if action in {"capture_disk"'):]
+        for action in ("capture_logical_volume", "capture_stratis_filesystem", "capture_btrfs_subvolume", "receive_btrfs_subvolume", "recover_disk", "finalize_recovery"):
+            self.assertIn('"' + action + '"', dispatch)
+
     def test_disk_capture_format_is_allowlisted_by_privileged_api(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
