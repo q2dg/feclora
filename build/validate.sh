@@ -194,3 +194,6 @@ require_text 'self\.api\.submit\("restore_profiles"' src/feclora/gui_gtk.py "GTK
 require_text 'self\.api\.submit\("create_restore_profile"' src/feclora/gui_gtk.py "GTK restore profiles page must create bound single-use profiles."
 require_text 'self\.api\.submit\("execute_restore_profile"' src/feclora/gui_gtk.py "GTK restore profiles page must execute selected profiles through the durable worker."
 require_text 'self\.api\.submit\("capture_p2v"' src/feclora/gui_gtk.py "GTK must expose P2V capture."
+
+require_text 'self\.api\.submit\("apply_network_profile"' src/feclora/gui_gtk.py "GTK network page must apply NetworkManager profiles through the privileged API."
+require_text '"rollback_timeout": 120' src/feclora/gui_gtk.py "GTK network changes must retain the automatic rollback checkpoint."
