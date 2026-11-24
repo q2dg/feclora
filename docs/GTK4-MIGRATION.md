@@ -49,7 +49,7 @@ session is required.
    overview and storage inventory pages now call the real backend and render
    live results; structural regression tests cover these paths.
 3. Complete the operations page: port the remaining capture modes and the
-   recovery ISO/deployment-bundle actions, preserving
+   remaining recovery and deployment actions, preserving
    confirmation phrases, validation, progress events, cancellation and error handling.
 4. Port inventory, image browsing, restore profiles, network, repositories,
    server/PXE, remote deployment and recovery workflows; do not replace
