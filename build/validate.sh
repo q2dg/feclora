@@ -206,3 +206,6 @@ require_text 'page_scroller\.set_child\(self\.page_body\)' src/feclora/gui_gtk.p
 require_text 'self\._history_page\("Trabajos remotos"' src/feclora/gui_gtk.py "GTK remote jobs page must list persistent deployment jobs."
 require_text 'self\._history_page\("Historial de despliegues"' src/feclora/gui_gtk.py "GTK deployment history page must render journals."
 require_text 'self\.api\.submit\("deployment_jobs"' src/feclora/gui_gtk.py "GTK client jobs page must list client deployment states."
+
+require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py "GTK repository inventory must include S3 repositories."
+require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "GTK repository inventory must include filesystem repositories."
