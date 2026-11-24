@@ -12,7 +12,7 @@ The application uses `Adw.Application`/`Adw.ApplicationWindow`, an
 `Adw.ToolbarView` with `Adw.HeaderBar` and `Adw.WindowTitle`, an `Adw.Clamp`
 for the welcome flow, and an `Adw.ToastOverlay` for transient error feedback.
 The existing fullscreen, undecorated kiosk policy is retained. The graphical
-runtime requires Fedora's `libadwaita` and `libadwaita-gtk4` RPMs; no PyPI
+runtime requires Fedora's `libadwaita` RPM; no PyPI
 binding, GNOME Shell, Mutter or X11 compatibility layer is required.
 `gtk_api.py` dispatches allowlisted API calls in worker threads and marshals
 results onto the GLib main loop. All navigation content is vertically scrollable.
