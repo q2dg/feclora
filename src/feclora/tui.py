@@ -73,12 +73,9 @@ OPERATIONS = (
     ("Crear paquete de despliegue", "build_deployment_bundle"),
 )
 COMPRESSION = (("Zstandard", "zstd"), ("LZ4", "lz4"), ("Gzip", "gzip"), ("XZ", "xz"), ("Sin compresión", "none"))
-LANGUAGES = (
-    ("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"),
-    ("Euskara", "eu"), ("Português", "pt"), ("Français", "fr"), ("Deutsch", "de"),
-    ("Italiano", "it"), ("中文", "zh"), ("日本語", "ja"), ("Русский", "ru"),
-    ("العربية", "ar"), ("Türkçe", "tr"),
-)
+# Only expose locales with an actual message catalog. The remaining workflows
+# are Spanish-first; English currently covers startup and primary navigation.
+LANGUAGES = (("English", "en"), ("Español", "es"))
 KEYBOARD_LAYOUTS = (
     ("English (US)", "us"), ("English (US, international)", "us-intl"),
     ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"),
@@ -90,7 +87,8 @@ MESSAGES = {
     "en": {
         "first_title": "Welcome to Feclora",
         "tagline": "Rescue, disk imaging and network deployment appliance",
-        "language": "Interface language",
+        "language": "Startup and navigation language",
+        "language_scope": "Operational workflows remain in Spanish; English currently covers startup and primary navigation.",
         "keyboard": "Keyboard layout",
         "apply_keyboard": "Apply keyboard layout",
         "continue": "Continue",
@@ -104,7 +102,8 @@ MESSAGES = {
     "es": {
         "first_title": "Bienvenido a Feclora",
         "tagline": "Sistema de rescate, imágenes de disco y despliegue en red",
-        "language": "Idioma de la interfaz",
+        "language": "Idioma de inicio y navegación",
+        "language_scope": "Los flujos operativos siguen en español; el inglés cubre actualmente el inicio y la navegación principal.",
         "keyboard": "Distribución del teclado",
         "apply_keyboard": "Aplicar distribución del teclado",
         "continue": "Continuar",
@@ -309,6 +308,7 @@ class FecloraTUI(App[None]):
             yield Static("Sistema de rescate, imágenes de disco y despliegue en red", id="first-tagline")
             yield Static("Idioma de la interfaz", classes="field-label", id="language-label")
             yield Select(LANGUAGES, value=self._language, id="language-select")
+            yield Static(self._text("language_scope"), id="language-scope")
             yield Static("Distribución del teclado", classes="field-label", id="keyboard-label")
             yield Select(KEYBOARD_LAYOUTS, value="us", id="keyboard-select")
             yield Button("Aplicar distribución del teclado", id="apply-keyboard", variant="default")
@@ -2416,13 +2416,14 @@ class FecloraTUI(App[None]):
         path.chmod(0o600)
 
     def _text(self, key: str) -> str:
-        return MESSAGES.get(self._language, MESSAGES["en"]).get(key, MESSAGES["en"].get(key, key))
+        return MESSAGES.get(self._language, MESSAGES["es"]).get(key, MESSAGES["es"].get(key, key))
 
     def _apply_language(self) -> None:
         self.title = "Feclora"
         self.query_one("#first-title", Static).update(self._text("first_title"))
         self.query_one("#first-tagline", Static).update(self._text("tagline"))
         self.query_one("#language-label", Static).update(self._text("language"))
+        self.query_one("#language-scope", Static).update(self._text("language_scope"))
         self.query_one("#keyboard-label", Static).update(self._text("keyboard"))
         self.query_one("#apply-keyboard", Button).label = self._text("apply_keyboard")
         self.query_one("#continue", Button).label = self._text("continue")

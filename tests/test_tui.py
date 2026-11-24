@@ -1,5 +1,7 @@
 import asyncio
 import unittest
+import tempfile
+from pathlib import Path
 import importlib.util
 from unittest.mock import AsyncMock, patch
 
@@ -9,11 +11,28 @@ if importlib.util.find_spec("textual") is None:
     FecloraTUI = None
 else:
     from textual.widgets import Button, DataTable, Input, Select, Static
-    from feclora.tui import FecloraTUI
+    from feclora.tui import FecloraTUI, LANGUAGES, MESSAGES
 
 
 @unittest.skipIf(FecloraTUI is None, "Textual is not installed")
 class FecloraTUITests(unittest.IsolatedAsyncioTestCase):
+
+    def test_language_options_match_available_message_catalogs(self):
+        self.assertEqual({code for _, code in LANGUAGES}, set(MESSAGES))
+
+    def test_unknown_saved_language_falls_back_to_spanish(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            language_path = Path(temporary) / "language"
+            language_path.write_text("ca\n", encoding="utf-8")
+            with patch.object(FecloraTUI, "_language_path", return_value=language_path):
+                self.assertEqual(FecloraTUI._load_language(), "es")
+
+    def test_unknown_runtime_language_uses_spanish_fallback(self):
+        app = FecloraTUI()
+        app._language = "ca"
+        self.assertEqual(app._text("first_title"), "Bienvenido a Feclora")
+
+
     async def test_classic_dos_theme_is_registered_and_selected(self):
         async def api(action, params=None, on_event=None):
             if action == "get_keyboard_layout":
