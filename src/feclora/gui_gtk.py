@@ -516,7 +516,7 @@ class FecloraGTK:
 
     def _download_selected_image_file(self, _button: Gtk.Button) -> None:
         path = self.image_download_path.get_text().strip()
-        if not path.startswith("/") or "\\x00" in path:
+        if not path.startswith("/") or "\x00" in path:
             self.image_result.set_text("Indica una ruta absoluta de archivo dentro de la imagen.")
             return
         try:
