@@ -145,3 +145,8 @@ The Server page groups the server health summary, TLS identity and certificate a
 ## libadwaita restore profiles
 
 The single-use restore profile page is grouped into source/target selection, profile definition, and controlled execution sections using `Adw.PreferencesGroup` and `Adw.ActionRow`. Existing repository and inventory lookups, timezone-aware expiry input, exact destructive target confirmation, disabled initial cancellation control, and privileged execution/cancellation callbacks are preserved. Creating a profile remains separate from starting a restore.
+
+
+## libadwaita operation and recovery histories
+
+The local operation log now separates status/refresh, exact-phrase cancellation, and persisted records into `Adw.PreferencesGroup` sections with `Adw.ActionRow` controls. The ddrescue recovery page groups job status and refresh separately from the persistent job history. Both pages retain their `Gtk.Stack` empty states, populated grids, existing API requests, and cancellation confirmation contract.
