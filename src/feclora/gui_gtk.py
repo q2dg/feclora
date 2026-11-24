@@ -74,8 +74,13 @@ class FecloraGTK:
         return GLib.SOURCE_REMOVE
 
     def _show_error(self, error: Exception) -> None:
+        message = f"{self.tr('apply_error')} {error}"
         if hasattr(self, "status"):
-            self.status.set_text(f"{self.tr('apply_error')} {error}")
+            self.status.set_text(message)
+        if hasattr(self, "status_summary"):
+            self.status_summary.set_text(message)
+        if hasattr(self, "inventory_summary"):
+            self.inventory_summary.set_text(message)
 
     def _accept_keyboard_layout(self, result: dict[str, Any]) -> None:
         layout = result.get("layout")
