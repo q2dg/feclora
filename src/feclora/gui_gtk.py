@@ -243,8 +243,11 @@ class FecloraGTK:
             self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.page_body.append(Gtk.Label(label="Disco de origen", xalign=0))
-            self.capture_source = Gtk.DropDown.new_from_strings(["Cargando discos…"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición"])
+            self.capture_kind.connect("notify::selected", self._capture_mode_changed)
+            self.page_body.append(self.capture_kind)
+            self.page_body.append(Gtk.Label(label="Origen", xalign=0))
+            self.capture_source = Gtk.DropDown.new_from_strings(["Cargando dispositivos…"])
             self.page_body.append(self.capture_source)
             self.capture_image_id = Gtk.Entry()
             self.capture_image_id.set_placeholder_text("Identificador de imagen")
@@ -273,12 +276,18 @@ class FecloraGTK:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
     def _populate_capture_devices(self, inventory: dict[str, Any]) -> None:
-        devices = self._flatten_devices(inventory.get("devices"))
-        self.capture_devices = [d for d in devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
-        labels = [str(d.get("path")) + " · " + str(d.get("model") or "disco") for d in self.capture_devices]
-        self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay discos detectados"]))
+        self.capture_inventory_devices = self._flatten_devices(inventory.get("devices"))
+        self._capture_mode_changed(self.capture_kind, None)
+
+    def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        kind = self.capture_kind.get_selected()
+        device_type = "part" if kind == 1 else "disk"
+        self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == device_type and isinstance(d.get("path"), str)]
+        labels = [str(d.get("path")) + " · " + str(d.get("model") or device_type) for d in self.capture_devices]
+        self.capture_source.set_model(Gtk.StringList.new(labels or ["No hay dispositivos compatibles"]))
         self.capture_source.set_selected(0)
-        self.capture_summary.set_text("Discos detectados: " + str(len(self.capture_devices)))
+        self.capture_summary.set_text(("Particiones" if kind == 1 else "Discos") + " detectados: " + str(len(self.capture_devices)))
+        self.capture_start.set_label("Iniciar captura de partición" if kind == 1 else "Iniciar captura de disco")
 
     def _start_disk_capture(self, _button: Gtk.Button) -> None:
         import re
@@ -290,12 +299,17 @@ class FecloraGTK:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
             self.capture_result.set_text("Identificador no válido.")
             return
-        qcow2 = self.capture_format.get_selected() == 1
+        qcow2 = self.capture_kind.get_selected() == 0 and self.capture_format.get_selected() == 1
         compression = ("zstd", "lz4", "gzip", "xz", "none")[self.capture_compression.get_selected()]
-        params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "image_format": "qcow2" if qcow2 else "raw", "compression": "none" if qcow2 else compression, "encrypt": self.capture_encrypt.get_active() and not qcow2}
+        if self.capture_kind.get_selected() == 1:
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "partition_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
+            action = "capture_partition"
+        else:
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "image_format": "qcow2" if qcow2 else "raw", "compression": "none" if qcow2 else compression, "encrypt": self.capture_encrypt.get_active() and not qcow2}
+            action = "capture_disk"
         self.capture_start.set_sensitive(False)
         self.capture_result.set_text("Solicitando captura…")
-        self.api.submit("capture_disk", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+        self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
 
     def _capture_accepted(self, result: dict[str, Any]) -> None:
         operation_id = result.get("operation_id")
