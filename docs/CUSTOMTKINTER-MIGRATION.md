@@ -17,13 +17,21 @@ The first implementation slice establishes three reusable pieces:
 
 ## Target runtime
 
-The intended appliance stack is Xorg, Openbox, Fedora's Tkinter runtime and
-CustomTkinter. CustomTkinter is pinned in `requirements-gui.txt` and will be
-installed into a private application vendor directory during the runtime
-image build, rather than modifying Fedora's system Python.
+The intended appliance stack is Weston on its DRM/KMS backend, Weston
+kiosk-shell, XWayland, Fedora's Tkinter runtime and CustomTkinter. Weston is the
+Wayland compositor and kiosk shell; XWayland is only the X11 compatibility
+server needed by Tkinter. The Xorg server and Openbox are not part of this
+design. Weston documents kiosk-shell as a single-app shell that makes
+top-level windows fullscreen, and supports XWayland clients.
 
-The X session is to be started from the existing tty1 systemd handoff. No
-display manager or general-purpose desktop session is required.
+CustomTkinter is pinned in `requirements-gui.txt` and will be installed into a
+private application vendor directory during the runtime image build, rather
+than modifying Fedora's system Python.
+
+Weston is to be started from the existing tty1 systemd handoff using the DRM
+backend and XWayland support. The kiosk-shell configuration will match the
+Feclora X11 window class so the CustomTkinter window occupies the output.
+No display manager or general-purpose desktop session is required.
 
 ## Migration sequence
 
@@ -35,17 +43,18 @@ display manager or general-purpose desktop session is required.
 4. Port inventory, image browsing, restore profiles, network, repositories,
    server/PXE, remote deployment and recovery workflows; do not replace
    operational controls with read-only placeholders.
-5. Add Xorg/Openbox kiosk configuration, graphical service readiness reporting
+5. Add Weston DRM + kiosk-shell + XWayland configuration, graphical service readiness reporting
    and VM smoke tests. Keep tty2 as the independent maintenance/recovery path.
 6. Switch the default boot service only after feature parity and BIOS/UEFI
    acceptance. Then remove Textual and its obsolete text-boot checks.
 
 ## Kiosk and recovery requirements
 
-The final kiosk session must start after the visible tty1 boot messages, use a
-fullscreen undecorated window, and prevent ordinary window-manager minimize,
-close and task-switch shortcuts. Tk-level key bindings alone are insufficient:
-the Openbox configuration must enforce the kiosk policy too.
+The final kiosk session must start after the visible tty1 boot messages. Weston
+kiosk-shell must present the CustomTkinter/XWayland window fullscreen, with no
+decorations or ordinary minimize/close controls. Tk-level shortcut bindings
+are supplementary; Weston kiosk-shell and the compositor/session configuration
+must enforce the kiosk policy.
 
 The operator must retain an independent maintenance path on tty2. A failed
 GUI must not prevent access to that path or leave durable storage operations
