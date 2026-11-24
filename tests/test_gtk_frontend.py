@@ -677,9 +677,6 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("inventory"', page)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_raw_disk_capture_supports_one_shot_age_passphrase_delivery(self):
         self.assertIn("self.capture_passphrase = Gtk.PasswordEntry()", self.source)
         self.assertIn('"provide_capture_passphrase"', self.source)
@@ -736,3 +733,26 @@ if __name__ == "__main__":
         self.assertIn('title="Sin trabajos de recuperación"', page)
         self.assertIn("row.set_activatable_widget(refresh)", page)
         self.assertIn("self._refresh_recovery_jobs(None)", page)
+
+    def test_raw_disk_capture_preserves_exclusive_age_encryption_modes(self):
+        page = self.source[self.source.index('elif page_id == "operations":'):self.source.index('        else:\n            self.page_description.set_text("Esta pantalla aún no se ha migrado', self.source.index('elif page_id == "operations":'))]
+        start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
+        mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
+        toggle = ast.get_source_segment(self.source, self.methods["_capture_encryption_changed"])
+        self.assertIn('Gtk.CheckButton(label="Cifrar con destinatarios age")', page)
+        self.assertIn('Gtk.CheckButton(label="Cifrar con frase secreta de un solo uso")', page)
+        self.assertIn('self.capture_encrypt.connect("toggled", self._capture_encryption_changed)', page)
+        self.assertIn('self.capture_passphrase_toggle.connect("toggled", self._capture_encryption_changed)', page)
+        self.assertIn("self.capture_passphrase_toggle.set_active(False)", toggle)
+        self.assertIn("self.capture_encrypt.set_active(False)", toggle)
+        self.assertIn("recipient_encryption_visible = kind in {0, 1, 2, 3, 4}", mode)
+        self.assertIn("passphrase_encryption_visible = kind == 0", mode)
+        self.assertIn('"encrypt": (self.capture_encrypt.get_active() or passphrase_encryption) and not qcow2', start)
+        self.assertIn('if kind == 0 and not qcow2 and self.capture_passphrase_toggle.get_active():', start)
+        self.assertIn('params["encrypt_passphrase"] = True', start)
+        self.assertIn("self.active_capture_passphrase = capture_passphrase", start)
+
+
+
+if __name__ == "__main__":
+    unittest.main()
