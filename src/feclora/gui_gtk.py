@@ -192,7 +192,11 @@ class FecloraGTK:
         content.append(self.page_description)
         self.page_body = self._box(Gtk.Orientation.VERTICAL, 10)
         self.page_body.set_vexpand(True)
-        content.append(self.page_body)
+        page_scroller = Gtk.ScrolledWindow()
+        page_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        page_scroller.set_vexpand(True)
+        page_scroller.set_child(self.page_body)
+        content.append(page_scroller)
 
         for page_id, _label in PAGES:
             button = Gtk.Button(label=self.tr(PAGE_MESSAGE_KEYS[page_id]))
