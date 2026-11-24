@@ -13,7 +13,7 @@ page supports whole-disk capture (RAW/QCOW2), partition capture, LVM logical-vol
 capture, Stratis XFS filesystem capture and incremental Btrfs subvolume send/receive streams,
 compression, age encryption, progress polling and cancellation through the privileged API.
 The operations page also exposes ddrescue disk recovery (retry-pass and resume
-controls), recovery finalization, whole-disk/partition/logical-volume restoration
+controls), recovery finalization, whole-disk/partition/logical-volume/Stratis restoration
 and whole-disk/partition cloning. Restore and clone actions retain exact destructive
 confirmation phrases and use the privileged asynchronous operation API. Recovery ISO
 and deployment-bundle workflows remain in Textual; other
