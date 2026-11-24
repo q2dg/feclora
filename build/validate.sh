@@ -212,3 +212,6 @@ require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "
 
 require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK image page must support full artifact integrity verification."
 require_text 'operation_confirmation\.get_text\(\) != expected' src/feclora/gui_gtk.py "GTK operation cancellation must require the exact operation ID phrase."
+
+require_text 'self\.api\.submit\("pxe_service_status"' src/feclora/gui_gtk.py "GTK server status must include PXE service health."
+require_text 'status\.get\("certificate_status"\)' src/feclora/gui_gtk.py "GTK system status must include certificate health."
