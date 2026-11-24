@@ -209,3 +209,6 @@ require_text 'self\.api\.submit\("deployment_jobs"' src/feclora/gui_gtk.py "GTK 
 
 require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py "GTK repository inventory must include S3 repositories."
 require_text 'self\.api\.submit\("remote_repositories"' src/feclora/gui_gtk.py "GTK repository inventory must include filesystem repositories."
+
+require_text 'self\.api\.submit\("verify_image"' src/feclora/gui_gtk.py "GTK image page must support full artifact integrity verification."
+require_text 'operation_confirmation\.get_text\(\) != expected' src/feclora/gui_gtk.py "GTK operation cancellation must require the exact operation ID phrase."
