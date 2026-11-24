@@ -243,12 +243,20 @@ class FecloraGTK:
             self.page_description.set_text("Captura de disco local. Restauraciones y clonaciones seguirán en Textual hasta migrar sus controles de seguridad.")
             self.capture_summary = Gtk.Label(label="Consultando inventario…", xalign=0)
             self.page_body.append(self.capture_summary)
-            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis"])
+            self.capture_kind = Gtk.DropDown.new_from_strings(["Capturar disco completo", "Capturar partición", "Capturar volumen lógico", "Capturar filesystem Stratis", "Capturar subvolumen Btrfs"])
             self.capture_kind.connect("notify::selected", self._capture_mode_changed)
             self.page_body.append(self.capture_kind)
             self.page_body.append(Gtk.Label(label="Origen", xalign=0))
             self.capture_source = Gtk.DropDown.new_from_strings(["Cargando dispositivos…"])
             self.page_body.append(self.capture_source)
+            self.capture_btrfs_source = Gtk.Entry()
+            self.capture_btrfs_source.set_placeholder_text("/ruta/al/subvolumen")
+            self.page_body.append(Gtk.Label(label="Ruta absoluta del subvolumen Btrfs", xalign=0))
+            self.page_body.append(self.capture_btrfs_source)
+            self.capture_btrfs_parent = Gtk.Entry()
+            self.capture_btrfs_parent.set_placeholder_text("Opcional: ruta del subvolumen padre")
+            self.page_body.append(Gtk.Label(label="Padre incremental (opcional)", xalign=0))
+            self.page_body.append(self.capture_btrfs_parent)
             self.capture_image_id = Gtk.Entry()
             self.capture_image_id.set_placeholder_text("Identificador de imagen")
             self.page_body.append(self.capture_image_id)
@@ -284,6 +292,10 @@ class FecloraGTK:
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
+        is_btrfs = kind == 4
+        self.capture_source.set_visible(not is_btrfs)
+        self.capture_btrfs_source.set_visible(is_btrfs)
+        self.capture_btrfs_parent.set_visible(is_btrfs)
         if kind == 0:
             self.capture_devices = [d for d in self.capture_inventory_devices if d.get("type") == "disk" and isinstance(d.get("path"), str)]
             label = "Discos"
@@ -329,6 +341,23 @@ class FecloraGTK:
         import re
         index = self.capture_source.get_selected()
         image_id = self.capture_image_id.get_text().strip()
+        kind = self.capture_kind.get_selected()
+        if kind == 4:
+            source_path = self.capture_btrfs_source.get_text().strip()
+            parent_path = self.capture_btrfs_parent.get_text().strip()
+            if not source_path.startswith("/") or not image_id:
+                self.capture_result.set_text("Indica una ruta absoluta de subvolumen Btrfs y un identificador de stream.")
+                return
+            if parent_path and not parent_path.startswith("/") :
+                self.capture_result.set_text("La ruta del padre incremental debe ser absoluta.")
+                return
+            params = {"source_path": source_path, "image_id": image_id, "compression": ("zstd", "lz4", "gzip", "xz", "none")[self.capture_compression.get_selected()], "encrypt": self.capture_encrypt.get_active()}
+            if parent_path:
+                params["parent_path"] = parent_path
+            self.capture_start.set_sensitive(False)
+            self.capture_result.set_text("Solicitando captura Btrfs…")
+            self.api.submit("capture_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            return
         if index >= len(getattr(self, "capture_devices", [])):
             self.capture_result.set_text("Selecciona un disco de origen válido.")
             return
