@@ -328,7 +328,9 @@ class FecloraGTK:
         self.capture_summary.set_text(label + " detectados: " + str(len(self.capture_devices)))
         self.capture_format_label.set_visible(kind == 0)
         self.capture_format.set_visible(kind == 0)
-        self.capture_start.set_label("Iniciar captura: " + label.lower())
+        self.capture_compression.set_visible(kind != 5)
+        self.capture_encrypt.set_visible(kind != 5)
+        self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar captura: " + label.lower())
 
     def _flatten_logical_volumes(self, inventory: dict[str, Any]) -> list[dict[str, Any]]:
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
