@@ -330,3 +330,12 @@ require_text 'title="Definición del perfil"' src/feclora/gui_gtk.py "GTK restor
 require_text 'title="Ejecución controlada"' src/feclora/gui_gtk.py "GTK restore profiles must group guarded execution controls."
 require_text 'row\.set_activatable_widget\(widget\)' src/feclora/gui_gtk.py "GTK restore profile rows must preserve direct control activation."
 require_text 'self\.profile_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK restore profile cancellation must remain disabled until an operation is active."
+
+
+require_text 'title="Estado del registro"' src/feclora/gui_gtk.py "GTK operation log must group persistent status and refresh."
+require_text 'title="Cancelación controlada"' src/feclora/gui_gtk.py "GTK operation cancellation must remain a distinct guarded section."
+require_text 'title="Operaciones registradas"' src/feclora/gui_gtk.py "GTK operation records must be grouped separately from controls."
+require_text 'title="Estado de recuperación"' src/feclora/gui_gtk.py "GTK ddrescue history must group persistent recovery status."
+require_text 'title="Trabajos ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue records must use a semantic history group."
+require_text 'row\.set_activatable_widget\(cancel\)' src/feclora/gui_gtk.py "GTK operation cancellation rows must preserve direct button activation."
+require_text 'self\.operation_confirmation\.set_placeholder_text\("CANCEL <operation_id>"\)' src/feclora/gui_gtk.py "GTK operation cancellation must retain the exact confirmation phrase."
