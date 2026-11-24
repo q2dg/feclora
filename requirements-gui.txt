@@ -1,2 +1,2 @@
-# Pinned GUI toolkit for the CustomTkinter migration.
-customtkinter==6.0.0
+# GTK4 and PyGObject are supplied by Fedora RPMs (python3-gobject, gtk4).
+# No pip-installed GUI toolkit is required. Keep this file for GUI build metadata.
