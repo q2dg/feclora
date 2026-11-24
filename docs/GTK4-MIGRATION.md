@@ -10,10 +10,9 @@ The native frontend prototype is `gui_gtk.py`, built with GTK4 and PyGObject.
 and marshals results/events onto the GLib main loop. The initial navigation
 pages are placeholders; this prototype is not production-ready.
 
-The earlier CustomTkinter/Tk prototype (`gui.py` and `gui_api.py`) is legacy
-migration scaffolding and is not part of the target runtime. It must not be
-installed or started. It will be removed after dependent transitional checks
-and tests have been replaced.
+The CustomTkinter/Tk prototype and its dedicated tests have been removed.
+GTK4/PyGObject is the sole graphical frontend target; no Tk or X11 compatibility
+runtime is retained.
 
 ## Target runtime: native Wayland only
 
