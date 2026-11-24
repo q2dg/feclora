@@ -547,6 +547,30 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.remote_credential.set_visible(provider == "smb")', self.source)
         self.assertIn('self.remote_identity.set_visible(provider == "sshfs")', self.source)
 
+    def test_overview_uses_semantic_libadwaita_status_groups(self):
+        start = self.source.index('        if page_id == "overview":')
+        end = self.source.index('        elif page_id == "inventory":', start)
+        page = self.source[start:end]
+        for title in (
+            "Identidad del equipo",
+            "Configuración de Feclora",
+            "Servicios del sistema",
+            "Acciones",
+        ):
+            self.assertIn(f'title="{title}"', page)
+            self.assertIn("Adw.PreferencesGroup(", page)
+        for widget in ("self.status_summary", "self.overview_configuration", "self.overview_services"):
+            self.assertIn(widget, page)
+        self.assertIn("refresh_row.set_activatable_widget(refresh)", page)
+        self.assertIn('self.api.submit("status"', self.source)
+        status_start = self.source.index("    def _show_status")
+        status_end = self.source.index("    @staticmethod", status_start)
+        status_callback = self.source[status_start:status_end]
+        self.assertIn("self.overview_configuration.set_text(", status_callback)
+        self.assertIn("self.overview_services.set_text(", status_callback)
+        self.assertIn("server_configured", status_callback)
+        self.assertIn("client_configured", status_callback)
+
     def test_images_page_uses_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_images_page")
         end = self.source.index("    def _populate_image_repositories", start)
