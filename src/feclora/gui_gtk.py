@@ -1515,10 +1515,10 @@ class FecloraGTK:
         self._history_page("Historial de despliegues y eventos persistidos.", ("Despliegue", "Estado", "Clientes", "Eventos"), "journals", "journals", render)
 
     def _show_client_jobs_page(self) -> None:
-        self.page_description.set_text("Estado de los clientes asociados a los trabajos de despliegue.")
+        self.page_description.set_text("Inspección TLS del servidor, selección segura de destino local y ejecución/seguimiento del cliente.")
         self.history_summary = Gtk.Label(label="Consultando clientes…", xalign=0)
         self.page_body.append(self.history_summary)
-        refresh = Gtk.Button(label="Actualizar clientes")
+        refresh = Gtk.Button(label="Actualizar historial de clientes")
         refresh.set_halign(Gtk.Align.START)
         refresh.connect("clicked", lambda _button: self.api.submit("deployment_jobs", on_success=self._show_client_job_rows, on_error=self._history_failed))
         self.page_body.append(refresh)
@@ -1527,8 +1527,223 @@ class FecloraGTK:
         self.history_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
         scroller.set_child(self.history_grid)
         self.page_body.append(scroller)
+        title = Gtk.Label(label="Conectar e inspeccionar trabajo remoto", xalign=0)
+        title.add_css_class("heading")
+        self.page_body.append(title)
+        self.client_server_host = Gtk.Entry()
+        self.client_server_host.set_placeholder_text("Host o dirección del servidor Feclora")
+        self.client_job_id = Gtk.Entry()
+        self.client_job_id.set_placeholder_text("UUID del DeploymentJob")
+        self.client_interface = Gtk.DropDown.new_from_strings(["Cargando interfaces IPv4 activas…"])
+        for widget in (self.client_server_host, self.client_job_id, self.client_interface):
+            self.page_body.append(widget)
+        inspect = Gtk.Button(label="Autenticar TLS e inspeccionar trabajo")
+        inspect.set_halign(Gtk.Align.START)
+        inspect.connect("clicked", self._inspect_client_job)
+        self.page_body.append(inspect)
+        self.client_job_details = Gtk.Label(label="Sin inspección autenticada.", xalign=0)
+        self.client_job_details.set_wrap(True)
+        self.client_job_details.set_selectable(True)
+        self.page_body.append(self.client_job_details)
+        target_title = Gtk.Label(label="Destino local", xalign=0)
+        target_title.add_css_class("heading")
+        self.page_body.append(target_title)
+        self.client_target = Gtk.DropDown.new_from_strings(["Inspecciona primero el trabajo remoto…"])
+        self.client_target.connect("notify::selected", self._update_client_confirmation)
+        self.page_body.append(self.client_target)
+        self.client_compression = Gtk.DropDown.new_from_strings(["Gzip", "Zstandard", "LZ4", "Sin compresión"])
+        self.page_body.append(self.client_compression)
+        self.client_encrypt = Gtk.DropDown.new_from_strings(["Sin cifrado", "Cifrar imagen con age"])
+        self.page_body.append(self.client_encrypt)
+        self.client_igmp = Gtk.CheckButton(label="Confirmo multicast en una red aislada con IGMP verificado")
+        self.page_body.append(self.client_igmp)
+        self.client_confirmation = Gtk.Entry()
+        self.client_confirmation.set_placeholder_text("Escribe exactamente ERASE destino o READ destino TO identidad")
+        self.page_body.append(self.client_confirmation)
+        start = Gtk.Button(label="Iniciar operación del cliente")
+        start.set_halign(Gtk.Align.START)
+        start.connect("clicked", self._start_client_job)
+        self.page_body.append(start)
+        status = Gtk.Button(label="Consultar estado del cliente")
+        status.set_halign(Gtk.Align.START)
+        status.connect("clicked", self._refresh_client_job_status)
+        self.page_body.append(status)
+        self.client_result = Gtk.Label(label="No se ha iniciado ningún trabajo.", xalign=0)
+        self.client_result.set_wrap(True)
+        self.client_result.set_selectable(True)
+        self.page_body.append(self.client_result)
+        self._client_remote_inspection = None
+        self._client_network_interfaces = []
+        self._client_inventory_devices = []
+        self._client_logical_volumes = []
         self._show_client_job_rows({"jobs": []})
         self.api.submit("deployment_jobs", on_success=self._show_client_job_rows, on_error=self._history_failed)
+        self.api.submit("network_interfaces", on_success=self._populate_client_interfaces, on_error=self._client_job_failed)
+        self.api.submit("inventory", on_success=self._populate_client_inventory, on_error=self._client_job_failed)
+
+    def _populate_client_interfaces(self, response: dict[str, Any]) -> None:
+        self._client_network_interfaces = [
+            item for item in response.get("interfaces", [])
+            if isinstance(item, dict) and item.get("binding") and item.get("interface") and item.get("address")
+        ]
+        labels = ["Selecciona interfaz IPv4 activa…"] + [
+            f"{item['interface']} · {item['address']}" for item in self._client_network_interfaces
+        ]
+        self.client_interface.set_model(Gtk.StringList.new(labels))
+        self.client_interface.set_selected(0)
+
+    def _populate_client_inventory(self, inventory: dict[str, Any]) -> None:
+        self._client_inventory_devices = self._flatten_devices(inventory.get("devices"))
+        groups = inventory.get("volume_topology", {}).get("volume_groups", [])
+        counts: dict[str, int] = {}
+        for group in groups:
+            if group.get("status") == "healthy":
+                for volume in group.get("logical_volumes", []):
+                    identity = volume.get("major_minor")
+                    if identity:
+                        counts[identity] = counts.get(identity, 0) + 1
+        logical = []
+        for group in groups:
+            if group.get("status") != "healthy":
+                continue
+            for volume in group.get("logical_volumes", []):
+                identity, size = volume.get("major_minor"), volume.get("size_bytes")
+                if (volume.get("hidden") or volume.get("snapshot") or not identity or counts.get(identity) != 1
+                        or not isinstance(size, int) or size <= 0
+                        or volume.get("health") not in (None, "", "-", "ok", "healthy")):
+                    continue
+                matches = [device for device in self._client_inventory_devices if device.get("major_minor") == identity]
+                if len(matches) == 1:
+                    logical.append({**matches[0], "path": volume.get("path"), "size_bytes": size})
+        self._client_logical_volumes = logical
+        self.history_summary.set_text(
+            f"Dispositivos locales: {len(self._client_inventory_devices)} · volúmenes LVM elegibles: {len(logical)} · interfaces activas: {len(self._client_network_interfaces)}"
+        )
+
+    def _inspect_client_job(self, _button: Gtk.Button) -> None:
+        host = self.client_server_host.get_text().strip()
+        job_id = self.client_job_id.get_text().strip()
+        selected = self.client_interface.get_selected()
+        interfaces = getattr(self, "_client_network_interfaces", [])
+        if not host or not job_id or selected == 0 or selected - 1 >= len(interfaces):
+            self.client_result.set_text("Indica servidor, UUID e interfaz IPv4 activa.")
+            return
+        interface = interfaces[selected - 1]
+        self._client_remote_inspection = None
+        self.client_target.set_model(Gtk.StringList.new(["Esperando inspección autenticada…"]))
+        self.client_target.set_selected(0)
+        self.client_result.set_text("Verificando TLS e identidad del servidor…")
+        params = {
+            "host": host, "job_id": job_id,
+            "network_interface": interface["interface"], "source_address": interface["address"],
+        }
+        self.api.submit("inspect_remote_job", params, on_success=self._client_job_inspected, on_error=self._client_job_failed)
+
+    def _client_job_inspected(self, result: dict[str, Any]) -> None:
+        job = result.get("job")
+        if not isinstance(job, dict):
+            self._client_remote_inspection = None
+            self.client_result.set_text("El servidor no devolvió una definición de trabajo válida.")
+            return
+        self._client_remote_inspection = result
+        target_type = job.get("target_type")
+        if target_type == "logical_volume":
+            eligible = self._client_logical_volumes
+        else:
+            device_type = {"disk": "disk", "partition": "part"}.get(target_type)
+            eligible = [item for item in self._client_inventory_devices if item.get("type") == device_type]
+        self._client_eligible_targets = [item for item in eligible if item.get("path")]
+        labels = ["Selecciona destino local…"] + [
+            f"{item.get('path')} · {item.get('model') or item.get('type')} · {item.get('size_bytes', 0)} bytes"
+            for item in self._client_eligible_targets
+        ]
+        self.client_target.set_model(Gtk.StringList.new(labels))
+        self.client_target.set_selected(0)
+        self.client_job_details.set_text(json.dumps({
+            "server_identity": result.get("server_identity"), "job": job,
+        }, ensure_ascii=False, indent=2))
+        self.client_result.set_text("TLS e identidad del servidor verificados; no se inició ninguna operación.")
+        self._update_client_confirmation(self.client_target, None)
+
+    def _update_client_confirmation(self, _widget: Gtk.DropDown, _pspec: Any = None) -> None:
+        inspection = getattr(self, "_client_remote_inspection", None)
+        targets = getattr(self, "_client_eligible_targets", [])
+        if not isinstance(inspection, dict) or not isinstance(inspection.get("job"), dict):
+            return
+        selected = self.client_target.get_selected()
+        if selected == 0 or selected - 1 >= len(targets):
+            self.client_confirmation.set_placeholder_text("Selecciona un destino local tras inspeccionar el servidor")
+            return
+        target = str(targets[selected - 1].get("path"))
+        job = inspection["job"]
+        phrase = (
+            f"ERASE {target}" if job.get("operation") in {"restore", "clone"}
+            else f"READ {target} TO {inspection.get('server_identity')}"
+        )
+        self.client_confirmation.set_placeholder_text(f"Confirmación exacta: {phrase}")
+
+    def _start_client_job(self, _button: Gtk.Button) -> None:
+        inspection = getattr(self, "_client_remote_inspection", None)
+        if not isinstance(inspection, dict) or not isinstance(inspection.get("job"), dict):
+            self.client_result.set_text("Autentica e inspecciona primero el trabajo del servidor.")
+            return
+        selected_target = self.client_target.get_selected()
+        targets = getattr(self, "_client_eligible_targets", [])
+        selected_interface = self.client_interface.get_selected()
+        interfaces = getattr(self, "_client_network_interfaces", [])
+        if selected_target == 0 or selected_target - 1 >= len(targets) or selected_interface == 0 or selected_interface - 1 >= len(interfaces):
+            self.client_result.set_text("Selecciona un destino local y una interfaz IPv4 activa.")
+            return
+        job = inspection["job"]
+        target = str(targets[selected_target - 1]["path"])
+        interface = interfaces[selected_interface - 1]
+        phrase = (
+            f"ERASE {target}" if job.get("operation") in {"restore", "clone"}
+            else f"READ {target} TO {inspection.get('server_identity')}"
+        )
+        confirmation = self.client_confirmation.get_text()
+        if confirmation != phrase:
+            self.client_result.set_text(f"Escribe exactamente: {phrase}")
+            return
+        compression_values = ("gzip", "zstd", "lz4", "none")
+        compression_index = self.client_compression.get_selected()
+        if compression_index >= len(compression_values):
+            self.client_result.set_text("Selecciona un método de compresión válido.")
+            return
+        params = {
+            "host": self.client_server_host.get_text().strip(), "job_id": job["job_id"],
+            "device_path": target, "confirmation": confirmation,
+            "compression": compression_values[compression_index],
+            "image_encrypt": self.client_encrypt.get_selected() == 1,
+            "network_interface": interface["interface"], "source_address": interface["address"],
+            "igmp_confirmed": self.client_igmp.get_active() if job.get("transport") == "multicast" else False,
+        }
+        if job.get("transport") == "multicast" and not params["igmp_confirmed"]:
+            self.client_result.set_text("El trabajo multicast requiere confirmación explícita de IGMP/red aislada.")
+            return
+        self.client_result.set_text("Iniciando cliente; el backend volverá a comprobar identidad, destino y confirmación…")
+        self.api.submit("start_client_job", params, on_success=self._client_job_started, on_error=self._client_job_failed)
+
+    def _client_job_started(self, result: dict[str, Any]) -> None:
+        self._client_remote_job_status = result
+        self.client_confirmation.set_text("")
+        self.client_result.set_text(json.dumps(result, ensure_ascii=False, indent=2))
+
+    def _refresh_client_job_status(self, _button: Gtk.Button) -> None:
+        inspection = getattr(self, "_client_remote_inspection", None)
+        job = inspection.get("job") if isinstance(inspection, dict) else None
+        if not isinstance(job, dict) or not job.get("job_id"):
+            self.client_result.set_text("Inspecciona primero el trabajo remoto.")
+            return
+        self.client_result.set_text("Consultando estado del cliente…")
+        self.api.submit("client_job_status", {"job_id": job["job_id"]}, on_success=self._client_job_status_loaded, on_error=self._client_job_failed)
+
+    def _client_job_status_loaded(self, result: dict[str, Any]) -> None:
+        self._client_remote_job_status = result
+        self.client_result.set_text(json.dumps(result, ensure_ascii=False, indent=2))
+
+    def _client_job_failed(self, error: Exception) -> None:
+        self.client_result.set_text("Operación de cliente no completada: " + str(error))
 
     def _show_client_job_rows(self, response: dict[str, Any]) -> None:
         grid = self.history_grid
