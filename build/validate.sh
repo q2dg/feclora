@@ -44,6 +44,7 @@ require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK invent
 require_text 'action = "capture_disk"' src/feclora/gui_gtk.py "GTK operations must invoke the real disk capture API."
 require_text 'action = "capture_partition"' src/feclora/gui_gtk.py "GTK operations must invoke the real partition capture API."
 require_text 'action = "capture_logical_volume"' src/feclora/gui_gtk.py "GTK operations must invoke the real logical-volume capture API."
+require_text 'capture_stratis_filesystem.*receive_btrfs_subvolume.*recover_disk.*finalize_recovery' src/feclora/api.py "Privileged API dispatch must expose migrated local operation actions."
 require_text 'action = "capture_stratis_filesystem"' src/feclora/gui_gtk.py "GTK operations must invoke the real Stratis capture API."
 require_text 'self\.api\.submit\("capture_btrfs_subvolume"' src/feclora/gui_gtk.py "GTK operations must invoke the real Btrfs capture API."
 require_text 'self\.api\.submit\("receive_btrfs_subvolume"' src/feclora/gui_gtk.py "GTK operations must invoke the real Btrfs receive API."
