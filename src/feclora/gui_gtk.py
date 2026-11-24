@@ -384,6 +384,7 @@ class FecloraGTK:
         self.network_result = Gtk.Label(label="", xalign=0)
         self.network_result.set_wrap(True)
         self.page_body.append(self.network_result)
+        self._network_method_changed(self.network_method, None)
         self.api.submit("network_connection_profiles", on_success=self._populate_network_profiles, on_error=self._network_failed)
         self.api.submit("network_interfaces", on_success=self._populate_network_interfaces, on_error=self._network_failed)
 
