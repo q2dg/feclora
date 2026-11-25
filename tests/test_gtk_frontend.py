@@ -376,6 +376,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('Definición S3 cargada', self.source)
         self.assertIn('action = "update_remote_repository" if existing else "add_remote_repository"', self.source)
         self.assertIn('action = "update_s3_repository" if existing else "add_s3_repository"', self.source)
+        self.assertIn('self.s3_credential = Gtk.DropDown.new_from_strings(["Selecciona credencial S3…"] )', self.source)
+        self.assertIn('def _populate_s3_credential_selector', self.source)
+        self.assertIn('def _selected_s3_credential_id', self.source)
+        self.assertIn('credential_id = self._selected_s3_credential_id()', self.source)
         self.assertIn('self.api.submit(api_action', self.source)
         self.assertIn('self.api.submit(action, params', self.source)
 
