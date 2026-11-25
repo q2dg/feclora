@@ -59,7 +59,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
     def test_qemu_boot_smoke_provides_virtio_display_and_ready_channel(self):
         smoke = self.read("tests/vm/run-boot-smoke.py")
         self.assertIn('"virtio"', smoke)
-        self.assertIn('"virtio-vga"', smoke) if '"virtio-vga"' in smoke else self.assertIn('"-vga"', smoke)
+        self.assertIn('"-vga"', smoke)
+        self.assertIn('"virtio"', smoke)
         self.assertIn("FECLORA_BOOT_SMOKE rendered", smoke)
 
 
