@@ -315,3 +315,6 @@ The GTK image selector mirrors Textual's repository choices: it includes mounted
 
 
 Disk, partition, logical-volume and Stratis captures, Btrfs subvolume capture/receive, and ddrescue recovery/finalization forward the selected repository ID, matching Textual's explicit repository routing. When no remote repository is selected, the backend retains its local/default behavior. The structural GTK test guards all five shared routing sites.
+
+
+The local operations repository selector now mirrors Textual's three-way catalog: local storage, mounted and verified file repositories, and configured S3 repositories. The selector remains visible across operation types; repository-scoped image inventory is loaded for either remote backend, while local selection uses the local image catalog. Read-only and operation-specific write restrictions remain enforced by the existing backend/API contract.
