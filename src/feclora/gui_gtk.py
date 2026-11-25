@@ -849,12 +849,21 @@ class FecloraGTK:
                 and generation == self._server_status_refresh_generation else None,
             )
 
-    def _server_action_done(self, result: dict[str, Any]) -> None:
+    def _server_action_done(
+        self, result: dict[str, Any], page_generation: int | None = None
+    ) -> None:
+        self._server_action_result = result
+        if page_generation is not None and page_generation != self._server_status_page_generation:
+            return
         message = result.get("message") or str(result)
         self.server_status.set_text(str(message))
         self._refresh_server_status(None)
 
-    def _server_action_failed(self, error: Exception) -> None:
+    def _server_action_failed(
+        self, error: Exception, page_generation: int | None = None
+    ) -> None:
+        if page_generation is not None and page_generation != self._server_status_page_generation:
+            return
         self.server_status.set_text("Error de administración del servidor: " + str(error))
 
     def _selected_server_interface(self) -> dict[str, Any] | None:
@@ -873,14 +882,14 @@ class FecloraGTK:
             "interface": selected.get("interface"), "address": selected.get("address"),
             "prefix_length": selected.get("prefix_length"),
         }
-        self.api.submit("bootstrap_server", params, on_success=self._server_action_done, on_error=self._server_action_failed)
+        self.api.submit("bootstrap_server", params, on_success=lambda result: self._server_action_done(result, self._server_status_page_generation), on_error=lambda error: self._server_action_failed(error, self._server_status_page_generation))
 
     def _renew_server_certificate(self, _button: Gtk.Button) -> None:
         confirmation = self.server_renew_confirmation.get_text().strip()
         if confirmation != "RENEW SERVER CERTIFICATE":
             self.server_status.set_text("Escribe exactamente RENEW SERVER CERTIFICATE.")
             return
-        self.api.submit("renew_server_certificate", {"confirmation": confirmation}, on_success=self._server_action_done, on_error=self._server_action_failed)
+        self.api.submit("renew_server_certificate", {"confirmation": confirmation}, on_success=lambda result: self._server_action_done(result, self._server_status_page_generation), on_error=lambda error: self._server_action_failed(error, self._server_status_page_generation))
         self.server_renew_confirmation.set_text("")
 
     def _rotate_server_keypair(self, _button: Gtk.Button) -> None:
@@ -888,7 +897,7 @@ class FecloraGTK:
         if confirmation != "ROTATE SERVER TLS KEYPAIR":
             self.server_status.set_text("Escribe exactamente ROTATE SERVER TLS KEYPAIR.")
             return
-        self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=self._server_action_done, on_error=self._server_action_failed)
+        self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=lambda result: self._server_action_done(result, self._server_status_page_generation), on_error=lambda error: self._server_action_failed(error, self._server_status_page_generation))
         self.server_rotate_confirmation.set_text("")
 
     def _invalidate_pxe_validation(self) -> None:
@@ -971,17 +980,34 @@ class FecloraGTK:
             self.pxe_result.set_text("Valida un perfil PXE antes de iniciar servicios.")
             return
         self.pxe_result.set_text("Iniciando servicios PXE…")
-        self.api.submit("start_pxe_services", self._pxe_profile, on_success=self._pxe_action_done, on_error=self._pxe_action_failed)
+        self.api.submit(
+            "start_pxe_services", self._pxe_profile,
+            on_success=lambda result: self._pxe_action_done(result, self._server_status_page_generation),
+            on_error=lambda error: self._pxe_action_failed(error, self._server_status_page_generation),
+        )
 
     def _stop_pxe_services(self, _button: Gtk.Button) -> None:
         self.pxe_result.set_text("Deteniendo servicios PXE…")
-        self.api.submit("stop_pxe_services", on_success=self._pxe_action_done, on_error=self._pxe_action_failed)
+        self.api.submit(
+            "stop_pxe_services",
+            on_success=lambda result: self._pxe_action_done(result, self._server_status_page_generation),
+            on_error=lambda error: self._pxe_action_failed(error, self._server_status_page_generation),
+        )
 
-    def _pxe_action_done(self, result: dict[str, Any]) -> None:
+    def _pxe_action_done(
+        self, result: dict[str, Any], page_generation: int | None = None
+    ) -> None:
+        self._pxe_action_result = result
+        if page_generation is not None and page_generation != self._server_status_page_generation:
+            return
         self.pxe_result.set_text(str(result.get("message") or result))
         self._refresh_server_status(None)
 
-    def _pxe_action_failed(self, error: Exception) -> None:
+    def _pxe_action_failed(
+        self, error: Exception, page_generation: int | None = None
+    ) -> None:
+        if page_generation is not None and page_generation != self._server_status_page_generation:
+            return
         self.pxe_result.set_text("Error en servicios PXE: " + str(error))
 
     def _refresh_pxe_answer_repositories(self) -> None:
