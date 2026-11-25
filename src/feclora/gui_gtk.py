@@ -1418,6 +1418,15 @@ class FecloraGTK:
         self.p2v_result.set_wrap(True)
         self.p2v_result.set_selectable(True)
         add_row(p2v_group, "Resultado P2V", self.p2v_result)
+        pending_p2v_operation = getattr(self, "_latest_p2v_operation_id", None)
+        if pending_p2v_operation:
+            self.p2v_result.set_text("Recuperando seguimiento P2V " + pending_p2v_operation + "…")
+            GLib.idle_add(
+                lambda: self._poll_p2v_operation(
+                    pending_p2v_operation, self._repository_page_generation,
+                    self._repository_window_page_generation,
+                ) or GLib.SOURCE_REMOVE
+            )
 
         management_group = add_group("Gestión de repositorios", "Comprobar, montar, desmontar, editar o eliminar definiciones existentes.")
         self.repository_management = Gtk.DropDown.new_from_strings(["Actualiza para seleccionar…"])
@@ -1647,7 +1656,63 @@ class FecloraGTK:
             return
         if page_generation != self._repository_page_generation or window_generation != self._page_generation or request_generation != self._p2v_action_generation:
             return
-        self.p2v_result.set_text("Operación P2V aceptada: " + operation_id + ". Consulta Operation Log para ver progreso, resultado y errores.")
+        self._latest_p2v_operation_id = operation_id
+        self.p2v_result.set_text("Operación P2V aceptada: " + operation_id + ". Consultando progreso…")
+        GLib.timeout_add_seconds(
+            1, lambda: self._poll_p2v_operation(operation_id, page_generation, window_generation)
+        )
+
+    def _p2v_view_is_current(self, page_generation: int, window_generation: int, operation_id: str) -> bool:
+        return (
+            page_generation == self._repository_page_generation
+            and window_generation == self._page_generation
+            and operation_id == getattr(self, "_latest_p2v_operation_id", None)
+        )
+
+    def _poll_p2v_operation(self, operation_id: str, page_generation: int, window_generation: int) -> bool:
+        self.api.submit(
+            "local_operation_status", {"operation_id": operation_id},
+            on_success=lambda status: self._p2v_operation_status_loaded(status, operation_id, page_generation, window_generation),
+            on_error=lambda error: self._p2v_operation_status_failed(error, operation_id, page_generation, window_generation),
+        )
+        return GLib.SOURCE_REMOVE
+
+    def _p2v_operation_status_loaded(
+        self, status: dict[str, Any], operation_id: str,
+        page_generation: int, window_generation: int,
+    ) -> None:
+        self._p2v_operation_results = getattr(self, "_p2v_operation_results", {})
+        self._p2v_operation_results.setdefault(operation_id, {})["status"] = status
+        if not self._p2v_view_is_current(page_generation, window_generation, operation_id):
+            return
+        if status.get("operation_id") not in (None, operation_id):
+            self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", {})
+            self._p2v_operation_errors[operation_id] = "El estado devuelto pertenece a otra operación."
+            return
+        state = status.get("state", "unknown")
+        events = status.get("events") or []
+        if state in {"completed", "failed", "cancelled", "interrupted"}:
+            details = events[-1].get("details", {}) if events else {}
+            detail = details.get("error") or details.get("reason") or details
+            self.p2v_result.set_text(f"Operación P2V {state}: {detail}")
+            return
+        self.p2v_result.set_text(f"Operación P2V {operation_id}: {state}.")
+        GLib.timeout_add_seconds(
+            2, lambda: self._poll_p2v_operation(operation_id, page_generation, window_generation)
+        )
+
+    def _p2v_operation_status_failed(
+        self, error: Exception, operation_id: str,
+        page_generation: int, window_generation: int,
+    ) -> None:
+        self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", {})
+        self._p2v_operation_errors[operation_id] = "status: " + str(error)
+        if not self._p2v_view_is_current(page_generation, window_generation, operation_id):
+            return
+        self.p2v_result.set_text("No se pudo consultar el progreso P2V; se conserva el ID " + operation_id + ": " + str(error))
+        GLib.timeout_add_seconds(
+            5, lambda: self._poll_p2v_operation(operation_id, page_generation, window_generation)
+        )
 
     def _p2v_operation_failed(
         self, error: Exception, page_generation: int | None = None,
@@ -3870,12 +3935,23 @@ class FecloraGTK:
             and page_generation == self._image_page_generation
             and window_generation == self._page_generation
             and catalog_generation == self._image_catalog_generation else None,
-            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
-            if browse_generation == self._image_browse_generation
-            and page_generation == self._image_page_generation
-            and window_generation == self._page_generation
-            and catalog_generation == self._image_catalog_generation else None,
+            on_error=lambda error: self._image_browse_failed(error, page_generation, window_generation, catalog_generation, browse_generation),
         )
+
+    def _image_browse_failed(
+        self, error: Exception, page_generation: int, window_generation: int,
+        catalog_generation: int, browse_generation: int,
+    ) -> None:
+        self._image_browse_errors = getattr(self, "_image_browse_errors", [])
+        self._image_browse_errors.append(str(error))
+        if (
+            not self._image_view_is_current(page_generation, window_generation, catalog_generation)
+            or browse_generation != self._image_browse_generation
+        ):
+            return
+        self.image_session_id = ""
+        self.image_listing.set_text("")
+        self.image_result.set_text("No se pudo explorar la imagen: " + str(error))
 
     def _show_image_directory(self, result: dict[str, Any]) -> None:
         self.image_session_id = result.get("session_id", "")
@@ -3903,19 +3979,47 @@ class FecloraGTK:
         page_generation = self._image_page_generation
         window_generation = self._image_window_page_generation
         catalog_generation = self._image_catalog_generation
+        image_id = (self._selected_image() or {}).get("image_id")
+        repository_id = self._image_repository_id()
         self.api.submit(
             "browse_image", params,
-            on_success=lambda result: self._save_image_download(result, page_generation, window_generation, catalog_generation, download_generation),
-            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation),
+            on_success=lambda result: self._save_image_download(result, page_generation, window_generation, catalog_generation, download_generation, image_id, repository_id),
+            on_error=lambda error: self._image_download_failed(error, page_generation, window_generation, catalog_generation, download_generation, image_id, repository_id),
         )
 
-    def _save_image_download(self, result: dict[str, Any], page_generation: int | None = None, window_generation: int | None = None, catalog_generation: int | None = None, download_generation: int | None = None) -> None:
+    def _image_download_is_current(
+        self, page_generation: int, window_generation: int, catalog_generation: int,
+        download_generation: int, image_id: str | None, repository_id: str | None,
+    ) -> bool:
+        return (
+            self._image_view_is_current(page_generation, window_generation, catalog_generation)
+            and download_generation == self._image_download_generation
+            and (self._selected_image() or {}).get("image_id") == image_id
+            and self._image_repository_id() == repository_id
+        )
+
+    def _image_download_failed(
+        self, error: Exception, page_generation: int, window_generation: int,
+        catalog_generation: int, download_generation: int,
+        image_id: str | None, repository_id: str | None,
+    ) -> None:
+        self._image_download_errors = getattr(self, "_image_download_errors", [])
+        self._image_download_errors.append(str(error))
+        if self._image_download_is_current(page_generation, window_generation, catalog_generation, download_generation, image_id, repository_id):
+            self.image_result.set_text("No se pudo descargar el archivo: " + str(error))
+
+    def _save_image_download(
+        self, result: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None, catalog_generation: int | None = None,
+        download_generation: int | None = None, image_id: str | None = None,
+        repository_id: str | None = None,
+    ) -> None:
         import base64
         filename, encoded = result.get("filename"), result.get("content_base64")
         if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(encoded, str):
             self._image_download_errors = getattr(self, "_image_download_errors", [])
             self._image_download_errors.append("El backend devolvió datos de descarga no válidos.")
-            if self._image_view_is_current(page_generation, window_generation, catalog_generation):
+            if self._image_download_is_current(page_generation, window_generation, catalog_generation, download_generation, image_id, repository_id):
                 self.image_result.set_text("El backend devolvió datos de descarga no válidos.")
             return
         try:
@@ -3933,12 +4037,12 @@ class FecloraGTK:
         except (OSError, ValueError) as exc:
             self._image_download_errors = getattr(self, "_image_download_errors", [])
             self._image_download_errors.append(str(exc))
-            if self._image_view_is_current(page_generation, window_generation, catalog_generation):
+            if self._image_download_is_current(page_generation, window_generation, catalog_generation, download_generation, image_id, repository_id):
                 self.image_result.set_text(f"No se pudo guardar el archivo: {exc}")
             return
         self._image_download_results = getattr(self, "_image_download_results", [])
         self._image_download_results.append(str(destination))
-        if self._image_view_is_current(page_generation, window_generation, catalog_generation) and download_generation == self._image_download_generation:
+        if self._image_download_is_current(page_generation, window_generation, catalog_generation, download_generation, image_id, repository_id):
             self.image_result.set_text(f"Archivo guardado: {destination}")
 
     def _image_view_is_current(self, page_generation: int | None, window_generation: int | None, catalog_generation: int | None = None) -> bool:
