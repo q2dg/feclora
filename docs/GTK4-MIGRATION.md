@@ -478,3 +478,12 @@ cannot update a setup label after the user has continued into the main
 navigation. Leaving setup invalidates outstanding setup callbacks. Root-terminal
 success is reported through the persistent libadwaita toast overlay instead of
 a potentially detached setup widget. Structural regression coverage was added.
+
+
+Capture-operation status responses are now checked against the requested
+operation ID before being accepted. On successful completion, the GTK Operations
+page refreshes its device inventory and the selected repository's image catalog,
+matching the Textual completion flow so newly created images become selectable
+without leaving and re-entering the page. Setup-screen asynchronous callbacks
+also carry a screen generation; stale keyboard responses cannot update detached
+widgets, and root-terminal success uses the persistent toast overlay.
