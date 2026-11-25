@@ -186,6 +186,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         page = ast.get_source_segment(self.source, self.methods["_show_server_status_page"])
         publisher = ast.get_source_segment(self.source, self.methods["_publish_pxe_answer"])
         self.assertIn('"SCP · SSHFS"', page)
+        self.assertIn('("upload", "url", "repository", "scp")[source_index] if source_index < 4', publisher)
         self.assertIn('source in {"repository", "scp"}', publisher)
         self.assertIn('repository.get("provider") != "sshfs"', publisher)
         self.assertIn('"repository_id"', publisher)
