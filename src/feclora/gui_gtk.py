@@ -2706,6 +2706,9 @@ class FecloraGTK:
         self.network_result.set_wrap(True)
         self.page_body.append(self.network_result)
         self._network_method_changed(self.network_method, None)
+        self.network_active_profiles = []
+        self.network_interfaces = []
+        self.network_interface_records = []
         self.api.submit(
             "network_connection_profiles",
             on_success=lambda result: self._populate_network_profiles(result)
@@ -2802,6 +2805,13 @@ class FecloraGTK:
         if page_generation is not None and page_generation != self._network_page_generation:
             return
         self.network_result.set_text(str(result.get("message") or "Perfil aplicado y verificado; checkpoint confirmado."))
+        self.network_active_profiles = []
+        self.network_interfaces = []
+        self.network_interface_records = []
+        self.network_profile.set_model(Gtk.StringList.new(["Cargando perfiles…"]))
+        self.network_profile.set_selected(0)
+        self.network_interface.set_model(Gtk.StringList.new(["Selecciona interfaz y dirección…"]))
+        self.network_interface.set_selected(0)
         current_generation = self._network_page_generation
         self.api.submit(
             "network_connection_profiles",
