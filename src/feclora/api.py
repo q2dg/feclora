@@ -1032,7 +1032,7 @@ def _service_state() -> dict[str, str]:
         )
         services["GTK4 Wayland kiosk"] = result.stdout.strip() or "inactive"
     except (OSError, subprocess.SubprocessError):
-        services["Textual interface"] = "unknown"
+        services["GTK4 Wayland kiosk"] = "unknown"
     for label, pattern in (
         ("PXE dnsmasq", "feclora-dnsmasq-*.service"),
         ("PXE Caddy", "feclora-caddy-*.service"),
