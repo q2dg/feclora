@@ -119,6 +119,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         language = ast.get_source_segment(self.source, self.methods["_language_changed"])
         self.assertIn("self.keyboard_selection = KEYBOARD_LAYOUTS[keyboard_index][1]", language)
         self.assertIn("apply_ok", accepted)
+    def test_capture_passphrase_is_not_retained_in_frontend_state(self):
+        self.assertNotIn("_capture_requests", self.source)
+        accepted = ast.get_source_segment(self.source, self.methods["_capture_accepted"])
+        self.assertIn('"provide_capture_passphrase"', accepted)
+        self.assertIn('"passphrase": passphrase', accepted)
+
     def test_capture_completion_refreshes_inventory_and_image_catalog(self):
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         self.assertIn('status.get("operation_id") not in (None, operation_id)', status)
