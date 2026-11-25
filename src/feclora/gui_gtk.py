@@ -2543,9 +2543,11 @@ class FecloraGTK:
     def _populate_network_profiles(self, result: dict[str, Any]) -> None:
         self.network_profiles = [item for item in result.get("profiles", []) if isinstance(item, dict)]
         active = [item for item in self.network_profiles if item.get("uuid") and item.get("active") and item.get("device")]
-        labels = [f"{item.get('name') or item.get('id')} · {item.get('device')}" for item in active]
+        labels = ["Selecciona perfil activo…"] + [
+            f"{item.get('name') or item.get('id')} · {item.get('device')}" for item in active
+        ]
         self.network_active_profiles = active
-        self.network_profile.set_model(Gtk.StringList.new(labels or ["No hay perfiles activos asociados a interfaces"]))
+        self.network_profile.set_model(Gtk.StringList.new(labels))
         self.network_profile.set_selected(0)
         self._update_network_interface_options()
 
@@ -2558,12 +2560,14 @@ class FecloraGTK:
 
     def _update_network_interface_options(self) -> None:
         index = self.network_profile.get_selected()
-        profile = self.network_active_profiles[index] if index < len(getattr(self, "network_active_profiles", [])) else None
+        profile = self.network_active_profiles[index - 1] if 0 < index <= len(getattr(self, "network_active_profiles", [])) else None
         interface_name = profile.get("device") if profile else None
         candidates = [item for item in getattr(self, "network_interfaces", []) if item.get("binding") and item.get("interface") == interface_name]
-        labels = [f"{item.get('interface')} · {item.get('address')}/{item.get('prefix_length')}" for item in candidates]
+        labels = ["Selecciona interfaz y dirección…"] + [
+            f"{item.get('interface')} · {item.get('address')}/{item.get('prefix_length')}" for item in candidates
+        ]
         self.network_interface_records = candidates
-        self.network_interface.set_model(Gtk.StringList.new(labels or ["No hay direcciones IPv4 activas en esa interfaz"]))
+        self.network_interface.set_model(Gtk.StringList.new(labels))
         self.network_interface.set_selected(0)
 
     def _network_method_changed(self, _row: Adw.ComboRow, _pspec: Any) -> None:
@@ -2575,11 +2579,12 @@ class FecloraGTK:
         import ipaddress
         profile_index = self.network_profile.get_selected()
         interface_index = self.network_interface.get_selected()
-        if profile_index >= len(getattr(self, "network_active_profiles", [])) or interface_index >= len(getattr(self, "network_interface_records", [])):
+        if (profile_index == 0 or profile_index > len(getattr(self, "network_active_profiles", []))
+                or interface_index == 0 or interface_index > len(getattr(self, "network_interface_records", []))):
             self.network_result.set_text("Selecciona un perfil activo y una dirección IPv4 de su interfaz.")
             return
-        profile = self.network_active_profiles[profile_index]
-        interface = self.network_interface_records[interface_index]
+        profile = self.network_active_profiles[profile_index - 1]
+        interface = self.network_interface_records[interface_index - 1]
         if not profile.get("active") or not profile.get("device") or interface.get("interface") != profile.get("device"):
             self.network_result.set_text("El perfil debe estar activo y coincidir con la interfaz seleccionada.")
             return
