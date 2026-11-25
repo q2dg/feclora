@@ -449,6 +449,9 @@ class FecloraGTK:
             self.capture_target_label = capture_row(source_group, "Destino", self.capture_target)
             self.capture_image_select = Gtk.DropDown.new_from_strings(["Cargando imágenes…"])
             self.capture_image_select_label = capture_row(source_group, "Imagen existente", self.capture_image_select)
+            self.capture_source.connect("notify::selected", self._update_capture_confirmation_hint)
+            self.capture_target.connect("notify::selected", self._update_capture_confirmation_hint)
+            self.capture_image_select.connect("notify::selected", self._update_capture_confirmation_hint)
             self.capture_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
             self.capture_repository.connect("notify::selected", self._capture_repository_changed)
             self.capture_repository_label = capture_row(source_group, "Repositorio de imágenes", self.capture_repository)
@@ -3225,6 +3228,33 @@ class FecloraGTK:
         self.capture_passphrase_row.set_visible(passphrase_encryption_visible and self.capture_passphrase_toggle.get_active())
         self.capture_image_id_label.set_title("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Capturar disco virtual QCOW2 (P2V)" if kind == 17 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
+        self._update_capture_confirmation_hint()
+
+    def _update_capture_confirmation_hint(self, _widget: Gtk.DropDown | None = None, _pspec: Any = None) -> None:
+        kind = self.capture_kind.get_selected()
+        phrase = ""
+        if kind == 14:
+            index = self.capture_image_select.get_selected()
+            images = getattr(self, "capture_images", [])
+            if index < len(images):
+                phrase = "BUILD " + str(images[index].get("image_id") or "")
+        elif kind in {8, 9, 10, 11, 12, 13, 16}:
+            target_index = self.capture_target.get_selected()
+            targets = getattr(self, "capture_target_devices", [])
+            if target_index < len(targets):
+                target = str(targets[target_index].get("path") or "")
+                if target:
+                    phrase = "ERASE " + target
+                    if kind == 12:
+                        source_index = self.capture_source.get_selected()
+                        sources = getattr(self, "capture_devices", [])
+                        if source_index < len(sources):
+                            source = str(sources[source_index].get("path") or "")
+                            if source:
+                                phrase += " FROM " + source
+        self.capture_confirmation.set_placeholder_text(
+            phrase if phrase else "Selecciona destino o imagen para ver la frase exacta"
+        )
 
     def _capture_encryption_changed(self, widget: Gtk.CheckButton) -> None:
         if widget is self.capture_encrypt:
