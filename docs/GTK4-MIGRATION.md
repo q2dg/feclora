@@ -353,3 +353,6 @@ PXE preflight validation is generation-guarded: edits to profile fields, DHCP mo
 
 
 Server status, PXE status and interface discovery are guarded by page and refresh generations, so delayed responses from earlier refreshes or page instances cannot overwrite the current summary or interface list. The unattended PXE-answer repository selector is populated only after both remote and S3 inventories complete, and callbacks from previous server-page instances are ignored. The TLS bootstrap interface selector also starts at an explicit placeholder, matching the TUI and preventing automatic selection of the first active address.
+
+
+Generic deployment, remote-job and journal history pages guard refresh responses by both navigation-page and request generations. Late responses from earlier refreshes or a page that has since been left cannot replace the currently displayed history.
