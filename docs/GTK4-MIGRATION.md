@@ -504,3 +504,6 @@ interface/inventory callbacks and to both PXE answer repository lookups
 navigation away from the page can no longer mutate detached GTK controls or
 replace the repository selector. Structural regression tests cover both paths.
 No GTK runtime or appliance integration tests were run.
+
+
+Server administration and PXE start/stop callbacks now carry the exact global window generation captured when each request is submitted, in addition to the server-page generation. This prevents a delayed bootstrap, TLS certificate/key rotation, age-recipient maintenance, or PXE service response from updating a newly re-entered Server page. Accepted results and errors remain retained for diagnostics before the visibility guard. Structural regression coverage was added; no GTK runtime, TLS rotation, PXE service operation, or live appliance test was executed.
