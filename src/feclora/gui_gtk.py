@@ -915,7 +915,7 @@ class FecloraGTK:
     def _pxe_answer_s3_repositories(self, response: dict[str, Any]) -> None:
         self._pxe_answer_s3_rows = [
             item for item in response.get("repositories", [])
-            if isinstance(item, dict) and item.get("mounted") and item.get("verified")
+            if isinstance(item, dict) and item.get("id")
         ]
         self._render_pxe_answer_repositories()
 
