@@ -1654,9 +1654,10 @@ class FecloraGTK:
         if not isinstance(operation_id, str) or not operation_id:
             self._p2v_operation_failed(RuntimeError("El backend no devolvió operation_id."), page_generation, window_generation, request_generation)
             return
+        if request_generation == self._p2v_action_generation:
+            self._latest_p2v_operation_id = operation_id
         if page_generation != self._repository_page_generation or window_generation != self._page_generation or request_generation != self._p2v_action_generation:
             return
-        self._latest_p2v_operation_id = operation_id
         self.p2v_result.set_text("Operación P2V aceptada: " + operation_id + ". Consultando progreso…")
         GLib.timeout_add_seconds(
             1, lambda: self._poll_p2v_operation(operation_id, page_generation, window_generation)
