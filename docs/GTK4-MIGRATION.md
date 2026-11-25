@@ -408,3 +408,7 @@ current widgets. No service, privileged API contract, checkpoint/rollback
 behavior, or PXE backend semantics were changed. Structural tests were updated;
 runtime GTK, live network rollback, TLS/PXE service operations and BIOS/UEFI
 acceptance have not been executed.
+ The final review also closed navigation-generation gaps in the post-apply
+NetworkManager interface refresh, server status error handling, and PXE answer
+repository loading, so those responses cannot repopulate hidden or superseded
+page instances.
