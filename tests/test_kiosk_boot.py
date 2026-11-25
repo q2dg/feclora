@@ -52,6 +52,10 @@ class KioskBootConfigurationTests(unittest.TestCase):
             frontend,
         )
         self.assertIn('Path("/run/feclora-gtk/ready")', frontend)
+        self.assertIn('ready.write_text("rendered\\n", encoding="ascii")', frontend)
+        ready_helper = self.read("src/feclora/data/feclora-gtk-ready")
+        self.assertIn('while [ ! -f "$READY" ]', ready_helper)
+        self.assertIn("FECLORA_BOOT_SMOKE rendered", ready_helper)
         welcome = frontend[frontend.index("def _show_welcome"):frontend.index("def _language_changed")]
         self.assertIn("Idioma de la interfaz", welcome)
         self.assertIn("Distribución del teclado", welcome)
