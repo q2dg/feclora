@@ -356,3 +356,6 @@ Server status, PXE status and interface discovery are guarded by page and refres
 
 
 Generic deployment, remote-job and journal history pages guard refresh responses by both navigation-page and request generations. Late responses from earlier refreshes or a page that has since been left cannot replace the currently displayed history.
+
+
+The local operation log and persistent ddrescue recovery history guard refreshes by page and request generation. Late results from an earlier refresh or page instance cannot replace the currently displayed records.
