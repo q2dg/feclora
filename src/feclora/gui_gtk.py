@@ -2037,6 +2037,8 @@ class FecloraGTK:
         self._history_page("Historial de despliegues y eventos persistidos.", ("Despliegue", "Estado", "Clientes", "Eventos"), "journals", "journals", render)
 
     def _show_client_jobs_page(self) -> None:
+        self._client_page_generation = getattr(self, "_client_page_generation", 0) + 1
+        page_generation = self._client_page_generation
         self.page_description.set_text("Inspección TLS del servidor, selección segura de destino local y ejecución/seguimiento del cliente.")
         client_history_group = Adw.PreferencesGroup(title="Historial de clientes")
         self.page_body.append(client_history_group)
@@ -2045,7 +2047,13 @@ class FecloraGTK:
         client_summary_row.add_suffix(self.history_summary)
         client_history_group.add(client_summary_row)
         refresh = Gtk.Button(label="Actualizar historial de clientes")
-        refresh.connect("clicked", lambda _button: self.api.submit("deployment_jobs", on_success=self._show_client_job_rows, on_error=self._history_failed))
+        refresh.connect("clicked", lambda _button: self.api.submit(
+            "deployment_jobs",
+            on_success=lambda response: self._show_client_job_rows(response)
+            if page_generation == self._client_page_generation else None,
+            on_error=lambda error: self._history_failed(error)
+            if page_generation == self._client_page_generation else None,
+        ))
         client_refresh_row = Adw.ActionRow(title="Actualizar")
         client_refresh_row.add_suffix(refresh)
         client_refresh_row.set_activatable_widget(refresh)
@@ -2144,10 +2152,32 @@ class FecloraGTK:
         self._client_network_interfaces = []
         self._client_inventory_devices = []
         self._client_logical_volumes = []
+        self._client_inspection_generation = getattr(self, "_client_inspection_generation", 0) + 1
+        self.client_server_host.connect("changed", self._client_inputs_changed)
+        self.client_job_id.connect("changed", self._client_inputs_changed)
+        self.client_interface.connect("notify::selected", self._client_inputs_changed)
         self._show_client_job_rows({"jobs": []})
-        self.api.submit("deployment_jobs", on_success=self._show_client_job_rows, on_error=self._history_failed)
-        self.api.submit("network_interfaces", on_success=self._populate_client_interfaces, on_error=self._client_job_failed)
-        self.api.submit("inventory", on_success=self._populate_client_inventory, on_error=self._client_job_failed)
+        self.api.submit(
+            "deployment_jobs",
+            on_success=lambda response: self._show_client_job_rows(response)
+            if page_generation == self._client_page_generation else None,
+            on_error=lambda error: self._history_failed(error)
+            if page_generation == self._client_page_generation else None,
+        )
+        self.api.submit(
+            "network_interfaces",
+            on_success=lambda response: self._populate_client_interfaces(response)
+            if page_generation == self._client_page_generation else None,
+            on_error=lambda error: self._client_job_failed(error)
+            if page_generation == self._client_page_generation else None,
+        )
+        self.api.submit(
+            "inventory",
+            on_success=lambda response: self._populate_client_inventory(response)
+            if page_generation == self._client_page_generation else None,
+            on_error=lambda error: self._client_job_failed(error)
+            if page_generation == self._client_page_generation else None,
+        )
 
     def _populate_client_interfaces(self, response: dict[str, Any]) -> None:
         self._client_network_interfaces = [
@@ -2161,7 +2191,21 @@ class FecloraGTK:
         self.client_interface.set_selected(0)
         self._update_client_inventory_summary()
 
+    def _invalidate_client_inspection(self) -> None:
+        self._client_inspection_generation = getattr(self, "_client_inspection_generation", 0) + 1
+        self._client_remote_inspection = None
+        self._client_eligible_targets = []
+        self.client_target.set_model(Gtk.StringList.new(["Inspecciona primero el trabajo remoto…"]))
+        self.client_target.set_selected(0)
+        self.client_job_details.set_text("Sin inspección autenticada.")
+        self.client_confirmation.set_text("")
+        self.client_confirmation.set_placeholder_text("Inspecciona primero el trabajo remoto")
+ 
+    def _client_inputs_changed(self, *_args: Any) -> None:
+        self._invalidate_client_inspection()
+
     def _populate_client_inventory(self, inventory: dict[str, Any]) -> None:
+        self._invalidate_client_inspection()
         self._client_inventory_devices = self._flatten_devices(inventory.get("devices"))
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
         counts: dict[str, int] = {}
@@ -2204,7 +2248,9 @@ class FecloraGTK:
             self.client_result.set_text("Indica servidor, UUID e interfaz IPv4 activa.")
             return
         interface = interfaces[selected - 1]
-        self._client_remote_inspection = None
+        self._invalidate_client_inspection()
+        inspection_generation = self._client_inspection_generation
+        page_generation = self._client_page_generation
         self.client_target.set_model(Gtk.StringList.new(["Esperando inspección autenticada…"]))
         self.client_target.set_selected(0)
         self.client_result.set_text("Verificando TLS e identidad del servidor…")
@@ -2212,7 +2258,15 @@ class FecloraGTK:
             "host": host, "job_id": job_id,
             "network_interface": interface["interface"], "source_address": interface["address"],
         }
-        self.api.submit("inspect_remote_job", params, on_success=self._client_job_inspected, on_error=self._client_job_failed)
+        self.api.submit(
+            "inspect_remote_job", params,
+            on_success=lambda result: self._client_job_inspected(result)
+            if page_generation == self._client_page_generation
+            and inspection_generation == self._client_inspection_generation else None,
+            on_error=lambda error: self._client_job_failed(error)
+            if page_generation == self._client_page_generation
+            and inspection_generation == self._client_inspection_generation else None,
+        )
 
     def _client_job_inspected(self, result: dict[str, Any]) -> None:
         job = result.get("job")
