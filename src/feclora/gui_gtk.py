@@ -1194,8 +1194,7 @@ class FecloraGTK:
         self.s3_prefix = Gtk.Entry()
         self.s3_prefix.set_placeholder_text("Prefijo (opcional)")
         add_row(s3_group, "Prefijo", self.s3_prefix)
-        self.s3_credential = Gtk.Entry()
-        self.s3_credential.set_placeholder_text("ID de credencial S3 ya importada")
+        self.s3_credential = Gtk.DropDown.new_from_strings(["Selecciona credencial S3…"] )
         add_row(s3_group, "Credencial S3", self.s3_credential)
         self.s3_read_only = Gtk.CheckButton(label="Repositorio S3 solo lectura")
         add_row(s3_group, "Permisos", self.s3_read_only)
@@ -1314,6 +1313,25 @@ class FecloraGTK:
         self._populate_remote_credential_selector("ssh-key", self.remote_identity)
         self._populate_remote_credential_selector("known-hosts", self.remote_known_hosts)
         self._populate_remote_credential_selector("smb", self.remote_credential)
+        self._populate_s3_credential_selector()
+
+    def _populate_s3_credential_selector(self) -> None:
+        self._s3_credentials = [
+            item for item in getattr(self, "repository_credentials", [])
+            if item.get("kind") == "s3" and item.get("path")
+        ]
+        self.s3_credential.set_model(Gtk.StringList.new(
+            ["Selecciona credencial S3…"] + [str(item.get("id")) for item in self._s3_credentials]
+        ))
+        self.s3_credential.set_selected(0)
+
+    def _selected_s3_credential_id(self) -> str | None:
+        selected = self.s3_credential.get_selected()
+        credentials = getattr(self, "_s3_credentials", [])
+        if selected == 0 or selected - 1 >= len(credentials):
+            return None
+        identifier = credentials[selected - 1].get("id")
+        return identifier if isinstance(identifier, str) and identifier else None
 
     def _populate_remote_credential_selector(self, kind: str, selector: Gtk.DropDown) -> None:
         credentials = [
@@ -1366,7 +1384,7 @@ class FecloraGTK:
                 self.s3_region.set_text(item.get("region") or "")
                 self.s3_bucket.set_text(item.get("bucket") or "")
                 self.s3_prefix.set_text(item.get("prefix") or "")
-                self.s3_credential.set_text(item.get("credential_id") or "")
+                self.s3_credential.set_selected(next((index + 1 for index, credential in enumerate(getattr(self, "_s3_credentials", [])) if credential.get("id") == item.get("credential_id")), 0))
                 self.s3_read_only.set_active(bool(item.get("read_only")))
                 self.repository_action_result.set_text("Definición S3 cargada; guarda los cambios en el formulario S3.")
                 return
@@ -1476,8 +1494,9 @@ class FecloraGTK:
         identifier = self.s3_id.get_text().strip()
         region = self.s3_region.get_text().strip()
         bucket = self.s3_bucket.get_text().strip()
-        credential_id = self.s3_credential.get_text().strip()
-        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not region or not bucket or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", credential_id):
+        credential_id = self._selected_s3_credential_id()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", identifier) or not region or not bucket or not credential_id:
+
             self.repository_action_result.set_text("ID, región, bucket y credencial S3 son obligatorios y deben ser válidos.")
             return
         params = {
