@@ -1265,7 +1265,7 @@ class FecloraGTK:
             return
         page_generation = self._server_status_page_generation
         window_generation = self._server_window_page_generation
-        self.api.submit("refresh_client_age_recipients", {"inventory_path": path}, on_success=lambda result: self._server_action_done(result, page_generation), on_error=lambda error: self._server_action_failed(error, page_generation))
+        self.api.submit("refresh_client_age_recipients", {"inventory_path": path}, on_success=lambda result, page=page_generation, window=window_generation: self._server_action_done(result, page, window), on_error=lambda error, page=page_generation, window=window_generation: self._server_action_failed(error, page, window))
 
     def _refresh_pxe_passphrase_status(self) -> None:
         self._pxe_passphrase_status_generation = getattr(self, "_pxe_passphrase_status_generation", 0) + 1
