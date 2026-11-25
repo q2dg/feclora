@@ -66,7 +66,7 @@ Checked against Fedora's Fedora 45 package metadata on 2026-11-25:
 | `weston` | `15.0.1-3.fc45` source baseline | **Do not ship the stock RPM unchanged**; it depends on `weston-libs` |
 | `weston-libs` | `15.0.1-3.fc45` source baseline | Stock RPM contains `xwayland.so` and `x11-backend.so`, and has X11 library dependencies |
 | `gtk4` | `4.24.1-1.fc45` source baseline | Stock RPM includes the optional GDK X11 backend and X11 library dependencies |
-| `python3-gobject` | `3.58.1-6.fc45` | PyGObject Python bindings; keep as a Fedora system package |
+| `python3-gobject` | `3.58.0-6.fc45` | PyGObject Python bindings; keep as a Fedora system package |
 | `libadwaita` | `1.10.0-2.fc45` source baseline | Rebuild against the custom GTK4 package |
 
 **Important packaging constraint:** stock Fedora 45 `weston-libs` is not
