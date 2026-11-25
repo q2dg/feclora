@@ -1026,13 +1026,13 @@ def _service_state() -> dict[str, str]:
     services = {}
     try:
         result = subprocess.run(
-            ["/usr/bin/systemctl", "is-active", "feclora-gtk.service"],
+            ["/usr/bin/systemctl", "is-active", "feclora-tui.service"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=3,
         )
-        services["GTK4 Wayland kiosk"] = result.stdout.strip() or "inactive"
+        services["Textual interface"] = result.stdout.strip() or "inactive"
     except (OSError, subprocess.SubprocessError):
-        services["GTK4 Wayland kiosk"] = "unknown"
+        services["Textual interface"] = "unknown"
     for label, pattern in (
         ("PXE dnsmasq", "feclora-dnsmasq-*.service"),
         ("PXE Caddy", "feclora-caddy-*.service"),
