@@ -496,3 +496,11 @@ error) may replace the displayed history. This matches the refresh ordering
 guards used by the other history pages; it does not alter the deployment API.
 Structural regression coverage was added; no live client transfer or GTK
 runtime test was executed.
+
+
+A further lifecycle audit added the global page-generation guard to client
+interface/inventory callbacks and to both PXE answer repository lookups
+(remote and S3), including their error paths. A response arriving after
+navigation away from the page can no longer mutate detached GTK controls or
+replace the repository selector. Structural regression tests cover both paths.
+No GTK runtime or appliance integration tests were run.
