@@ -4012,8 +4012,16 @@ class FecloraGTK:
         return flattened
 
     def _refresh_inventory(self, _button: Gtk.Button | None) -> None:
+        self._inventory_refresh_generation = getattr(self, "_inventory_refresh_generation", 0) + 1
+        generation = self._inventory_refresh_generation
+        page_generation = self._page_generation
         self.inventory_summary.set_text("Leyendo inventario de almacenamiento…")
-        self.api.submit("inventory", on_success=self._show_inventory, on_error=self._show_error)
+        self.api.submit(
+            "inventory",
+            on_success=lambda response: self._show_inventory(response, generation, page_generation),
+            on_error=lambda error: self._show_error(error)
+            if generation == self._inventory_refresh_generation and page_generation == self._page_generation else None,
+        )
 
     @staticmethod
     def _inventory_device_subtitle(device: dict[str, Any]) -> str:
@@ -4046,7 +4054,13 @@ class FecloraGTK:
                     count += self._append_inventory_device(group, child, depth + 1)
         return count
 
-    def _show_inventory(self, inventory: dict[str, Any]) -> None:
+    def _show_inventory(
+        self, inventory: dict[str, Any], generation: int | None = None, page_generation: int | None = None
+    ) -> None:
+        if generation is not None and generation != self._inventory_refresh_generation:
+            return
+        if page_generation is not None and page_generation != self._page_generation:
+            return
         if not hasattr(self, "inventory_content"):
             return
         while child := self.inventory_content.get_first_child():
