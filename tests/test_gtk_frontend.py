@@ -472,6 +472,14 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self._pxe_profile = None', self.source)
         self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
         self.assertIn('self._pxe_pending_profile = profile', self.source)
+        invalidate = ast.get_source_segment(self.source, self.methods["_invalidate_pxe_validation"])
+        mode_changed = ast.get_source_segment(self.source, self.methods["_pxe_mode_changed"])
+        validate = ast.get_source_segment(self.source, self.methods["_validate_pxe_profile"])
+        self.assertIn("_pxe_validation_generation", invalidate)
+        self.assertIn("self._pxe_pending_profile = None", invalidate)
+        self.assertIn("self._invalidate_pxe_validation()", mode_changed)
+        self.assertIn("generation == self._pxe_validation_generation", validate)
+        self.assertIn('self.pxe_authoritative.connect("toggled", self._pxe_inputs_changed)', self.source)
         self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
 
     def test_pxe_answer_publication_revocation_and_age_workflows(self):
