@@ -1343,5 +1343,25 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
 
 
+    def test_server_and_pxe_action_callbacks_use_captured_window_generation(self):
+        server_done = ast.get_source_segment(self.source, self.methods["_server_action_done"])
+        server_failed = ast.get_source_segment(self.source, self.methods["_server_action_failed"])
+        pxe_done = ast.get_source_segment(self.source, self.methods["_pxe_action_done"])
+        pxe_failed = ast.get_source_segment(self.source, self.methods["_pxe_action_failed"])
+        self.assertIn("window_generation != self._page_generation", server_done)
+        self.assertIn("window_generation != self._page_generation", server_failed)
+        self.assertIn("window_generation != self._page_generation", pxe_done)
+        self.assertIn("window_generation != self._page_generation", pxe_failed)
+        for action in ("_bootstrap_server", "_renew_server_certificate", "_rotate_server_keypair",
+                       "_export_server_age_recipients", "_refresh_client_age_recipients"):
+            method = ast.get_source_segment(self.source, self.methods[action])
+            self.assertIn("window_generation = self._server_window_page_generation", method)
+            self.assertIn("window=window_generation", method)
+        start = ast.get_source_segment(self.source, self.methods["_start_pxe_services"])
+        stop = ast.get_source_segment(self.source, self.methods["_stop_pxe_services"])
+        self.assertIn("window=window_generation", start)
+        self.assertIn("window=window_generation", stop)
+
+
 if __name__ == "__main__":
     unittest.main()
