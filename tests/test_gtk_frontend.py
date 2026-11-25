@@ -900,6 +900,19 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("if index > 0 and index - 1 < len(getattr(self, \"image_repositories\", [])):", self.source)
         self.assertIn('not repository.get("mounted") or not repository.get("verified")', self.source)
 
+    def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
+        start = self.source.index("    def _start_client_job")
+        end = self.source.index("    def _show_client_job_rows", start)
+        callbacks = self.source[start:end]
+        self.assertIn("inspection_generation = self._client_inspection_generation", callbacks)
+        self.assertIn("page_generation == self._client_page_generation", callbacks)
+        self.assertIn("self._client_remote_job_results", callbacks)
+        self.assertIn("status_generation != self._client_status_generation", callbacks)
+        self.assertIn("current_job.get(\"job_id\")", callbacks)
+        self.assertIn("on_success=lambda result: self._client_job_started", callbacks)
+        self.assertIn("on_error=lambda error: self._client_job_failed", callbacks)
+
+
     def test_client_job_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_client_jobs_page")
         end = self.source.index("    def _show_client_job_rows", start)
