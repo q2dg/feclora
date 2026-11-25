@@ -344,3 +344,6 @@ El selector GTK oculta el campo de identificador de imagen al finalizar una recu
 
 
 La recuperación ddrescue mantiene el valor fijo de tres pasadas de reintento, igual que Textual. GTK no expone un selector configurable para este parámetro; la opción de reanudación mediante mapfile sí permanece disponible.
+
+
+El selector de imágenes de operaciones filtra por tipo compatible con la operación activa (disco, partición, volumen lógico o filesystem Stratis), igual que Textual. La validación del tipo se mantiene también al enviar la operación; el filtrado mejora la selección, no sustituye las comprobaciones del backend.
