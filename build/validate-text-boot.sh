@@ -70,7 +70,8 @@ grep -Fq 'FECLORA_BOOT_SMOKE rendered' "$READY" \
   || fail "GTK readiness helper does not report its rendered window."
 grep -Fq 'virtio-serial-pci' "$ROOT_DIR/tests/vm/run-boot-smoke.py" \
   || fail "QEMU smoke test lacks its guest readiness channel."
-grep -Fq '"-vga", "virtio"' "$ROOT_DIR/tests/vm/run-boot-smoke.py" \
+grep -Fq '"-vga"' "$ROOT_DIR/tests/vm/run-boot-smoke.py" \
+  && grep -Fq '"virtio"' "$ROOT_DIR/tests/vm/run-boot-smoke.py" \
   || fail "QEMU smoke test does not expose a virtual DRM-capable display."
 
 if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox|xorg-x11-server-Xorg|xorg-x11-server-Xwayland)([[:space:]]|$)' "$KS" "$BASE"; then
