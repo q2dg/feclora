@@ -9,13 +9,13 @@ for the repository owner.
 ## Product model
 
 Feclora is a Fedora-based minimal Live appliance built from the `@core` package
-group and Feclora's explicit runtime packages. The default Live boot now launches the GTK4/PyGObject/libadwaita frontend in
-Cage on tty1 as a native Wayland kiosk. Cage runs with XWayland disabled; no
-Xorg, XWayland, Openbox, desktop environment or display manager is installed.
-Textual remains installed as a mutually exclusive manual fallback. This boot
-route was enabled before complete workflow and hardware acceptance at the
-operator's request; see [GTK4 migration](GTK4-MIGRATION.md) for outstanding
-parity and acceptance work.
+group and Feclora's explicit runtime packages. The current Live boot continues to launch Textual on tty1. GTK4/PyGObject/
+libadwaita is being migrated as the replacement interface, with Weston DRM/KMS
+and Weston's kiosk shell as the target compositor; Cage is explicitly excluded.
+The production boot switch and Textual removal are gated on complete behavioral
+parity, Fedora-matched X11-disabled Weston/GTK/libadwaita RPMs, VM smoke tests
+and BIOS/UEFI acceptance. See [GTK4 migration](GTK4-MIGRATION.md) for the
+remaining parity and acceptance work.
 
 The Live session is intentionally ephemeral: each boot creates fresh local
 credentials, certificates and temporary configuration. Durable images and
