@@ -26,7 +26,7 @@ for file in \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-gtk.service \
   src/feclora/data/feclora-gtk-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
-  tests/test_gtk_api.py tests/test_gtk_frontend.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
+  tests/test_gtk_api.py tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
   require_file "$file"
 done
