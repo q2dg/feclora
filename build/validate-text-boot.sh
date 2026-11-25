@@ -22,6 +22,8 @@ grep -Fxq 'python3-textual' "$KS" || fail "Kickstart must retain the current pro
 grep -Fxq 'python3-textual' "$BASE" || fail "Base manifest must retain the current production Textual UI."
 grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service"' "$KS" \
   || fail "Kickstart must install the current tty1 UI service."
+grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready"' "$KS" \
+  || fail "Kickstart must install the Textual first-render readiness helper."
 grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service' "$KS" \
   || fail "Textual must remain the production boot UI until GTK/Weston acceptance."
 if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
