@@ -1,8 +1,9 @@
 """GTK4 frontend for Feclora's native Wayland kiosk.
 
-The default boot service launches this UI in Cage on tty1. The rollout is
-intentionally ahead of full workflow and firmware acceptance; Textual remains
-installed as a mutually exclusive manual fallback.
+This frontend is under behavioral parity review. The intended production
+compositor is Weston DRM/KMS with kiosk-shell; no Cage-based launch path is
+supported. Textual remains the production tty1 interface until the complete
+GTK/Weston acceptance gate has passed.
 """
 from __future__ import annotations
 
