@@ -36,6 +36,43 @@ class GtkAPIClientTests(unittest.TestCase):
         finally:
             client.close()
 
+    def test_worker_errors_are_dispatched_and_preserved_on_future(self):
+        pending = []
+        delivered = []
+        failure = RuntimeError("API unavailable")
+
+        async def fake_call(action, params, on_event=None):
+            raise failure
+
+        client = GtkAPIClient(dispatch=lambda callback: pending.append(callback))
+        try:
+            with patch("feclora.gtk_api.call_feclora", new=fake_call):
+                future = client.submit("inventory", on_error=delivered.append)
+                with self.assertRaisesRegex(RuntimeError, "API unavailable"):
+                    future.result(timeout=2)
+            self.assertEqual(delivered, [])
+            self.assertEqual(len(pending), 1)
+            pending.pop()()
+            self.assertEqual(delivered, [failure])
+        finally:
+            client.close()
+
+    def test_close_suppresses_callbacks_already_queued_for_dispatch(self):
+        pending = []
+        delivered = []
+
+        async def fake_call(action, params, on_event=None):
+            return {"ok": True}
+
+        client = GtkAPIClient(dispatch=lambda callback: pending.append(callback))
+        with patch("feclora.gtk_api.call_feclora", new=fake_call):
+            future = client.submit("inventory", on_success=delivered.append)
+            self.assertEqual(future.result(timeout=2), {"ok": True})
+        self.assertEqual(len(pending), 1)
+        client.close()
+        pending.pop()()
+        self.assertEqual(delivered, [])
+
     def test_closed_client_rejects_new_requests(self):
         client = GtkAPIClient(dispatch=lambda callback: None)
         client.close()
