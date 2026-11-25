@@ -1057,6 +1057,40 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('title="Sin operaciones registradas"', page)
         self.assertIn("self._refresh_operation_log(None)", page)
 
+    def test_restore_profile_callbacks_are_page_and_request_scoped(self):
+        page = self.source[self.source.index("    def _show_restore_profiles_page"):self.source.index("    def _populate_profile_inventory")]
+        load = ast.get_source_segment(self.source, self.methods["_load_restore_profiles_for_repository"])
+        create = ast.get_source_segment(self.source, self.methods["_create_restore_profile"])
+        accepted = ast.get_source_segment(self.source, self.methods["_restore_profile_operation_accepted"])
+        failed = ast.get_source_segment(self.source, self.methods["_profile_failed"])
+        self.assertIn("self._profile_page_generation = self._page_generation", page)
+        self.assertIn("page_generation == self._page_generation", page)
+        self.assertIn("page_generation == self._page_generation and generation == self._profile_repository_generation", load)
+        self.assertIn("request_generation", create)
+        self.assertIn("request_is_current", accepted)
+        self.assertIn("self._latest_profile_operation_id = operation_id", accepted)
+        self.assertIn("page_generation != self._page_generation", failed)
+
+    def test_restore_profile_status_polling_keeps_operation_identity(self):
+        poll = ast.get_source_segment(self.source, self.methods["_poll_restore_profile_operation"])
+        status = ast.get_source_segment(self.source, self.methods["_show_restore_profile_operation_status"])
+        page = self.source[self.source.index("    def _show_restore_profiles_page"):self.source.index("    def _populate_profile_inventory")]
+        self.assertIn('{"operation_id": operation_id}', poll)
+        self.assertIn("_show_restore_profile_operation_status(status, operation_id, page_generation)", poll)
+        self.assertIn("operation_id != getattr(self, \"profile_operation_id\", None)", status)
+        self.assertIn("_poll_restore_profile_operation(pending_operation_id, page_generation)", page)
+        self.assertIn('self._profile_operation_results.setdefault(operation_id, {})["status"] = status', status)
+
+    def test_operation_log_cancel_feedback_is_scoped_to_selected_operation(self):
+        cancel = ast.get_source_segment(self.source, self.methods["_cancel_selected_logged_operation"])
+        done = ast.get_source_segment(self.source, self.methods["_operation_cancelled"])
+        failed = ast.get_source_segment(self.source, self.methods["_operation_log_failed"])
+        self.assertIn("page_generation = self._operation_log_page_generation", cancel)
+        self.assertIn("_operation_cancelled(result, operation_id, page_generation)", cancel)
+        self.assertIn("selected_id != operation_id", done)
+        self.assertIn("page_generation != self._page_generation", done)
+        self.assertIn("self._operation_log_errors[operation_id] = str(error)", failed)
+
     def test_recovery_jobs_use_libadwaita_preference_groups(self):
         start = self.source.index("    def _show_recovery_jobs_page")
         end = self.source.index("    def _refresh_recovery_jobs", start)
