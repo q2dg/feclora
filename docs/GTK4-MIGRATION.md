@@ -393,3 +393,18 @@ only updates the view while that operation remains selected on the same page.
 These UI guards do not change the privileged API, single-use profile semantics,
 or backend cancellation behavior. Structural tests were added; no GTK runtime,
 privileged-operation, BIOS or UEFI acceptance test was executed.
+
+
+Network-profile loading, application, and post-apply refresh callbacks now carry
+both the Network page instance and the global navigation generation; apply
+responses additionally carry an apply-request generation. This prevents delayed
+responses from a previous navigation or an earlier apply from repopulating the
+current selectors. TLS administration and PXE validation/start/stop callbacks
+capture their originating server-page context. PXE validation retains the exact
+profile snapshot submitted for preflight rather than reading a mutable pending
+profile when the response arrives. TLS and PXE action results/errors are retained
+even when the originating page is stale, but stale outcomes cannot update the
+current widgets. No service, privileged API contract, checkpoint/rollback
+behavior, or PXE backend semantics were changed. Structural tests were updated;
+runtime GTK, live network rollback, TLS/PXE service operations and BIOS/UEFI
+acceptance have not been executed.
