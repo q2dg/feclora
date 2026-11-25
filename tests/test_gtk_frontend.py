@@ -302,6 +302,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('item.get("mounted")', self.source)
         self.assertIn('item.get("verified")', self.source)
         self.assertIn('item.get("read_only")', self.source)
+        render = ast.get_source_segment(self.source, self.methods["_render_repositories"])
+        self.assertIn("previous_key", render)
+        self.assertIn("selected_index = next(", render)
+        self.assertIn("self.repository_management.set_selected(selected_index)", render)
 
     def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
         for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
