@@ -8,7 +8,7 @@ title: Build and validate the live ISO
 
 # Build and validate the Live ISO
 
-This runbook covers the Fedora 45 x86_64 GTK4/Wayland kiosk appliance. Static checks and
+This runbook covers the Fedora 45 x86_64 Live appliance; Textual remains the production boot UI while GTK/Weston parity is incomplete. Static checks and
 unit tests do not establish that an ISO builds or boots; keep BIOS, UEFI and
 physical-hardware acceptance results separate from automated test results.
 
@@ -53,20 +53,19 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
 `make validate` includes static project checks, documentation-link and guide
-asset checks, Python compilation, GTK Wayland kiosk boot-configuration checks and the
+asset checks, Python compilation, Textual boot-configuration checks and the
 hardware-independent unit tests. Use `make test` when you want to rerun only
 the unit tests.
 
 The build stages the Python application, adds it to a temporary installer ISO,
 and runs `livemedia-creator` with QEMU virtualization. The resulting
 `out/feclora-live.iso` is checked for BIOS and UEFI text-console arguments and
-absence of Plymouth from the shipped boot initramfs. The Live image installs Cage, GTK4, libadwaita and PyGObject. After visible
-kernel/systemd boot messages, `feclora-gtk.service` starts Cage on tty1 and
-launches the unprivileged GTK welcome window fullscreen. The first screen
-allows language and keyboard-layout selection. Cage is invoked with `-x` to
-disable XWayland and `-s` to permit switching to the tty2 recovery shell. No
-Xorg, desktop environment, display manager, browser or boot splash is installed.
-Textual remains installed as a manual fallback but is not enabled at boot.
+absence of Plymouth from the shipped boot initramfs. The Live image currently boots the unprivileged Textual interface on tty1
+after visible kernel/systemd messages. GTK4 is being migrated as the replacement
+frontend. The target compositor is Weston DRM/KMS with `kiosk-shell`; Cage is
+not used. Weston, GTK4 and libadwaita will only enter the image as Fedora-matched
+X11-disabled builds after package inspection and behavioral parity. Textual
+remains the production UI until the final Weston/GTK cutover.
 
 SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
 to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
@@ -95,16 +94,15 @@ keyboard navigation, VT switching to tty2 and service recovery.
 ## Manual boot acceptance
 
 - [ ] BIOS and UEFI select the first GRUB entry without a visible menu.
-- [ ] System boot messages remain visible until Cage/GTK takes over tty1; no
+- [ ] System boot messages remain visible until Textual takes over tty1; no
       persistent black screen or boot splash appears.
-- [ ] `feclora-gtk.service` runs Cage and GTK on tty1 as the locked, unprivileged
-      `feclora` account; the TUI fallback is not enabled.
-- [ ] The fullscreen GTK welcome window accepts keyboard input and allows language
-      and keyboard-layout configuration.
+- [ ] `feclora-tui.service` runs Textual on tty1 as the locked, unprivileged
+      `feclora` account while GTK/Weston parity is incomplete.
+- [ ] The current Textual interface accepts keyboard input. The GTK welcome screen's
+      language and keyboard-layout controls require separate acceptance.
 - [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
       implemented control, including long and scrollable forms.
-- [ ] The root terminal action opens tty2; exiting the shell returns the
-      display to the GTK kiosk on tty1.
+- [ ] The root terminal action opens tty2; exiting the shell returns to Textual on tty1.
 - [ ] The GTK interface reaches the fixed allowlisted helper through sudo; no general
       passwordless shell or unrestricted root command is available to `feclora`.
 - [ ] Server/PXE preflight, local storage confirmation and error states are
@@ -122,3 +120,10 @@ workflow migration and hardware acceptance are complete. The Textual unit
 remains installed as a fallback. Treat the first BIOS/UEFI Cage startup, seat
 acquisition, keyboard input, tty2 round-trip and physical display behavior as
 unverified until the manual checklist is completed.
+
+The Weston/GTK target is intentionally not enabled by the current Kickstart.
+Before switching the boot unit, build Fedora 45-matched Weston and GTK4 RPMs
+with their X11 backends disabled, rebuild libadwaita against that GTK, inspect
+all package contents/dependencies, and complete the behavioral and firmware
+acceptance gate documented in [GTK4-MIGRATION](GTK4-MIGRATION.md). The final
+cutover removes Textual rather than retaining it as a fallback.
