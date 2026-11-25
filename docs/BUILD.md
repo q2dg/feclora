@@ -116,3 +116,9 @@ keyboard navigation, VT switching to tty2 and service recovery.
 
 Only use disposable virtual disks for destructive-workflow acceptance.
 Never attach a host system disk to a test VM.
+
+The current boot route is an early switch to Cage/GTK requested before the
+workflow migration and hardware acceptance are complete. The Textual unit
+remains installed as a fallback. Treat the first BIOS/UEFI Cage startup, seat
+acquisition, keyboard input, tty2 round-trip and physical display behavior as
+unverified until the manual checklist is completed.
