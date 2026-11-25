@@ -363,6 +363,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('details.get("destination_may_be_partial")', self.source)
         self.assertIn('item.get("unresolved_bytes")', self.source)
         self.assertIn('item.get("progress_percent")', self.source)
+        operation_refresh = ast.get_source_segment(self.source, self.methods["_refresh_operation_log"])
+        recovery_refresh = ast.get_source_segment(self.source, self.methods["_refresh_recovery_jobs"])
+        self.assertIn("generation == self._operation_log_refresh_generation", operation_refresh)
+        self.assertIn("page_generation == self._page_generation", operation_refresh)
+        self.assertIn("generation == self._recovery_jobs_refresh_generation", recovery_refresh)
+        self.assertIn("page_generation == self._page_generation", recovery_refresh)
 
     def test_network_page_uses_active_profiles_and_validated_ipv4_checkpoint(self):
         for action in ('self.api.submit("network_connection_profiles"', 'self.api.submit("network_interfaces"', 'self.api.submit("apply_network_profile"'):
