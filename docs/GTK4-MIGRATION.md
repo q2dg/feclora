@@ -336,3 +336,8 @@ La pantalla GTK muestra los campos de rango DHCP, gateway, DNS y confirmación d
 ### Confirmaciones destructivas dinámicas en operaciones
 
 La interfaz GTK actualiza la ayuda de confirmación al cambiar el destino o la imagen: `ERASE <destino>` para restauraciones y clonación de disco, `ERASE <destino> FROM <origen>` para clonación de partición y `BUILD <imagen>` para ISO de recuperación. La comprobación de la frase exacta sigue realizándose antes de enviar la operación, y el backend privilegiado conserva su validación independiente.
+
+
+### Paridad de formularios de operaciones
+
+El selector GTK oculta el campo de identificador de imagen al finalizar una recuperación ddrescue: esa acción recibe un identificador de trabajo, no un identificador de imagen de captura. La visibilidad se mantiene alineada con la lógica de estados de Textual y queda cubierta por una comprobación estructural.
