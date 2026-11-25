@@ -676,19 +676,19 @@ class FecloraGTK:
         add_row(pxe_group, "Modo de red", self.pxe_mode)
         self.pxe_pool_start = Gtk.Entry()
         self.pxe_pool_start.set_text("192.168.50.100")
-        add_row(pxe_group, "Inicio del rango DHCP", self.pxe_pool_start)
+        self.pxe_pool_start_row = add_row(pxe_group, "Inicio del rango DHCP", self.pxe_pool_start)
         self.pxe_pool_end = Gtk.Entry()
         self.pxe_pool_end.set_text("192.168.50.200")
-        add_row(pxe_group, "Fin del rango DHCP", self.pxe_pool_end)
+        self.pxe_pool_end_row = add_row(pxe_group, "Fin del rango DHCP", self.pxe_pool_end)
         self.pxe_lease = Gtk.Entry()
         self.pxe_lease.set_text("1h")
         add_row(pxe_group, "Duración de concesión", self.pxe_lease)
         self.pxe_gateway = Gtk.Entry()
         self.pxe_gateway.set_placeholder_text("Gateway IPv4 opcional")
-        add_row(pxe_group, "Gateway IPv4", self.pxe_gateway)
+        self.pxe_gateway_row = add_row(pxe_group, "Gateway IPv4", self.pxe_gateway)
         self.pxe_dns = Gtk.Entry()
         self.pxe_dns.set_placeholder_text("Servidor DNS IPv4 opcional")
-        add_row(pxe_group, "Servidor DNS IPv4", self.pxe_dns)
+        self.pxe_dns_row = add_row(pxe_group, "Servidor DNS IPv4", self.pxe_dns)
         self.pxe_port = Gtk.Entry()
         self.pxe_port.set_text("8080")
         add_row(pxe_group, "Puerto HTTP", self.pxe_port)
@@ -699,7 +699,9 @@ class FecloraGTK:
         self.pxe_max_duration.set_placeholder_text("Duración máxima en segundos (opcional)")
         add_row(pxe_group, "Duración máxima", self.pxe_max_duration)
         self.pxe_authoritative = Gtk.CheckButton(label="Confirmo que esta interfaz/red puede servir DHCP autoritativo")
-        add_row(pxe_group, "Autorización DHCP", self.pxe_authoritative)
+        self.pxe_authoritative_row = add_row(pxe_group, "Autorización DHCP", self.pxe_authoritative)
+        self.pxe_mode.connect("notify::selected", self._pxe_mode_changed)
+        self._pxe_mode_changed(self.pxe_mode)
         validate = Gtk.Button(label="Validar perfil")
         validate.connect("clicked", self._validate_pxe_profile)
         add_row(pxe_group, "Preflight sin cambios", validate)
@@ -834,6 +836,18 @@ class FecloraGTK:
             return
         self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=self._server_action_done, on_error=self._server_action_failed)
         self.server_rotate_confirmation.set_text("")
+
+    def _pxe_mode_changed(self, _widget: Gtk.DropDown, _pspec: Any = None) -> None:
+        isolated = self.pxe_mode.get_selected() == 1
+        for row in (
+            self.pxe_pool_start_row, self.pxe_pool_end_row,
+            self.pxe_gateway_row, self.pxe_dns_row, self.pxe_authoritative_row,
+        ):
+            row.set_visible(isolated)
+        # A profile validated for the previous DHCP mode must never be startable.
+        self._pxe_profile = None
+        self.pxe_start.set_sensitive(False)
+        self.pxe_result.set_text("Perfil PXE no validado.")
 
     def _validate_pxe_profile(self, _button: Gtk.Button) -> None:
         selected = self._selected_server_interface()
