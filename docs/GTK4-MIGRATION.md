@@ -425,3 +425,22 @@ and client age-recipient maintenance actions also use page-scoped callbacks.
 These changes preserve the existing privileged API payloads and secret-delivery
 semantics. Structural tests were added; no live PXE worker, age delivery,
 certificate, or server runtime test was executed.
+
+
+Repository definition and systemd-credential mutations now pass through a
+single request-scoped submit path. Results/errors are retained independently,
+while only the latest action on the same repository page and navigation
+generation may refresh its controls. Legacy P2V import/export acceptance is
+likewise associated with its originating request and durable operation ID.
+
+Image verification results are keyed by repository and image identity and are
+shown only while that exact selection remains current. Image browsing and
+catalog responses are guarded by page, catalog and navigation generations.
+Downloads still complete their requested secure file write even if navigation
+occurs while the backend response is pending, but stale responses cannot alter
+the new page's status text. Partition-extraction acceptance/status is retained
+by operation ID, polling uses an explicit ID, and reopening the Images page
+resumes monitoring the latest accepted extraction. These are frontend lifecycle
+guards only; image storage, verification, file permissions and backend operation
+contracts are unchanged. Structural tests were added; no runtime image,
+repository-mount, credential, or P2V operation was executed.
