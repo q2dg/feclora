@@ -1357,6 +1357,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
             method = ast.get_source_segment(self.source, self.methods[action])
             self.assertIn("window_generation = self._server_window_page_generation", method)
             self.assertIn("window=window_generation", method)
+            self.assertIn("_server_action_done(result, page, window)", method)
+            self.assertIn("_server_action_failed(error, page, window)", method)
         start = ast.get_source_segment(self.source, self.methods["_start_pxe_services"])
         stop = ast.get_source_segment(self.source, self.methods["_stop_pxe_services"])
         self.assertIn("window=window_generation", start)
