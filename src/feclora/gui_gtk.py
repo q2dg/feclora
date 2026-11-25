@@ -4743,12 +4743,6 @@ class FecloraGTK:
         self._capture_request_generation = getattr(self, "_capture_request_generation", 0) + 1
         request_generation = self._capture_request_generation
         page_generation = self._capture_page_generation
-        self._capture_requests = getattr(self, "_capture_requests", {})
-        self._capture_requests[request_generation] = {
-            "page_generation": page_generation,
-            "passphrase": passphrase,
-            "action": action,
-        }
         self.api.submit(
             action,
             params,
