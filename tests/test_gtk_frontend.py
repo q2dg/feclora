@@ -169,6 +169,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("kind == 5", mode)
         self.assertIn("Subvolúmenes Btrfs (ruta manual)", mode)
 
+    def test_btrfs_operations_preserve_selected_repository(self):
+        start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
+        self.assertEqual(start.count('params["repository_id"] = self.capture_repositories[repository_index]["id"]'), 2)
+        self.assertIn('self.api.submit("capture_btrfs_subvolume"', start)
+        self.assertIn('self.api.submit("receive_btrfs_subvolume"', start)
+
     def test_ddrescue_recovery_and_finalization_use_privileged_api(self):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
         mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
