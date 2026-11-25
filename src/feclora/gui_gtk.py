@@ -3283,15 +3283,22 @@ class FecloraGTK:
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
                 self.capture_result.set_text("Indica un identificador válido del trabajo de recuperación.")
                 return
+            params = {"job_id": image_id}
+            repository_index = self.capture_repository.get_selected()
+            if repository_index < len(getattr(self, "capture_repositories", [])):
+                params["repository_id"] = self.capture_repositories[repository_index]["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando finalización de recuperación…")
-            self.api.submit("finalize_recovery", {"job_id": image_id}, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self.api.submit("finalize_recovery", params, on_success=self._capture_accepted, on_error=self._capture_failed)
             return
         if kind == 6:
             if index >= len(getattr(self, "capture_devices", [])) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
                 self.capture_result.set_text("Selecciona un disco completo e indica un ID de recuperación válido.")
                 return
             params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "retry_passes": self.capture_retry.get_selected(), "resume": self.capture_resume.get_active()}
+            repository_index = self.capture_repository.get_selected()
+            if repository_index < len(getattr(self, "capture_repositories", [])):
+                params["repository_id"] = self.capture_repositories[repository_index]["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando recuperación ddrescue…")
             self.api.submit("recover_disk", params, on_success=self._capture_accepted, on_error=self._capture_failed)
