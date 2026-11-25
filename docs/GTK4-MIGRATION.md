@@ -229,7 +229,7 @@ The Server page groups the server health summary, TLS identity and certificate a
 
 ## libadwaita restore profiles
 
-The single-use restore profile page is grouped into source/target selection, profile definition, and controlled execution sections using `Adw.PreferencesGroup` and `Adw.ActionRow`. Existing repository and inventory lookups, timezone-aware expiry input, exact destructive target confirmation, disabled initial cancellation control, and privileged execution/cancellation callbacks are preserved. Creating a profile remains separate from starting a restore.
+The single-use restore profile page is grouped into source/target selection, profile definition, and controlled execution sections using `Adw.PreferencesGroup` and `Adw.ActionRow`. Existing repository and inventory lookups, timezone-aware expiry input, exact destructive target confirmation, disabled initial cancellation control, and privileged execution/cancellation callbacks are preserved. Creating a profile remains separate from starting a restore. Repository image/profile callbacks are generation-guarded, so a slow response from a previously selected repository cannot overwrite the currently selected repository's lists.
 
 
 ## libadwaita operation and recovery histories
