@@ -354,6 +354,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_image_verification_download_and_extraction_callbacks_keep_identity(self):
         verify = ast.get_source_segment(self.source, self.methods["_verify_selected_image"])
         verified = ast.get_source_segment(self.source, self.methods["_show_image_verification"])
+        inspect = ast.get_source_segment(self.source, self.methods["_inspect_selected_image"])
+        inspected = ast.get_source_segment(self.source, self.methods["_show_image_layout"])
         download = ast.get_source_segment(self.source, self.methods["_save_image_download"])
         extract = ast.get_source_segment(self.source, self.methods["_extract_selected_partition"])
         accepted = ast.get_source_segment(self.source, self.methods["_image_extraction_accepted"])
@@ -362,6 +364,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         page = ast.get_source_segment(self.source, self.methods["_show_images_page"])
         self.assertIn("request_generation = self._image_verification_generation", verify)
         self.assertIn("self._image_verification_results[(repository_id, image_id)] = result", verified)
+        self.assertIn("request_generation = self._image_inspection_generation", inspect)
+        self.assertIn("self._image_inspection_results[(repository_id, image_id)] = layout", inspected)
+        self.assertIn("self._image_repository_id() != repository_id", inspected)
         self.assertIn("self._image_download_results.append(str(destination))", download)
         self.assertIn("download_generation == self._image_download_generation", download)
         self.assertIn("request_generation = self._image_action_generation", extract)
