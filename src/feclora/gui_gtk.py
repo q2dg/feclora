@@ -2465,6 +2465,7 @@ class FecloraGTK:
         self.history_summary.set_text(f"Clientes registrados: {count}")
 
     def _show_operation_log_page(self) -> None:
+        self._operation_log_page_generation = self._page_generation
         self.page_description.set_text("Historial persistente de operaciones locales, incluidos errores y estados terminales.")
 
         status_group = Adw.PreferencesGroup(
@@ -2527,8 +2528,17 @@ class FecloraGTK:
         self._refresh_operation_log(None)
 
     def _refresh_operation_log(self, _button: Gtk.Button | None) -> None:
+        self._operation_log_refresh_generation = getattr(self, "_operation_log_refresh_generation", 0) + 1
+        generation = self._operation_log_refresh_generation
+        page_generation = self._operation_log_page_generation
         self.operation_log_summary.set_text("Leyendo el registro duradero…")
-        self.api.submit("local_operations", on_success=self._show_operation_log, on_error=self._operation_log_failed)
+        self.api.submit(
+            "local_operations",
+            on_success=lambda response: self._show_operation_log(response)
+            if page_generation == self._page_generation and generation == self._operation_log_refresh_generation else None,
+            on_error=lambda error: self._operation_log_failed(error)
+            if page_generation == self._page_generation and generation == self._operation_log_refresh_generation else None,
+        )
 
     def _show_operation_log(self, response: dict[str, Any]) -> None:
         grid = self.operation_log_grid
@@ -2588,6 +2598,7 @@ class FecloraGTK:
         self.operation_log_summary.set_text("No se pudo leer el registro de operaciones: " + str(error))
 
     def _show_recovery_jobs_page(self) -> None:
+        self._recovery_jobs_page_generation = self._page_generation
         self.page_description.set_text("Trabajos ddrescue persistentes. Los mapfiles permiten reanudar recuperaciones interrumpidas.")
 
         status_group = Adw.PreferencesGroup(
@@ -2628,8 +2639,17 @@ class FecloraGTK:
         self._refresh_recovery_jobs(None)
 
     def _refresh_recovery_jobs(self, _button: Gtk.Button | None) -> None:
+        self._recovery_jobs_refresh_generation = getattr(self, "_recovery_jobs_refresh_generation", 0) + 1
+        generation = self._recovery_jobs_refresh_generation
+        page_generation = self._recovery_jobs_page_generation
         self.recovery_jobs_summary.set_text("Leyendo trabajos ddrescue…")
-        self.api.submit("recovery_jobs", on_success=self._show_recovery_jobs, on_error=self._recovery_jobs_failed)
+        self.api.submit(
+            "recovery_jobs",
+            on_success=lambda response: self._show_recovery_jobs(response)
+            if page_generation == self._page_generation and generation == self._recovery_jobs_refresh_generation else None,
+            on_error=lambda error: self._recovery_jobs_failed(error)
+            if page_generation == self._page_generation and generation == self._recovery_jobs_refresh_generation else None,
+        )
 
     def _show_recovery_jobs(self, response: dict[str, Any]) -> None:
         grid = self.recovery_jobs_grid
