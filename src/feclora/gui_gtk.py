@@ -1202,7 +1202,8 @@ class FecloraGTK:
         self._pxe_answer_action_results["publish:" + requested_job_id] = result
         if page_generation != self._server_status_page_generation or window_generation != self._page_generation or request_generation != getattr(self, "_pxe_answer_action_generation", None):
             return
-        job_id = str(result.get("job_id") or "")
+        self._pxe_published_answer = result
+        job_id = str(result.get("job_id") or requested_job_id)
         self.pxe_answer_revoke_id.set_text(job_id)
         self.pxe_answer_result.set_text(str(result.get("message") or result))
         self._refresh_pxe_passphrase_status()
@@ -1246,6 +1247,7 @@ class FecloraGTK:
         self._pxe_answer_action_results["revoke:" + job_id] = result
         if page_generation != self._server_status_page_generation or window_generation != self._page_generation or request_generation != getattr(self, "_pxe_answer_action_generation", None) or self.pxe_answer_revoke_id.get_text().strip() != job_id:
             return
+        self._pxe_published_answer = None
         self.pxe_answer_result.set_text(str(result.get("message") or result))
         self._refresh_pxe_passphrase_status()
 
