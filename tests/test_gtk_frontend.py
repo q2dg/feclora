@@ -493,6 +493,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("generation == self._recovery_jobs_refresh_generation", recovery_refresh)
         self.assertIn("page_generation == self._page_generation", recovery_refresh)
 
+    def test_operation_log_displays_each_inspection_error_in_current_page_group(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_operation_log_page"])
+        render = ast.get_source_segment(self.source, self.methods["_show_operation_log"])
+        self.assertIn('self.operation_log_inspection_group = Adw.PreferencesGroup(', page)
+        self.assertIn('self.page_body.append(self.operation_log_inspection_group)', page)
+        self.assertIn('response.get("inspection_errors")', render)
+        self.assertIn('self.operation_log_inspection_group', render)
+        self.assertIn('error_group.add(Adw.ActionRow(title=str(path), subtitle=str(reason)))', render)
+        self.assertIn('No repitas operaciones afectadas', render)
+
     def test_network_page_uses_active_profiles_and_validated_ipv4_checkpoint(self):
         for action in ('self.api.submit("network_connection_profiles"', 'self.api.submit("network_interfaces"', 'self.api.submit("apply_network_profile"'):
             self.assertIn(action, self.source)
