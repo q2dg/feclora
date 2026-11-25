@@ -620,6 +620,7 @@ class FecloraGTK:
         self._refresh_status(None)
 
     def _show_server_status_page(self) -> None:
+        self._server_status_page_generation = getattr(self, "_server_status_page_generation", 0) + 1
         self.page_description.set_text("Administración del servidor, TLS, PXE, publicación/revocación de respuestas y gestión de destinatarios age.")
 
         def add_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget) -> Adw.ActionRow:
@@ -800,11 +801,21 @@ class FecloraGTK:
         self._refresh_server_status(None)
 
     def _refresh_server_status(self, _button: Gtk.Button | None) -> None:
+        self._server_status_refresh_generation = getattr(self, "_server_status_refresh_generation", 0) + 1
+        generation = self._server_status_refresh_generation
+        page_generation = self._server_status_page_generation
         self.server_status_parts: dict[str, Any] = {}
         self.server_status.set_text("Consultando estado, PXE e interfaces…")
-        self.api.submit("status", on_success=lambda value: self._server_status_part("status", value), on_error=self._server_status_failed)
-        self.api.submit("pxe_service_status", on_success=lambda value: self._server_status_part("pxe", value), on_error=self._server_status_failed)
-        self.api.submit("network_interfaces", on_success=lambda value: self._server_status_part("interfaces", value), on_error=self._server_status_failed)
+        for action, key in (("status", "status"), ("pxe_service_status", "pxe"), ("network_interfaces", "interfaces")):
+            self.api.submit(
+                action,
+                on_success=lambda value, part=key: self._server_status_part(part, value, generation)
+                if page_generation == self._server_status_page_generation
+                and generation == self._server_status_refresh_generation else None,
+                on_error=lambda error: self._server_status_failed(error, generation)
+                if page_generation == self._server_status_page_generation
+                and generation == self._server_status_refresh_generation else None,
+            )
 
     def _server_action_done(self, result: dict[str, Any]) -> None:
         message = result.get("message") or str(result)
@@ -1091,7 +1102,11 @@ class FecloraGTK:
         self.pxe_passphrase.set_sensitive(True)
         self.pxe_passphrase_status.set_text("No se pudo entregar la frase age: " + str(error))
 
-    def _server_status_part(self, key: str, value: dict[str, Any]) -> None:
+    def _server_status_part(
+        self, key: str, value: dict[str, Any], generation: int | None = None
+    ) -> None:
+        if generation is not None and generation != self._server_status_refresh_generation:
+            return
         self.server_status_parts[key] = value
         if set(self.server_status_parts) != {"status", "pxe", "interfaces"}:
             return
@@ -1118,7 +1133,9 @@ class FecloraGTK:
         lines.extend(f"Interfaz {item.get('interface')}: {item.get('address')}/{item.get('prefix_length')}" for item in interfaces)
         self.server_status.set_text("\n".join(lines))
 
-    def _server_status_failed(self, error: Exception) -> None:
+    def _server_status_failed(self, error: Exception, generation: int | None = None) -> None:
+        if generation is not None and generation != self._server_status_refresh_generation:
+            return
         self.server_status.set_text("No se pudo consultar el estado del servidor: " + str(error))
 
     def _show_repositories_page(self) -> None:
