@@ -3380,6 +3380,9 @@ class FecloraGTK:
         else:
             params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "compression": compression, "encrypt": self.capture_encrypt.get_active()}
             action = "capture_stratis_filesystem"
+        repository_index = self.capture_repository.get_selected()
+        if repository_index < len(getattr(self, "capture_repositories", [])):
+            params["repository_id"] = self.capture_repositories[repository_index]["id"]
         capture_passphrase = ""
         if kind == 0 and not qcow2 and self.capture_passphrase_toggle.get_active():
             capture_passphrase = self.capture_passphrase.get_text()
