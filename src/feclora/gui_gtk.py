@@ -2696,7 +2696,7 @@ class FecloraGTK:
             "local_operations",
             on_success=lambda response: self._show_operation_log(response)
             if page_generation == self._page_generation and generation == self._operation_log_refresh_generation else None,
-            on_error=lambda error: self._operation_log_failed(error)
+            on_error=lambda error: self._operation_log_failed(error, page_generation)
             if page_generation == self._page_generation and generation == self._operation_log_refresh_generation else None,
         )
 
@@ -2744,14 +2744,39 @@ class FecloraGTK:
         if self.operation_confirmation.get_text() != expected:
             self.operation_log_summary.set_text("Escribe exactamente: " + expected)
             return
-        self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=self._operation_cancelled, on_error=self._operation_log_failed)
+        page_generation = self._operation_log_page_generation
+        self.api.submit(
+            "cancel_local_operation", {"operation_id": operation_id},
+            on_success=lambda result: self._operation_cancelled(result, operation_id, page_generation),
+            on_error=lambda error: self._operation_log_failed(error, page_generation, operation_id),
+        )
 
-    def _operation_cancelled(self, result: dict[str, Any]) -> None:
+    def _operation_cancelled(
+        self, result: dict[str, Any], operation_id: str | None = None,
+        page_generation: int | None = None,
+    ) -> None:
+        if page_generation != self._page_generation or page_generation != getattr(self, "_operation_log_page_generation", None):
+            return
+        selected_index = self.operation_select.get_selected()
+        selected_id = self.operation_log_records[selected_index]["operation_id"] if selected_index < len(getattr(self, "operation_log_records", [])) else None
+        if operation_id and selected_id != operation_id:
+            return
         self.operation_confirmation.set_text("")
         self.operation_log_summary.set_text("Resultado de cancelación: " + str(result))
         self._refresh_operation_log(None)
 
-    def _operation_log_failed(self, error: Exception) -> None:
+    def _operation_log_failed(
+        self, error: Exception, page_generation: int | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        self._operation_log_errors = getattr(self, "_operation_log_errors", {})
+        if operation_id:
+            self._operation_log_errors[operation_id] = str(error)
+        if page_generation is not None and (
+            page_generation != self._page_generation
+            or page_generation != getattr(self, "_operation_log_page_generation", None)
+        ):
+            return
         self.operation_log_stack.set_visible_child_name("empty")
         self.operation_log_empty.set_title("No se pudo consultar el registro")
         self.operation_log_empty.set_description(str(error))
