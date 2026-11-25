@@ -3013,6 +3013,8 @@ class FecloraGTK:
             self.network_result.set_text("No se pudo completar la operación de red: " + str(error))
 
     def _show_restore_profiles_page(self) -> None:
+        self._profile_page_generation = self._page_generation
+        page_generation = self._profile_page_generation
         self.page_description.set_text("Perfiles de restauración de un solo uso, vinculados a la identidad física del disco y con caducidad.")
 
         def add_profile_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget, subtitle: str = "") -> Adw.ActionRow:
@@ -3074,8 +3076,8 @@ class FecloraGTK:
         result_row.add_suffix(self.profile_result)
         execution_group.add(result_row)
 
-        self.api.submit("inventory", on_success=self._populate_profile_inventory, on_error=self._profile_failed)
-        self.api.submit("remote_repositories", on_success=self._populate_profile_repositories, on_error=self._profile_failed)
+        self.api.submit("inventory", on_success=lambda result: self._populate_profile_inventory(result) if page_generation == self._page_generation else None, on_error=lambda error: self._profile_failed(error, page_generation) if page_generation == self._page_generation else None)
+        self.api.submit("remote_repositories", on_success=lambda result: self._populate_profile_repositories(result) if page_generation == self._page_generation else None, on_error=lambda error: self._profile_failed(error, page_generation) if page_generation == self._page_generation else None)
 
     def _populate_profile_inventory(self, inventory: dict[str, Any]) -> None:
         self.profile_inventory_devices = self._flatten_devices(inventory.get("devices"))
@@ -3103,6 +3105,7 @@ class FecloraGTK:
     def _load_restore_profiles_for_repository(self) -> None:
         self._profile_repository_generation = getattr(self, "_profile_repository_generation", 0) + 1
         generation = self._profile_repository_generation
+        page_generation = self._profile_page_generation
         repository = self._selected_profile_repository()
         self.profile_images = []
         self.profile_records = []
@@ -3114,7 +3117,7 @@ class FecloraGTK:
         self.api.submit(
             "repository_images", {"repository_id": repository_id},
             on_success=lambda result: self._populate_profile_images(result)
-            if generation == self._profile_repository_generation else None,
+            if page_generation == self._page_generation and generation == self._profile_repository_generation else None,
             on_error=lambda error: self._profile_failed(error)
             if generation == self._profile_repository_generation else None,
         )
@@ -3167,9 +3170,18 @@ class FecloraGTK:
             "expires_at": expiry.isoformat(), "repository_id": repository["id"],
         }
         self.profile_result.set_text("Guardando perfil; todavía no se arma ni ejecuta…")
-        self.api.submit("create_restore_profile", params, on_success=self._restore_profile_created, on_error=self._profile_failed)
+        page_generation = self._profile_page_generation
+        self._profile_create_generation = getattr(self, "_profile_create_generation", 0) + 1
+        request_generation = self._profile_create_generation
+        self.api.submit(
+            "create_restore_profile", params,
+            on_success=lambda result: self._restore_profile_created(result, page_generation, request_generation),
+            on_error=lambda error: self._profile_failed(error, page_generation, request_generation),
+        )
 
-    def _restore_profile_created(self, result: dict[str, Any]) -> None:
+    def _restore_profile_created(self, result: dict[str, Any], page_generation: int | None = None, request_generation: int | None = None) -> None:
+        if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or request_generation != getattr(self, "_profile_create_generation", None):
+            return
         self.profile_result.set_text("Perfil guardado, no armado ni ejecutado: " + str(result.get("profile_id", "—")))
         self._load_restore_profiles_for_repository()
 
@@ -3190,29 +3202,46 @@ class FecloraGTK:
             return
         params = {"profile_id": profile["profile_id"], "target": target, "confirmation": expected, "repository_id": repository["id"]}
         self.profile_result.set_text("Solicitando ejecución del perfil de un solo uso…")
-        self.api.submit("execute_restore_profile", params, on_success=self._restore_profile_operation_accepted, on_error=self._profile_failed)
+        page_generation = self._profile_page_generation
+        profile_id = profile["profile_id"]
+        self._profile_execute_generation = getattr(self, "_profile_execute_generation", 0) + 1
+        request_generation = self._profile_execute_generation
+        self.api.submit(
+            "execute_restore_profile", params,
+            on_success=lambda result: self._restore_profile_operation_accepted(result, page_generation, request_generation, profile_id),
+            on_error=lambda error: self._profile_failed(error, page_generation, request_generation),
+        )
 
-    def _restore_profile_operation_accepted(self, result: dict[str, Any]) -> None:
+    def _restore_profile_operation_accepted(self, result: dict[str, Any], page_generation: int | None = None, request_generation: int | None = None, profile_id: str | None = None) -> None:
         operation_id = result.get("operation_id")
         if not isinstance(operation_id, str) or not operation_id:
-            self._profile_failed(RuntimeError("El backend no devolvió operation_id."))
+            self._profile_failed(RuntimeError("El backend no devolvió operation_id."), page_generation, request_generation)
+            return
+        self._profile_operation_results = getattr(self, "_profile_operation_results", {})
+        self._profile_operation_results[operation_id] = {"profile_id": profile_id, "accepted": result}
+        if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or request_generation != getattr(self, "_profile_execute_generation", None):
             return
         self.profile_operation_id = operation_id
         self.profile_cancel.set_sensitive(True)
         self.profile_result.set_text("Restauración aceptada por el worker duradero: " + operation_id)
-        GLib.timeout_add_seconds(1, self._poll_restore_profile_operation)
+        GLib.timeout_add_seconds(1, lambda: self._poll_restore_profile_operation(operation_id, page_generation))
 
-    def _poll_restore_profile_operation(self) -> bool:
-        operation_id = getattr(self, "profile_operation_id", None)
+    def _poll_restore_profile_operation(self, operation_id: str | None = None, page_generation: int | None = None) -> bool:
+        operation_id = operation_id or getattr(self, "profile_operation_id", None)
         if not operation_id:
             return GLib.SOURCE_REMOVE
-        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_restore_profile_operation_status, on_error=self._profile_operation_status_failed)
+        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=lambda status: self._show_restore_profile_operation_status(status, operation_id, page_generation), on_error=lambda error: self._profile_operation_status_failed(error, operation_id, page_generation))
         return GLib.SOURCE_REMOVE
 
-    def _show_restore_profile_operation_status(self, status: dict[str, Any]) -> None:
+    def _show_restore_profile_operation_status(self, status: dict[str, Any], operation_id: str | None = None, page_generation: int | None = None) -> None:
+        operation_id = operation_id or status.get("operation_id")
+        self._profile_operation_results = getattr(self, "_profile_operation_results", {})
+        self._profile_operation_results.setdefault(operation_id, {})["status"] = status
+        if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or operation_id != getattr(self, "profile_operation_id", None):
+            return
         state = status.get("state", "unknown")
         events = status.get("events") or []
-        self.profile_result.set_text("Restauración " + str(self.profile_operation_id) + ": " + str(state))
+        self.profile_result.set_text("Restauración " + str(operation_id) + ": " + str(state))
         if state in {"completed", "failed", "cancelled", "interrupted"}:
             terminal = events[-1].get("details", {}) if events else {}
             self.profile_result.set_text("Restauración " + str(state) + ": " + str(terminal.get("error") or terminal.get("reason") or terminal))
@@ -3221,17 +3250,23 @@ class FecloraGTK:
             self.profile_confirmation.set_text("")
             self._load_restore_profiles_for_repository()
         else:
-            GLib.timeout_add_seconds(2, self._poll_restore_profile_operation)
+            GLib.timeout_add_seconds(2, lambda: self._poll_restore_profile_operation(operation_id, page_generation))
 
-    def _profile_operation_status_failed(self, error: Exception) -> None:
+    def _profile_operation_status_failed(self, error: Exception, operation_id: str | None = None, page_generation: int | None = None) -> None:
+        self._profile_operation_errors = getattr(self, "_profile_operation_errors", {})
+        if operation_id:
+            self._profile_operation_errors[operation_id] = str(error)
+        if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or operation_id != getattr(self, "profile_operation_id", None):
+            return
         self.profile_result.set_text("No se pudo consultar el estado; conserva el ID del trabajo: " + str(error))
-        GLib.timeout_add_seconds(5, self._poll_restore_profile_operation)
+        GLib.timeout_add_seconds(5, lambda: self._poll_restore_profile_operation(operation_id, page_generation))
 
     def _cancel_restore_profile_operation(self, _button: Gtk.Button) -> None:
         operation_id = getattr(self, "profile_operation_id", None)
         if operation_id:
             self.profile_cancel.set_sensitive(False)
-            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._profile_failed)
+            page_generation = self._profile_page_generation
+            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=lambda error: self._profile_failed(error, page_generation, operation_id=operation_id))
 
     def _profile_failed(self, error: Exception) -> None:
         if hasattr(self, "profile_result"):
