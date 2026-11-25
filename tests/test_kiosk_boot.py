@@ -11,61 +11,46 @@ class KioskBootConfigurationTests(unittest.TestCase):
     def read(self, relative: str) -> str:
         return (ROOT / relative).read_text(encoding="utf-8")
 
-    def test_gtk_kiosk_owns_tty1_with_native_wayland_and_logind(self):
-        service = self.read("src/feclora/data/feclora-gtk.service")
-        self.assertIn("User=feclora", service)
-        self.assertIn("PAMName=login", service)
-        self.assertIn("Wants=dbus.socket systemd-logind.service", service)
-        self.assertIn("TTYPath=/dev/tty1", service)
-        self.assertIn(
-            "ExecStart=/usr/bin/cage -x -s -- /usr/bin/python3 -m feclora.gui_gtk",
-            service,
-        )
-        self.assertIn("RuntimeDirectory=feclora-gtk", service)
-        self.assertIn("ExecStartPost=+/usr/libexec/feclora/feclora-gtk-ready", service)
-        self.assertIn("Conflicts=getty@tty1.service feclora-tui.service", service)
-
-    def test_textual_is_installed_as_mutually_exclusive_fallback_not_enabled(self):
-        tui = self.read("src/feclora/data/feclora-tui.service")
-        gtk = self.read("src/feclora/data/feclora-gtk.service")
+    def test_textual_remains_production_until_gtk_weston_parity(self):
+        service = self.read("src/feclora/data/feclora-tui.service")
         kickstart = self.read("kickstart/feclora-live.ks")
-        self.assertIn("Conflicts=getty@tty1.service feclora-gtk.service", tui)
-        self.assertIn('enable feclora-gtk.service', kickstart)
-        self.assertNotIn('enable feclora-tui.service', kickstart)
+        self.assertIn("ExecStart=/usr/bin/python3 -m feclora.tui", service)
+        self.assertIn('enable feclora-tui.service', kickstart)
+        self.assertNotIn('enable feclora-gtk.service', kickstart)
         self.assertIn('feclora-tui.service', kickstart)
 
-    def test_kickstart_and_base_manifest_install_the_wayland_gui_stack(self):
+    def test_no_cage_or_stock_gtk_weston_stack_is_shipped_early(self):
         kickstart = self.read("kickstart/feclora-live.ks")
         base = self.read("packages/base.txt")
-        for package in ("cage", "gtk4", "libadwaita", "python3-gobject", "python3-textual"):
-            self.assertIn(f"\n{package}\n", kickstart)
-            self.assertIn(f"\n{package}\n", base)
+        for package in ("cage", "weston", "weston-libs", "gtk4", "libadwaita", "python3-gobject"):
+            self.assertNotIn(f"\n{package}\n", kickstart)
+            self.assertNotIn(f"\n{package}\n", base)
+        self.assertIn("\npython3-textual\n", kickstart)
+        self.assertIn("\npython3-textual\n", base)
 
-    def test_welcome_window_is_fullscreen_wayland_and_reports_after_map(self):
+    def test_gtk_source_is_native_wayland_and_fullscreen_but_not_boot_enabled(self):
         frontend = self.read("src/feclora/gui_gtk.py")
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', frontend)
         self.assertIn('os.environ.pop("DISPLAY", None)', frontend)
         self.assertIn("self.window.set_decorated(False)", frontend)
         self.assertIn("self.window.fullscreen()", frontend)
-        self.assertIn(
-            'self.window.connect("map", lambda _window: GLib.idle_add(self._report_boot_rendered))',
-            frontend,
-        )
-        self.assertIn('Path("/run/feclora-gtk/ready")', frontend)
-        self.assertIn('ready.write_text("rendered\\n", encoding="ascii")', frontend)
-        ready_helper = self.read("src/feclora/data/feclora-gtk-ready")
-        self.assertIn('while [ ! -f "$READY" ]', ready_helper)
-        self.assertIn("FECLORA_BOOT_SMOKE rendered", ready_helper)
-        welcome = frontend[frontend.index("def _show_welcome"):frontend.index("def _language_changed")]
-        self.assertIn("Idioma de la interfaz", welcome)
-        self.assertIn("Distribución del teclado", welcome)
+        self.assertIn("Idioma de la interfaz", frontend)
+        self.assertIn("Distribución del teclado", frontend)
 
-    def test_qemu_boot_smoke_provides_virtio_display_and_ready_channel(self):
+    def test_weston_target_is_documented_as_x11_disabled_build(self):
+        migration = self.read("docs/GTK4-MIGRATION.md")
+        self.assertIn("-Dxwayland=false -Dbackend-x11=false", migration)
+        self.assertIn("-Dx11-backend=false -Dwayland-backend=true", migration)
+        self.assertIn("--no-config -B drm --shell=kiosk-shell.so", migration)
+        self.assertIn("Then remove Textual and obsolete text-boot checks.", migration)
+
+    def test_qemu_boot_smoke_waits_for_rendered_interface(self):
         smoke = self.read("tests/vm/run-boot-smoke.py")
-        self.assertIn('"virtio"', smoke)
-        self.assertIn('"-vga"', smoke)
+        ready = self.read("src/feclora/data/feclora-tui-ready")
+        self.assertIn('"virtio-serial-pci"', smoke)
         self.assertIn('"virtio"', smoke)
         self.assertIn("FECLORA_BOOT_SMOKE rendered", smoke)
+        self.assertIn("FECLORA_BOOT_SMOKE rendered", ready)
 
 
 if __name__ == "__main__":
