@@ -318,3 +318,6 @@ Disk, partition, logical-volume and Stratis captures, Btrfs subvolume capture/re
 
 
 The local operations repository selector now mirrors Textual's three-way catalog: local storage, mounted and verified file repositories, and configured S3 repositories. The selector remains visible across operation types; repository-scoped image inventory is loaded for either remote backend, while local selection uses the local image catalog. Read-only and operation-specific write restrictions remain enforced by the existing backend/API contract.
+
+
+Remote DeploymentJob import now also exposes the SCP source supported by Textual. GTK requires the selected managed repository to be an SSHFS definition before submitting `source="scp"`; the API continues to read the SSH key and known_hosts material through the existing protected credential path. Repository and S3 imports remain separate `source="repository"` requests.
