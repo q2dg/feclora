@@ -35,5 +35,6 @@ keyboard-navigation acceptance checks against the built image.
 
 Passing source tests does not establish that the package version in Fedora 45
 renders correctly on every supported terminal or hardware configuration.
-BIOS/UEFI Cage/Wayland startup, tty1 handoff, keyboard navigation, VT switching
-and display recovery remain separate maintainer acceptance tasks.
+BIOS/UEFI boot, tty1 handoff, keyboard navigation, VT switching and display
+recovery remain separate maintainer acceptance tasks. Weston/GTK runtime
+acceptance is an additional gate before the Textual replacement.
