@@ -188,6 +188,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"repository_images"', changed)
         self.assertIn('self.capture_repository_label.set_visible(True)', mode)
         self.assertIn('"Repositorio de imágenes"', self.source)
+        self.assertIn('self.capture_repository.connect("notify::selected", self._capture_repository_changed)', self.source)
 
     def test_ddrescue_recovery_and_finalization_use_privileged_api(self):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
