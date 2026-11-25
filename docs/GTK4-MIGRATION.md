@@ -267,7 +267,7 @@ The Images page now separates repository/image selection, partition inspection a
 The Overview page now separates host/platform identity, Feclora server/client configuration, and local service status into dedicated Adw.PreferencesGroup sections with Adw.ActionRow summaries. The refresh action is presented in its own semantic row. The existing status API request and source fields are unchanged; the response is rendered into the corresponding summaries.
 
 
-The Inventory page now presents storage topology as one `Adw.PreferencesGroup` per top-level device, with nested devices and partitions represented by `Adw.ActionRow` entries. Each row retains the reported type, byte size, model, filesystem and mountpoints; an `Adw.StatusPage` explains an empty inventory. Refresh and summary controls use semantic preference rows. The inventory API and underlying device data are unchanged.
+The Inventory page now presents storage topology as one `Adw.PreferencesGroup` per top-level device, with nested devices and partitions represented by `Adw.ActionRow` entries. Each row retains the reported type, byte size, model, filesystem and mountpoints; an `Adw.StatusPage` explains an empty inventory. Refresh and summary controls use semantic preference rows. The inventory API and underlying device data are unchanged. Inventory refreshes are guarded by page and request generations, preventing an older scan from replacing a newer result or updating the page after navigation.
 
 
 ## libadwaita welcome and input preferences
