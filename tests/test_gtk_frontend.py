@@ -171,9 +171,22 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_btrfs_operations_preserve_selected_repository(self):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
-        self.assertEqual(start.count('params["repository_id"] = self.capture_repositories[repository_index]["id"]'), 5)
+        self.assertEqual(start.count('params["repository_id"] = selected_repository["id"]'), 6)
         self.assertIn('self.api.submit("capture_btrfs_subvolume"', start)
         self.assertIn('self.api.submit("receive_btrfs_subvolume"', start)
+
+    def test_operations_repository_selector_supports_local_remote_and_s3(self):
+        remote = ast.get_source_segment(self.source, self.methods["_populate_capture_repositories"])
+        s3 = ast.get_source_segment(self.source, self.methods["_populate_capture_s3_repositories"])
+        finish = ast.get_source_segment(self.source, self.methods["_finish_capture_repository_loading"])
+        changed = ast.get_source_segment(self.source, self.methods["_capture_repository_changed"])
+        mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
+        self.assertIn('item.get("mounted") and item.get("verified")', remote)
+        self.assertIn('self._capture_s3_repositories', s3)
+        self.assertIn('{"id": None, "_kind": "local"}', finish)
+        self.assertIn('{**item, "_kind": "s3"}', finish)
+        self.assertIn('"repository_images"', changed)
+        self.assertIn('self.capture_repository_label.set_visible(True)', mode)
 
     def test_ddrescue_recovery_and_finalization_use_privileged_api(self):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
