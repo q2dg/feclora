@@ -3250,8 +3250,10 @@ class FecloraGTK:
             return
         self._profile_operation_results = getattr(self, "_profile_operation_results", {})
         self._profile_operation_results[operation_id] = {"profile_id": profile_id, "accepted": result}
-        self._latest_profile_operation_id = operation_id
-        if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or request_generation != getattr(self, "_profile_execute_generation", None):
+        request_is_current = request_generation == getattr(self, "_profile_execute_generation", None)
+        if request_is_current:
+            self._latest_profile_operation_id = operation_id
+        if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or not request_is_current:
             return
         self.profile_operation_id = operation_id
         self.profile_cancel.set_sensitive(True)
