@@ -244,7 +244,7 @@ Remote deployment and journal history now place their status and refresh control
 
 ## libadwaita client execution controls
 
-The client-job page now separates authenticated server connection and inspection, local target selection, transfer/protection options, and execution/status into Adw.PreferencesGroup sections with Adw.ActionRow controls. TLS inspection, interface and inventory discovery, eligible-target filtering, compression/encryption options, isolated-network IGMP acknowledgement, exact ERASE/READ confirmation text, and existing start/status callbacks are retained.
+The client-job page now separates authenticated server connection and inspection, local target selection, transfer/protection options, and execution/status into Adw.PreferencesGroup sections with Adw.ActionRow controls. TLS inspection, interface and inventory discovery, eligible-target filtering, compression/encryption options, isolated-network IGMP acknowledgement, exact ERASE/READ confirmation text, and existing start/status callbacks are retained. Inspection responses are generation-guarded against page re-entry and changes to server host, job ID, interface or local inventory; changing any inspection input clears the authenticated inspection, eligible targets and destructive confirmation.
 
 
 ## libadwaita repository administration
