@@ -2728,6 +2728,9 @@ class FecloraGTK:
             self.profile_result.set_text("Operación de perfil fallida: " + str(error))
 
     def _show_images_page(self) -> None:
+        self._image_page_generation = getattr(self, "_image_page_generation", 0) + 1
+        page_generation = self._image_page_generation
+        self._image_catalog_generation = getattr(self, "_image_catalog_generation", 0) + 1
         self.page_description.set_text("Inspección verificada de imágenes de disco, exploración de archivos y extracción de particiones.")
 
         def add_image_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget, subtitle: str = "") -> Adw.ActionRow:
@@ -2838,8 +2841,20 @@ class FecloraGTK:
         self.image_partition.connect("notify::selected", self._image_partition_changed)
         self._image_remote_repositories = None
         self._image_s3_repositories = None
-        self.api.submit("remote_repositories", on_success=self._populate_image_repositories, on_error=self._image_page_failed)
-        self.api.submit("s3_repositories", on_success=self._populate_image_s3_repositories, on_error=self._image_page_failed)
+        self.api.submit(
+            "remote_repositories",
+            on_success=lambda result: self._populate_image_repositories(result)
+            if page_generation == self._image_page_generation else None,
+            on_error=lambda error: self._image_page_failed(error)
+            if page_generation == self._image_page_generation else None,
+        )
+        self.api.submit(
+            "s3_repositories",
+            on_success=lambda result: self._populate_image_s3_repositories(result)
+            if page_generation == self._image_page_generation else None,
+            on_error=lambda error: self._image_page_failed(error)
+            if page_generation == self._image_page_generation else None,
+        )
 
     def _populate_image_repositories(self, result: dict[str, Any]) -> None:
         self._image_remote_repositories = [
@@ -2881,12 +2896,27 @@ class FecloraGTK:
         self._load_image_catalog()
 
     def _load_image_catalog(self) -> None:
+        self._image_catalog_generation = getattr(self, "_image_catalog_generation", 0) + 1
+        generation = self._image_catalog_generation
+        page_generation = self._image_page_generation
         self.image_catalog_stack.set_visible_child_name("loading")
         repository_id = self._image_repository_id()
         if repository_id:
-            self.api.submit("repository_images", {"repository_id": repository_id}, on_success=self._populate_image_catalog, on_error=self._image_page_failed)
+            self.api.submit(
+                "repository_images", {"repository_id": repository_id},
+                on_success=lambda result: self._populate_image_catalog(result)
+                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+                on_error=lambda error: self._image_page_failed(error)
+                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+            )
         else:
-            self.api.submit("images", on_success=self._populate_image_catalog, on_error=self._image_page_failed)
+            self.api.submit(
+                "images",
+                on_success=lambda result: self._populate_image_catalog(result)
+                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+                on_error=lambda error: self._image_page_failed(error)
+                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+            )
 
     def _populate_image_catalog(self, result: dict[str, Any]) -> None:
         self.image_catalog = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_type") == "disk" and item.get("image_id")]
