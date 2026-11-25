@@ -331,3 +331,8 @@ The remote deployment action selector includes both status inspection and an exp
 ### Paridad de controles PXE
 
 La pantalla GTK muestra los campos de rango DHCP, gateway, DNS y confirmación de DHCP autoritativo únicamente en modo de red aislada, igual que Textual. Cambiar el modo invalida cualquier perfil previamente validado y deshabilita el inicio PXE hasta repetir el preflight. El backend sigue siendo la autoridad para validar y arrancar los servicios.
+
+
+### Confirmaciones destructivas dinámicas en operaciones
+
+La interfaz GTK actualiza la ayuda de confirmación al cambiar el destino o la imagen: `ERASE <destino>` para restauraciones y clonación de disco, `ERASE <destino> FROM <origen>` para clonación de partición y `BUILD <imagen>` para ISO de recuperación. La comprobación de la frase exacta sigue realizándose antes de enviar la operación, y el backend privilegiado conserva su validación independiente.
