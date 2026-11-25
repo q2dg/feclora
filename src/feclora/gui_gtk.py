@@ -1695,6 +1695,8 @@ class FecloraGTK:
             details = events[-1].get("details", {}) if events else {}
             detail = details.get("error") or details.get("reason") or details
             self.p2v_result.set_text(f"Operación P2V {state}: {detail}")
+            if state == "completed":
+                self._refresh_repositories(None)
             return
         self.p2v_result.set_text(f"Operación P2V {operation_id}: {state}.")
         GLib.timeout_add_seconds(
