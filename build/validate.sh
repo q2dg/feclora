@@ -23,8 +23,7 @@ for file in \
   packages/base.txt packages/build-host.txt requirements-test.txt requirements-gui.txt \
   src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_gtk.py src/feclora/gtk_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
-  src/feclora/data/feclora-tui-ready src/feclora/data/feclora-gtk.service \
-  src/feclora/data/feclora-gtk-ready src/feclora/data/feclora-root-terminal.service \
+  src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
   tests/test_gtk_api.py tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py; do
@@ -33,11 +32,7 @@ done
 
 require_text '^#version=F45$' kickstart/feclora-live.ks "Kickstart must target Fedora 45."
 require_text 'packages/build-host\.txt' build/install-host-deps.sh "Build dependencies must come from the build-host package manifest."
-require_text '^python3-textual$' packages/base.txt "The Textual fallback must remain installed."
-require_text '^python3-gobject$' packages/base.txt "The Live image must install PyGObject."
-require_text '^gtk4$' packages/base.txt "The Live image must install GTK4."
-require_text '^libadwaita$' packages/base.txt "The Live image must install libadwaita."
-require_text '^cage$' packages/base.txt "The Live image must install Cage."
+require_text '^python3-textual$' packages/base.txt "Textual must remain installed until GTK/Weston passes the complete acceptance gate."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -80,17 +75,15 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^User=feclora$' src/feclora/data/feclora-gtk.service "The GTK kiosk must run as its unprivileged appliance user."
-require_text '^PAMName=login$' src/feclora/data/feclora-gtk.service "The GTK kiosk must create a logind session."
-require_text '^ExecStart=/usr/bin/cage -x -s -- /usr/bin/python3 -m feclora\.gui_gtk$' src/feclora/data/feclora-gtk.service "The boot UI must launch GTK in Cage with XWayland disabled."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-gtk-ready$' src/feclora/data/feclora-gtk.service "The GTK kiosk must report its first mapped window."
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "The Textual fallback must remain available."
+require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The current production UI must run as its unprivileged appliance user."
+require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
+require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
-if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-gtk.service"; then
-  fail "The GTK kiosk service must allow its scoped sudo helper to perform privileged appliance operations."
+if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
+  fail "The production UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
-require_text 'enable feclora-gtk\.service' kickstart/feclora-live.ks "The GTK kiosk must be enabled at boot."
+require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
 require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-recovery.service "Durable operations must recover before the interface starts."
