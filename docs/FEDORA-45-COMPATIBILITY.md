@@ -6,11 +6,15 @@ Rawhide or an arbitrary upstream release for the system toolchain.
 
 ## Live interface
 
-The appliance installs Fedora's `python3-textual` package and launches
-`python3 -m feclora.tui` directly on tty1. The application uses the root-owned,
+The appliance installs `cage`, `gtk4`, `libadwaita` and `python3-gobject`.
+The enabled `feclora-gtk.service` starts Cage on tty1 with
+`cage -x -s -- /usr/bin/python3 -m feclora.gui_gtk`; `-x` disables XWayland
+and `-s` permits switching to the tty2 recovery shell. A PAM/logind session
+provides the Wayland runtime directory and seat access. Textual and its
+`feclora-tui.service` remain installed as a mutually exclusive manual fallback,
+but the TUI unit is not enabled by default. The application uses the root-owned,
 allowlisted helper at `/usr/libexec/feclora/feclora-api`; the `feclora` user
-has no general-purpose passwordless root shell. The ISO does not install a
-web browser, web server, display manager or graphical compositor.
+has no general-purpose passwordless root shell.
 
 The test environment pins `textual==8.1.1` in `requirements-test.txt` so
 automated UI tests are repeatable. This test dependency is separate from the
@@ -28,5 +32,5 @@ keyboard-navigation acceptance checks against the built image.
 
 Passing source tests does not establish that the package version in Fedora 45
 renders correctly on every supported terminal or hardware configuration.
-BIOS/UEFI text-console startup, tty1 handoff, keyboard navigation and display
-recovery remain separate maintainer acceptance tasks.
+BIOS/UEFI Cage/Wayland startup, tty1 handoff, keyboard navigation, VT switching
+and display recovery remain separate maintainer acceptance tasks.
