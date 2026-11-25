@@ -27,6 +27,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
             self.assertNotIn(f"\n{package}\n", base)
         self.assertIn("\npython3-textual\n", kickstart)
         self.assertIn("\npython3-textual\n", base)
+        self.assertFalse((ROOT / "src/feclora/data/feclora-gtk.service").exists())
+        self.assertFalse((ROOT / "src/feclora/data/feclora-gtk-ready").exists())
 
     def test_gtk_source_is_native_wayland_and_fullscreen_but_not_boot_enabled(self):
         frontend = self.read("src/feclora/gui_gtk.py")
