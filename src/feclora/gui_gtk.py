@@ -723,7 +723,7 @@ class FecloraGTK:
             description="Validación, publicación y revocación de respuestas de instalación",
         )
         self.page_body.append(answer_group)
-        self.pxe_answer_source = Gtk.DropDown.new_from_strings(["Archivo local", "URL HTTP/HTTPS", "Repositorio montado"])
+        self.pxe_answer_source = Gtk.DropDown.new_from_strings(["Archivo local", "URL HTTP/HTTPS", "Repositorio", "SCP · SSHFS"])
         add_row(answer_group, "Origen de respuesta", self.pxe_answer_source)
         self.pxe_answer_job_id = Gtk.Entry()
         self.pxe_answer_job_id.set_placeholder_text("UUID del DeploymentJob (opcional para archivo local)")
@@ -957,12 +957,15 @@ class FecloraGTK:
                 if not value or not job_id:
                     raise ValueError("Indica URL HTTP/HTTPS y UUID del trabajo.")
                 request["url"] = value
-            elif source == "repository":
+            elif source in {"repository", "scp"}:
                 selected = self.pxe_answer_repository.get_selected()
                 rows = getattr(self, "_pxe_answer_repository_rows", [])
                 if selected == 0 or selected - 1 >= len(rows) or not value or not job_id:
                     raise ValueError("Selecciona repositorio, UUID y ruta relativa.")
-                request["repository_id"] = rows[selected - 1].get("id")
+                repository = rows[selected - 1]
+                if source == "scp" and repository.get("provider") != "sshfs":
+                    raise ValueError("SCP requiere un repositorio SSHFS con credenciales SSH protegidas.")
+                request["repository_id"] = repository.get("id")
                 request["source_path"] = value
             else:
                 raise ValueError("Selecciona un origen válido.")
