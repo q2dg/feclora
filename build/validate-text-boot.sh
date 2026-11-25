@@ -62,8 +62,8 @@ grep -Fxq 'feclora-gtk.service' "$ROOT_DIR/src/feclora/data/feclora-local-operat
   || fail "Durable operation recovery must precede GTK startup."
 grep -Fq 'console=tty0 rd.systemd.show_status=1 systemd.show_status=1' "$BUILD" \
   || fail "ISO must retain visible kernel and systemd boot messages."
-grep -Fq 'GLib.idle_add(self._report_boot_rendered)' "$ROOT_DIR/src/feclora/gui_gtk.py" \
-  || fail "GTK must report readiness after presenting its welcome window."
+grep -Fq 'self.window.connect("map", lambda _window: GLib.idle_add(self._report_boot_rendered))' "$ROOT_DIR/src/feclora/gui_gtk.py" \
+  || fail "GTK must report readiness after its welcome window is mapped."
 grep -Fq 'Path("/run/feclora-gtk/ready")' "$ROOT_DIR/src/feclora/gui_gtk.py" \
   || fail "GTK readiness marker does not match the systemd runtime directory."
 grep -Fq 'FECLORA_BOOT_SMOKE rendered' "$READY" \
