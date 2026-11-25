@@ -321,3 +321,5 @@ The local operations repository selector now mirrors Textual's three-way catalog
 
 
 Remote DeploymentJob import now also exposes the SCP source supported by Textual. GTK requires the selected managed repository to be an SSHFS definition before submitting `source="scp"`; the API continues to read the SSH key and known_hosts material through the existing protected credential path. Repository and S3 imports remain separate `source="repository"` requests.
+
+The unattended PXE answer publisher also exposes SCP over managed SSHFS repositories, matching Textual. The selected repository must be SSHFS for SCP; the API still owns the bounded read and protected SSH credential handling.
