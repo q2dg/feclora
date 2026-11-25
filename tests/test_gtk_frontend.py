@@ -960,6 +960,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("apply_generation != getattr(self, \"_network_apply_generation\", None)", applied)
         self.assertIn("window_generation != self._page_generation", failed)
         self.assertIn("current_window_generation = self._page_generation", applied)
+        self.assertIn("current_window_generation == self._page_generation", applied)
 
     def test_tls_and_pxe_callbacks_capture_submission_context(self):
         server_page = ast.get_source_segment(self.source, self.methods["_show_server_status_page"])
@@ -981,6 +982,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("window_generation = self._server_window_page_generation", stop)
         self.assertIn("self._pxe_action_done(result, page)", stop)
         self.assertIn("window_generation = self._server_window_page_generation", stop)
+
+    def test_server_and_pxe_refresh_callbacks_reject_navigation_staleness(self):
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_server_status"])
+        pxe_repositories = ast.get_source_segment(self.source, self.methods["_refresh_pxe_answer_repositories"])
+        self.assertIn("window_generation == self._page_generation", refresh)
+        self.assertIn("self._server_status_failed(error, generation)", refresh)
+        self.assertIn("window_generation == self._page_generation", pxe_repositories)
 
     def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
         start = self.source.index("    def _start_client_job")
