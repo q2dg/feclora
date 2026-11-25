@@ -3305,6 +3305,9 @@ class FecloraGTK:
             params = {"image_id": image_id, "target_directory": target_directory}
             if parent_path:
                 params["parent_path"] = parent_path
+            repository_index = self.capture_repository.get_selected()
+            if repository_index < len(getattr(self, "capture_repositories", [])):
+                params["repository_id"] = self.capture_repositories[repository_index]["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando recepción Btrfs…")
             self.api.submit("receive_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
@@ -3322,6 +3325,9 @@ class FecloraGTK:
             params = {"source_path": source_path, "image_id": image_id, "compression": ("zstd", "lz4", "gzip", "xz", "none")[self.capture_compression.get_selected()], "encrypt": self.capture_encrypt.get_active()}
             if parent_path:
                 params["parent_path"] = parent_path
+            repository_index = self.capture_repository.get_selected()
+            if repository_index < len(getattr(self, "capture_repositories", [])):
+                params["repository_id"] = self.capture_repositories[repository_index]["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando captura Btrfs…")
             self.api.submit("capture_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
