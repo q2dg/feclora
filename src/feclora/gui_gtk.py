@@ -1599,7 +1599,7 @@ class FecloraGTK:
                 return
             params["repository_id"] = repositories[selected - 1][1]["id"]
         self.p2v_result.set_text("Solicitando importación P2V…")
-        self.api.submit("import_p2v", params, on_success=self._p2v_operation_accepted, on_error=self._p2v_operation_failed)
+        self._submit_p2v_operation("import_p2v", params)
 
     def _export_legacy_p2v(self, _button: Gtk.Button) -> None:
         import re
@@ -1621,16 +1621,42 @@ class FecloraGTK:
                 return
             params["destination_repository_id"] = destinations[destination_index - 1][1]["id"]
         self.p2v_result.set_text("Solicitando exportación P2V desde S3…")
-        self.api.submit("export_p2v_s3", params, on_success=self._p2v_operation_accepted, on_error=self._p2v_operation_failed)
+        self._submit_p2v_operation("export_p2v_s3", params)
 
-    def _p2v_operation_accepted(self, result: dict[str, Any]) -> None:
+    def _submit_p2v_operation(self, action: str, params: dict[str, Any]) -> None:
+        self._p2v_action_generation = getattr(self, "_p2v_action_generation", 0) + 1
+        request_generation = self._p2v_action_generation
+        page_generation = self._repository_page_generation
+        window_generation = self._repository_window_page_generation
+        self.api.submit(
+            action, params,
+            on_success=lambda result: self._p2v_operation_accepted(result, page_generation, window_generation, request_generation),
+            on_error=lambda error: self._p2v_operation_failed(error, page_generation, window_generation, request_generation),
+        )
+
+    def _p2v_operation_accepted(
+        self, result: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None, request_generation: int | None = None,
+    ) -> None:
         operation_id = result.get("operation_id")
+        self._p2v_operation_results = getattr(self, "_p2v_operation_results", {})
+        if isinstance(operation_id, str) and operation_id:
+            self._p2v_operation_results[operation_id] = result
         if not isinstance(operation_id, str) or not operation_id:
-            self._p2v_operation_failed(RuntimeError("El backend no devolvió operation_id."))
+            self._p2v_operation_failed(RuntimeError("El backend no devolvió operation_id."), page_generation, window_generation, request_generation)
+            return
+        if page_generation != self._repository_page_generation or window_generation != self._page_generation or request_generation != self._p2v_action_generation:
             return
         self.p2v_result.set_text("Operación P2V aceptada: " + operation_id + ". Consulta Operation Log para ver progreso, resultado y errores.")
 
-    def _p2v_operation_failed(self, error: Exception) -> None:
+    def _p2v_operation_failed(
+        self, error: Exception, page_generation: int | None = None,
+        window_generation: int | None = None, request_generation: int | None = None,
+    ) -> None:
+        self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", [])
+        self._p2v_operation_errors.append(str(error))
+        if page_generation != self._repository_page_generation or window_generation != self._page_generation or request_generation != self._p2v_action_generation:
+            return
         self.p2v_result.set_text("No se pudo iniciar la operación P2V: " + str(error))
 
     def _populate_repository_credentials(self, response: dict[str, Any]) -> None:
@@ -1882,7 +1908,7 @@ class FecloraGTK:
         existing = next((item for _, item in getattr(self, "s3_repository_rows", []) if item.get("id") == identifier), None)
         action = "update_s3_repository" if existing else "add_s3_repository"
         self.repository_action_result.set_text("Guardando definición S3…")
-        self.api.submit(action, params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self._submit_repository_action(action, params)
 
     def _import_repository_credential(self, _button: Gtk.Button) -> None:
         import re
