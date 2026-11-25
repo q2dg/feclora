@@ -243,6 +243,7 @@ class FecloraGTK:
         except OSError as exc:
             self.status.set_text(f"No se pudo guardar el idioma: {exc}")
             return
+        self._welcome_generation = getattr(self, "_welcome_generation", 0) + 1
         self._show_navigation()
 
     def _show_navigation(self) -> None:
