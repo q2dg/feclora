@@ -378,6 +378,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("index - 1", interfaces)
         self.assertIn("profile_index == 0", apply)
         self.assertIn("interface_index == 0", apply)
+        network_page = ast.get_source_segment(self.source, self.methods["_show_network_page"])
+        applied = ast.get_source_segment(self.source, self.methods["_network_applied"])
+        self.assertIn("_network_page_generation", network_page)
+        self.assertIn("page_generation == self._network_page_generation", network_page)
+        self.assertIn("current_generation == self._network_page_generation", applied)
 
     def test_restore_profiles_are_bound_to_stable_disk_identity_and_single_use_confirmation(self):
         for action in ('self.api.submit("restore_profiles"', 'self.api.submit("create_restore_profile"', 'self.api.submit("execute_restore_profile"'):
