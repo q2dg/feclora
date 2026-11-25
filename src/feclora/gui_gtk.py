@@ -3661,6 +3661,8 @@ class FecloraGTK:
             return
         if operation_id is not None and operation_id != getattr(self, "profile_operation_id", None):
             return
+        if operation_id is not None and hasattr(self, "profile_cancel"):
+            self.profile_cancel.set_sensitive(True)
         if request_generation is not None:
             current = getattr(self, "_profile_create_generation" if request_kind == "create" else "_profile_execute_generation", None)
             if request_generation != current:
