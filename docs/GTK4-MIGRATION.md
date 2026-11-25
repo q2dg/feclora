@@ -487,3 +487,12 @@ matching the Textual completion flow so newly created images become selectable
 without leaving and re-entering the page. Setup-screen asynchronous callbacks
 also carry a screen generation; stale keyboard responses cannot update detached
 widgets, and root-terminal success uses the persistent toast overlay.
+
+
+Client-job history refreshes now use a dedicated request generation in addition to
+the client-page generation. If an operator requests another refresh before an
+earlier `deployment_jobs` response arrives, only the newest response (or its
+error) may replace the displayed history. This matches the refresh ordering
+guards used by the other history pages; it does not alter the deployment API.
+Structural regression coverage was added; no live client transfer or GTK
+runtime test was executed.
