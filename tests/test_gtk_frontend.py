@@ -383,6 +383,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("_network_page_generation", network_page)
         self.assertIn("page_generation == self._network_page_generation", network_page)
         self.assertIn("current_generation == self._network_page_generation", applied)
+        self.assertIn("self.network_active_profiles = []", network_page)
+        self.assertIn("self.network_interfaces = []", network_page)
+        self.assertIn("self.network_interface_records = []", applied)
+        self.assertIn('Gtk.StringList.new(["Cargando perfiles…"])', applied)
 
     def test_restore_profiles_are_bound_to_stable_disk_identity_and_single_use_confirmation(self):
         for action in ('self.api.submit("restore_profiles"', 'self.api.submit("create_restore_profile"', 'self.api.submit("execute_restore_profile"'):
