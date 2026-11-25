@@ -324,6 +324,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_remote_job_selector_backing_rows_exclude_missing_identifiers(self):
+        method = ast.get_source_segment(self.source, self.methods["_populate_remote_job_controls"])
+        self.assertIn('isinstance(item.get("job_id"), str)', method)
+        self.assertIn('item.get("job_id").strip()', method)
+        self.assertIn('for item in self._remote_jobs', method)
+        self.assertNotIn('if item.get("job_id")', method)
+
     def test_system_page_restores_textual_configuration_service_and_certificate_details(self):
         page = ast.get_source_segment(self.source, self.methods["_show_system_page"])
         status = ast.get_source_segment(self.source, self.methods["_show_status"])
