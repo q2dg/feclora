@@ -3702,16 +3702,16 @@ class FecloraGTK:
                 "repository_images", {"repository_id": repository_id},
                 on_success=lambda result: self._populate_image_catalog(result)
                 if page_generation == self._image_page_generation and window_generation == self._page_generation and generation == self._image_catalog_generation else None,
-                on_error=lambda error: self._image_page_failed(error)
-                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+                on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
+                if page_generation == self._image_page_generation and window_generation == self._page_generation and generation == self._image_catalog_generation else None,
             )
         else:
             self.api.submit(
                 "images",
                 on_success=lambda result: self._populate_image_catalog(result)
-                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
-                on_error=lambda error: self._image_page_failed(error)
-                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+                if page_generation == self._image_page_generation and window_generation == self._page_generation and generation == self._image_catalog_generation else None,
+                on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
+                if page_generation == self._image_page_generation and window_generation == self._page_generation and generation == self._image_catalog_generation else None,
             )
 
     def _populate_image_catalog(self, result: dict[str, Any]) -> None:
