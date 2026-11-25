@@ -660,6 +660,7 @@ class FecloraGTK:
 
     def _show_server_status_page(self) -> None:
         self._server_status_page_generation = getattr(self, "_server_status_page_generation", 0) + 1
+        self._server_window_page_generation = self._page_generation
         self.page_description.set_text("Administración del servidor, TLS, PXE, publicación/revocación de respuestas y gestión de destinatarios age.")
 
         def add_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget) -> Adw.ActionRow:
@@ -843,6 +844,7 @@ class FecloraGTK:
         self._server_status_refresh_generation = getattr(self, "_server_status_refresh_generation", 0) + 1
         generation = self._server_status_refresh_generation
         page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
         self.server_status_parts: dict[str, Any] = {}
         self.server_status.set_text("Consultando estado, PXE e interfaces…")
         for action, key in (("status", "status"), ("pxe_service_status", "pxe"), ("network_interfaces", "interfaces")):
@@ -850,6 +852,7 @@ class FecloraGTK:
                 action,
                 on_success=lambda value, part=key: self._server_status_part(part, value, generation)
                 if page_generation == self._server_status_page_generation
+                and window_generation == self._page_generation
                 and generation == self._server_status_refresh_generation else None,
                 on_error=lambda error: self._server_status_failed(error, generation)
                 if page_generation == self._server_status_page_generation
@@ -860,7 +863,7 @@ class FecloraGTK:
         self, result: dict[str, Any], page_generation: int | None = None
     ) -> None:
         self._server_action_result = result
-        if page_generation is not None and page_generation != self._server_status_page_generation:
+        if page_generation is not None and (page_generation != self._server_status_page_generation or getattr(self, "_server_window_page_generation", None) != self._page_generation):
             return
         message = result.get("message") or str(result)
         self.server_status.set_text(str(message))
@@ -869,7 +872,7 @@ class FecloraGTK:
     def _server_action_failed(
         self, error: Exception, page_generation: int | None = None
     ) -> None:
-        if page_generation is not None and page_generation != self._server_status_page_generation:
+        if page_generation is not None and (page_generation != self._server_status_page_generation or getattr(self, "_server_window_page_generation", None) != self._page_generation):
             return
         self.server_status.set_text("Error de administración del servidor: " + str(error))
 
@@ -889,14 +892,18 @@ class FecloraGTK:
             "interface": selected.get("interface"), "address": selected.get("address"),
             "prefix_length": selected.get("prefix_length"),
         }
-        self.api.submit("bootstrap_server", params, on_success=lambda result, generation=self._server_status_page_generation: self._server_action_done(result, generation), on_error=lambda error, generation=self._server_status_page_generation: self._server_action_failed(error, generation))
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
+        self.api.submit("bootstrap_server", params, on_success=lambda result, page=page_generation, window=window_generation: self._server_action_done(result, page) if window == self._page_generation else None, on_error=lambda error, page=page_generation, window=window_generation: self._server_action_failed(error, page) if window == self._page_generation else None)
 
     def _renew_server_certificate(self, _button: Gtk.Button) -> None:
         confirmation = self.server_renew_confirmation.get_text().strip()
         if confirmation != "RENEW SERVER CERTIFICATE":
             self.server_status.set_text("Escribe exactamente RENEW SERVER CERTIFICATE.")
             return
-        self.api.submit("renew_server_certificate", {"confirmation": confirmation}, on_success=lambda result: self._server_action_done(result, self._server_status_page_generation), on_error=lambda error: self._server_action_failed(error, self._server_status_page_generation))
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
+        self.api.submit("renew_server_certificate", {"confirmation": confirmation}, on_success=lambda result, page=page_generation, window=window_generation: self._server_action_done(result, page) if window == self._page_generation else None, on_error=lambda error, page=page_generation, window=window_generation: self._server_action_failed(error, page) if window == self._page_generation else None)
         self.server_renew_confirmation.set_text("")
 
     def _rotate_server_keypair(self, _button: Gtk.Button) -> None:
@@ -904,7 +911,9 @@ class FecloraGTK:
         if confirmation != "ROTATE SERVER TLS KEYPAIR":
             self.server_status.set_text("Escribe exactamente ROTATE SERVER TLS KEYPAIR.")
             return
-        self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=lambda result: self._server_action_done(result, self._server_status_page_generation), on_error=lambda error: self._server_action_failed(error, self._server_status_page_generation))
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
+        self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=lambda result, page=page_generation, window=window_generation: self._server_action_done(result, page) if window == self._page_generation else None, on_error=lambda error, page=page_generation, window=window_generation: self._server_action_failed(error, page) if window == self._page_generation else None)
         self.server_rotate_confirmation.set_text("")
 
     def _invalidate_pxe_validation(self) -> None:
@@ -960,24 +969,28 @@ class FecloraGTK:
         self._pxe_profile = None
         self._pxe_validation_generation = getattr(self, "_pxe_validation_generation", 0) + 1
         generation = self._pxe_validation_generation
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
         self._pxe_pending_profile = profile
         self.api.submit(
             "validate_pxe_profile", profile,
-            on_success=lambda result: self._pxe_profile_validated(result)
-            if generation == self._pxe_validation_generation else None,
-            on_error=lambda error: self._pxe_profile_rejected(error)
-            if generation == self._pxe_validation_generation else None,
+            on_success=lambda result, token=generation, page=page_generation, window=window_generation, snapshot=dict(profile): self._pxe_profile_validated(result, token, page, window, snapshot),
+            on_error=lambda error, token=generation, page=page_generation, window=window_generation: self._pxe_profile_rejected(error, token, page, window),
         )
 
-    def _pxe_profile_validated(self, result: dict[str, Any]) -> None:
-        self._pxe_profile = getattr(self, "_pxe_pending_profile", None)
+    def _pxe_profile_validated(self, result: dict[str, Any], generation: int | None = None, page_generation: int | None = None, window_generation: int | None = None, profile: dict[str, Any] | None = None) -> None:
+        if generation != self._pxe_validation_generation or page_generation != self._server_status_page_generation or window_generation != self._page_generation:
+            return
+        self._pxe_profile = profile
         if self._pxe_profile is None:
             self.pxe_result.set_text("No se conservó el perfil validado; vuelve a validarlo.")
             return
         self.pxe_start.set_sensitive(True)
         self.pxe_result.set_text(str(result.get("message") or result))
 
-    def _pxe_profile_rejected(self, error: Exception) -> None:
+    def _pxe_profile_rejected(self, error: Exception, generation: int | None = None, page_generation: int | None = None, window_generation: int | None = None) -> None:
+        if generation != self._pxe_validation_generation or page_generation != self._server_status_page_generation or window_generation != self._page_generation:
+            return
         self._pxe_profile = None
         self.pxe_start.set_sensitive(False)
         self.pxe_result.set_text("El perfil PXE no pasó la validación: " + str(error))
@@ -987,25 +1000,30 @@ class FecloraGTK:
             self.pxe_result.set_text("Valida un perfil PXE antes de iniciar servicios.")
             return
         self.pxe_result.set_text("Iniciando servicios PXE…")
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
+        profile = dict(self._pxe_profile)
         self.api.submit(
-            "start_pxe_services", self._pxe_profile,
-            on_success=lambda result, generation=self._server_status_page_generation: self._pxe_action_done(result, generation),
-            on_error=lambda error, generation=self._server_status_page_generation: self._pxe_action_failed(error, generation),
+            "start_pxe_services", profile,
+            on_success=lambda result, page=page_generation, window=window_generation: self._pxe_action_done(result, page) if window == self._page_generation else None,
+            on_error=lambda error, page=page_generation, window=window_generation: self._pxe_action_failed(error, page) if window == self._page_generation else None,
         )
 
     def _stop_pxe_services(self, _button: Gtk.Button) -> None:
         self.pxe_result.set_text("Deteniendo servicios PXE…")
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
         self.api.submit(
             "stop_pxe_services",
-            on_success=lambda result: self._pxe_action_done(result, self._server_status_page_generation),
-            on_error=lambda error: self._pxe_action_failed(error, self._server_status_page_generation),
+            on_success=lambda result, page=page_generation, window=window_generation: self._pxe_action_done(result, page) if window == self._page_generation else None,
+            on_error=lambda error, page=page_generation, window=window_generation: self._pxe_action_failed(error, page) if window == self._page_generation else None,
         )
 
     def _pxe_action_done(
         self, result: dict[str, Any], page_generation: int | None = None
     ) -> None:
         self._pxe_action_result = result
-        if page_generation is not None and page_generation != self._server_status_page_generation:
+        if page_generation is not None and (page_generation != self._server_status_page_generation or getattr(self, "_server_window_page_generation", None) != self._page_generation):
             return
         self.pxe_result.set_text(str(result.get("message") or result))
         self._refresh_server_status(None)
@@ -1013,7 +1031,7 @@ class FecloraGTK:
     def _pxe_action_failed(
         self, error: Exception, page_generation: int | None = None
     ) -> None:
-        if page_generation is not None and page_generation != self._server_status_page_generation:
+        if page_generation is not None and (page_generation != self._server_status_page_generation or getattr(self, "_server_window_page_generation", None) != self._page_generation):
             return
         self.pxe_result.set_text("Error en servicios PXE: " + str(error))
 
@@ -2877,6 +2895,7 @@ class FecloraGTK:
     def _show_network_page(self) -> None:
         self._network_page_generation = getattr(self, "_network_page_generation", 0) + 1
         page_generation = self._network_page_generation
+        window_generation = self._page_generation
         self.page_description.set_text("Configuración IPv4 de perfiles activos de NetworkManager, con aplicación protegida por checkpoint y rollback.")
         network_group = Adw.PreferencesGroup(
             title="Conexión IPv4",
@@ -2922,9 +2941,9 @@ class FecloraGTK:
         self.api.submit(
             "network_connection_profiles",
             on_success=lambda result: self._populate_network_profiles(result)
-            if page_generation == self._network_page_generation else None,
-            on_error=lambda error: self._network_failed(error)
-            if page_generation == self._network_page_generation else None,
+            if page_generation == self._network_page_generation and window_generation == self._page_generation else None,
+            on_error=lambda error, page=page_generation, window=window_generation: self._network_failed(error, page, window)
+            if page == self._network_page_generation and window == self._page_generation else None,
         )
         self.api.submit(
             "network_interfaces",
@@ -3002,17 +3021,20 @@ class FecloraGTK:
                 return
             params.update(address=str(address), prefix_length=prefix, gateway=str(gateway) if gateway else None, dns=dns)
         page_generation = self._network_page_generation
+        window_generation = self._page_generation
+        self._network_apply_generation = getattr(self, "_network_apply_generation", 0) + 1
+        apply_generation = self._network_apply_generation
         self.network_result.set_text("Aplicando perfil con checkpoint de 120 segundos…")
         self.api.submit(
             "apply_network_profile", params,
-            on_success=lambda result: self._network_applied(result, page_generation)
-            if page_generation == self._network_page_generation else None,
-            on_error=lambda error: self._network_failed(error)
-            if page_generation == self._network_page_generation else None,
+            on_success=lambda result, page=page_generation, window=window_generation, request=apply_generation: self._network_applied(result, page, window, request)
+            if page == self._network_page_generation and window == self._page_generation and request == self._network_apply_generation else None,
+            on_error=lambda error, page=page_generation, window=window_generation, request=apply_generation: self._network_failed(error, page, window)
+            if page == self._network_page_generation and window == self._page_generation and request == self._network_apply_generation else None,
         )
 
-    def _network_applied(self, result: dict[str, Any], page_generation: int | None = None) -> None:
-        if page_generation is not None and page_generation != self._network_page_generation:
+    def _network_applied(self, result: dict[str, Any], page_generation: int | None = None, window_generation: int | None = None, apply_generation: int | None = None) -> None:
+        if page_generation is not None and (page_generation != self._network_page_generation or window_generation != self._page_generation or apply_generation != getattr(self, "_network_apply_generation", None)):
             return
         self.network_result.set_text(str(result.get("message") or "Perfil aplicado y verificado; checkpoint confirmado."))
         self.network_active_profiles = []
@@ -3023,12 +3045,13 @@ class FecloraGTK:
         self.network_interface.set_model(Gtk.StringList.new(["Selecciona interfaz y dirección…"]))
         self.network_interface.set_selected(0)
         current_generation = self._network_page_generation
+        current_window_generation = self._page_generation
         self.api.submit(
             "network_connection_profiles",
             on_success=lambda response: self._populate_network_profiles(response)
-            if current_generation == self._network_page_generation else None,
-            on_error=lambda error: self._network_failed(error)
-            if current_generation == self._network_page_generation else None,
+            if current_generation == self._network_page_generation and current_window_generation == self._page_generation else None,
+            on_error=lambda error, page=current_generation, window=current_window_generation: self._network_failed(error, page, window)
+            if page == self._network_page_generation and window == self._page_generation else None,
         )
         self.api.submit(
             "network_interfaces",
@@ -3038,7 +3061,11 @@ class FecloraGTK:
             if current_generation == self._network_page_generation else None,
         )
 
-    def _network_failed(self, error: Exception) -> None:
+    def _network_failed(self, error: Exception, page_generation: int | None = None, window_generation: int | None = None) -> None:
+        if page_generation is not None and (page_generation != self._network_page_generation or window_generation != self._page_generation):
+            return
+        self._network_action_errors = getattr(self, "_network_action_errors", [])
+        self._network_action_errors.append(str(error))
         if hasattr(self, "network_result"):
             self.network_result.set_text("No se pudo completar la operación de red: " + str(error))
 
