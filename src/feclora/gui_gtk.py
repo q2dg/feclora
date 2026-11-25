@@ -2949,8 +2949,8 @@ class FecloraGTK:
             "network_interfaces",
             on_success=lambda result: self._populate_network_interfaces(result)
             if page_generation == self._network_page_generation else None,
-            on_error=lambda error: self._network_failed(error)
-            if page_generation == self._network_page_generation else None,
+            on_error=lambda error, page=page_generation, window=window_generation: self._network_failed(error, page, window)
+            if page == self._network_page_generation and window == self._page_generation else None,
         )
 
     def _populate_network_profiles(self, result: dict[str, Any]) -> None:
@@ -3057,8 +3057,8 @@ class FecloraGTK:
             "network_interfaces",
             on_success=lambda response: self._populate_network_interfaces(response)
             if current_generation == self._network_page_generation else None,
-            on_error=lambda error: self._network_failed(error)
-            if current_generation == self._network_page_generation else None,
+            on_error=lambda error, page=current_generation, window=current_window_generation: self._network_failed(error, page, window)
+            if page == self._network_page_generation and window == self._page_generation else None,
         )
 
     def _network_failed(self, error: Exception, page_generation: int | None = None, window_generation: int | None = None) -> None:
