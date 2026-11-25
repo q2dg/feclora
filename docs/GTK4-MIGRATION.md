@@ -534,27 +534,25 @@ La vista GTK del registro local presenta ahora cada elemento de `inspection_erro
 
 La prueba añadida verifica la estructura y el enlace del grupo a la página actual; no sustituye pruebas de ejecución con GTK/GI.
 
-## GTK kiosk boot route
+## Weston kiosk boot target
 
-The Live image installs Fedora's `cage`, `gtk4`, `libadwaita` and
-`python3-gobject` RPMs. On tty1, systemd creates a PAM/logind session for the
-unprivileged `feclora` user and runs:
+The GTK frontend is not enabled at boot. The current production interface
+continues to run Textual on tty1 until the parity and acceptance gates above
+are complete. Cage is explicitly excluded.
 
-```text
-/usr/bin/cage -x -s -- /usr/bin/python3 -m feclora.gui_gtk
+The intended replacement is Weston 15.0.1 on its DRM/KMS backend with
+`kiosk-shell`, launching `/usr/bin/python3 -m feclora.gui_gtk` as a native
+Wayland client. The verified command shape is:
+
+```sh
+env -u DISPLAY weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- \
+  /usr/bin/python3 -m feclora.gui_gtk
 ```
 
-Cage's `-x` option disables XWayland; `-s` permits switching virtual
-terminals so the existing maintenance shell on tty2 remains reachable. The
-GTK frontend forces `GDK_BACKEND=wayland`, removes `DISPLAY`, and requests a
-fullscreen undecorated window. The boot smoke marker is emitted after the
-welcome window is mapped, not merely when the process starts.
-
-The Textual unit and application remain installed as a fallback. The GTK and
-Textual units conflict with one another so they cannot own tty1 simultaneously.
-The default systemd target remains `multi-user.target`; Cage is started by the
-enabled GTK unit, not by installing a full desktop or display manager.
-
-The route change has not yet been validated by a real Fedora 45 image boot.
-Static checks and source-level tests cannot establish Cage's logind seat
-acquisition, GPU/KMS operation, keyboard input or BIOS/UEFI behavior.
+Do not enable a Weston systemd unit or add compositor packages to the Live
+image until the Fedora 45-matched X11-disabled Weston, GTK4 and libadwaita
+RPMs have been built and inspected, and the logind/libseat/DRM session has
+passed VM testing. Do not run Weston as root or weaken device permissions.
+The final cutover must replace Textual and remove its package, service,
+application, tests and obsolete boot checks; Textual is not a permanent
+fallback.
