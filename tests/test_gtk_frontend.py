@@ -1272,6 +1272,14 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self._capture_view_is_current(page_generation, operation_id)", status)
         self.assertIn("self._poll_capture_status(active_operation_id, operations_page_generation)", page)
 
+    def test_p2v_and_image_status_reject_mismatched_operation_ids_and_retry(self):
+        p2v = ast.get_source_segment(self.source, self.methods["_p2v_operation_status_loaded"])
+        image = ast.get_source_segment(self.source, self.methods["_show_image_extraction_status"])
+        for callback, poller in ((p2v, "_poll_p2v_operation"), (image, "_poll_image_extraction")):
+            self.assertIn('status.get("operation_id") not in (None, operation_id)', callback)
+            self.assertIn("se reintentará", callback)
+            self.assertIn(poller, callback)
+
     def test_local_operation_status_polling_is_bound_to_operation_id(self):
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         failed = ast.get_source_segment(self.source, self.methods["_capture_status_failed"])
