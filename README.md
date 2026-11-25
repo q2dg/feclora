@@ -7,7 +7,9 @@ GTK4/PyGObject/libadwaita frontend is being developed as a native Wayland kiosk
 on Weston with DRM/KMS; it now covers all 14 navigation sections and a
 substantial set of the existing operational API workflows, but full feature
 parity and runtime acceptance are not yet complete. The target explicitly
-excludes XWayland, Xorg and Openbox. Textual remains the production boot path
+excludes XWayland, Xorg, Openbox and the GTK/Weston X11 backends; Fedora's stock
+GTK4/Weston RPMs therefore need X11-disabled rebuilds before they can ship.
+Textual remains the production boot path
 until the GTK migration passes its workflow audit, tests, Weston session/seat
 validation and BIOS/UEFI acceptance. See
 [the GTK4 migration record](docs/GTK4-MIGRATION.md) for exact status.
