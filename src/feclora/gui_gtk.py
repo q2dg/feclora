@@ -3391,10 +3391,10 @@ class FecloraGTK:
                 params = {"source": source, "target": target, "confirmation": confirmation}
             else:
                 image_index = self.capture_image_select.get_selected()
-                if image_index >= len(getattr(self, "capture_images", [])):
+                if image_index >= len(getattr(self, "capture_selectable_images", [])):
                     self.capture_result.set_text("Selecciona una imagen compatible.")
                     return
-                image = self.capture_images[image_index]
+                image = self.capture_selectable_images[image_index]
                 expected_type = {8: "disk", 9: "partition", 10: "logical_volume", 13: "stratis_filesystem", 16: "disk"}[kind]
                 if image.get("image_type") != expected_type:
                     self.capture_result.set_text("La imagen seleccionada no corresponde al tipo de restauración.")
