@@ -388,6 +388,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"local_operation_status", {"operation_id": operation_id}', poll)
         self.assertIn('self._p2v_operation_results.setdefault(operation_id, {})["status"] = status', loaded)
         self.assertIn('{"completed", "failed", "cancelled", "interrupted"}', loaded)
+        self.assertIn('if state == "completed":\n                self._refresh_repositories(None)', loaded)
         self.assertIn("self._p2v_view_is_current(page_generation, window_generation, operation_id)", loaded)
         self.assertIn("self._p2v_operation_errors[operation_id] = \"status: \" + str(error)", failed)
 
