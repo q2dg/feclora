@@ -46,8 +46,13 @@ Implemented GTK workflows:
   rollback checkpoint.
 - Repository inventory and management: SSHFS/NFS/SMB/S3 definition creation/editing, remote repository check/mount/unmount/removal with mount-state guards, S3 check/removal, encrypted systemd credential import/removal with backend reference checks; remote deployment definition creation/import, exact-phrase arm/cancel/reconcile actions, guarded service start/stop/status; authenticated Client inspection, local disk/partition/healthy-LVM target selection, exact READ/ERASE confirmation, multicast IGMP confirmation, client start/status; operation log with exact-phrase cancellation and persistent ddrescue recovery history.
 
-Known remaining migration work includes full certificate lifecycle parity beyond renewal/key rotation; any remaining operational workflows present in Textual that have not yet been audited and ported. These pages must not be treated as complete merely because
-their status/history views are present.
+The current Textual certificate controls—server bootstrap, confirmed
+certificate renewal and confirmed TLS keypair rotation—also have GTK
+counterparts. Their end-to-end confirmation, success and failure behavior
+still needs testing. No additional literal Textual API action was missing in
+the source audit, but that does not rule out semantic gaps in individual forms
+or workflows. Pages must not be treated as complete merely because their
+status/history views are present.
 
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject with libadwaita is the sole graphical frontend target; no Tk or
@@ -152,7 +157,7 @@ Package references:
 4. **Server and orchestration pages ported at source level:** server/PXE,
    repositories, remote deployment, client jobs and history controls are present.
    Complete behavioral review of confirmations, preflight, progress, cancellation
-   and error paths; close any certificate-lifecycle gap.
+   and error paths; verify bootstrap, certificate renewal and TLS keypair rotation end to end.
 5. **Pending runtime/acceptance work:** run unit/contract tests and
    `build/validate.sh`; build the X11-disabled Fedora-source GTK4/libadwaita and
    Weston RPMs; validate Weston DRM + kiosk-shell session/seat lifecycle; then
