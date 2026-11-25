@@ -417,6 +417,9 @@ class FecloraGTK:
         elif page_id == "server":
             self._show_server_status_page()
         elif page_id == "operations":
+            operations_page_generation = self._page_generation
+            self._capture_page_generation = operations_page_generation
+            self._capture_catalog_generation = getattr(self, "_capture_catalog_generation", 0) + 1
             self.page_description.set_text("Captura, restauración y clonación local. Las escrituras destructivas exigen confirmar exactamente el destino.")
 
             def capture_group(title: str, description: str = "") -> Adw.PreferencesGroup:
@@ -540,11 +543,29 @@ class FecloraGTK:
             self.capture_result.set_selectable(True)
             capture_row(execution_group, "Resultado", self.capture_result)
 
-            self.api.submit("inventory", on_success=self._populate_capture_devices, on_error=self._capture_failed)
+            self.api.submit(
+                "inventory",
+                on_success=lambda response: self._populate_capture_devices(response)
+                if operations_page_generation == self._page_generation else None,
+                on_error=lambda error: self._capture_failed(error)
+                if operations_page_generation == self._page_generation else None,
+            )
             self._capture_remote_repositories = None
             self._capture_s3_repositories = None
-            self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
-            self.api.submit("s3_repositories", on_success=self._populate_capture_s3_repositories, on_error=self._capture_failed)
+            self.api.submit(
+                "remote_repositories",
+                on_success=lambda response: self._populate_capture_repositories(response)
+                if operations_page_generation == self._page_generation else None,
+                on_error=lambda error: self._capture_failed(error)
+                if operations_page_generation == self._page_generation else None,
+            )
+            self.api.submit(
+                "s3_repositories",
+                on_success=lambda response: self._populate_capture_s3_repositories(response)
+                if operations_page_generation == self._page_generation else None,
+                on_error=lambda error: self._capture_failed(error)
+                if operations_page_generation == self._page_generation else None,
+            )
 
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
@@ -3493,15 +3514,31 @@ class FecloraGTK:
         self._capture_repository_changed(self.capture_repository, None)
 
     def _capture_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self._capture_catalog_generation = getattr(self, "_capture_catalog_generation", 0) + 1
+        generation = self._capture_catalog_generation
+        page_generation = self._capture_page_generation
         index = self.capture_repository.get_selected()
         repositories = getattr(self, "capture_repositories", [])
+        self.capture_images = []
+        self.capture_selectable_images = []
+        self.capture_image_select.set_model(Gtk.StringList.new(["Cargando imágenes…"]))
+        self.capture_image_select.set_selected(0)
         if index < len(repositories) and repositories[index].get("id"):
             self.api.submit(
                 "repository_images", {"repository_id": repositories[index]["id"]},
-                on_success=self._populate_capture_images, on_error=self._capture_failed,
+                on_success=lambda response: self._populate_capture_images(response)
+                if page_generation == self._page_generation and generation == self._capture_catalog_generation else None,
+                on_error=lambda error: self._capture_failed(error)
+                if page_generation == self._page_generation and generation == self._capture_catalog_generation else None,
             )
             return
-        self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
+        self.api.submit(
+            "images",
+            on_success=lambda response: self._populate_capture_images(response)
+            if page_generation == self._page_generation and generation == self._capture_catalog_generation else None,
+            on_error=lambda error: self._capture_failed(error)
+            if page_generation == self._page_generation and generation == self._capture_catalog_generation else None,
+        )
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
