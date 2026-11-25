@@ -89,8 +89,8 @@ This headless test verifies that both firmware variants boot and the GTK
 welcome window is mapped inside Cage, reported over a test-only virtio-serial
 channel. QEMU exposes a virtio display device for the guest DRM/KMS path. It does **not** capture the terminal display or prove that a human can
 use every workflow. Manually boot both firmware modes with a visible QEMU
-display and verify white-on-black boot messages, the immediate tty1 handoff,
-keyboard navigation and service recovery.
+display and verify boot messages, the immediate Cage/GTK tty1 handoff,
+keyboard navigation, VT switching to tty2 and service recovery.
 
 ## Manual boot acceptance
 
@@ -105,12 +105,12 @@ keyboard navigation and service recovery.
       implemented control, including long and scrollable forms.
 - [ ] The root terminal action opens tty2; exiting the shell returns the
       display to the GTK kiosk on tty1.
-- [ ] The TUI reaches the fixed allowlisted helper through sudo; no general
+- [ ] The GTK interface reaches the fixed allowlisted helper through sudo; no general
       passwordless shell or unrestricted root command is available to `feclora`.
 - [ ] Server/PXE preflight, local storage confirmation and error states are
       visible without relying on mouse input.
 - [ ] A reboot recovers unfinished local operations as interrupted and starts
-      the Textual interface directly.
+      the GTK kiosk directly.
 - [ ] Kernel command line, firmware details, ISO checksum and test results are
       recorded.
 
