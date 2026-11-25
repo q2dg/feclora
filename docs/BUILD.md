@@ -8,7 +8,7 @@ title: Build and validate the live ISO
 
 # Build and validate the Live ISO
 
-This runbook covers the Fedora 45 x86_64 Textual appliance. Static checks and
+This runbook covers the Fedora 45 x86_64 GTK4/Wayland kiosk appliance. Static checks and
 unit tests do not establish that an ISO builds or boots; keep BIOS, UEFI and
 physical-hardware acceptance results separate from automated test results.
 
@@ -53,19 +53,20 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
 `make validate` includes static project checks, documentation-link and guide
-asset checks, Python compilation, Textual boot-configuration checks and the
+asset checks, Python compilation, GTK Wayland kiosk boot-configuration checks and the
 hardware-independent unit tests. Use `make test` when you want to rerun only
 the unit tests.
 
 The build stages the Python application, adds it to a temporary installer ISO,
 and runs `livemedia-creator` with QEMU virtualization. The resulting
 `out/feclora-live.iso` is checked for BIOS and UEFI text-console arguments and
-absence of Plymouth from the shipped boot initramfs. The Live image installs
-Textual and boots with visible white-on-black system messages before starting
-its unprivileged keyboard-first interface on tty1. The GTK4/Wayland frontend
-is source-only at this stage: GTK, libadwaita and Weston are not installed in
-the image, and no graphical service is enabled. No browser, web server,
-graphical compositor, desktop or boot splash is installed.
+absence of Plymouth from the shipped boot initramfs. The Live image installs Cage, GTK4, libadwaita and PyGObject. After visible
+kernel/systemd boot messages, `feclora-gtk.service` starts Cage on tty1 and
+launches the unprivileged GTK welcome window fullscreen. The first screen
+allows language and keyboard-layout selection. Cage is invoked with `-x` to
+disable XWayland and `-s` to permit switching to the tty2 recovery shell. No
+Xorg, desktop environment, display manager, browser or boot splash is installed.
+Textual remains installed as a manual fallback but is not enabled at boot.
 
 SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
 to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
@@ -84,9 +85,9 @@ With QEMU and OVMF installed, run:
 python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
-This headless test verifies that both firmware variants boot and the TUI
-completes its initial terminal render, reported over a test-only virtio-serial
-channel. It does **not** capture the terminal display or prove that a human can
+This headless test verifies that both firmware variants boot and the GTK
+welcome window is mapped inside Cage, reported over a test-only virtio-serial
+channel. QEMU exposes a virtio display device for the guest DRM/KMS path. It does **not** capture the terminal display or prove that a human can
 use every workflow. Manually boot both firmware modes with a visible QEMU
 display and verify white-on-black boot messages, the immediate tty1 handoff,
 keyboard navigation and service recovery.
@@ -94,16 +95,16 @@ keyboard navigation and service recovery.
 ## Manual boot acceptance
 
 - [ ] BIOS and UEFI select the first GRUB entry without a visible menu.
-- [ ] White-on-black system boot messages remain visible until the TUI starts
-      on tty1; no splash or black-screen interval appears.
-- [ ] `feclora-tui.service` runs on tty1 as the locked, unprivileged `feclora`
-      account; no graphical stack or login prompt is installed there.
-- [ ] The initial screen accepts keyboard input and allows language selection
+- [ ] System boot messages remain visible until Cage/GTK takes over tty1; no
+      persistent black screen or boot splash appears.
+- [ ] `feclora-gtk.service` runs Cage and GTK on tty1 as the locked, unprivileged
+      `feclora` account; the TUI fallback is not enabled.
+- [ ] The fullscreen GTK welcome window accepts keyboard input and allows language
       and keyboard-layout configuration.
 - [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
       implemented control, including long and scrollable forms.
 - [ ] The root terminal action opens tty2; exiting the shell returns the
-      display to tty1.
+      display to the GTK kiosk on tty1.
 - [ ] The TUI reaches the fixed allowlisted helper through sudo; no general
       passwordless shell or unrestricted root command is available to `feclora`.
 - [ ] Server/PXE preflight, local storage confirmation and error states are
