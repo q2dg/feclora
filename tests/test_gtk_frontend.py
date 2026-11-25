@@ -527,7 +527,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("_pxe_validation_generation", invalidate)
         self.assertIn("self._pxe_pending_profile = None", invalidate)
         self.assertIn("self._invalidate_pxe_validation()", mode_changed)
-        self.assertIn("generation == self._pxe_validation_generation", validate)
+        self.assertIn("token=generation", validate)
+        self.assertIn("window_generation = self._server_window_page_generation", validate)
         self.assertIn('self.pxe_authoritative.connect("toggled", self._pxe_inputs_changed)', self.source)
         self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
 
@@ -937,7 +938,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         for callback in (server_done, server_failed, pxe_done, pxe_failed):
             self.assertIn("page_generation != self._server_status_page_generation", callback)
         self.assertIn("self._server_action_result = result", server_done)
+        self.assertIn("self._server_action_results.append(result)", server_done)
         self.assertIn("self._pxe_action_result = result", pxe_done)
+        self.assertIn("self._pxe_action_results.append(result)", pxe_done)
         for action in ("bootstrap_server", "renew_server_certificate", "rotate_server_keypair",
                        "start_pxe_services", "stop_pxe_services"):
             self.assertIn(f'"{action}"', self.source)
@@ -976,7 +979,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("window_generation != self._page_generation", validated)
         self.assertIn("profile = dict(self._pxe_profile)", start)
         self.assertIn("window_generation = self._server_window_page_generation", stop)
-        self.assertIn("window == self._page_generation", stop)
+        self.assertIn("self._pxe_action_done(result, page)", stop)
+        self.assertIn("window_generation = self._server_window_page_generation", stop)
 
     def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
         start = self.source.index("    def _start_client_job")
