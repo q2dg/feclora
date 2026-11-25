@@ -316,6 +316,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
             self.assertIn(action, self.source)
         self.assertIn('"journals", "journals"', self.source)
+        remote_page = ast.get_source_segment(self.source, self.methods["_show_remote_jobs_page"])
+        self.assertIn("_remote_jobs_page_generation", remote_page)
+        self.assertIn('self._remote_import_pending_parts = {"remote", "s3"}', remote_page)
+        remote_loaded = ast.get_source_segment(self.source, self.methods["_remote_import_repository_part_loaded"])
+        self.assertIn("if not pending", remote_loaded)
+        self.assertIn("self._render_remote_import_repositories()", remote_loaded)
         self.assertIn('details.get("state")', self.source)
 
     def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
