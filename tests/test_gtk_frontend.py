@@ -62,6 +62,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', self.source)
 
+    def test_validator_checks_all_contracts_before_reporting_success(self):
+        validator = Path("build/validate.sh").read_text(encoding="utf-8")
+        final_guard = validator.rfind("if (( ERRORS > 0 )); then")
+        last_contract = validator.rfind("require_text ")
+        self.assertEqual(validator.count("if (( ERRORS > 0 )); then"), 1)
+        self.assertGreater(final_guard, last_contract)
+
     def test_welcome_uses_semantic_libadwaita_preference_groups(self):
         welcome = ast.get_source_segment(self.source, self.methods["_show_welcome"])
         for title in ("Idioma de la interfaz", "Distribución del teclado", "Acciones"):
