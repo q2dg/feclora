@@ -941,8 +941,42 @@ class GTKFrontendStructureTests(unittest.TestCase):
         for action in ("bootstrap_server", "renew_server_certificate", "rotate_server_keypair",
                        "start_pxe_services", "stop_pxe_services"):
             self.assertIn(f'"{action}"', self.source)
-        self.assertIn("generation=self._server_status_page_generation", self.source)
+        self.assertIn("window_generation = self._server_window_page_generation", self.source)
+        self.assertIn("window == self._page_generation", self.source)
 
+
+    def test_network_actions_bind_both_navigation_and_request_generations(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_network_page"])
+        apply = ast.get_source_segment(self.source, self.methods["_apply_network_profile"])
+        applied = ast.get_source_segment(self.source, self.methods["_network_applied"])
+        failed = ast.get_source_segment(self.source, self.methods["_network_failed"])
+        self.assertIn("window_generation = self._page_generation", page)
+        self.assertIn("window_generation == self._page_generation", page)
+        self.assertIn("apply_generation = self._network_apply_generation", apply)
+        self.assertIn("request == self._network_apply_generation", apply)
+        self.assertIn("apply_generation != getattr(self, \"_network_apply_generation\", None)", applied)
+        self.assertIn("window_generation != self._page_generation", failed)
+        self.assertIn("current_window_generation = self._page_generation", applied)
+
+    def test_tls_and_pxe_callbacks_capture_submission_context(self):
+        server_page = ast.get_source_segment(self.source, self.methods["_show_server_status_page"])
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_server_status"])
+        renew = ast.get_source_segment(self.source, self.methods["_renew_server_certificate"])
+        rotate = ast.get_source_segment(self.source, self.methods["_rotate_server_keypair"])
+        validate = ast.get_source_segment(self.source, self.methods["_validate_pxe_profile"])
+        validated = ast.get_source_segment(self.source, self.methods["_pxe_profile_validated"])
+        start = ast.get_source_segment(self.source, self.methods["_start_pxe_services"])
+        stop = ast.get_source_segment(self.source, self.methods["_stop_pxe_services"])
+        self.assertIn("self._server_window_page_generation = self._page_generation", server_page)
+        self.assertIn("window_generation == self._page_generation", refresh)
+        self.assertIn("window_generation = self._server_window_page_generation", renew)
+        self.assertIn("window_generation = self._server_window_page_generation", rotate)
+        self.assertIn("snapshot=dict(profile)", validate)
+        self.assertIn("self._pxe_profile = profile", validated)
+        self.assertIn("window_generation != self._page_generation", validated)
+        self.assertIn("profile = dict(self._pxe_profile)", start)
+        self.assertIn("window_generation = self._server_window_page_generation", stop)
+        self.assertIn("window == self._page_generation", stop)
 
     def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
         start = self.source.index("    def _start_client_job")
