@@ -6,15 +6,18 @@ Rawhide or an arbitrary upstream release for the system toolchain.
 
 ## Live interface
 
-The appliance installs `cage`, `gtk4`, `libadwaita` and `python3-gobject`.
-The enabled `feclora-gtk.service` starts Cage on tty1 with
-`cage -x -s -- /usr/bin/python3 -m feclora.gui_gtk`; `-x` disables XWayland
-and `-s` permits switching to the tty2 recovery shell. A PAM/logind session
-provides the Wayland runtime directory and seat access. Textual and its
-`feclora-tui.service` remain installed as a mutually exclusive manual fallback,
-but the TUI unit is not enabled by default. The application uses the root-owned,
-allowlisted helper at `/usr/libexec/feclora/feclora-api`; the `feclora` user
-has no general-purpose passwordless root shell.
+The current appliance boots Textual through `feclora-tui.service` on tty1.
+GTK4/libadwaita is being migrated as the replacement frontend. The intended
+compositor is Weston 15 DRM/KMS with `kiosk-shell`; Cage is explicitly not
+used. Stock Fedora Weston/GTK4 packages must not be shipped unchanged because
+their optional X11 backends and dependencies violate the strict Wayland-only
+image policy. Fedora-matched Weston and GTK4 builds must disable XWayland,
+Weston's X11 backend and GTK's GDK X11 backend; libadwaita must be rebuilt
+against the custom GTK4 package. Only after package inspection, behavioral
+parity and BIOS/UEFI acceptance will the Weston/GTK service replace Textual.
+The application continues to use the root-owned allowlisted helper at
+`/usr/libexec/feclora/feclora-api`; the `feclora` user has no general-purpose
+passwordless root shell.
 
 The test environment pins `textual==8.1.1` in `requirements-test.txt` so
 automated UI tests are repeatable. This test dependency is separate from the
