@@ -1,8 +1,8 @@
-"""GTK4 frontend prototype for the native Wayland Feclora kiosk.
+"""GTK4 frontend for Feclora's native Wayland kiosk.
 
-This frontend is not the production boot entry point until every operator
-workflow has been migrated and accepted. The existing Textual service remains
-enabled during the staged migration.
+The default boot service launches this UI in Cage on tty1. The rollout is
+intentionally ahead of full workflow and firmware acceptance; Textual remains
+installed as a mutually exclusive manual fallback.
 """
 from __future__ import annotations
 
