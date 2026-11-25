@@ -4855,8 +4855,12 @@ class FecloraGTK:
             return
         self._local_operation_results = getattr(self, "_local_operation_results", {})
         if status.get("operation_id") not in (None, operation_id):
+            message = "El estado devuelto pertenece a otra operación; se reintentará la consulta."
             self._capture_action_errors = getattr(self, "_capture_action_errors", {})
-            self._capture_action_errors[operation_id] = "El estado devuelto pertenece a otra operación."
+            self._capture_action_errors[operation_id] = message
+            if page_generation is not None and self._capture_view_is_current(page_generation, operation_id):
+                self.capture_result.set_text(message)
+                GLib.timeout_add_seconds(5, lambda: self._poll_capture_status(operation_id, page_generation))
             return
         self._local_operation_results.setdefault(operation_id, {})["status"] = status
         if page_generation is None or not self._capture_view_is_current(page_generation, operation_id):
