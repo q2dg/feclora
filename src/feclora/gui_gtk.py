@@ -1099,6 +1099,7 @@ class FecloraGTK:
         self.server_status.set_text("No se pudo consultar el estado del servidor: " + str(error))
 
     def _show_repositories_page(self) -> None:
+        self._repository_page_generation = getattr(self, "_repository_page_generation", 0) + 1
         self.page_description.set_text("Estado de los repositorios de archivos remotos y S3 disponibles para las operaciones.")
 
         def add_group(title: str, description: str = "") -> Adw.PreferencesGroup:
@@ -1245,10 +1246,31 @@ class FecloraGTK:
         self._refresh_repositories(None)
 
     def _refresh_repositories(self, _button: Gtk.Button | None) -> None:
+        self._repository_refresh_generation = getattr(self, "_repository_refresh_generation", 0) + 1
+        generation = self._repository_refresh_generation
+        page_generation = self._repository_page_generation
         self.repositories_summary.set_text("Consultando repositorios de archivos y S3…")
-        self.api.submit("remote_repositories", on_success=self._populate_remote_repositories, on_error=self._repositories_failed)
-        self.api.submit("s3_repositories", on_success=self._populate_s3_repositories, on_error=self._repositories_failed)
-        self.api.submit("systemd_credentials", on_success=self._populate_repository_credentials, on_error=self._repositories_failed)
+        self.api.submit(
+            "remote_repositories",
+            on_success=lambda response: self._populate_remote_repositories(response)
+            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+            on_error=lambda error: self._repositories_failed(error)
+            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+        )
+        self.api.submit(
+            "s3_repositories",
+            on_success=lambda response: self._populate_s3_repositories(response)
+            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+            on_error=lambda error: self._repositories_failed(error)
+            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+        )
+        self.api.submit(
+            "systemd_credentials",
+            on_success=lambda response: self._populate_repository_credentials(response)
+            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+            on_error=lambda error: self._repositories_failed(error)
+            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+        )
 
     def _populate_remote_repositories(self, response: dict[str, Any]) -> None:
         self.remote_repository_rows = [("NFS/SSH", item) for item in response.get("repositories", []) if isinstance(item, dict)]
