@@ -345,6 +345,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("if not pending", remote_loaded)
         self.assertIn("self._render_remote_import_repositories()", remote_loaded)
         self.assertIn('details.get("state")', self.source)
+        history_page = ast.get_source_segment(self.source, self.methods["_history_page"])
+        history_refresh = ast.get_source_segment(self.source, self.methods["_refresh_history"])
+        self.assertIn("_history_page_generation", history_page)
+        self.assertIn("_history_refresh_generation", history_refresh)
+        self.assertIn("page_generation == self._page_generation", history_refresh)
+        self.assertIn("generation == self._history_refresh_generation", history_refresh)
 
     def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
         self.assertIn('self.api.submit("local_operations"', self.source)
