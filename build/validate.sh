@@ -254,6 +254,8 @@ require_text 'self\.api\.submit\("validate_pxe_profile"' src/feclora/gui_gtk.py 
 require_text 'self\.api\.submit\("start_pxe_services"' src/feclora/gui_gtk.py "GTK must expose validated PXE service startup."
 require_text 'self\.api\.submit\("stop_pxe_services"' src/feclora/gui_gtk.py "GTK must expose PXE service shutdown."
 require_text 'self\.api\.submit\("publish_pxe_answer"' src/feclora/gui_gtk.py "GTK must expose validated PXE answer publication."
+require_text '"SCP · SSHFS"' src/feclora/gui_gtk.py "GTK PXE answer publication must expose SCP over SSHFS."
+require_text 'repository.get\("provider"\) != "sshfs"' src/feclora/gui_gtk.py "GTK PXE SCP publication must require an SSHFS repository."
 require_text 'self\.api\.submit\("revoke_pxe_answer"' src/feclora/gui_gtk.py "GTK must expose PXE answer and boot-script revocation."
 require_text 'self\.api\.submit\("pxe_age_passphrase_status"' src/feclora/gui_gtk.py "GTK must expose one-shot PXE age passphrase request status."
 require_text 'self\.api\.submit\("provide_pxe_age_passphrase"' src/feclora/gui_gtk.py "GTK must expose secure one-shot PXE age passphrase delivery."
