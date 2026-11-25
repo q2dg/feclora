@@ -380,3 +380,16 @@ These guards preserve already-submitted backend actions and do not replace the
 backend's authorization or destructive-operation checks. Structural source
 tests were added; GTK runtime, privileged-operation and BIOS/UEFI acceptance
 tests have not been run.
+
+
+Restore-profile creation and execution callbacks now retain their originating page
+and request generations. Durable restore execution results and status snapshots
+are associated with their operation IDs; polling and cancellation callbacks carry
+that ID explicitly, and reopening the restore-profile page resumes monitoring
+the latest accepted operation. Repository-specific image/profile responses are
+also scoped to both the active page and repository selection. The operation-log
+cancellation path similarly binds its feedback to the original operation ID and
+only updates the view while that operation remains selected on the same page.
+These UI guards do not change the privileged API, single-use profile semantics,
+or backend cancellation behavior. Structural tests were added; no GTK runtime,
+privileged-operation, BIOS or UEFI acceptance test was executed.
