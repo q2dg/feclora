@@ -1360,6 +1360,7 @@ class FecloraGTK:
 
     def _show_repositories_page(self) -> None:
         self._repository_page_generation = getattr(self, "_repository_page_generation", 0) + 1
+        self._repository_window_page_generation = self._page_generation
         self.page_description.set_text("Estado de los repositorios de archivos remotos y S3 disponibles para las operaciones.")
 
         def add_group(title: str, description: str = "") -> Adw.PreferencesGroup:
@@ -1509,13 +1510,14 @@ class FecloraGTK:
         self._repository_refresh_generation = getattr(self, "_repository_refresh_generation", 0) + 1
         generation = self._repository_refresh_generation
         page_generation = self._repository_page_generation
+        window_generation = self._repository_window_page_generation
         self._repository_refresh_pending_parts = {"remote", "s3"}
         self._repository_refresh_failed = False
         self.repositories_summary.set_text("Consultando repositorios de archivos y S3…")
         self.api.submit(
             "remote_repositories",
             on_success=lambda response: self._populate_remote_repositories(response, refresh_generation=generation)
-            if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
+            if page_generation == self._repository_page_generation and window_generation == self._page_generation and generation == self._repository_refresh_generation else None,
             on_error=lambda error: self._repository_refresh_part_failed("remote", error, generation)
             if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
         )
@@ -1696,14 +1698,39 @@ class FecloraGTK:
         self.remote_credential.set_visible(provider == "smb")
         self.remote_port.set_visible(provider in {"sshfs", "smb"})
 
-    def _repository_action_done(self, response: dict[str, Any]) -> None:
+    def _submit_repository_action(self, action: str, params: dict[str, Any]) -> None:
+        self._repository_action_generation = getattr(self, "_repository_action_generation", 0) + 1
+        request_generation = self._repository_action_generation
+        page_generation = self._repository_page_generation
+        window_generation = self._repository_window_page_generation
+        self.api.submit(
+            action, params,
+            on_success=lambda response: self._repository_action_done(response, page_generation, window_generation, request_generation),
+            on_error=lambda error: self._repository_action_failed(error, page_generation, window_generation, request_generation),
+        )
+
+    def _repository_action_done(
+        self, response: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None, request_generation: int | None = None,
+    ) -> None:
+        self._repository_action_results = getattr(self, "_repository_action_results", [])
+        self._repository_action_results.append(response)
+        if page_generation != self._repository_page_generation or window_generation != self._page_generation or request_generation != self._repository_action_generation:
+            return
         self.repository_action_result.set_text("Acción completada: " + str(response))
         self.repository_confirmation.set_text("")
         self.remote_id.set_editable(True)
         self.s3_id.set_editable(True)
         self._refresh_repositories(None)
 
-    def _repository_action_failed(self, error: Exception) -> None:
+    def _repository_action_failed(
+        self, error: Exception, page_generation: int | None = None,
+        window_generation: int | None = None, request_generation: int | None = None,
+    ) -> None:
+        self._repository_action_errors = getattr(self, "_repository_action_errors", [])
+        self._repository_action_errors.append(str(error))
+        if page_generation != self._repository_page_generation or window_generation != self._page_generation or request_generation != self._repository_action_generation:
+            return
         self.repository_action_result.set_text("La operación de repositorio falló: " + str(error))
 
     def _run_repository_action(self, _button: Gtk.Button) -> None:
@@ -1778,7 +1805,7 @@ class FecloraGTK:
             self.repository_action_result.set_text(f"Para eliminar escribe exactamente: REMOVE {identifier}")
             return
         self.repository_action_result.set_text(f"Ejecutando {api_action} para {identifier}…")
-        self.api.submit(api_action, {"id": identifier}, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self._submit_repository_action(api_action, {"id": identifier})
 
     def _save_ssh_repository(self, _button: Gtk.Button) -> None:
         import re
@@ -1822,7 +1849,7 @@ class FecloraGTK:
             return
         action = "update_remote_repository" if existing else "add_remote_repository"
         self.repository_action_result.set_text(f"Guardando definición {provider.upper()}…")
-        self.api.submit(action, params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self._submit_repository_action(action, params)
 
     def _select_remote_credential(self, selector: Gtk.DropDown, attribute: str, path: Any) -> None:
         credentials = getattr(self, attribute, [])
@@ -1871,7 +1898,7 @@ class FecloraGTK:
             "replace": self.credential_replace.get_active(),
         }
         self.repository_action_result.set_text("Importando credencial cifrada…")
-        self.api.submit("put_systemd_credential", params, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self._submit_repository_action("put_systemd_credential", params)
 
     def _remove_repository_credential(self, _button: Gtk.Button) -> None:
         selected = self.credential_management.get_selected()
@@ -1888,7 +1915,7 @@ class FecloraGTK:
             self.repository_action_result.set_text(f"Para eliminar escribe exactamente: REMOVE {identifier}")
             return
         self.repository_action_result.set_text("Eliminando credencial; el backend comprobará que no esté referenciada…")
-        self.api.submit("remove_systemd_credential", {"id": identifier, "kind": kind}, on_success=self._repository_action_done, on_error=self._repository_action_failed)
+        self._submit_repository_action("remove_systemd_credential", {"id": identifier, "kind": kind})
 
     def _render_repositories(self) -> None:
         if not hasattr(self, "repositories_grid"):
