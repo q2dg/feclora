@@ -2777,6 +2777,11 @@ class FecloraGTK:
             or page_generation != getattr(self, "_operation_log_page_generation", None)
         ):
             return
+        if operation_id is not None:
+            selected_index = self.operation_select.get_selected()
+            selected_id = self.operation_log_records[selected_index]["operation_id"] if selected_index < len(getattr(self, "operation_log_records", [])) else None
+            if selected_id != operation_id:
+                return
         self.operation_log_stack.set_visible_child_name("empty")
         self.operation_log_empty.set_title("No se pudo consultar el registro")
         self.operation_log_empty.set_description(str(error))
@@ -3315,6 +3320,8 @@ class FecloraGTK:
         if page_generation is None:
             page_generation = getattr(self, "_profile_page_generation", None)
         if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None):
+            return
+        if operation_id is not None and operation_id != getattr(self, "profile_operation_id", None):
             return
         if request_generation is not None:
             current = getattr(self, "_profile_create_generation" if request_kind == "create" else "_profile_execute_generation", None)
