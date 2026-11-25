@@ -74,10 +74,9 @@ class FecloraGTK:
         return True
 
     def _report_boot_rendered(self) -> bool:
-        if Path("/dev/virtio-ports/org.feclora.boot-smoke").exists():
-            ready = Path("/run/feclora-gtk/ready")
-            ready.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            ready.write_text("rendered\n", encoding="ascii")
+        ready = Path("/run/feclora-gtk/ready")
+        ready.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        ready.write_text("rendered\n", encoding="ascii")
         return GLib.SOURCE_REMOVE
 
     def _show_error(self, error: Exception) -> None:
