@@ -9,12 +9,18 @@ for the repository owner.
 ## Product model
 
 Feclora is a Fedora-based minimal Live appliance built from the `@core` package
-group and Feclora's explicit runtime packages. The Textual application starts
-directly on tty1; there is no browser or graphical desktop. The Live session is
-intentionally ephemeral: each
-boot creates fresh local credentials, certificates and temporary configuration.
-Durable images and manifests belong in repositories explicitly selected by the
-operator. Persistent Live-session storage is not a product requirement.
+group and Feclora's explicit runtime packages. The production Textual application starts directly on tty1; the current
+Live image has no browser or graphical desktop. A separate GTK4/PyGObject/
+libadwaita frontend is under staged migration to a native Weston DRM/KMS kiosk.
+That target is Wayland-only and excludes XWayland, Xorg and Openbox. The GTK
+frontend is not yet the production boot entry point and Weston/GTK runtime
+packages have not been added to the Live image. See
+[GTK4 migration](GTK4-MIGRATION.md) for implementation and acceptance status.
+
+The Live session is intentionally ephemeral: each boot creates fresh local
+credentials, certificates and temporary configuration. Durable images and
+manifests belong in repositories explicitly selected by the operator.
+Persistent Live-session storage is not a product requirement.
 
 Storage layers and repositories are different concepts. LVM logical volumes,
 raw LUKS2 containers, opened crypt mappings, Btrfs filesystems and existing
