@@ -376,6 +376,43 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("_poll_image_extraction(pending_operation_id, page_generation, window_generation)", page)
         self.assertIn("window_generation != self._page_generation", status)
 
+    def test_p2v_operations_are_polled_to_terminal_state_and_resumed(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_repositories_page"])
+        accepted = ast.get_source_segment(self.source, self.methods["_p2v_operation_accepted"])
+        poll = ast.get_source_segment(self.source, self.methods["_poll_p2v_operation"])
+        loaded = ast.get_source_segment(self.source, self.methods["_p2v_operation_status_loaded"])
+        failed = ast.get_source_segment(self.source, self.methods["_p2v_operation_status_failed"])
+        self.assertIn("_latest_p2v_operation_id", page)
+        self.assertIn("_poll_p2v_operation(", page)
+        self.assertIn("self._latest_p2v_operation_id = operation_id", accepted)
+        self.assertIn('"local_operation_status", {"operation_id": operation_id}', poll)
+        self.assertIn('self._p2v_operation_results.setdefault(operation_id, {})["status"] = status', loaded)
+        self.assertIn('{"completed", "failed", "cancelled", "interrupted"}', loaded)
+        self.assertIn("self._p2v_view_is_current(page_generation, window_generation, operation_id)", loaded)
+        self.assertIn("self._p2v_operation_errors[operation_id] = \"status: \" + str(error)", failed)
+
+    def test_image_browse_failure_invalidates_session_without_failing_catalog(self):
+        browse = ast.get_source_segment(self.source, self.methods["_browse_selected_image"])
+        failed = ast.get_source_segment(self.source, self.methods["_image_browse_failed"])
+        self.assertIn("self._image_browse_failed(error, page_generation, window_generation, catalog_generation, browse_generation)", browse)
+        self.assertIn('self.image_session_id = ""', failed)
+        self.assertIn('self.image_listing.set_text("")', failed)
+        self.assertIn("browse_generation != self._image_browse_generation", failed)
+        self.assertNotIn("image_catalog_stack.set_visible_child_name", failed)
+
+    def test_image_download_errors_and_feedback_are_bound_to_exact_selection(self):
+        download = ast.get_source_segment(self.source, self.methods["_download_selected_image_file"])
+        failed = ast.get_source_segment(self.source, self.methods["_image_download_failed"])
+        saved = ast.get_source_segment(self.source, self.methods["_save_image_download"])
+        current = ast.get_source_segment(self.source, self.methods["_image_download_is_current"])
+        self.assertIn("image_id = (self._selected_image() or {}).get(\"image_id\")", download)
+        self.assertIn("repository_id = self._image_repository_id()", download)
+        self.assertIn("self._image_download_failed(error", download)
+        self.assertIn("self._image_download_is_current(", failed)
+        self.assertIn("self._image_download_is_current(", saved)
+        self.assertIn("self._image_repository_id() == repository_id", current)
+        self.assertIn("(self._selected_image() or {}).get(\"image_id\") == image_id", current)
+
     def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
         for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
             self.assertIn(action, self.source)
