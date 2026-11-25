@@ -444,3 +444,6 @@ resumes monitoring the latest accepted extraction. These are frontend lifecycle
 guards only; image storage, verification, file permissions and backend operation
 contracts are unchanged. Structural tests were added; no runtime image,
 repository-mount, credential, or P2V operation was executed.
+ Image-layout inspection also now stores its response under the originating
+repository/image pair and discards it from the visible view if the selection
+changed before the response arrived.
