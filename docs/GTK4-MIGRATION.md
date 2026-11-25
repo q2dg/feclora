@@ -124,9 +124,12 @@ acceptance are complete.
 
 Package references:
 - [Fedora 45 weston](https://packages.fedoraproject.org/pkgs/weston/weston/fedora-45.html)
-- [Fedora gtk4](https://packages.fedoraproject.org/pkgs/gtk4/gtk4/)
-- [Fedora python3-gobject](https://packages.fedoraproject.org/pkgs/pygobject3/python3-gobject/)
-- [Fedora libadwaita](https://packages.fedoraproject.org/pkgs/libadwaita/libadwaita/)
+- [Fedora 45 weston-libs](https://packages.fedoraproject.org/pkgs/weston/weston-libs/fedora-45.html)
+- [Fedora 45 gtk4](https://packages.fedoraproject.org/pkgs/gtk4/gtk4/fedora-45.html)
+- [Fedora 45 python3-gobject](https://packages.fedoraproject.org/pkgs/pygobject3/python3-gobject/fedora-45.html)
+- [Fedora 45 libadwaita](https://packages.fedoraproject.org/pkgs/libadwaita/libadwaita/fedora-45.html)
+- [Weston 15.0.1 Meson options](https://github.com/wayland-mirror/weston/blob/15.0.1/meson_options.txt)
+- [GTK 4.24.1 Meson options](https://github.com/GNOME/gtk/blob/4.24.1/meson.options)
 - [Weston 15.0.1 man page](https://www.mankier.com/1/weston)
 
 ## Migration sequence
