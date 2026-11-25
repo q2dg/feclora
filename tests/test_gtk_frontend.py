@@ -875,6 +875,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.recovery_jobs_empty.set_title("No se pudieron consultar los trabajos")', self.source)
         self.assertIn('self.recovery_jobs_empty.set_title("Sin trabajos de recuperación")', self.source)
 
+    def test_operation_cancel_failure_keeps_history_visible_and_allows_retry(self):
+        failure = ast.get_source_segment(self.source, self.methods["_operation_log_failed"])
+        self.assertIn("if operation_id is not None:", failure)
+        self.assertIn("La operación puede seguir activa; puedes reintentar.", failure)
+        self.assertIn("return", failure[failure.index("La operación puede seguir activa"):])
+        self.assertLess(
+            failure.index("La operación puede seguir activa"),
+            failure.index('self.operation_log_stack.set_visible_child_name("empty")'),
+        )
+
     def test_operation_log_disables_cancel_for_terminal_and_remote_operations(self):
         page = self.source[self.source.index("    def _show_operation_log_page"):self.source.index("    def _refresh_operation_log")]
         selection = ast.get_source_segment(self.source, self.methods["_operation_cancel_selection_changed"])
