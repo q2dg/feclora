@@ -62,7 +62,9 @@ and runs `livemedia-creator` with QEMU virtualization. The resulting
 `out/feclora-live.iso` is checked for BIOS and UEFI text-console arguments and
 absence of Plymouth from the shipped boot initramfs. The Live image installs
 Textual and boots with visible white-on-black system messages before starting
-its unprivileged keyboard-first interface on tty1. No browser, web server,
+its unprivileged keyboard-first interface on tty1. The GTK4/Wayland frontend
+is source-only at this stage: GTK, libadwaita and Weston are not installed in
+the image, and no graphical service is enabled. No browser, web server,
 graphical compositor, desktop or boot splash is installed.
 
 SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
