@@ -65,28 +65,35 @@ Checked against Fedora's Fedora 45 package metadata on 2026-11-25:
 | --- | --- | --- |
 | `weston` | `15.0.1-3.fc45` source baseline | **Do not ship the stock RPM unchanged**; it depends on `weston-libs` |
 | `weston-libs` | `15.0.1-3.fc45` source baseline | Stock RPM contains `xwayland.so` and `x11-backend.so`, and has X11 library dependencies |
-| `gtk4` | `4.24.1-1.fc45` | GTK4 runtime |
-| `python3-gobject` | `3.58.1-6.fc45` | PyGObject Python bindings |
-| `libadwaita` | `1.10.0-2.fc45` | Native Adwaita widgets used by the frontend |
+| `gtk4` | `4.24.1-1.fc45` source baseline | Stock RPM includes the optional GDK X11 backend and X11 library dependencies |
+| `python3-gobject` | `3.58.1-6.fc45` | PyGObject Python bindings; keep as a Fedora system package |
+| `libadwaita` | `1.10.0-2.fc45` source baseline | Rebuild against the custom GTK4 package |
 
-**Important packaging constraint:** the stock Fedora 45 `weston-libs` RPM is
-not strict-Wayland-only. Its file list includes both `xwayland.so` and
+**Important packaging constraint:** stock Fedora 45 `weston-libs` is not
+strict-Wayland-only. Its file list includes both `xwayland.so` and
 `x11-backend.so`; its dependency set includes `libX11`, `libX11-xcb`,
-`libXcursor` and `libxcb`. Therefore merely omitting the separate
-`xorg-x11-server-Xwayland` executable and not passing `--xwayland` is not
-sufficient for the user's no-X11 requirement. Do not install the stock
-`weston`/`weston-libs` RPM pair in the appliance.
+`libXcursor` and `libxcb`. The stock Fedora `gtk4` RPM likewise includes
+`GdkX11-4.0.typelib` and depends on `libX11`, `libXcursor`, `libXdamage`,
+`libXext`, `libXfixes`, `libXi`, `libXinerama` and `libXrandr`.
+Consequently, simply not running an X server is enough for a Wayland-only
+session, but it is not enough for the stricter appliance policy of shipping
+no X11 backends or X11 libraries. Do not install the stock `weston`,
+`weston-libs` or `gtk4` RPMs unchanged in the appliance.
 
-Weston 15.0.1's upstream Meson options explicitly provide `xwayland` and
-`backend-x11`, both enabled by default. The required Weston runtime must be
-rebuilt from the Fedora 45-matched 15.0.1 source with
-`-Dxwayland=false -Dbackend-x11=false`, while retaining
-`-Dbackend-drm=true -Dshell-kiosk=true`. Package it as a Feclora-specific RPM
-using Fedora's packaging/service integration, then inspect the built RPMs:
-the installed file list must not contain `xwayland.so` or `x11-backend.so`,
-and the runtime dependency list must not contain `libX11`, `libX11-xcb`,
-`libXcursor`, `libxcb` or the XWayland server. This custom build has not yet
-been produced or tested.
+Weston 15.0.1 upstream Meson options explicitly provide `xwayland` and
+`backend-x11`, both enabled by default. Rebuild the Fedora 45-matched 15.0.1
+source with `-Dxwayland=false -Dbackend-x11=false`, while retaining
+`-Dbackend-drm=true -Dshell-kiosk=true`. The GTK 4.24.1 source likewise
+provides `x11-backend` and `wayland-backend` options; rebuild with
+`-Dx11-backend=false -Dwayland-backend=true`. Rebuild libadwaita against that
+GTK4 RPM, and retain Fedora's `python3-gobject` system binding package.
+Package the custom builds as Feclora-specific RPMs using Fedora's packaging
+integration. Inspect the RPMs before adding them to the Live image: no installed
+file may provide `xwayland.so`, `x11-backend.so`, `GdkX11-4.0.typelib`, and
+no runtime dependency may pull `libX11`, `libX11-xcb`, `libXcursor`,
+`libXdamage`, `libXext`, `libXfixes`, `libXi`, `libXinerama`,
+`libXrandr`, `libxcb` or the XWayland server. These custom builds have not
+yet been produced or tested.
 
 The Weston 15.0.1 command-line interface documents `-B drm` for the DRM/KMS
 backend, `--shell=kiosk-shell.so` for kiosk mode, `--idle-time=0` to disable
