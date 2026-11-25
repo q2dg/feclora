@@ -209,7 +209,7 @@ without their existing systemd recovery handling.
 The operation log and persistent ddrescue recovery history use Adw.StatusPage inside Gtk.Stack containers for genuine empty results. Populated results retain their existing tabular views; backend inspection failures are presented as explicit status-page errors rather than being confused with an empty history. Refresh controls, operation cancellation confirmation and recovery data contracts remain unchanged.
 
 
-The Network page uses Adw.ComboRow for active NetworkManager profile, interface/address binding and DHCP/static method selection, plus Adw.EntryRow for IPv4 address, prefix, gateway and DNS. The controls are direct children of the IPv4 Adw.PreferencesGroup rather than generic GTK widgets embedded in ActionRow suffixes. Existing validation, NetworkManager selection, rollback-protected apply action and conditional visibility of static fields are retained. Profile and interface/address selectors start at explicit placeholder entries, matching the TUI's requirement that the operator choose both before applying a network change; no active profile or address is silently preselected.
+The Network page uses Adw.ComboRow for active NetworkManager profile, interface/address binding and DHCP/static method selection, plus Adw.EntryRow for IPv4 address, prefix, gateway and DNS. The controls are direct children of the IPv4 Adw.PreferencesGroup rather than generic GTK widgets embedded in ActionRow suffixes. Existing validation, NetworkManager selection, rollback-protected apply action and conditional visibility of static fields are retained. The profile and interface selectors require explicit operator selection before apply, matching the TUI's neutral initial state. Profile and interface/address selectors start at explicit placeholder entries, matching the TUI's requirement that the operator choose both before applying a network change; no active profile or address is silently preselected.
 
 
 ## libadwaita image catalog states
@@ -347,3 +347,6 @@ La recuperación ddrescue mantiene el valor fijo de tres pasadas de reintento, i
 
 
 El selector de imágenes de operaciones filtra por tipo compatible con la operación activa (disco, partición, volumen lógico o filesystem Stratis), igual que Textual. La validación del tipo se mantiene también al enviar la operación; el filtrado mejora la selección, no sustituye las comprobaciones del backend.
+
+
+PXE preflight validation is generation-guarded: edits to profile fields, DHCP mode or server interface invalidate pending and completed validation responses, so only the exact currently displayed profile can be started.
