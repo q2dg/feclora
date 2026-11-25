@@ -2421,10 +2421,34 @@ class FecloraGTK:
         if job.get("transport") == "multicast" and not params["igmp_confirmed"]:
             self.client_result.set_text("El trabajo multicast requiere confirmación explícita de IGMP/red aislada.")
             return
+        page_generation = self._client_page_generation
+        inspection_generation = self._client_inspection_generation
+        job_id = str(job.get("job_id") or "")
         self.client_result.set_text("Iniciando cliente; el backend volverá a comprobar identidad, destino y confirmación…")
-        self.api.submit("start_client_job", params, on_success=self._client_job_started, on_error=self._client_job_failed)
+        self.api.submit(
+            "start_client_job", params,
+            on_success=lambda result: self._client_job_started(
+                result, page_generation, inspection_generation, job_id
+            ),
+            on_error=lambda error: self._client_job_failed(
+                error, page_generation, inspection_generation, job_id
+            ),
+        )
 
-    def _client_job_started(self, result: dict[str, Any]) -> None:
+    def _client_job_started(
+        self, result: dict[str, Any], page_generation: int | None = None,
+        inspection_generation: int | None = None, job_id: str | None = None,
+    ) -> None:
+        # Preserve a completed start response even if navigation or a new inspection
+        # made its original controls stale while the privileged action was running.
+        results = getattr(self, "_client_remote_job_results", {})
+        results[job_id or str(result.get("job_id") or "latest")] = result
+        self._client_remote_job_results = results
+        if page_generation is not None and (
+            page_generation != self._client_page_generation
+            or inspection_generation != self._client_inspection_generation
+        ):
+            return
         self._client_remote_job_status = result
         self.client_confirmation.set_text("")
         self.client_result.set_text(json.dumps(result, ensure_ascii=False, indent=2))
@@ -2435,14 +2459,51 @@ class FecloraGTK:
         if not isinstance(job, dict) or not job.get("job_id"):
             self.client_result.set_text("Inspecciona primero el trabajo remoto.")
             return
+        page_generation = self._client_page_generation
+        inspection_generation = self._client_inspection_generation
+        self._client_status_generation = getattr(self, "_client_status_generation", 0) + 1
+        status_generation = self._client_status_generation
+        job_id = str(job["job_id"])
         self.client_result.set_text("Consultando estado del cliente…")
-        self.api.submit("client_job_status", {"job_id": job["job_id"]}, on_success=self._client_job_status_loaded, on_error=self._client_job_failed)
+        self.api.submit(
+            "client_job_status", {"job_id": job_id},
+            on_success=lambda result: self._client_job_status_loaded(
+                result, page_generation, inspection_generation, status_generation, job_id
+            ),
+            on_error=lambda error: self._client_job_failed(
+                error, page_generation, inspection_generation, job_id
+            ),
+        )
 
-    def _client_job_status_loaded(self, result: dict[str, Any]) -> None:
+    def _client_job_status_loaded(
+        self, result: dict[str, Any], page_generation: int | None = None,
+        inspection_generation: int | None = None, status_generation: int | None = None,
+        job_id: str | None = None,
+    ) -> None:
+        if page_generation is not None and (
+            page_generation != self._client_page_generation
+            or inspection_generation != self._client_inspection_generation
+            or status_generation != self._client_status_generation
+        ):
+            return
+        inspection = getattr(self, "_client_remote_inspection", None)
+        current_job = inspection.get("job") if isinstance(inspection, dict) else None
+        if job_id is not None and (
+            not isinstance(current_job, dict) or str(current_job.get("job_id") or "") != job_id
+        ):
+            return
         self._client_remote_job_status = result
         self.client_result.set_text(json.dumps(result, ensure_ascii=False, indent=2))
 
-    def _client_job_failed(self, error: Exception) -> None:
+    def _client_job_failed(
+        self, error: Exception, page_generation: int | None = None,
+        inspection_generation: int | None = None, job_id: str | None = None,
+    ) -> None:
+        if page_generation is not None and (
+            page_generation != self._client_page_generation
+            or inspection_generation != self._client_inspection_generation
+        ):
+            return
         self.client_result.set_text("Operación de cliente no completada: " + str(error))
 
     def _show_client_job_rows(self, response: dict[str, Any]) -> None:
