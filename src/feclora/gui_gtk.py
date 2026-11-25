@@ -1060,22 +1060,27 @@ class FecloraGTK:
         self._pxe_answer_repository_failed = False
         self.api.submit(
             "remote_repositories",
-            on_success=lambda response: self._pxe_answer_remote_repositories(response, page_generation)
+            on_success=lambda response: self._pxe_answer_remote_repositories(response, page_generation, window_generation)
             if page_generation == self._server_status_page_generation and window_generation == self._page_generation else None,
-            on_error=lambda error: self._pxe_answer_repository_error(error, page_generation)
+            on_error=lambda error: self._pxe_answer_repository_error(error, page_generation, window_generation)
             if page_generation == self._server_status_page_generation and window_generation == self._page_generation else None,
         )
         self.api.submit(
             "s3_repositories",
-            on_success=lambda response: self._pxe_answer_s3_repositories(response, page_generation)
-            if page_generation == self._server_status_page_generation else None,
-            on_error=lambda error: self._pxe_answer_repository_error(error, page_generation)
-            if page_generation == self._server_status_page_generation else None,
+            on_success=lambda response: self._pxe_answer_s3_repositories(response, page_generation, window_generation)
+            if page_generation == self._server_status_page_generation and window_generation == self._page_generation else None,
+            on_error=lambda error: self._pxe_answer_repository_error(error, page_generation, window_generation)
+            if page_generation == self._server_status_page_generation and window_generation == self._page_generation else None,
         )
 
     def _pxe_answer_remote_repositories(
-        self, response: dict[str, Any], page_generation: int | None = None
+        self, response: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None,
     ) -> None:
+        if page_generation is not None and (
+            page_generation != self._server_status_page_generation or window_generation != self._page_generation
+        ):
+            return
         self._pxe_answer_remote_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("mounted") and item.get("verified")
@@ -1083,11 +1088,16 @@ class FecloraGTK:
         if page_generation is None:
             self._render_pxe_answer_repositories()
         else:
-            self._pxe_answer_repository_part_loaded("remote", page_generation)
+            self._pxe_answer_repository_part_loaded("remote", page_generation, window_generation)
 
     def _pxe_answer_s3_repositories(
-        self, response: dict[str, Any], page_generation: int | None = None
+        self, response: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None,
     ) -> None:
+        if page_generation is not None and (
+            page_generation != self._server_status_page_generation or window_generation != self._page_generation
+        ):
+            return
         self._pxe_answer_s3_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("id")
@@ -1095,10 +1105,12 @@ class FecloraGTK:
         if page_generation is None:
             self._render_pxe_answer_repositories()
         else:
-            self._pxe_answer_repository_part_loaded("s3", page_generation)
+            self._pxe_answer_repository_part_loaded("s3", page_generation, window_generation)
 
-    def _pxe_answer_repository_part_loaded(self, part: str, page_generation: int) -> None:
-        if page_generation != self._server_status_page_generation:
+    def _pxe_answer_repository_part_loaded(
+        self, part: str, page_generation: int, window_generation: int | None = None
+    ) -> None:
+        if page_generation != self._server_status_page_generation or window_generation != self._page_generation:
             return
         pending = getattr(self, "_pxe_answer_pending_parts", set())
         pending.discard(part)
@@ -1106,9 +1118,12 @@ class FecloraGTK:
             self._render_pxe_answer_repositories()
 
     def _pxe_answer_repository_error(
-        self, error: Exception, page_generation: int | None = None
+        self, error: Exception, page_generation: int | None = None,
+        window_generation: int | None = None,
     ) -> None:
-        if page_generation is not None and page_generation != self._server_status_page_generation:
+        if page_generation is not None and (
+            page_generation != self._server_status_page_generation or window_generation != self._page_generation
+        ):
             return
         self._pxe_answer_repository_failed = True
         self.pxe_answer_result.set_text("No se pudieron cargar los repositorios para respuestas PXE: " + str(error))
@@ -2564,19 +2579,20 @@ class FecloraGTK:
         self.client_interface.connect("notify::selected", self._client_inputs_changed)
         self._show_client_job_rows({"jobs": []})
         self._refresh_client_job_history()
+        window_generation = self._page_generation
         self.api.submit(
             "network_interfaces",
-            on_success=lambda response: self._populate_client_interfaces(response)
-            if page_generation == self._client_page_generation else None,
+            on_success=lambda response: self._populate_client_interfaces(response, page_generation, window_generation)
+            if page_generation == self._client_page_generation and window_generation == self._page_generation else None,
             on_error=lambda error: self._client_job_failed(error)
-            if page_generation == self._client_page_generation else None,
+            if page_generation == self._client_page_generation and window_generation == self._page_generation else None,
         )
         self.api.submit(
             "inventory",
-            on_success=lambda response: self._populate_client_inventory(response)
-            if page_generation == self._client_page_generation else None,
+            on_success=lambda response: self._populate_client_inventory(response, page_generation, window_generation)
+            if page_generation == self._client_page_generation and window_generation == self._page_generation else None,
             on_error=lambda error: self._client_job_failed(error)
-            if page_generation == self._client_page_generation else None,
+            if page_generation == self._client_page_generation and window_generation == self._page_generation else None,
         )
 
     def _refresh_client_job_history(self, _button: Gtk.Button | None = None) -> None:
@@ -2593,7 +2609,14 @@ class FecloraGTK:
             and request_generation == self._client_history_generation else None,
         )
 
-    def _populate_client_interfaces(self, response: dict[str, Any]) -> None:
+    def _populate_client_interfaces(
+        self, response: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None,
+    ) -> None:
+        if page_generation is not None and (
+            page_generation != self._client_page_generation or window_generation != self._page_generation
+        ):
+            return
         self._client_network_interfaces = [
             item for item in response.get("interfaces", [])
             if isinstance(item, dict) and item.get("binding") and item.get("interface") and item.get("address")
@@ -2618,7 +2641,14 @@ class FecloraGTK:
     def _client_inputs_changed(self, *_args: Any) -> None:
         self._invalidate_client_inspection()
 
-    def _populate_client_inventory(self, inventory: dict[str, Any]) -> None:
+    def _populate_client_inventory(
+        self, inventory: dict[str, Any], page_generation: int | None = None,
+        window_generation: int | None = None,
+    ) -> None:
+        if page_generation is not None and (
+            page_generation != self._client_page_generation or window_generation != self._page_generation
+        ):
+            return
         self._invalidate_client_inspection()
         self._client_inventory_devices = self._flatten_devices(inventory.get("devices"))
         groups = inventory.get("volume_topology", {}).get("volume_groups", [])
