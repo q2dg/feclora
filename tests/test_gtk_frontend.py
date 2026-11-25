@@ -637,6 +637,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('refresh_row = Adw.ActionRow(title="Actualizar estado")', page)
         self.assertIn("refresh_row.set_activatable_widget(refresh)", page)
         self.assertIn("self._refresh_status(None)", page)
+        refresh_status = ast.get_source_segment(self.source, self.methods["_refresh_status"])
+        show_status = ast.get_source_segment(self.source, self.methods["_show_status"])
+        select_page = ast.get_source_segment(self.source, self.methods["_select_page"])
+        self.assertIn("_status_refresh_generation", refresh_status)
+        self.assertIn("page_generation == self._page_generation", refresh_status)
+        self.assertIn("generation != self._status_refresh_generation", show_status)
+        self.assertIn("_page_generation", select_page)
 
     def test_image_catalog_uses_libadwaita_loading_empty_and_error_states(self):
         self.assertIn("self.image_catalog_stack = Gtk.Stack()", self.source)
