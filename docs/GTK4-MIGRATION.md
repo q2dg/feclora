@@ -219,7 +219,7 @@ The image browser's repository catalog is presented through a `Gtk.Stack` with d
 
 ## libadwaita system status
 
-The System page now presents its read-only status summary and refresh action in an `Adw.PreferencesGroup` using `Adw.ActionRow` rows. The refresh button remains directly activatable from its row. The privileged status request and the displayed host, platform, service and certificate data are unchanged.
+The System page now presents its read-only status summary and refresh action in an `Adw.PreferencesGroup` using `Adw.ActionRow` rows. The refresh button remains directly activatable from its row. The privileged status request and the displayed host, platform, service and certificate data are unchanged. Status requests are guarded by navigation-page and refresh generations, so late responses cannot replace the summary after navigating away or after a newer refresh.
 
 
 ## libadwaita server administration
