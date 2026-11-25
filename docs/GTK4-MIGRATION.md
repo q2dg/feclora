@@ -63,19 +63,37 @@ Checked against Fedora's Fedora 45 package metadata on 2026-11-25:
 
 | RPM | Fedora 45 stable build | Purpose |
 | --- | --- | --- |
-| `weston` | `15.0.1-3.fc45` | Wayland compositor; its file list includes `kiosk-shell.so` |
+| `weston` | `15.0.1-3.fc45` source baseline | **Do not ship the stock RPM unchanged**; it depends on `weston-libs` |
+| `weston-libs` | `15.0.1-3.fc45` source baseline | Stock RPM contains `xwayland.so` and `x11-backend.so`, and has X11 library dependencies |
 | `gtk4` | `4.24.1-1.fc45` | GTK4 runtime |
 | `python3-gobject` | `3.58.1-6.fc45` | PyGObject Python bindings |
 | `libadwaita` | `1.10.0-2.fc45` | Native Adwaita widgets used by the frontend |
+
+**Important packaging constraint:** the stock Fedora 45 `weston-libs` RPM is
+not strict-Wayland-only. Its file list includes both `xwayland.so` and
+`x11-backend.so`; its dependency set includes `libX11`, `libX11-xcb`,
+`libXcursor` and `libxcb`. Therefore merely omitting the separate
+`xorg-x11-server-Xwayland` executable and not passing `--xwayland` is not
+sufficient for the user's no-X11 requirement. Do not install the stock
+`weston`/`weston-libs` RPM pair in the appliance.
+
+Weston 15.0.1's upstream Meson options explicitly provide `xwayland` and
+`backend-x11`, both enabled by default. The required Weston runtime must be
+rebuilt from the Fedora 45-matched 15.0.1 source with
+`-Dxwayland=false -Dbackend-x11=false`, while retaining
+`-Dbackend-drm=true -Dshell-kiosk=true`. Package it as a Feclora-specific RPM
+using Fedora's packaging/service integration, then inspect the built RPMs:
+the installed file list must not contain `xwayland.so` or `x11-backend.so`,
+and the runtime dependency list must not contain `libX11`, `libX11-xcb`,
+`libXcursor`, `libxcb` or the XWayland server. This custom build has not yet
+been produced or tested.
 
 The Weston 15.0.1 command-line interface documents `-B drm` for the DRM/KMS
 backend, `--shell=kiosk-shell.so` for kiosk mode, `--idle-time=0` to disable
 the idle timeout, and `--no-config` to ignore all `weston.ini` files and
 configured modules. Weston can launch the GUI as its child with the mandatory
-`--` separator; it supplies `WAYLAND_DISPLAY` to that child. XWayland support
-is explicitly enabled with `--xwayland`; the production command must omit
-that option, use `--no-config` so a user or system `weston.ini` cannot enable
-it indirectly, and the ISO must not contain the XWayland server package.
+`--` separator; it supplies `WAYLAND_DISPLAY` to that child. The production
+command must omit `--xwayland` and use `--no-config`.
 
 The verified command shape for a seat-enabled session is:
 
