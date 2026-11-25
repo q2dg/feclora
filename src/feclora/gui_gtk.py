@@ -663,6 +663,11 @@ class FecloraGTK:
         refresh_row.set_activatable_widget(refresh)
         system_group.add(refresh_row)
         self.page_body.append(system_group)
+        self.system_details_group = Adw.PreferencesGroup(
+            title="Configuración, servicios y certificados",
+            description="Desglose equivalente al estado del sistema mostrado por la interfaz Textual.",
+        )
+        self.page_body.append(self.system_details_group)
         self._refresh_status(None)
 
     def _show_server_status_page(self) -> None:
@@ -4922,6 +4927,30 @@ class FecloraGTK:
                 "\n".join(f"{name}: {state}" for name, state in services.items())
                 or "La API no ha comunicado servicios."
             )
+        if hasattr(self, "system_details_group"):
+            while child := self.system_details_group.get_first_child():
+                self.system_details_group.remove(child)
+            components = [
+                ("Servidor configurado", "Sí" if status.get("server_configured") else "No"),
+                ("Cliente configurado", "Sí" if status.get("client_configured") else "No"),
+            ]
+            components.extend(
+                (f"Servicio {name}", str(state or "—"))
+                for name, state in (status.get("services") or {}).items()
+            )
+            components.extend(
+                (f"Certificado {item.get('role', '')}", str(item.get("status") or "—"))
+                for item in status.get("certificate_status") or []
+                if isinstance(item, dict)
+            )
+            if not components:
+                self.system_details_group.add(Adw.ActionRow(
+                    title="Sin detalles adicionales",
+                    subtitle="La API no ha comunicado servicios ni certificados.",
+                ))
+            for name, value in components:
+                row = Adw.ActionRow(title=name, subtitle=value)
+                self.system_details_group.add(row)
 
     @staticmethod
     def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
