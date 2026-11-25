@@ -882,7 +882,7 @@ class FecloraGTK:
             "interface": selected.get("interface"), "address": selected.get("address"),
             "prefix_length": selected.get("prefix_length"),
         }
-        self.api.submit("bootstrap_server", params, on_success=lambda result: self._server_action_done(result, self._server_status_page_generation), on_error=lambda error: self._server_action_failed(error, self._server_status_page_generation))
+        self.api.submit("bootstrap_server", params, on_success=lambda result, generation=self._server_status_page_generation: self._server_action_done(result, generation), on_error=lambda error, generation=self._server_status_page_generation: self._server_action_failed(error, generation))
 
     def _renew_server_certificate(self, _button: Gtk.Button) -> None:
         confirmation = self.server_renew_confirmation.get_text().strip()
@@ -982,8 +982,8 @@ class FecloraGTK:
         self.pxe_result.set_text("Iniciando servicios PXE…")
         self.api.submit(
             "start_pxe_services", self._pxe_profile,
-            on_success=lambda result: self._pxe_action_done(result, self._server_status_page_generation),
-            on_error=lambda error: self._pxe_action_failed(error, self._server_status_page_generation),
+            on_success=lambda result, generation=self._server_status_page_generation: self._pxe_action_done(result, generation),
+            on_error=lambda error, generation=self._server_status_page_generation: self._pxe_action_failed(error, generation),
         )
 
     def _stop_pxe_services(self, _button: Gtk.Button) -> None:
