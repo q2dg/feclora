@@ -389,6 +389,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('def _populate_s3_credential_selector', self.source)
         self.assertIn('def _selected_s3_credential_id', self.source)
         self.assertIn('credential_id = self._selected_s3_credential_id()', self.source)
+        self.assertIn('previous_id = self._selected_s3_credential_id()', self.source)
+        self.assertIn('if item.get("id") == previous_id', self.source)
+        self.assertIn('previous_path = (', self.source)
+        self.assertIn('if item.get("path") == previous_path', self.source)
         self.assertIn('self.api.submit(api_action', self.source)
         self.assertIn('self.api.submit(action, params', self.source)
 
