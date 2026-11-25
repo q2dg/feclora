@@ -146,6 +146,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("image_format", start)
         self.assertIn("compression", start)
         self.assertIn("encrypt", start)
+        page_select = ast.get_source_segment(self.source, self.methods["_select_page"])
+        repository_change = ast.get_source_segment(self.source, self.methods["_capture_repository_changed"])
+        self.assertIn("operations_page_generation = self._page_generation", page_select)
+        self.assertIn("operations_page_generation == self._page_generation", page_select)
+        self.assertIn("_capture_catalog_generation", repository_change)
+        self.assertIn("generation == self._capture_catalog_generation", repository_change)
+        self.assertIn('Gtk.StringList.new(["Cargando imágenes…"])', repository_change)
 
     def test_lvm_and_stratis_capture_use_filtered_inventory_devices(self):
         mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
