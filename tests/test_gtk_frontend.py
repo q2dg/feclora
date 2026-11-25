@@ -914,7 +914,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self._remote_job_action_results", done)
         self.assertIn("_remote_job_context_is_current(page_generation, job_id)", done)
         self.assertIn("_remote_job_context_is_current(page_generation, job_id)", failed)
-        self.assertIn("generation == self._remote_jobs_page_generation", done)
+        self.assertIn("self._remote_job_context_is_current(generation, job_id)", done)
 
 
     def test_server_and_pxe_action_callbacks_are_page_guarded(self):
