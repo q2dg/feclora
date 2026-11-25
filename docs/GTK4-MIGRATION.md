@@ -310,3 +310,5 @@ passphrase entry is exposed only for RAW whole-disk capture when that mode is
 selected, and the submitted API payload distinguishes the passphrase mode with
 `encrypt_passphrase`. This preserves the Textual encryption contract rather
 than treating the password as a generic replacement for recipient encryption.
+
+The GTK image selector mirrors Textual's repository choices: it includes mounted and identity-verified file repositories plus configured S3 repositories. Extraction rejects read-only targets; file repositories additionally require a mounted, verified state, while S3 repositories follow the existing Textual read-only restriction.
