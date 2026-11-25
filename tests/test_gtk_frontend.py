@@ -288,6 +288,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
         self.assertIn('self.api.submit("local_operations"', self.source)
         self.assertIn('self.api.submit("cancel_local_operation"', self.source)
+        profile_loader = ast.get_source_segment(self.source, self.methods["_load_restore_profiles_for_repository"])
+        self.assertIn("_profile_repository_generation", profile_loader)
+        self.assertIn("generation == self._profile_repository_generation", profile_loader)
         self.assertIn('operation_confirmation.get_text() != expected', self.source)
         self.assertIn('self.api.submit("recovery_jobs"', self.source)
         self.assertIn('details.get("destination_may_be_partial")', self.source)
