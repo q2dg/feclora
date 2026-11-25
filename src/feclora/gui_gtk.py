@@ -307,6 +307,7 @@ class FecloraGTK:
             child = following
 
     def _select_page(self, _row: Gtk.Widget | None, page_id: str) -> None:
+        self._page_generation = getattr(self, "_page_generation", 0) + 1
         for navigation_id, row in self.navigation_rows.items():
             selected = navigation_id == page_id
             row.set_subtitle("Página actual" if selected else "")
@@ -3958,15 +3959,29 @@ class FecloraGTK:
             self.capture_cancel.set_sensitive(False)
 
     def _refresh_status(self, _button: Gtk.Button | None) -> None:
+        self._status_refresh_generation = getattr(self, "_status_refresh_generation", 0) + 1
+        generation = self._status_refresh_generation
+        page_generation = self._page_generation
         if hasattr(self, "status_summary"):
             self.status_summary.set_text("Consultando el estado del sistema…")
         if hasattr(self, "overview_configuration"):
             self.overview_configuration.set_text("Consultando configuración…")
         if hasattr(self, "overview_services"):
             self.overview_services.set_text("Consultando servicios…")
-        self.api.submit("status", on_success=self._show_status, on_error=self._show_error)
+        self.api.submit(
+            "status",
+            on_success=lambda status: self._show_status(status, generation, page_generation),
+            on_error=lambda error: self._show_error(error)
+            if generation == self._status_refresh_generation and page_generation == self._page_generation else None,
+        )
 
-    def _show_status(self, status: dict[str, Any]) -> None:
+    def _show_status(
+        self, status: dict[str, Any], generation: int | None = None, page_generation: int | None = None
+    ) -> None:
+        if generation is not None and generation != self._status_refresh_generation:
+            return
+        if page_generation is not None and page_generation != self._page_generation:
+            return
         if not hasattr(self, "status_summary"):
             return
         self.status_summary.set_text(
