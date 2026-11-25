@@ -2591,6 +2591,8 @@ class FecloraGTK:
         self._load_restore_profiles_for_repository()
 
     def _load_restore_profiles_for_repository(self) -> None:
+        self._profile_repository_generation = getattr(self, "_profile_repository_generation", 0) + 1
+        generation = self._profile_repository_generation
         repository = self._selected_profile_repository()
         self.profile_images = []
         self.profile_records = []
@@ -2599,8 +2601,20 @@ class FecloraGTK:
             self.profile_select.set_model(Gtk.StringList.new(["No hay perfiles disponibles"]))
             return
         repository_id = repository["id"]
-        self.api.submit("repository_images", {"repository_id": repository_id}, on_success=self._populate_profile_images, on_error=self._profile_failed)
-        self.api.submit("restore_profiles", {"repository_id": repository_id}, on_success=self._populate_restore_profiles, on_error=self._profile_failed)
+        self.api.submit(
+            "repository_images", {"repository_id": repository_id},
+            on_success=lambda result: self._populate_profile_images(result)
+            if generation == self._profile_repository_generation else None,
+            on_error=lambda error: self._profile_failed(error)
+            if generation == self._profile_repository_generation else None,
+        )
+        self.api.submit(
+            "restore_profiles", {"repository_id": repository_id},
+            on_success=lambda result: self._populate_restore_profiles(result)
+            if generation == self._profile_repository_generation else None,
+            on_error=lambda error: self._profile_failed(error)
+            if generation == self._profile_repository_generation else None,
+        )
 
     def _populate_profile_images(self, result: dict[str, Any]) -> None:
         self.profile_images = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_type") == "disk" and item.get("image_format") == "raw" and item.get("image_id")]
