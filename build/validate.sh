@@ -39,6 +39,7 @@ require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API
 require_text 'ThreadPoolExecutor|GLib\.idle_add' src/feclora/gtk_api.py "The GTK API bridge must keep blocking subprocess work off the GLib main loop."
 require_text 'GDK_BACKEND.*wayland' src/feclora/gui_gtk.py "The GTK frontend must force the native Wayland backend."
 require_text 'WAYLAND_DISPLAY' src/feclora/gui_gtk.py "The GTK frontend must require a Wayland compositor socket."
+require_text 'os\\.environ\\.pop\\("DISPLAY", None\\)' src/feclora/gui_gtk.py "The GTK frontend must remove any inherited X11 display variable."
 require_text 'self\.api\.submit\("status"' src/feclora/gui_gtk.py "GTK overview must call the real status API."
 require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK inventory must call the real inventory API."
 require_text 'action = "capture_disk"' src/feclora/gui_gtk.py "GTK operations must invoke the real disk capture API."
@@ -85,6 +86,10 @@ require_text 'mkksiso --cmdline selinux=0' build/build-iso.sh "Only the temporar
 if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox)([[:space:]]|$)' \
   "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "The Live image package set must not include Cockpit, Weston or Firefox."
+fi
+if grep -Eiq '(^|[[:space:]])(xorg-x11-server-Xwayland|xorg-x11-server-Xorg|openbox)([[:space:]]|$)' \
+  "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "The Wayland-only appliance must not install XWayland, Xorg or Openbox."
 fi
 if grep -Eiq 'cockpit|weston|firefox|webui' "$ROOT_DIR/build/build-iso.sh"; then
   fail "ISO construction must not stage an unrelated graphical desktop or web UI."
@@ -151,11 +156,6 @@ if ! python3 "$ROOT_DIR/build/check_docs.py"; then
   fail "Documentation links and guide assets failed validation."
 fi
 
-if (( ERRORS > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$ERRORS" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
 
 require_text 'self\.api\.submit\("images"' src/feclora/gui_gtk.py "GTK restore workflow must load image manifests through the privileged API."
 require_text '"restore_disk".*"restore_partition".*"restore_logical_volume"' src/feclora/gui_gtk.py "GTK must expose disk, partition and logical-volume restore operations."
@@ -416,3 +416,9 @@ require_text 'title="Acciones"' src/feclora/gui_gtk.py "GTK overview refresh mus
 require_text 'self\.overview_configuration\.set_text\(' src/feclora/gui_gtk.py "GTK overview must render server and client configuration status."
 require_text 'self\.overview_services\.set_text\(' src/feclora/gui_gtk.py "GTK overview must render local service status."
 require_text 'self\.api\.submit\("status"' src/feclora/gui_gtk.py "GTK overview must retain the local status API request."
+
+if (( ERRORS > 0 )); then
+  printf 'Validation failed with %d error(s).\n' "$ERRORS" >&2
+  exit 1
+fi
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
