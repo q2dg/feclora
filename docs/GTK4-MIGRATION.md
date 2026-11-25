@@ -5,7 +5,15 @@
 The migration is staged. Textual remains the production boot interface until
 every operator workflow has been ported, tested and accepted. All 14 navigation
 pages now have GTK content, but several are read-only or have incomplete controls;
-page presence is not feature parity.
+page presence is not feature parity. The shared catalogue still contains all 25
+languages.
+
+A source-level API audit found that every one of the 49 literal
+`call_feclora(...)` action names in Textual is represented in the GTK source.
+A regression test now checks that relationship. This proves action-name
+coverage only; it does not prove that GTK preserves each form's validation,
+parameter semantics, confirmation wording, progress, cancellation or failure
+handling. Those still require behavioral review and tests.
 
 The native frontend is `gui_gtk.py`, built with GTK4, PyGObject and libadwaita.
 The application uses `Adw.Application`/`Adw.ApplicationWindow`, an
@@ -134,20 +142,23 @@ Package references:
 
 ## Migration sequence
 
-1. Keep Textual bootable while sharing catalog data and introducing the GTK/GLib
-   API bridge.
-2. Port and structurally test the GTK shell, overview, inventory and core local
-   storage operations.
-3. Complete image inspection/browsing/extraction, restore profiles, network and
-   remaining local operations, including P2V import/export and full preflight parity.
-4. Complete server/PXE, repository management, remote deployment, client-job and
-   remaining history actions. Keep operational controls functional rather than
-   replacing them with read-only summaries.
-5. Run unit/contract tests and `build/validate.sh`; then add Weston DRM +
-   kiosk-shell configuration, a native Wayland-only service and VM smoke tests.
-   Keep tty2 as the independent maintenance/recovery path.
-6. Switch the default boot service only after feature parity and BIOS/UEFI
-   acceptance. Then remove Textual and obsolete text-boot checks.
+1. **Source foundation in place:** keep Textual bootable, share the UI catalogue,
+   and use the GTK/GLib API bridge.
+2. **GTK shell and core pages in place:** the shell, overview and nested inventory
+   are implemented; their runtime rendering still needs GTK/Wayland VM validation.
+3. **Operational pages ported at source level:** image inspection/browsing/
+   extraction, restore profiles, network, local storage operations and P2V
+   import/export have GTK implementations. Confirm semantic parity with tests.
+4. **Server and orchestration pages ported at source level:** server/PXE,
+   repositories, remote deployment, client jobs and history controls are present.
+   Complete behavioral review of confirmations, preflight, progress, cancellation
+   and error paths; close any certificate-lifecycle gap.
+5. **Pending runtime/acceptance work:** run unit/contract tests and
+   `build/validate.sh`; build the X11-disabled Fedora-source GTK4/libadwaita and
+   Weston RPMs; validate Weston DRM + kiosk-shell session/seat lifecycle; then
+   run VM smoke tests. Keep tty2 as the independent maintenance/recovery path.
+6. Switch the default boot service only after behavioral feature parity and
+   BIOS/UEFI acceptance. Then remove Textual and obsolete text-boot checks.
 
 ## Kiosk and recovery requirements
 
