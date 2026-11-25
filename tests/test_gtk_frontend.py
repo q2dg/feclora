@@ -324,6 +324,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('target_device.get("major_minor")', self.source)
         self.assertIn('target_device["size_bytes"] >= source_device["size_bytes"]', self.source)
 
+    def test_system_page_restores_textual_configuration_service_and_certificate_details(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_system_page"])
+        status = ast.get_source_segment(self.source, self.methods["_show_status"])
+        self.assertIn("self.system_details_group = Adw.PreferencesGroup(", page)
+        self.assertIn('status.get("server_configured")', status)
+        self.assertIn('status.get("client_configured")', status)
+        self.assertIn('status.get("services")', status)
+        self.assertIn('status.get("certificate_status")', status)
+        self.assertIn('Adw.ActionRow(title=name, subtitle=value)', status)
+
     def test_system_and_server_pages_render_service_certificate_and_pxe_status(self):
         self.assertIn('self.api.submit("pxe_service_status"', self.source)
         self.assertIn('self.api.submit("network_interfaces"', self.source)
