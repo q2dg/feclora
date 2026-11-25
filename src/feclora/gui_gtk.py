@@ -535,7 +535,10 @@ class FecloraGTK:
             capture_row(execution_group, "Resultado", self.capture_result)
 
             self.api.submit("inventory", on_success=self._populate_capture_devices, on_error=self._capture_failed)
+            self._capture_remote_repositories = None
+            self._capture_s3_repositories = None
             self.api.submit("remote_repositories", on_success=self._populate_capture_repositories, on_error=self._capture_failed)
+            self.api.submit("s3_repositories", on_success=self._populate_capture_s3_repositories, on_error=self._capture_failed)
 
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
@@ -3038,21 +3041,50 @@ class FecloraGTK:
         self.capture_image_select.set_selected(0)
 
     def _populate_capture_repositories(self, result: dict[str, Any]) -> None:
-        self.capture_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]
-        labels = [str(item.get("id")) + (" · disponible" if item.get("mounted") and item.get("verified") and not item.get("read_only") else " · no disponible para escritura") for item in self.capture_repositories]
-        self.capture_repository.set_model(Gtk.StringList.new(labels or ["Repositorio local"]))
-        usable = next((i for i, item in enumerate(self.capture_repositories) if item.get("mounted") and item.get("verified")), None)
-        self.capture_repository.set_selected(usable if usable is not None else 0)
-        self.capture_repository.connect("notify::selected", self._capture_repository_changed)
+        self._capture_remote_repositories = [
+            item for item in result.get("repositories", [])
+            if isinstance(item, dict) and item.get("id") and item.get("mounted") and item.get("verified")
+        ]
+        self._finish_capture_repository_loading()
+
+    def _populate_capture_s3_repositories(self, result: dict[str, Any]) -> None:
+        self._capture_s3_repositories = [
+            item for item in result.get("repositories", [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+        self._finish_capture_repository_loading()
+
+    def _finish_capture_repository_loading(self) -> None:
+        remote = getattr(self, "_capture_remote_repositories", None)
+        s3 = getattr(self, "_capture_s3_repositories", None)
+        if remote is None or s3 is None:
+            return
+        self.capture_repositories = [{"id": None, "_kind": "local"}] + [
+            {**item, "_kind": "remote"} for item in remote
+        ] + [{**item, "_kind": "s3"} for item in s3]
+        labels = ["Repositorio local"] + [
+            f'{item.get("id")} · {item.get("provider")} · montado y verificado'
+            for item in remote
+        ] + [
+            f'{item.get("id")} · S3' + (" · solo lectura" if item.get("read_only") else "")
+            for item in s3
+        ]
+        self.capture_repository.set_model(Gtk.StringList.new(labels))
+        self.capture_repository.set_selected(0)
+        if not getattr(self, "_capture_repository_signal_connected", False):
+            self.capture_repository.connect("notify::selected", self._capture_repository_changed)
+            self._capture_repository_signal_connected = True
         self._capture_repository_changed(self.capture_repository, None)
 
     def _capture_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         index = self.capture_repository.get_selected()
-        if index < len(getattr(self, "capture_repositories", [])):
-            repository = self.capture_repositories[index]
-            if repository.get("mounted") and repository.get("verified"):
-                self.api.submit("repository_images", {"repository_id": repository["id"]}, on_success=self._populate_capture_images, on_error=self._capture_failed)
-                return
+        repositories = getattr(self, "capture_repositories", [])
+        if index < len(repositories) and repositories[index].get("id"):
+            self.api.submit(
+                "repository_images", {"repository_id": repositories[index]["id"]},
+                on_success=self._populate_capture_images, on_error=self._capture_failed,
+            )
+            return
         self.api.submit("images", on_success=self._populate_capture_images, on_error=self._capture_failed)
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
@@ -3078,7 +3110,7 @@ class FecloraGTK:
         self.capture_confirmation.set_visible(is_restore or is_clone or is_recovery_iso)
         self.capture_image_id_label.set_visible(not (is_restore or is_clone or is_image_build))
         self.capture_image_id.set_visible(not (is_restore or is_clone or is_image_build))
-        self.capture_repository_label.set_visible(is_restore or is_image_build)
+        self.capture_repository_label.set_visible(True)
         self.capture_base_iso_label.set_visible(is_image_build)
         self.capture_target_wwn_row.set_visible(is_recovery_iso)
         self.capture_target_serial_row.set_visible(is_recovery_iso)
