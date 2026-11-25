@@ -17,7 +17,7 @@ python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
 The headless test boots both firmware variants without attaching host disks or
-networking. It waits for the TUI to complete its first terminal render before
+networking. It waits for the GTK welcome window to map inside Cage before
 reporting over a test-only virtio-serial channel. This does not prove that the
 display is visible to an operator or that every screen is usable; those require
 the visible manual checks below.
@@ -25,23 +25,23 @@ the visible manual checks below.
 ## Visible BIOS/UEFI boot acceptance
 
 - [ ] BIOS and UEFI boot the first GRUB entry without a visible menu.
-- [ ] White-on-black boot messages remain visible until the Textual interface
+- [ ] White-on-black boot messages remain visible until the GTK/Cage kiosk
       starts on tty1; there is no splash or persistent black screen.
-- [ ] `feclora-tui.service` runs the Textual application as the locked,
-      unprivileged `feclora` account on tty1.
-- [ ] The initial screen offers language and keyboard-layout selection.
+- [ ] `feclora-gtk.service` runs Cage and GTK as the locked, unprivileged
+      `feclora` account on tty1; Textual remains a manual fallback.
+- [ ] The fullscreen GTK welcome screen offers language and keyboard-layout selection.
 - [ ] Every implemented workflow is reachable using the keyboard: Tab,
       Shift+Tab, arrows, Enter and Space; focus remains visible.
-- [ ] Keyboard-layout selection changes the Linux virtual console mapping
-      without requiring a mouse or restarting the interface.
+- [ ] Keyboard-layout selection changes the system keyboard layout without
+      requiring a mouse or restarting GTK.
 - [ ] The root-terminal action opens tty2; exiting the shell returns the
       display to tty1.
 - [ ] The interface can call only the validated helper through its scoped
       sudo rule; no unrestricted passwordless shell is available.
 - [ ] Storage inventory, confirmation prompts and operation failures remain
-      readable and actionable on the terminal.
-- [ ] The root filesystem and session credentials are ephemeral; no obsolete
-      browser, web server, graphical compositor or display manager is installed.
+      readable and actionable in the GTK interface.
+- [ ] The root filesystem and session credentials are ephemeral; no browser, Xorg/XWayland, desktop environment or display manager is installed;
+      Cage is the only compositor.
 - [ ] Kernel command line, firmware details, ISO checksum and test results are
       recorded.
 
