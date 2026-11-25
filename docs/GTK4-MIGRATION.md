@@ -2,17 +2,17 @@
 
 ## Status
 
-The boot route has now been switched to the GTK4/Wayland kiosk on tty1 at the
-operator's explicit request. `feclora-gtk.service` launches Cage with XWayland
-disabled, then starts the GTK welcome screen fullscreen for language and
-keyboard selection. Textual remains installed as a mutually exclusive manual
-fallback, but is no longer enabled at boot. This is an intentional early
-deployment of the new route, not a claim that migration parity or boot
-acceptance is complete. All 14 navigation pages have GTK content, but several
-still have read-only or incomplete controls; page presence is not feature
-parity. The shared catalogue still contains all 25 languages. BIOS/UEFI,
-logind/seat, input, VT-switching and physical-hardware acceptance remain
-outstanding.
+The production boot route remains Textual on tty1. The earlier experimental
+Cage boot configuration has been withdrawn: Cage is not the requested
+compositor and no GTK kiosk service is installed or enabled. The replacement
+target is Weston DRM/KMS with `kiosk-shell`, launching the GTK welcome screen
+fullscreen for language and keyboard selection. GTK source covers all 14
+navigation pages, but several still have read-only or incomplete controls;
+page presence is not feature parity. Textual will remain the production
+interface during the audit, not as a permanent fallback. Once behavioral
+parity, X11-disabled Fedora runtime packaging, VM testing and BIOS/UEFI
+acceptance are proven, the final cutover will remove Textual completely.
+The shared catalogue contains all 25 languages.
 
 A source-level API audit found that every one of the 49 literal
 `call_feclora(...)` action names in Textual is represented in the GTK source.
