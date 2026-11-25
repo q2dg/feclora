@@ -2459,13 +2459,7 @@ class FecloraGTK:
         client_summary_row.add_suffix(self.history_summary)
         client_history_group.add(client_summary_row)
         refresh = Gtk.Button(label="Actualizar historial de clientes")
-        refresh.connect("clicked", lambda _button: self.api.submit(
-            "deployment_jobs",
-            on_success=lambda response: self._show_client_job_rows(response)
-            if page_generation == self._client_page_generation else None,
-            on_error=lambda error: self._history_failed(error)
-            if page_generation == self._client_page_generation else None,
-        ))
+        refresh.connect("clicked", self._refresh_client_job_history)
         client_refresh_row = Adw.ActionRow(title="Actualizar")
         client_refresh_row.add_suffix(refresh)
         client_refresh_row.set_activatable_widget(refresh)
@@ -2569,13 +2563,7 @@ class FecloraGTK:
         self.client_job_id.connect("changed", self._client_inputs_changed)
         self.client_interface.connect("notify::selected", self._client_inputs_changed)
         self._show_client_job_rows({"jobs": []})
-        self.api.submit(
-            "deployment_jobs",
-            on_success=lambda response: self._show_client_job_rows(response)
-            if page_generation == self._client_page_generation else None,
-            on_error=lambda error: self._history_failed(error)
-            if page_generation == self._client_page_generation else None,
-        )
+        self._refresh_client_job_history()
         self.api.submit(
             "network_interfaces",
             on_success=lambda response: self._populate_client_interfaces(response)
@@ -2589,6 +2577,20 @@ class FecloraGTK:
             if page_generation == self._client_page_generation else None,
             on_error=lambda error: self._client_job_failed(error)
             if page_generation == self._client_page_generation else None,
+        )
+
+    def _refresh_client_job_history(self, _button: Gtk.Button | None = None) -> None:
+        page_generation = self._client_page_generation
+        self._client_history_generation = getattr(self, "_client_history_generation", 0) + 1
+        request_generation = self._client_history_generation
+        self.api.submit(
+            "deployment_jobs",
+            on_success=lambda response: self._show_client_job_rows(response)
+            if page_generation == self._client_page_generation
+            and request_generation == self._client_history_generation else None,
+            on_error=lambda error: self._history_failed(error)
+            if page_generation == self._client_page_generation
+            and request_generation == self._client_history_generation else None,
         )
 
     def _populate_client_interfaces(self, response: dict[str, Any]) -> None:
