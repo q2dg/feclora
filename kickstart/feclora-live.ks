@@ -1,7 +1,7 @@
 #version=F45
-# Feclora Fedora 45 Live TUI Kickstart for x86_64.
+# Feclora Fedora 45 Live GTK4/Wayland kiosk Kickstart for x86_64.
 # Use Fedora's core package group, not the full Server product environment.
-# Live boot is retained; Textual is the only local interactive interface.
+# Cage launches the GTK4/libadwaita interface directly on tty1; Textual remains installed as fallback.
 
 url --url=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
 
@@ -43,6 +43,10 @@ sudo
 python3
 python3-boto3
 python3-textual
+python3-gobject
+gtk4
+libadwaita
+cage
 kbd
 psmisc
 NetworkManager
@@ -185,8 +189,10 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-clie
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service" "$TARGET_ROOT/etc/systemd/system/feclora-tui.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service" "$TARGET_ROOT/etc/systemd/system/feclora-gtk.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-root-terminal.service" "$TARGET_ROOT/etc/systemd/system/feclora-root-terminal.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"
+install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-gtk-ready"
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe" "$TARGET_ROOT/var/lib/feclora/client-jobs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
@@ -194,7 +200,7 @@ chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 chown root:root "$TARGET_ROOT/var/lib/feclora/client-jobs"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/client-jobs"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
-systemctl --root="$TARGET_ROOT" enable feclora-tui.service
+systemctl --root="$TARGET_ROOT" enable feclora-gtk.service
 systemctl --root="$TARGET_ROOT" mask getty@tty1.service
 systemctl --root="$TARGET_ROOT" mask kmsconvt@tty1.service
 systemctl --root="$TARGET_ROOT" set-default multi-user.target
