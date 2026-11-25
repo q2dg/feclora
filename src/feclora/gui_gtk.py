@@ -3101,9 +3101,34 @@ class FecloraGTK:
 
     def _populate_capture_images(self, result: dict[str, Any]) -> None:
         self.capture_images = [item for item in result.get("images", []) if isinstance(item, dict) and item.get("image_id")]
-        labels = [str(item.get("image_id")) + " · " + str(item.get("image_type")) + " · " + str(item.get("source_size_bytes", 0)) + " bytes" for item in self.capture_images]
-        self.capture_image_select.set_model(Gtk.StringList.new(labels or ["No hay imágenes disponibles"]))
-        self.capture_image_select.set_selected(0)
+        self._update_capture_image_options()
+
+    def _update_capture_image_options(self) -> None:
+        kind = self.capture_kind.get_selected()
+        expected_type = {
+            8: "disk", 9: "partition", 10: "logical_volume",
+            13: "stratis_filesystem", 14: "disk", 15: "disk", 16: "disk",
+        }.get(kind)
+        previous_id = None
+        current = getattr(self, "capture_selectable_images", [])
+        selected = self.capture_image_select.get_selected()
+        if selected < len(current):
+            previous_id = current[selected].get("image_id")
+        images = [
+            item for item in getattr(self, "capture_images", [])
+            if expected_type is not None and item.get("image_type") == expected_type
+        ]
+        self.capture_selectable_images = images
+        labels = [
+            str(item.get("image_id")) + " · " + str(item.get("image_type")) + " · "
+            + str(item.get("source_size_bytes", 0)) + " bytes"
+            for item in images
+        ]
+        self.capture_image_select.set_model(Gtk.StringList.new(labels or ["No hay imágenes compatibles"]))
+        selected_index = next(
+            (i for i, item in enumerate(images) if item.get("image_id") == previous_id), 0
+        )
+        self.capture_image_select.set_selected(selected_index)
 
     def _populate_capture_repositories(self, result: dict[str, Any]) -> None:
         self._capture_remote_repositories = [
@@ -3151,6 +3176,7 @@ class FecloraGTK:
 
     def _capture_mode_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         kind = self.capture_kind.get_selected()
+        self._update_capture_image_options()
         is_btrfs_capture = kind == 4
         is_btrfs_receive = kind == 5
         is_recovery = kind == 6
@@ -3237,7 +3263,7 @@ class FecloraGTK:
         phrase = ""
         if kind == 14:
             index = self.capture_image_select.get_selected()
-            images = getattr(self, "capture_images", [])
+            images = getattr(self, "capture_selectable_images", [])
             if index < len(images):
                 phrase = "BUILD " + str(images[index].get("image_id") or "")
         elif kind in {8, 9, 10, 11, 12, 13, 16}:
@@ -3298,10 +3324,10 @@ class FecloraGTK:
         if kind in {14, 15}:
             image_index = self.capture_image_select.get_selected()
             repository_index = self.capture_repository.get_selected()
-            if image_index >= len(getattr(self, "capture_images", [])) or repository_index >= len(getattr(self, "capture_repositories", [])):
+            if image_index >= len(getattr(self, "capture_selectable_images", [])) or repository_index >= len(getattr(self, "capture_repositories", [])):
                 self.capture_result.set_text("Selecciona una imagen y un repositorio válidos.")
                 return
-            image = self.capture_images[image_index]
+            image = self.capture_selectable_images[image_index]
             repository = self.capture_repositories[repository_index]
             if image.get("image_type") != "disk":
                 self.capture_result.set_text("La generación necesita una imagen de disco completo.")
