@@ -1997,8 +1997,15 @@ class FecloraGTK:
         except (json.JSONDecodeError, ValueError) as error:
             self.remote_job_result.set_text("JSON no válido: " + str(error))
             return
+        page_generation = self._remote_jobs_page_generation
         self.remote_job_result.set_text("Validando y guardando definición; no se inicia ningún servicio…")
-        self.api.submit("create_deployment_job", {"job": job}, on_success=self._remote_job_action_done, on_error=self._remote_job_action_failed)
+        self.api.submit(
+            "create_deployment_job", {"job": job},
+            on_success=lambda result, generation=page_generation: self._remote_job_action_done(
+                result, generation, action="create_deployment_job"
+            ),
+            on_error=lambda error, generation=page_generation: self._remote_job_action_failed(error, generation),
+        )
 
     def _import_remote_job(self, _button: Gtk.Button) -> None:
         import base64
@@ -2037,10 +2044,20 @@ class FecloraGTK:
         else:
             self.remote_job_result.set_text("Selecciona un origen válido.")
             return
+        page_generation = self._remote_jobs_page_generation
         self.remote_job_result.set_text("Descargando y validando definición; no se iniciará ningún servicio…")
-        self.api.submit("import_deployment_job", params, on_success=self._remote_job_imported, on_error=self._remote_job_action_failed)
+        self.api.submit(
+            "import_deployment_job", params,
+            on_success=lambda result, generation=page_generation: self._remote_job_imported(result, generation),
+            on_error=lambda error, generation=page_generation: self._remote_job_action_failed(error, generation),
+        )
 
-    def _remote_job_imported(self, result: dict[str, Any]) -> None:
+    def _remote_job_imported(
+        self, result: dict[str, Any], page_generation: int | None = None
+    ) -> None:
+        self._remote_job_import_result = result
+        if page_generation is not None and page_generation != self._remote_jobs_page_generation:
+            return
         job = result.get("job")
         if not isinstance(job, dict):
             self.remote_job_result.set_text("El backend no devolvió una definición válida.")
@@ -2100,27 +2117,76 @@ class FecloraGTK:
                 return
             self._submit_remote_job_action("reconcile_deployment_job", {"job_id": job_id, "confirmation": confirmation})
         elif action == "stop":
+            page_generation = self._remote_jobs_page_generation
             self.remote_job_result.set_text("Comprobando que no haya workers ni clientes activos antes de detener…")
-            self.api.submit("deployment_service_status", {"job_id": job_id}, on_success=lambda result: self._stop_remote_job_after_status(job_id, result), on_error=self._remote_job_action_failed)
+            self.api.submit(
+                "deployment_service_status", {"job_id": job_id},
+                on_success=lambda result, generation=page_generation: self._stop_remote_job_after_status(
+                    job_id, result, generation
+                ),
+                on_error=lambda error, generation=page_generation: self._remote_job_action_failed(error, generation, job_id),
+            )
 
-    def _stop_remote_job_after_status(self, job_id: str, status: dict[str, Any]) -> None:
+    def _remote_job_context_is_current(
+        self, page_generation: int | None, job_id: str | None
+    ) -> bool:
+        if page_generation is not None and page_generation != self._remote_jobs_page_generation:
+            return False
+        if job_id is None:
+            return True
+        selected = self.remote_job_select.get_selected()
+        jobs = getattr(self, "_remote_jobs", [])
+        return selected > 0 and selected - 1 < len(jobs) and str(jobs[selected - 1].get("job_id") or "") == job_id
+
+    def _stop_remote_job_after_status(
+        self, job_id: str, status: dict[str, Any], page_generation: int | None = None
+    ) -> None:
+        if not self._remote_job_context_is_current(page_generation, job_id):
+            return
         clients = status.get("clients") or []
         running_clients = any(isinstance(item, dict) and item.get("state") == "running" for item in clients)
         if status.get("worker_active") or status.get("job_state") == "running" or running_clients:
             self.remote_job_result.set_text("No se detiene un worker ni una operación de cliente en curso.")
             return
-        self._submit_remote_job_action("stop_deployment_service", {"job_id": job_id})
+        self._submit_remote_job_action("stop_deployment_service", {"job_id": job_id}, page_generation)
 
-    def _submit_remote_job_action(self, action: str, params: dict[str, Any]) -> None:
+    def _submit_remote_job_action(
+        self, action: str, params: dict[str, Any], page_generation: int | None = None
+    ) -> None:
+        generation = self._remote_jobs_page_generation if page_generation is None else page_generation
+        job_id = str(params.get("job_id") or "") or None
         self.remote_job_result.set_text(f"Ejecutando {action}…")
-        self.api.submit(action, params, on_success=self._remote_job_action_done, on_error=self._remote_job_action_failed)
+        self.api.submit(
+            action, params,
+            on_success=lambda result: self._remote_job_action_done(result, generation, job_id, action),
+            on_error=lambda error: self._remote_job_action_failed(error, generation, job_id),
+        )
 
-    def _remote_job_action_done(self, result: dict[str, Any]) -> None:
+    def _remote_job_action_done(
+        self, result: dict[str, Any], page_generation: int | None = None,
+        job_id: str | None = None, action: str | None = None,
+    ) -> None:
+        results = getattr(self, "_remote_job_action_results", [])
+        results.append({"action": action, "job_id": job_id, "result": result})
+        self._remote_job_action_results = results
+        if not self._remote_job_context_is_current(page_generation, job_id):
+            return
         self.remote_job_confirmation.set_text("")
         self.remote_job_result.set_text(json.dumps(result, ensure_ascii=False, indent=2))
-        self.api.submit("deployment_jobs", on_success=self._populate_remote_job_controls, on_error=self._remote_job_action_failed)
+        generation = page_generation
+        self.api.submit(
+            "deployment_jobs",
+            on_success=lambda response: self._populate_remote_job_controls(response)
+            if generation == self._remote_jobs_page_generation else None,
+            on_error=lambda error: self._remote_job_action_failed(error, generation, job_id),
+        )
 
-    def _remote_job_action_failed(self, error: Exception) -> None:
+    def _remote_job_action_failed(
+        self, error: Exception, page_generation: int | None = None,
+        job_id: str | None = None,
+    ) -> None:
+        if not self._remote_job_context_is_current(page_generation, job_id):
+            return
         self.remote_job_result.set_text("Acción remota no completada: " + str(error))
 
     def _show_deployments_page(self) -> None:
