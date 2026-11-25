@@ -1679,6 +1679,8 @@ class FecloraGTK:
         self.repositories_summary.set_text("No se pudieron consultar los repositorios: " + str(error))
 
     def _show_remote_jobs_page(self) -> None:
+        self._remote_jobs_page_generation = getattr(self, "_remote_jobs_page_generation", 0) + 1
+        page_generation = self._remote_jobs_page_generation
         def render(item: dict[str, Any]) -> tuple[str, ...]:
             clients = item.get("clients") or {}
             return (
@@ -1761,9 +1763,31 @@ class FecloraGTK:
         result_row.add_suffix(self.remote_job_result)
         action_group.add(result_row)
         self._remote_jobs = []
-        self.api.submit("deployment_jobs", on_success=self._populate_remote_job_controls, on_error=self._history_failed)
-        self.api.submit("remote_repositories", on_success=self._populate_remote_import_repositories, on_error=self._history_failed)
-        self.api.submit("s3_repositories", on_success=self._populate_remote_import_s3_repositories, on_error=self._history_failed)
+        self._remote_import_remote_rows = []
+        self._remote_import_s3_rows = []
+        self._remote_import_pending_parts = {"remote", "s3"}
+        self._remote_import_failed = False
+        self.api.submit(
+            "deployment_jobs",
+            on_success=lambda response: self._populate_remote_job_controls(response)
+            if page_generation == self._remote_jobs_page_generation else None,
+            on_error=lambda error: self._history_failed(error)
+            if page_generation == self._remote_jobs_page_generation else None,
+        )
+        self.api.submit(
+            "remote_repositories",
+            on_success=lambda response: self._populate_remote_import_repositories(response, page_generation=page_generation)
+            if page_generation == self._remote_jobs_page_generation else None,
+            on_error=lambda error: self._remote_import_part_failed("remote", error, page_generation)
+            if page_generation == self._remote_jobs_page_generation else None,
+        )
+        self.api.submit(
+            "s3_repositories",
+            on_success=lambda response: self._populate_remote_import_s3_repositories(response, page_generation=page_generation)
+            if page_generation == self._remote_jobs_page_generation else None,
+            on_error=lambda error: self._remote_import_part_failed("s3", error, page_generation)
+            if page_generation == self._remote_jobs_page_generation else None,
+        )
 
     def _populate_remote_job_controls(self, response: dict[str, Any]) -> None:
         self._remote_jobs = [item for item in response.get("jobs", []) if isinstance(item, dict)]
@@ -1773,19 +1797,45 @@ class FecloraGTK:
         self.remote_job_select.set_model(Gtk.StringList.new(labels))
         self.remote_job_select.set_selected(0)
 
-    def _populate_remote_import_repositories(self, response: dict[str, Any]) -> None:
+    def _populate_remote_import_repositories(
+        self, response: dict[str, Any], *, page_generation: int | None = None
+    ) -> None:
         self._remote_import_remote_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("mounted") and item.get("verified")
         ]
-        self._render_remote_import_repositories()
+        if page_generation is None:
+            self._render_remote_import_repositories()
+        else:
+            self._remote_import_repository_part_loaded("remote", page_generation)
 
-    def _populate_remote_import_s3_repositories(self, response: dict[str, Any]) -> None:
+    def _populate_remote_import_s3_repositories(
+        self, response: dict[str, Any], *, page_generation: int | None = None
+    ) -> None:
         self._remote_import_s3_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("mounted") and item.get("verified")
         ]
-        self._render_remote_import_repositories()
+        if page_generation is None:
+            self._render_remote_import_repositories()
+        else:
+            self._remote_import_repository_part_loaded("s3", page_generation)
+
+    def _remote_import_repository_part_loaded(self, part: str, page_generation: int) -> None:
+        if page_generation != self._remote_jobs_page_generation:
+            return
+        pending = getattr(self, "_remote_import_pending_parts", set())
+        pending.discard(part)
+        if not pending and not getattr(self, "_remote_import_failed", False):
+            self._render_remote_import_repositories()
+
+    def _remote_import_part_failed(self, part: str, error: Exception, page_generation: int) -> None:
+        if page_generation != self._remote_jobs_page_generation:
+            return
+        self._remote_import_failed = True
+        pending = getattr(self, "_remote_import_pending_parts", set())
+        pending.discard(part)
+        self._history_failed(error)
 
     def _render_remote_import_repositories(self) -> None:
         rows = getattr(self, "_remote_import_remote_rows", []) + getattr(self, "_remote_import_s3_rows", [])
