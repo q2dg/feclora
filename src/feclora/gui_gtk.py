@@ -3139,6 +3139,11 @@ class FecloraGTK:
             selected_id = self.operation_log_records[selected_index]["operation_id"] if selected_index < len(getattr(self, "operation_log_records", [])) else None
             if selected_id != operation_id:
                 return
+            self.operation_log_summary.set_text(
+                "No se pudo solicitar la cancelación de " + operation_id + ": " + str(error)
+                + " · La operación puede seguir activa; puedes reintentar."
+            )
+            return
         self.operation_log_stack.set_visible_child_name("empty")
         self.operation_log_empty.set_title("No se pudo consultar el registro")
         self.operation_log_empty.set_description(str(error))
