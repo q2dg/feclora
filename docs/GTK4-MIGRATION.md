@@ -352,4 +352,4 @@ El selector de imágenes de operaciones filtra por tipo compatible con la operac
 PXE preflight validation is generation-guarded: edits to profile fields, DHCP mode or server interface invalidate pending and completed validation responses, so only the exact currently displayed profile can be started.
 
 
-Server status, PXE status and interface discovery are guarded by page and refresh generations, so delayed responses from earlier refreshes or page instances cannot overwrite the current summary or interface list.
+Server status, PXE status and interface discovery are guarded by page and refresh generations, so delayed responses from earlier refreshes or page instances cannot overwrite the current summary or interface list. The TLS bootstrap interface selector also starts at an explicit placeholder, matching the TUI and preventing automatic selection of the first active address.
