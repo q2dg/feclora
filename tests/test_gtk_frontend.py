@@ -875,6 +875,17 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.recovery_jobs_empty.set_title("No se pudieron consultar los trabajos")', self.source)
         self.assertIn('self.recovery_jobs_empty.set_title("Sin trabajos de recuperación")', self.source)
 
+    def test_operation_log_disables_cancel_for_terminal_and_remote_operations(self):
+        page = self.source[self.source.index("    def _show_operation_log_page"):self.source.index("    def _refresh_operation_log")]
+        selection = ast.get_source_segment(self.source, self.methods["_operation_cancel_selection_changed"])
+        cancel = ast.get_source_segment(self.source, self.methods["_cancel_selected_logged_operation"])
+        self.assertIn('notify::selected', page)
+        self.assertIn("cancel.set_sensitive(False)", page)
+        self.assertIn('operation.get("state") in {"queued", "preflight", "running"}', selection)
+        self.assertIn('operation.get("cancellable", True) is not False', selection)
+        self.assertIn('operation.get("cancellable", True) is False', cancel)
+        self.assertIn("La operación seleccionada no admite cancelación.", cancel)
+
     def test_navigation_content_is_scrollable_for_full_operator_forms(self):
         self.assertIn("page_scroller = Gtk.ScrolledWindow()", self.source)
         self.assertIn("page_scroller.set_child(self.page_body)", self.source)
