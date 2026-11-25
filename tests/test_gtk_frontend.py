@@ -274,6 +274,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("catalog_generation == self._image_catalog_generation", browse)
         reset = ast.get_source_segment(self.source, self.methods["_reset_image_layout"])
         self.assertIn("_image_browse_generation", reset)
+        partition_changed = ast.get_source_segment(self.source, self.methods["_image_partition_changed"])
+        self.assertIn("_image_browse_generation", partition_changed)
 
     def test_proportional_restore_requires_smaller_target_and_kernel_identities(self):
         self.assertIn('"Restauración proporcional a disco menor"', self.source)
