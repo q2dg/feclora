@@ -665,6 +665,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('16: "disk"', self.source)
         self.assertIn('item.get("image_type") == expected_type', self.source)
         self.assertIn("self.capture_selectable_images[image_index]", self.source)
+        self.assertNotIn('len(getattr(self, "capture_images", []))', self.source)
+        self.assertNotIn('image = self.capture_images[image_index]', self.source)
         self.assertIn('phrase = "ERASE " + target', hint)
         self.assertIn('phrase += " FROM " + source', hint)
         self.assertIn('phrase = "BUILD " + str(images[index].get("image_id") or "")', hint)
