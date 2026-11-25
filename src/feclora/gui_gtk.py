@@ -4313,6 +4313,8 @@ class FecloraGTK:
         self._capture_action_errors = getattr(self, "_capture_action_errors", {})
         key = operation_id or (f"request:{request_generation}" if request_generation is not None else "latest")
         self._capture_action_errors[key] = str(error)
+        if page_generation is None:
+            page_generation = getattr(self, "_capture_page_generation", None)
         if page_generation is None or not self._capture_view_is_current(page_generation, operation_id):
             return
         if request_generation is not None and request_generation != getattr(self, "_capture_request_generation", None):
