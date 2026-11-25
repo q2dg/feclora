@@ -334,6 +334,43 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("if not pending", loaded)
         self.assertIn("self._render_repositories()", loaded)
 
+    def test_repository_and_p2v_actions_are_page_and_request_scoped(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_repositories_page"])
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_repositories"])
+        submit = ast.get_source_segment(self.source, self.methods["_submit_repository_action"])
+        done = ast.get_source_segment(self.source, self.methods["_repository_action_done"])
+        failed = ast.get_source_segment(self.source, self.methods["_repository_action_failed"])
+        p2v_submit = ast.get_source_segment(self.source, self.methods["_submit_p2v_operation"])
+        p2v_done = ast.get_source_segment(self.source, self.methods["_p2v_operation_accepted"])
+        self.assertIn("self._repository_window_page_generation = self._page_generation", page)
+        self.assertIn("window_generation == self._page_generation", refresh)
+        self.assertIn("request_generation = self._repository_action_generation", submit)
+        self.assertIn("self._repository_action_results.append(response)", done)
+        self.assertIn("request_generation != self._repository_action_generation", failed)
+        self.assertIn("request_generation = self._p2v_action_generation", p2v_submit)
+        self.assertIn("self._p2v_operation_results[operation_id] = result", p2v_done)
+        self.assertIn("window_generation != self._page_generation", p2v_done)
+
+    def test_image_verification_download_and_extraction_callbacks_keep_identity(self):
+        verify = ast.get_source_segment(self.source, self.methods["_verify_selected_image"])
+        verified = ast.get_source_segment(self.source, self.methods["_show_image_verification"])
+        download = ast.get_source_segment(self.source, self.methods["_save_image_download"])
+        extract = ast.get_source_segment(self.source, self.methods["_extract_selected_partition"])
+        accepted = ast.get_source_segment(self.source, self.methods["_image_extraction_accepted"])
+        poll = ast.get_source_segment(self.source, self.methods["_poll_image_extraction"])
+        status = ast.get_source_segment(self.source, self.methods["_show_image_extraction_status"])
+        page = ast.get_source_segment(self.source, self.methods["_show_images_page"])
+        self.assertIn("request_generation = self._image_verification_generation", verify)
+        self.assertIn("self._image_verification_results[(repository_id, image_id)] = result", verified)
+        self.assertIn("self._image_download_results.append(str(destination))", download)
+        self.assertIn("download_generation == self._image_download_generation", download)
+        self.assertIn("request_generation = self._image_action_generation", extract)
+        self.assertIn('self._image_operation_results[operation_id] = {"accepted": result, "status": None}', accepted)
+        self.assertIn('{"operation_id": operation_id}', poll)
+        self.assertIn('self._image_operation_results.setdefault(operation_id, {})["status"] = status', status)
+        self.assertIn("_poll_image_extraction(pending_operation_id, page_generation, window_generation)", page)
+        self.assertIn("window_generation != self._page_generation", status)
+
     def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
         for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
             self.assertIn(action, self.source)
@@ -438,8 +475,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('Compatibilidad P2V heredada', self.source)
         self.assertIn('def _import_legacy_p2v', self.source)
         self.assertIn('def _export_legacy_p2v', self.source)
-        self.assertIn('self.api.submit("import_p2v"', self.source)
-        self.assertIn('self.api.submit("export_p2v_s3"', self.source)
+        self.assertIn('self._submit_p2v_operation("import_p2v"', self.source)
+        self.assertIn('self._submit_p2v_operation("export_p2v_s3"', self.source)
         self.assertIn('"source_image_id": source_image_id', self.source)
         self.assertIn('"source_repository_id": sources[source_index - 1]["id"]', self.source)
         self.assertIn('params["destination_repository_id"]', self.source)
@@ -471,8 +508,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
             '"unmount": "unmount_remote_repository"',
             '"remove": "remove_remote_repository"',
             'self.api.submit("systemd_credentials"',
-            'self.api.submit("put_systemd_credential"',
-            'self.api.submit("remove_systemd_credential"',
+            'self._submit_repository_action("put_systemd_credential"',
+            'self._submit_repository_action("remove_systemd_credential"',
         ):
             self.assertIn(action, self.source)
         self.assertIn('mount_state != "unmounted"', self.source)
@@ -496,7 +533,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('if item.get("id") == previous_id', self.source)
         self.assertIn('previous_path = (', self.source)
         self.assertIn('if item.get("path") == previous_path', self.source)
-        self.assertIn('self.api.submit(api_action', self.source)
+        self.assertIn('self._submit_repository_action(api_action', self.source)
         self.assertIn('self.api.submit(action, params', self.source)
 
     def test_server_bootstrap_tls_and_pxe_controls_use_existing_api_contracts(self):
@@ -891,8 +928,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("remote_repositories"', page)
 
     def test_images_page_includes_verified_file_and_s3_repositories(self):
-        self.assertIn('self.api.submit("remote_repositories", on_success=self._populate_image_repositories', self.source)
-        self.assertIn('self.api.submit("s3_repositories", on_success=self._populate_image_s3_repositories', self.source)
+        self.assertIn('self.api.submit("remote_repositories",', self.source)
+        self.assertIn("self._populate_image_repositories(result)", self.source)
+        self.assertIn('self.api.submit("s3_repositories",', self.source)
+        self.assertIn("self._populate_image_s3_repositories(result)", self.source)
         self.assertIn('item.get("mounted") and item.get("verified")', self.source)
         self.assertIn('"_repository_kind": "remote"', self.source)
         self.assertIn('"_repository_kind": "s3"', self.source)
