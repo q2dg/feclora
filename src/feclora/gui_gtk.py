@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-# Fail closed: do not allow GDK to select X11/XWayland as a fallback.
+# Fail closed: GDK must use the native Wayland backend only.
 os.environ["GDK_BACKEND"] = "wayland"
 os.environ.pop("DISPLAY", None)
 
