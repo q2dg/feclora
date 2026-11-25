@@ -2665,6 +2665,8 @@ class FecloraGTK:
         self.recovery_jobs_summary.set_text("No se pudieron consultar los trabajos ddrescue: " + str(error))
 
     def _show_network_page(self) -> None:
+        self._network_page_generation = getattr(self, "_network_page_generation", 0) + 1
+        page_generation = self._network_page_generation
         self.page_description.set_text("Configuración IPv4 de perfiles activos de NetworkManager, con aplicación protegida por checkpoint y rollback.")
         network_group = Adw.PreferencesGroup(
             title="Conexión IPv4",
@@ -2704,8 +2706,20 @@ class FecloraGTK:
         self.network_result.set_wrap(True)
         self.page_body.append(self.network_result)
         self._network_method_changed(self.network_method, None)
-        self.api.submit("network_connection_profiles", on_success=self._populate_network_profiles, on_error=self._network_failed)
-        self.api.submit("network_interfaces", on_success=self._populate_network_interfaces, on_error=self._network_failed)
+        self.api.submit(
+            "network_connection_profiles",
+            on_success=lambda result: self._populate_network_profiles(result)
+            if page_generation == self._network_page_generation else None,
+            on_error=lambda error: self._network_failed(error)
+            if page_generation == self._network_page_generation else None,
+        )
+        self.api.submit(
+            "network_interfaces",
+            on_success=lambda result: self._populate_network_interfaces(result)
+            if page_generation == self._network_page_generation else None,
+            on_error=lambda error: self._network_failed(error)
+            if page_generation == self._network_page_generation else None,
+        )
 
     def _populate_network_profiles(self, result: dict[str, Any]) -> None:
         self.network_profiles = [item for item in result.get("profiles", []) if isinstance(item, dict)]
@@ -2774,13 +2788,35 @@ class FecloraGTK:
                 self.network_result.set_text("Dirección, prefijo, gateway o DNS no válido: " + str(exc))
                 return
             params.update(address=str(address), prefix_length=prefix, gateway=str(gateway) if gateway else None, dns=dns)
+        page_generation = self._network_page_generation
         self.network_result.set_text("Aplicando perfil con checkpoint de 120 segundos…")
-        self.api.submit("apply_network_profile", params, on_success=self._network_applied, on_error=self._network_failed)
+        self.api.submit(
+            "apply_network_profile", params,
+            on_success=lambda result: self._network_applied(result, page_generation)
+            if page_generation == self._network_page_generation else None,
+            on_error=lambda error: self._network_failed(error)
+            if page_generation == self._network_page_generation else None,
+        )
 
-    def _network_applied(self, result: dict[str, Any]) -> None:
+    def _network_applied(self, result: dict[str, Any], page_generation: int | None = None) -> None:
+        if page_generation is not None and page_generation != self._network_page_generation:
+            return
         self.network_result.set_text(str(result.get("message") or "Perfil aplicado y verificado; checkpoint confirmado."))
-        self.api.submit("network_connection_profiles", on_success=self._populate_network_profiles, on_error=self._network_failed)
-        self.api.submit("network_interfaces", on_success=self._populate_network_interfaces, on_error=self._network_failed)
+        current_generation = self._network_page_generation
+        self.api.submit(
+            "network_connection_profiles",
+            on_success=lambda response: self._populate_network_profiles(response)
+            if current_generation == self._network_page_generation else None,
+            on_error=lambda error: self._network_failed(error)
+            if current_generation == self._network_page_generation else None,
+        )
+        self.api.submit(
+            "network_interfaces",
+            on_success=lambda response: self._populate_network_interfaces(response)
+            if current_generation == self._network_page_generation else None,
+            on_error=lambda error: self._network_failed(error)
+            if current_generation == self._network_page_generation else None,
+        )
 
     def _network_failed(self, error: Exception) -> None:
         if hasattr(self, "network_result"):
