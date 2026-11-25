@@ -4761,6 +4761,10 @@ class FecloraGTK:
         if not isinstance(operation_id, str) or not operation_id:
             return
         self._local_operation_results = getattr(self, "_local_operation_results", {})
+        if status.get("operation_id") not in (None, operation_id):
+            self._capture_action_errors = getattr(self, "_capture_action_errors", {})
+            self._capture_action_errors[operation_id] = "El estado devuelto pertenece a otra operación."
+            return
         self._local_operation_results.setdefault(operation_id, {})["status"] = status
         if page_generation is None or not self._capture_view_is_current(page_generation, operation_id):
             return
@@ -4781,6 +4785,15 @@ class FecloraGTK:
             self.capture_start.set_sensitive(True)
             self.capture_cancel.set_sensitive(False)
             self.active_capture_id = None
+            if state == "completed":
+                self.api.submit(
+                    "inventory",
+                    on_success=lambda response: self._populate_capture_devices(response)
+                    if self._capture_view_is_current(page_generation) else None,
+                    on_error=lambda error: self._capture_failed(error, page_generation)
+                    if self._capture_view_is_current(page_generation) else None,
+                )
+                self._capture_repository_changed(self.capture_repository, None)
             return
         GLib.timeout_add_seconds(2, lambda: self._poll_capture_status(operation_id, page_generation))
 
