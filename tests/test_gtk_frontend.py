@@ -424,6 +424,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('isinstance(item, dict) and item.get("id")', method)
         self.assertNotIn('item.get("mounted")', method)
         self.assertNotIn('item.get("verified")', method)
+        pxe_loader = ast.get_source_segment(self.source, self.methods["_refresh_pxe_answer_repositories"])
+        pxe_loaded = ast.get_source_segment(self.source, self.methods["_pxe_answer_repository_part_loaded"])
+        self.assertIn('self._pxe_answer_pending_parts = {"remote", "s3"}', pxe_loader)
+        self.assertIn("page_generation == self._server_status_page_generation", pxe_loader)
+        self.assertIn("if not pending", pxe_loaded)
+        self.assertIn("self._render_pxe_answer_repositories()", pxe_loaded)
 
     def test_repository_management_and_credential_controls_use_allowlisted_api(self):
         for action in (
