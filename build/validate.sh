@@ -182,6 +182,10 @@ require_text 'self\.capture_repository\.connect\("notify::selected"' src/feclora
 require_text 'self\.api\.submit\("inspect_image_layout"' src/feclora/gui_gtk.py "GTK image page must inspect verified partition layouts."
 require_text 'self\.api\.submit\("browse_image"' src/feclora/gui_gtk.py "GTK image page must browse files inside disk images."
 require_text 'self\.api\.submit\("extract_partition_image"' src/feclora/gui_gtk.py "GTK image page must expose partition extraction."
+require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py "GTK image catalog must include configured S3 repositories."
+require_text 'def _populate_image_s3_repositories' src/feclora/gui_gtk.py "GTK image catalog must load S3 repository metadata."
+require_text 'item\.get\("mounted"\) and item\.get\("verified"\)' src/feclora/gui_gtk.py "GTK image catalog must filter file repositories to mounted, verified entries."
+require_text 'repository\.get\("_repository_kind"\) == "remote"' src/feclora/gui_gtk.py "GTK extraction must distinguish file repositories from S3."
 require_text '"restore_proportional_disk"' src/feclora/gui_gtk.py "GTK must expose proportional restore to a smaller disk."
 require_text 'target_device\["size_bytes"\] >= source_device\["size_bytes"\]' src/feclora/gui_gtk.py "Proportional restore must reject targets that are not strictly smaller."
 
