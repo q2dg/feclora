@@ -1145,6 +1145,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("on_error=lambda error: self._client_job_failed", callbacks)
 
 
+    def test_client_job_history_refresh_rejects_older_responses(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_client_jobs_page"])
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_client_job_history"])
+        self.assertIn('refresh.connect("clicked", self._refresh_client_job_history)', page)
+        self.assertIn("self._refresh_client_job_history()", page)
+        self.assertIn("self._client_history_generation", refresh)
+        self.assertIn("request_generation == self._client_history_generation", refresh)
+        self.assertIn("page_generation == self._client_page_generation", refresh)
+        self.assertIn('"deployment_jobs"', refresh)
+
     def test_client_job_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_client_jobs_page")
         end = self.source.index("    def _show_client_job_rows", start)
