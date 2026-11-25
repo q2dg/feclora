@@ -50,18 +50,58 @@ X11 compatibility runtime is retained. The frontend is not production-ready.
 The intended appliance stack is Weston on its DRM/KMS backend with
 `kiosk-shell`, running the GTK4 application as a native Wayland client.
 
-The GTK process must set `GDK_BACKEND=wayland` and must fail closed if
-`WAYLAND_DISPLAY` is absent. Do not install, enable, start, or fall back to
-XWayland, Xorg, Openbox, or another X11 compatibility layer. Do not set
-`DISPLAY`. Fedora's system GTK4 and PyGObject packages provide the runtime;
-do not vendor GTK or install Python GUI bindings from PyPI.
+The GTK process sets `GDK_BACKEND=wayland`, removes an inherited
+`DISPLAY`, and fails closed if `WAYLAND_DISPLAY` is absent. The compositor
+must not be started with `--xwayland`. Do not install, enable, start, or fall
+back to XWayland, Xorg, Openbox, or another X11 compatibility layer. Fedora's
+system GTK4, PyGObject and libadwaita RPMs provide the runtime; do not vendor
+GTK or install Python GUI bindings from PyPI.
 
-Weston is to be started from a dedicated tty1 systemd session with DRM/KMS and
-kiosk-shell. The exact Fedora 45 package names, Weston CLI/configuration,
-logind/seat permissions, and service lifecycle must be verified before the
-runtime is added to the ISO. The GUI service must start only after Weston has
-created its Wayland socket. No display manager or general-purpose desktop
-session is required.
+### Fedora 45 package and CLI verification
+
+Checked against Fedora's Fedora 45 package metadata on 2026-11-25:
+
+| RPM | Fedora 45 stable build | Purpose |
+| --- | --- | --- |
+| `weston` | `15.0.1-3.fc45` | Wayland compositor; its file list includes `kiosk-shell.so` |
+| `gtk4` | `4.24.1-1.fc45` | GTK4 runtime |
+| `python3-gobject` | `3.58.1-6.fc45` | PyGObject Python bindings |
+| `libadwaita` | `1.10.0-2.fc45` | Native Adwaita widgets used by the frontend |
+
+The Weston 15.0.1 command-line interface documents `-B drm` for the DRM/KMS
+backend, `--shell=kiosk-shell.so` for kiosk mode, and `--idle-time=0` to
+disable the idle timeout. Weston can launch the GUI as its child with the
+mandatory `--` separator; it supplies `WAYLAND_DISPLAY` to that child.
+XWayland support is explicitly enabled with `--xwayland`, so the production
+command must omit that option and the ISO must not contain the XWayland server
+package.
+
+The verified command shape for a seat-enabled session is:
+
+```sh
+env -u DISPLAY weston -B drm --shell=kiosk-shell.so --idle-time=0 -- \
+  /usr/bin/python3 -m feclora.gui_gtk
+```
+
+This is a CLI/package verification, not yet an approved systemd unit. The
+Weston process must receive a real logind/libseat session, the active tty and
+DRM/input seat access, plus a valid `XDG_RUNTIME_DIR`. The existing
+`feclora` account uses `/sbin/nologin`; the exact system-service/PAM/logind
+arrangement must be validated in a VM before the runtime is added to the ISO.
+Do not work around seat permissions by running Weston as root or by making
+`/dev/dri` world-writable.
+
+No Weston, GTK, or libadwaita runtime packages have been added to the Live
+image yet. Textual remains the enabled production interface until the GTK
+workflow audit, Weston session lifecycle, VM smoke tests and BIOS/UEFI
+acceptance are complete.
+
+Package references:
+- [Fedora 45 weston](https://packages.fedoraproject.org/pkgs/weston/weston/fedora-45.html)
+- [Fedora gtk4](https://packages.fedoraproject.org/pkgs/gtk4/gtk4/)
+- [Fedora python3-gobject](https://packages.fedoraproject.org/pkgs/pygobject3/python3-gobject/)
+- [Fedora libadwaita](https://packages.fedoraproject.org/pkgs/libadwaita/libadwaita/)
+- [Weston 15.0.1 man page](https://www.mankier.com/1/weston)
 
 ## Migration sequence
 
