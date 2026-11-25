@@ -2930,6 +2930,7 @@ class FecloraGTK:
         self._reset_image_layout()
 
     def _reset_image_layout(self) -> None:
+        self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
         self.image_layout = None
         self.image_session_id = ""
         self.image_partition.set_model(Gtk.StringList.new(["Inspecciona primero la imagen…"]))
@@ -3022,7 +3023,21 @@ class FecloraGTK:
         except ValueError as exc:
             self.image_result.set_text(str(exc))
             return
-        self.api.submit("browse_image", params, on_success=self._show_image_directory, on_error=self._image_page_failed)
+        self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
+        browse_generation = self._image_browse_generation
+        page_generation = self._image_page_generation
+        catalog_generation = self._image_catalog_generation
+        self.api.submit(
+            "browse_image", params,
+            on_success=lambda result: self._show_image_directory(result)
+            if browse_generation == self._image_browse_generation
+            and page_generation == self._image_page_generation
+            and catalog_generation == self._image_catalog_generation else None,
+            on_error=lambda error: self._image_page_failed(error)
+            if browse_generation == self._image_browse_generation
+            and page_generation == self._image_page_generation
+            and catalog_generation == self._image_catalog_generation else None,
+        )
 
     def _show_image_directory(self, result: dict[str, Any]) -> None:
         self.image_session_id = result.get("session_id", "")
