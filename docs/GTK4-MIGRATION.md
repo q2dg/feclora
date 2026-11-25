@@ -366,3 +366,17 @@ Client-job start responses are retained by job identifier even if navigation or 
 Server administration and PXE start/stop callbacks capture the server-page generation at submission time. Results of completed actions are retained in the window state, while stale callbacks cannot write into widgets belonging to a later server-page instance. This is a presentation guard only and does not cancel a submitted privileged action.
 
 Remote deployment actions (start, arm, cancel, stop and reconcile) now bind their UI callbacks to the page instance and selected job identifier. The stop workflow rechecks that context after its status preflight and before submitting the stop request, so a delayed preflight cannot stop a different selection. Completed action results are retained independently of the current view; only matching callbacks update controls or refresh the job list. Definition creation/import callbacks are likewise page-scoped.
+
+
+Local capture, restore, clone, ddrescue and image-build submissions now bind their
+acceptance and error callbacks to a request generation and the operations-page
+generation. The one-shot age passphrase is captured by that specific submission
+and delivered only to the operation ID returned for it; it is no longer read from
+mutable window-wide pending state. Operation acceptance and status results are
+retained by operation ID, while stale callbacks cannot update a later page
+instance. Status polling and cancellation carry the operation ID explicitly, and
+reopening the operations page resumes polling the currently tracked operation.
+These guards preserve already-submitted backend actions and do not replace the
+backend's authorization or destructive-operation checks. Structural source
+tests were added; GTK runtime, privileged-operation and BIOS/UEFI acceptance
+tests have not been run.
