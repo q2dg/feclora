@@ -680,6 +680,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"_repository_kind": "s3"', self.source)
         self.assertIn('if repository and repository.get("read_only")', self.source)
         self.assertIn('repository.get("_repository_kind") == "remote"', self.source)
+        self.assertIn("if index > 0 and index - 1 < len(getattr(self, \"image_repositories\", [])):", self.source)
         self.assertIn('not repository.get("mounted") or not repository.get("verified")', self.source)
 
     def test_client_job_controls_use_semantic_libadwaita_groups(self):
