@@ -2754,12 +2754,37 @@ class FecloraGTK:
 
         self.image_select.connect("notify::selected", self._image_selection_changed)
         self.image_partition.connect("notify::selected", self._image_partition_changed)
+        self._image_remote_repositories = None
+        self._image_s3_repositories = None
         self.api.submit("remote_repositories", on_success=self._populate_image_repositories, on_error=self._image_page_failed)
+        self.api.submit("s3_repositories", on_success=self._populate_image_s3_repositories, on_error=self._image_page_failed)
 
     def _populate_image_repositories(self, result: dict[str, Any]) -> None:
-        self.image_repositories = [item for item in result.get("repositories", []) if isinstance(item, dict)]
-        labels = [str(item.get("id")) + (" · solo lectura" if item.get("read_only") else "") for item in self.image_repositories]
-        self.image_repository.set_model(Gtk.StringList.new(labels or ["Repositorio local"]))
+        self._image_remote_repositories = [
+            {**item, "_repository_kind": "remote"}
+            for item in result.get("repositories", [])
+            if isinstance(item, dict) and item.get("id") and item.get("mounted") and item.get("verified")
+        ]
+        self._finish_image_repository_loading()
+
+    def _populate_image_s3_repositories(self, result: dict[str, Any]) -> None:
+        self._image_s3_repositories = [
+            {**item, "_repository_kind": "s3"}
+            for item in result.get("repositories", [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+        self._finish_image_repository_loading()
+
+    def _finish_image_repository_loading(self) -> None:
+        if self._image_remote_repositories is None or self._image_s3_repositories is None:
+            return
+        self.image_repositories = self._image_remote_repositories + self._image_s3_repositories
+        labels = [
+            str(item.get("id")) + (" · S3" if item.get("_repository_kind") == "s3" else " · " + str(item.get("provider")))
+            + (" · solo lectura" if item.get("read_only") else "")
+            for item in self.image_repositories
+        ]
+        self.image_repository.set_model(Gtk.StringList.new(["Repositorio local"] + labels))
         self.image_repository.set_selected(0)
         self.image_repository.connect("notify::selected", self._image_repository_changed)
         self._load_image_catalog()
@@ -2937,8 +2962,11 @@ class FecloraGTK:
             return
         repository_id = self._image_repository_id()
         repository = next((item for item in getattr(self, "image_repositories", []) if item.get("id") == repository_id), None)
-        if repository and (repository.get("read_only") or not repository.get("mounted") or not repository.get("verified")):
-            self.image_result.set_text("La extracción requiere un repositorio montado, verificado y escribible.")
+        if repository and repository.get("read_only"):
+            self.image_result.set_text("La extracción no admite repositorios de solo lectura.")
+            return
+        if repository and repository.get("_repository_kind") == "remote" and (not repository.get("mounted") or not repository.get("verified")):
+            self.image_result.set_text("La extracción en un repositorio de archivos requiere montaje e identidad verificados.")
             return
         params = {"image_id": image["image_id"], "selector": selector}
         if repository_id:
