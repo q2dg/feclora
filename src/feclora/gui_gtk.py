@@ -2206,9 +2206,14 @@ class FecloraGTK:
         )
 
     def _populate_remote_job_controls(self, response: dict[str, Any]) -> None:
-        self._remote_jobs = [item for item in response.get("jobs", []) if isinstance(item, dict)]
+        # Keep the backing list and dropdown positions identical: action handlers
+        # resolve the selected row by index, so entries without an ID must be excluded.
+        self._remote_jobs = [
+            item for item in response.get("jobs", [])
+            if isinstance(item, dict) and isinstance(item.get("job_id"), str) and item.get("job_id").strip()
+        ]
         labels = ["Selecciona trabajo…"] + [
-            f"{item.get('job_id')} · {item.get('job_state')}" for item in self._remote_jobs if item.get("job_id")
+            f"{item.get('job_id')} · {item.get('job_state')}" for item in self._remote_jobs
         ]
         self.remote_job_select.set_model(Gtk.StringList.new(labels))
         self.remote_job_select.set_selected(0)
