@@ -362,3 +362,5 @@ The local operation log and persistent ddrescue recovery history guard refreshes
 
 
 Client-job start responses are retained by job identifier even if navigation or a newer TLS inspection makes the initiating view stale; only the matching page/inspection may update its widgets. Client status refreshes additionally use a request generation and job-identifier check, preventing delayed status or error callbacks from replacing the state of another inspected job. These guards affect presentation only: they do not cancel or suppress a privileged action already submitted to the API.
+
+Server administration and PXE start/stop callbacks capture the server-page generation at submission time. Results of completed actions are retained in the window state, while stale callbacks cannot write into widgets belonging to a later server-page instance. This is a presentation guard only and does not cancel a submitted privileged action.
