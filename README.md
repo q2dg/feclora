@@ -4,9 +4,10 @@ Feclora is a Fedora-based Live appliance for disk and partition imaging,
 local and remote cloning, recovery and network deployment. Its production
 keyboard-first Textual interface still runs directly on tty1. A separate
 GTK4/PyGObject/libadwaita frontend is being developed as a native Wayland kiosk
-on Weston with DRM/KMS; it now covers all 14 navigation sections and a
-substantial set of the existing operational API workflows, but full feature
-parity and runtime acceptance are not yet complete. The target explicitly
+on Weston with DRM/KMS; it now covers all 14 navigation sections and has
+source-level counterparts for every literal privileged API action currently
+called by Textual. Behavioral feature parity and runtime acceptance are not
+yet complete. The target explicitly
 excludes XWayland, Xorg, Openbox and the GTK/Weston X11 backends; Fedora's stock
 GTK4/Weston RPMs therefore need X11-disabled rebuilds before they can ship.
 Textual remains the production boot path
