@@ -470,3 +470,11 @@ executed against a live appliance.
  The accepted operation ID is retained before the page-visibility check, so
 navigation during submission does not lose the handle; returning to Repositories
 can resume status polling for that operation.
+
+
+The welcome/setup screen now versions its own lifetime. Applying a keyboard
+layout still records the successful system setting, but a delayed response
+cannot update a setup label after the user has continued into the main
+navigation. Leaving setup invalidates outstanding setup callbacks. Root-terminal
+success is reported through the persistent libadwaita toast overlay instead of
+a potentially detached setup widget. Structural regression coverage was added.
