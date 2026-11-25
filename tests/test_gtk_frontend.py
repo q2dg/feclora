@@ -900,6 +900,18 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("if index > 0 and index - 1 < len(getattr(self, \"image_repositories\", [])):", self.source)
         self.assertIn('not repository.get("mounted") or not repository.get("verified")', self.source)
 
+    def test_remote_job_definition_create_and_import_callbacks_are_page_scoped(self):
+        create = ast.get_source_segment(self.source, self.methods["_create_remote_job"])
+        imported = ast.get_source_segment(self.source, self.methods["_import_remote_job"])
+        imported_done = ast.get_source_segment(self.source, self.methods["_remote_job_imported"])
+        self.assertIn("page_generation = self._remote_jobs_page_generation", create)
+        self.assertIn("_remote_job_action_done(", create)
+        self.assertIn("page_generation = self._remote_jobs_page_generation", imported)
+        self.assertIn("_remote_job_imported(result, generation)", imported)
+        self.assertIn("self._remote_job_import_result = result", imported_done)
+        self.assertIn("page_generation != self._remote_jobs_page_generation", imported_done)
+
+
     def test_remote_job_actions_are_bound_to_page_and_selected_job(self):
         context = ast.get_source_segment(self.source, self.methods["_remote_job_context_is_current"])
         stop = ast.get_source_segment(self.source, self.methods["_stop_remote_job_after_status"])
