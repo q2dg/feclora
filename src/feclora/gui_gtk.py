@@ -567,6 +567,13 @@ class FecloraGTK:
                 if operations_page_generation == self._page_generation else None,
             )
 
+            active_operation_id = getattr(self, "active_capture_id", None)
+            if active_operation_id:
+                self.capture_start.set_sensitive(False)
+                self.capture_cancel.set_sensitive(True)
+                self.capture_result.set_text("Recuperando seguimiento de la operación " + active_operation_id + "…")
+                self._poll_capture_status(active_operation_id, operations_page_generation)
+
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
