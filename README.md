@@ -1,16 +1,15 @@
 # Feclora
 
 Feclora is a Fedora-based Live appliance for disk and partition imaging,
-local and remote cloning, recovery and network deployment. The default boot
-interface is now a fullscreen GTK4/PyGObject/libadwaita application on tty1,
-launched directly by the Cage Wayland kiosk compositor with XWayland disabled.
-The initial screen presents language and keyboard-layout selection. Textual
-remains installed as a manual fallback, but is no longer enabled as the boot
-interface. The GTK migration covers all 14 navigation sections, although
-behavioral parity and runtime acceptance are still in progress. BIOS/UEFI,
-physical-hardware, seat/logind and keyboard acceptance must be completed
-before this boot-path change can be considered validated. See
-[the GTK4 migration record](docs/GTK4-MIGRATION.md) for exact status.
+local and remote cloning, recovery and network deployment. The current production interface remains Textual on tty1 while the GTK4/
+PyGObject/libadwaita migration is audited for complete behavioral parity.
+The target graphical stack is native Wayland using Weston DRM/KMS with
+Weston's kiosk shell; Cage is not part of the design. Textual will be removed
+only after all workflows, destructive-operation safeguards, tests and
+BIOS/UEFI acceptance have been demonstrated against GTK. The strict
+Wayland-only target requires Fedora-matched X11-disabled Weston, GTK4 and
+libadwaita builds; stock Fedora packages are not acceptable. See
+[the GTK4 migration record](docs/GTK4-MIGRATION.md) for the acceptance gate.
 
 ## What it does
 
