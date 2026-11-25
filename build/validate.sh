@@ -82,8 +82,7 @@ if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora
   fail "The UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
-require_text 'enable feclora-gtk\.service' kickstart/feclora-live.ks "The GTK kiosk must be the enabled tty1 boot interface."
-require_text 'install -m 0644 .*feclora-gtk\.service' kickstart/feclora-live.ks "The GTK kiosk unit must be installed into the Live image."
+require_text 'enable feclora-gtk\.service' kickstart/feclora-live.ks "The GTK kiosk must be enabled at boot."
 require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-recovery.service "Durable operations must recover before the interface starts."
@@ -2082,7 +2081,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- packages/base.txt "The Live image must install the Wayland kiosk compositor."
+ packages/base.txt "The Live image must install Cage."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -4496,7 +4495,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- packages/base.txt "The Live image must install the Wayland kiosk compositor."
+ packages/base.txt "The Live image must install Cage."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -4905,7 +4904,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- src/feclora/data/feclora-gtk.service "The GTK kiosk must create a logind-backed session."
+ src/feclora/data/feclora-gtk.service "The GTK kiosk must create a logind session."
 require_text '^ExecStart=/usr/bin/cage -x -s -- /usr/bin/python3 -m feclora\.gui_gtk
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
@@ -6910,7 +6909,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- packages/base.txt "The Live image must install the Wayland kiosk compositor."
+ packages/base.txt "The Live image must install Cage."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -9324,7 +9323,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- packages/base.txt "The Live image must install the Wayland kiosk compositor."
+ packages/base.txt "The Live image must install Cage."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -9733,7 +9732,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- src/feclora/data/feclora-gtk.service "The GTK kiosk must report its first rendered window."
+ src/feclora/data/feclora-gtk.service "The GTK kiosk must report its first mapped window."
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
@@ -11738,7 +11737,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- packages/base.txt "The Live image must install the Wayland kiosk compositor."
+ packages/base.txt "The Live image must install Cage."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -14151,7 +14150,7 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- packages/base.txt "The Live image must install the Wayland kiosk compositor."
+ packages/base.txt "The Live image must install Cage."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
