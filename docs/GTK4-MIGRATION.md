@@ -517,3 +517,7 @@ PXE answer publication now retains the accepted result and uses the requested jo
 La página GTK de sistema muestra ahora, además del hostname y la plataforma, el estado de configuración del servidor y del cliente, cada servicio comunicado por la API y el estado de cada certificado. Los detalles se reconstruyen al recibir cada respuesta de estado, evitando conservar filas obsoletas entre actualizaciones. Esta corrección recupera los campos que ya exponía la tabla de estado Textual.
 
 La cobertura añadida es estructural (AST); no implica que se hayan ejecutado pruebas con GTK/GI ni validaciones en el appliance.
+
+### Selector de trabajos remotos
+
+El selector GTK de trabajos de despliegue usa índices para resolver la definición elegida. Su lista de respaldo ahora excluye registros que no tengan un `job_id` de texto no vacío, igual que las opciones visibles. Así, una entrada incompleta del historial no desplaza los índices ni puede asociar una acción a otro trabajo persistido.
