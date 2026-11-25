@@ -900,6 +900,21 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("if index > 0 and index - 1 < len(getattr(self, \"image_repositories\", [])):", self.source)
         self.assertIn('not repository.get("mounted") or not repository.get("verified")', self.source)
 
+    def test_server_and_pxe_action_callbacks_are_page_guarded(self):
+        server_done = ast.get_source_segment(self.source, self.methods["_server_action_done"])
+        server_failed = ast.get_source_segment(self.source, self.methods["_server_action_failed"])
+        pxe_done = ast.get_source_segment(self.source, self.methods["_pxe_action_done"])
+        pxe_failed = ast.get_source_segment(self.source, self.methods["_pxe_action_failed"])
+        for callback in (server_done, server_failed, pxe_done, pxe_failed):
+            self.assertIn("page_generation != self._server_status_page_generation", callback)
+        self.assertIn("self._server_action_result = result", server_done)
+        self.assertIn("self._pxe_action_result = result", pxe_done)
+        for action in ("bootstrap_server", "renew_server_certificate", "rotate_server_keypair",
+                       "start_pxe_services", "stop_pxe_services"):
+            self.assertIn(f'"{action}"', self.source)
+        self.assertIn("generation=self._server_status_page_generation", self.source)
+
+
     def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
         start = self.source.index("    def _start_client_job")
         end = self.source.index("    def _show_client_job_rows", start)
