@@ -1145,6 +1145,25 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("on_error=lambda error: self._client_job_failed", callbacks)
 
 
+    def test_client_inventory_callbacks_reject_detached_page_results(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_client_jobs_page"])
+        interfaces = ast.get_source_segment(self.source, self.methods["_populate_client_interfaces"])
+        inventory = ast.get_source_segment(self.source, self.methods["_populate_client_inventory"])
+        self.assertIn("window_generation = self._page_generation", page)
+        self.assertIn("window_generation == self._page_generation", page)
+        self.assertIn("window_generation != self._page_generation", interfaces)
+        self.assertIn("window_generation != self._page_generation", inventory)
+
+    def test_pxe_repository_callbacks_reject_detached_page_results(self):
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_pxe_answer_repositories"])
+        s3 = ast.get_source_segment(self.source, self.methods["_pxe_answer_s3_repositories"])
+        remote = ast.get_source_segment(self.source, self.methods["_pxe_answer_remote_repositories"])
+        error = ast.get_source_segment(self.source, self.methods["_pxe_answer_repository_error"])
+        self.assertIn("window_generation == self._page_generation", refresh)
+        self.assertIn("window_generation != self._page_generation", s3)
+        self.assertIn("window_generation != self._page_generation", remote)
+        self.assertIn("window_generation != self._page_generation", error)
+
     def test_client_job_history_refresh_rejects_older_responses(self):
         page = ast.get_source_segment(self.source, self.methods["_show_client_jobs_page"])
         refresh = ast.get_source_segment(self.source, self.methods["_refresh_client_job_history"])
