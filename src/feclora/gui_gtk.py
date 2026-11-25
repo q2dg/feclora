@@ -3967,7 +3967,7 @@ class FecloraGTK:
                 action = "build_deployment_bundle"
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando generación…")
-            self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation(action, params)
             return
         if kind in {8, 9, 10, 11, 12, 13, 16}:
             target_index = self.capture_target.get_selected()
@@ -4020,7 +4020,7 @@ class FecloraGTK:
                 return
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando operación destructiva…")
-            self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation(action, params, passphrase=capture_passphrase)
             return
         if kind == 7:
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -4034,7 +4034,7 @@ class FecloraGTK:
                     params["repository_id"] = selected_repository["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando finalización de recuperación…")
-            self.api.submit("finalize_recovery", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation("finalize_recovery", params)
             return
         if kind == 6:
             if index >= len(getattr(self, "capture_devices", [])) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -4048,7 +4048,7 @@ class FecloraGTK:
                     params["repository_id"] = selected_repository["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando recuperación ddrescue…")
-            self.api.submit("recover_disk", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation("recover_disk", params)
             return
         if kind == 5:
             target_directory = self.capture_btrfs_target.get_text().strip()
@@ -4066,7 +4066,7 @@ class FecloraGTK:
                     params["repository_id"] = selected_repository["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando recepción Btrfs…")
-            self.api.submit("receive_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation("receive_btrfs_subvolume", params)
             return
         if kind == 4:
             source_path = self.capture_btrfs_source.get_text().strip()
@@ -4088,7 +4088,7 @@ class FecloraGTK:
                     params["repository_id"] = selected_repository["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando captura Btrfs…")
-            self.api.submit("capture_btrfs_subvolume", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation("capture_btrfs_subvolume", params)
             return
         if kind == 17:
             if index >= len(getattr(self, "capture_devices", [])) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -4102,7 +4102,7 @@ class FecloraGTK:
                     params["repository_id"] = repository["id"]
             self.capture_start.set_sensitive(False)
             self.capture_result.set_text("Solicitando captura P2V…")
-            self.api.submit("capture_p2v", params, on_success=self._capture_accepted, on_error=self._capture_failed)
+            self._submit_capture_operation("capture_p2v", params)
             return
         if index >= len(getattr(self, "capture_devices", [])):
             self.capture_result.set_text("Selecciona un disco de origen válido.")
@@ -4143,45 +4143,116 @@ class FecloraGTK:
                 self.capture_result.set_text("Indica una frase secreta para cifrar la captura RAW.")
                 return
             params["encrypt_passphrase"] = True
-        self.active_capture_passphrase = capture_passphrase
         self.capture_start.set_sensitive(False)
         self.capture_result.set_text("Solicitando captura…")
         self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
 
-    def _capture_accepted(self, result: dict[str, Any]) -> None:
+    def _submit_capture_operation(self, action: str, params: dict[str, Any], passphrase: str = "") -> None:
+        self._capture_request_generation = getattr(self, "_capture_request_generation", 0) + 1
+        request_generation = self._capture_request_generation
+        page_generation = self._capture_page_generation
+        self._capture_requests = getattr(self, "_capture_requests", {})
+        self._capture_requests[request_generation] = {
+            "page_generation": page_generation,
+            "passphrase": passphrase,
+            "action": action,
+        }
+        self.api.submit(
+            action,
+            params,
+            on_success=lambda result: self._capture_accepted(
+                result, page_generation, request_generation, passphrase
+            ),
+            on_error=lambda error: self._capture_failed(error, page_generation, request_generation),
+        )
+
+    def _capture_view_is_current(self, page_generation: int, operation_id: str | None = None) -> bool:
+        if page_generation != self._page_generation or page_generation != getattr(self, "_capture_page_generation", None):
+            return False
+        if operation_id is not None and getattr(self, "active_capture_id", None) != operation_id:
+            return False
+        return hasattr(self, "capture_result") and hasattr(self, "capture_start")
+
+    def _capture_accepted(
+        self, result: dict[str, Any], page_generation: int | None = None,
+        request_generation: int | None = None, passphrase: str = "",
+    ) -> None:
         operation_id = result.get("operation_id")
         if not isinstance(operation_id, str) or not operation_id:
-            self._capture_failed(RuntimeError("El backend no devolvió operation_id."))
+            self._capture_failed(
+                RuntimeError("El backend no devolvió operation_id."),
+                page_generation, request_generation,
+            )
             return
-        self.active_capture_id = operation_id
-        passphrase = getattr(self, "active_capture_passphrase", "")
-        self.active_capture_passphrase = ""
+        self._local_operation_results = getattr(self, "_local_operation_results", {})
+        self._local_operation_results[operation_id] = {"accepted": result, "status": None}
+        request_is_latest = request_generation is None or request_generation == getattr(self, "_capture_request_generation", None)
+        if request_is_latest:
+            self.active_capture_id = operation_id
         if passphrase:
-            self.capture_passphrase.set_text("")
             self.api.submit(
                 "provide_capture_passphrase",
                 {"operation_id": operation_id, "passphrase": passphrase},
-                on_success=lambda _response: self.capture_result.set_text("Frase age entregada a la operación."),
-                on_error=self._capture_passphrase_failed,
+                on_success=lambda _response: self._capture_passphrase_delivered(
+                    operation_id, page_generation
+                ),
+                on_error=lambda error: self._capture_passphrase_failed(
+                    error, operation_id, page_generation
+                ),
             )
-        self.capture_cancel.set_sensitive(True)
-        self.capture_result.set_text("Captura aceptada: " + operation_id)
-        self._poll_capture_status()
+        if request_is_latest and page_generation is not None and self._capture_view_is_current(page_generation):
+            self.capture_passphrase.set_text("") if hasattr(self, "capture_passphrase") else None
+            self.capture_cancel.set_sensitive(True)
+            self.capture_result.set_text("Operación aceptada: " + operation_id)
+            self.capture_progress.set_fraction(0.0)
+            self._poll_capture_status(operation_id, page_generation)
 
-    def _capture_passphrase_failed(self, error: Exception) -> None:
-        self.capture_result.set_text("No se pudo entregar la frase age a la operación: " + str(error))
-        operation_id = getattr(self, "active_capture_id", None)
+    def _capture_passphrase_delivered(self, operation_id: str, page_generation: int | None) -> None:
+        if page_generation is not None and self._capture_view_is_current(page_generation, operation_id):
+            self.capture_result.set_text("Frase age entregada a la operación.")
+
+    def _capture_passphrase_failed(
+        self, error: Exception, operation_id: str | None = None,
+        page_generation: int | None = None,
+    ) -> None:
+        self._capture_action_errors = getattr(self, "_capture_action_errors", {})
         if operation_id:
-            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._capture_failed)
+            self._capture_action_errors[operation_id] = str(error)
+            self.api.submit(
+                "cancel_local_operation",
+                {"operation_id": operation_id},
+                on_success=lambda _result: None,
+                on_error=lambda cancel_error: self._capture_action_errors.__setitem__(
+                    operation_id, str(cancel_error)
+                ),
+            )
+        if page_generation is not None and operation_id and self._capture_view_is_current(page_generation, operation_id):
+            self.capture_result.set_text("No se pudo entregar la frase age a la operación; se solicitó su cancelación: " + str(error))
 
-    def _poll_capture_status(self) -> bool:
-        operation_id = getattr(self, "active_capture_id", None)
+    def _poll_capture_status(self, operation_id: str | None = None, page_generation: int | None = None) -> bool:
+        operation_id = operation_id or getattr(self, "active_capture_id", None)
+        page_generation = page_generation if page_generation is not None else getattr(self, "_capture_page_generation", None)
         if not operation_id:
             return GLib.SOURCE_REMOVE
-        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_capture_status, on_error=self._capture_status_failed)
+        self.api.submit(
+            "local_operation_status",
+            {"operation_id": operation_id},
+            on_success=lambda status: self._show_capture_status(status, operation_id, page_generation),
+            on_error=lambda error: self._capture_status_failed(error, operation_id, page_generation),
+        )
         return GLib.SOURCE_REMOVE
 
-    def _show_capture_status(self, status: dict[str, Any]) -> None:
+    def _show_capture_status(
+        self, status: dict[str, Any], operation_id: str | None = None,
+        page_generation: int | None = None,
+    ) -> None:
+        operation_id = operation_id or status.get("operation_id") or getattr(self, "active_capture_id", None)
+        if not isinstance(operation_id, str) or not operation_id:
+            return
+        self._local_operation_results = getattr(self, "_local_operation_results", {})
+        self._local_operation_results.setdefault(operation_id, {})["status"] = status
+        if page_generation is None or not self._capture_view_is_current(page_generation, operation_id):
+            return
         events = status.get("events") or []
         event = next((e for e in reversed(events) if e.get("state") == "progress"), None)
         details = event.get("details", {}) if event else {}
@@ -4191,7 +4262,7 @@ class FecloraGTK:
             self.capture_progress.set_fraction(fraction)
             self.capture_progress.set_text(str(round(fraction * 100, 1)) + "%")
         state = status.get("state", "unknown")
-        self.capture_result.set_text("Operación " + str(self.active_capture_id) + ": " + str(state))
+        self.capture_result.set_text("Operación " + operation_id + ": " + str(state))
         if state in {"completed", "failed", "cancelled", "interrupted"}:
             terminal = events[-1].get("details", {}) if events else {}
             detail = terminal.get("error") or terminal.get("reason") or terminal
@@ -4200,29 +4271,50 @@ class FecloraGTK:
             self.capture_cancel.set_sensitive(False)
             self.active_capture_id = None
             return
-        GLib.timeout_add_seconds(2, self._poll_capture_status)
+        GLib.timeout_add_seconds(2, lambda: self._poll_capture_status(operation_id, page_generation))
 
-    def _capture_status_failed(self, error: Exception) -> None:
-        self.capture_result.set_text("No se pudo consultar el progreso; la operación sigue identificada como activa: " + str(error))
-        self.capture_cancel.set_sensitive(True)
-        GLib.timeout_add_seconds(5, self._poll_capture_status)
+    def _capture_status_failed(
+        self, error: Exception, operation_id: str | None = None,
+        page_generation: int | None = None,
+    ) -> None:
+        if operation_id:
+            self._capture_action_errors = getattr(self, "_capture_action_errors", {})
+            self._capture_action_errors[operation_id] = "status: " + str(error)
+        if operation_id and page_generation is not None and self._capture_view_is_current(page_generation, operation_id):
+            self.capture_result.set_text("No se pudo consultar el progreso; la operación sigue identificada como activa: " + str(error))
+            self.capture_cancel.set_sensitive(True)
+            GLib.timeout_add_seconds(5, lambda: self._poll_capture_status(operation_id, page_generation))
 
     def _cancel_disk_capture(self, _button: Gtk.Button) -> None:
         operation_id = getattr(self, "active_capture_id", None)
+        page_generation = self._capture_page_generation
         if not operation_id:
             return
         self.capture_cancel.set_sensitive(False)
         self.capture_result.set_text("Cancelación solicitada. La escritura podría dejar el destino parcialmente modificado.")
-        self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._capture_failed)
+        self.api.submit(
+            "cancel_local_operation",
+            {"operation_id": operation_id},
+            on_success=lambda _result: None,
+            on_error=lambda error: self._capture_failed(error, page_generation, operation_id=operation_id),
+        )
 
-    def _capture_failed(self, error: Exception) -> None:
-        self.active_capture_passphrase = ""
+    def _capture_failed(
+        self, error: Exception, page_generation: int | None = None,
+        request_generation: int | None = None, operation_id: str | None = None,
+    ) -> None:
+        self._capture_action_errors = getattr(self, "_capture_action_errors", {})
+        key = operation_id or (f"request:{request_generation}" if request_generation is not None else "latest")
+        self._capture_action_errors[key] = str(error)
+        if page_generation is None or not self._capture_view_is_current(page_generation, operation_id):
+            return
+        if request_generation is not None and request_generation != getattr(self, "_capture_request_generation", None):
+            return
         if hasattr(self, "capture_passphrase"):
             self.capture_passphrase.set_text("")
-        if hasattr(self, "capture_result"):
-            self.capture_result.set_text("Captura fallida: " + str(error))
-            self.capture_start.set_sensitive(True)
-            self.capture_cancel.set_sensitive(False)
+        self.capture_result.set_text("Operación fallida: " + str(error))
+        self.capture_start.set_sensitive(True)
+        self.capture_cancel.set_sensitive(False)
 
     def _refresh_status(self, _button: Gtk.Button | None) -> None:
         self._status_refresh_generation = getattr(self, "_status_refresh_generation", 0) + 1
