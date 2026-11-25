@@ -1158,16 +1158,43 @@ class FecloraGTK:
             return
         request["job_id"] = job_id
         self.pxe_answer_result.set_text("El backend validará la respuesta y el estado activo de PXE antes de publicarla…")
-        self.api.submit("publish_pxe_answer", request, on_success=self._pxe_answer_published, on_error=self._pxe_answer_failed)
+        self._pxe_answer_action_generation = getattr(self, "_pxe_answer_action_generation", 0) + 1
+        request_generation = self._pxe_answer_action_generation
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
+        self.api.submit(
+            "publish_pxe_answer", request,
+            on_success=lambda result: self._pxe_answer_published(result, page_generation, window_generation, request_generation, job_id),
+            on_error=lambda error: self._pxe_answer_failed(error, page_generation, window_generation, request_generation, job_id),
+        )
 
-    def _pxe_answer_published(self, result: dict[str, Any]) -> None:
+    def _pxe_answer_published(
+        self, result: dict[str, Any], page_generation: int, window_generation: int,
+        request_generation: int, requested_job_id: str,
+    ) -> None:
+        self._pxe_answer_action_results = getattr(self, "_pxe_answer_action_results", {})
+        self._pxe_answer_action_results["publish:" + requested_job_id] = result
+        if page_generation != self._server_status_page_generation or window_generation != self._page_generation or request_generation != getattr(self, "_pxe_answer_action_generation", None):
+            return
         job_id = str(result.get("job_id") or "")
         self.pxe_answer_revoke_id.set_text(job_id)
         self.pxe_answer_result.set_text(str(result.get("message") or result))
         self._refresh_pxe_passphrase_status()
 
-    def _pxe_answer_failed(self, error: Exception) -> None:
-        self.pxe_answer_result.set_text("No se publicó la respuesta PXE: " + str(error))
+    def _pxe_answer_failed(
+        self, error: Exception, page_generation: int | None = None,
+        window_generation: int | None = None, request_generation: int | None = None,
+        job_id: str | None = None,
+    ) -> None:
+        self._pxe_answer_action_errors = getattr(self, "_pxe_answer_action_errors", {})
+        self._pxe_answer_action_errors[job_id or "latest"] = str(error)
+        if page_generation is not None and (
+            page_generation != self._server_status_page_generation
+            or window_generation != self._page_generation
+            or request_generation != getattr(self, "_pxe_answer_action_generation", None)
+        ):
+            return
+        self.pxe_answer_result.set_text("No se pudo completar la operación de respuesta PXE: " + str(error))
 
     def _revoke_pxe_answer(self, _button: Gtk.Button) -> None:
         job_id = self.pxe_answer_revoke_id.get_text().strip()
@@ -1175,9 +1202,24 @@ class FecloraGTK:
             self.pxe_answer_result.set_text("Indica el UUID de la respuesta que quieres revocar.")
             return
         self.pxe_answer_result.set_text("Revocando respuesta y script iPXE…")
-        self.api.submit("revoke_pxe_answer", {"job_id": job_id}, on_success=self._pxe_answer_revoked, on_error=self._pxe_answer_failed)
+        self._pxe_answer_action_generation = getattr(self, "_pxe_answer_action_generation", 0) + 1
+        request_generation = self._pxe_answer_action_generation
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
+        self.api.submit(
+            "revoke_pxe_answer", {"job_id": job_id},
+            on_success=lambda result: self._pxe_answer_revoked(result, page_generation, window_generation, request_generation, job_id),
+            on_error=lambda error: self._pxe_answer_failed(error, page_generation, window_generation, request_generation, job_id),
+        )
 
-    def _pxe_answer_revoked(self, result: dict[str, Any]) -> None:
+    def _pxe_answer_revoked(
+        self, result: dict[str, Any], page_generation: int, window_generation: int,
+        request_generation: int, job_id: str,
+    ) -> None:
+        self._pxe_answer_action_results = getattr(self, "_pxe_answer_action_results", {})
+        self._pxe_answer_action_results["revoke:" + job_id] = result
+        if page_generation != self._server_status_page_generation or window_generation != self._page_generation or request_generation != getattr(self, "_pxe_answer_action_generation", None) or self.pxe_answer_revoke_id.get_text().strip() != job_id:
+            return
         self.pxe_answer_result.set_text(str(result.get("message") or result))
         self._refresh_pxe_passphrase_status()
 
@@ -1186,20 +1228,36 @@ class FecloraGTK:
         if not directory:
             self.server_status.set_text("Indica el directorio de exportación protegido.")
             return
-        self.api.submit("export_server_age_recipients", {"export_directory": directory}, on_success=self._server_action_done, on_error=self._server_action_failed)
+        page_generation = self._server_status_page_generation
+        self.api.submit("export_server_age_recipients", {"export_directory": directory}, on_success=lambda result: self._server_action_done(result, page_generation), on_error=lambda error: self._server_action_failed(error, page_generation))
 
     def _refresh_client_age_recipients(self, _button: Gtk.Button) -> None:
         path = self.client_age_path.get_text().strip()
         if not path:
             self.server_status.set_text("Indica la ruta del inventario de destinatarios del cliente.")
             return
-        self.api.submit("refresh_client_age_recipients", {"inventory_path": path}, on_success=self._server_action_done, on_error=self._server_action_failed)
+        page_generation = self._server_status_page_generation
+        self.api.submit("refresh_client_age_recipients", {"inventory_path": path}, on_success=lambda result: self._server_action_done(result, page_generation), on_error=lambda error: self._server_action_failed(error, page_generation))
 
     def _refresh_pxe_passphrase_status(self) -> None:
+        self._pxe_passphrase_status_generation = getattr(self, "_pxe_passphrase_status_generation", 0) + 1
+        request_generation = self._pxe_passphrase_status_generation
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
         self.pxe_passphrase_status.set_text("Consultando estado de la solicitud age…")
-        self.api.submit("pxe_age_passphrase_status", on_success=self._pxe_passphrase_status_loaded, on_error=self._pxe_passphrase_status_failed)
+        self.api.submit(
+            "pxe_age_passphrase_status",
+            on_success=lambda result: self._pxe_passphrase_status_loaded(result, request_generation, page_generation, window_generation),
+            on_error=lambda error: self._pxe_passphrase_status_failed(error, request_generation, page_generation, window_generation),
+        )
 
-    def _pxe_passphrase_status_loaded(self, result: dict[str, Any]) -> None:
+    def _pxe_passphrase_status_loaded(
+        self, result: dict[str, Any], request_generation: int | None = None,
+        page_generation: int | None = None, window_generation: int | None = None,
+    ) -> None:
+        self._pxe_passphrase_status_result = result
+        if request_generation != getattr(self, "_pxe_passphrase_status_generation", None) or page_generation != self._server_status_page_generation or window_generation != self._page_generation:
+            return
         if result.get("waiting"):
             self.pxe_passphrase_status.set_text("El worker PXE está esperando una frase age de un solo uso.")
             self.pxe_passphrase.set_sensitive(True)
@@ -1213,7 +1271,14 @@ class FecloraGTK:
             self.pxe_passphrase_status.set_text("Este entorno no es un cliente Live PXE desatendido.")
             self.pxe_passphrase.set_sensitive(False)
 
-    def _pxe_passphrase_status_failed(self, error: Exception) -> None:
+    def _pxe_passphrase_status_failed(
+        self, error: Exception, request_generation: int | None = None,
+        page_generation: int | None = None, window_generation: int | None = None,
+    ) -> None:
+        self._pxe_passphrase_status_errors = getattr(self, "_pxe_passphrase_status_errors", [])
+        self._pxe_passphrase_status_errors.append(str(error))
+        if request_generation != getattr(self, "_pxe_passphrase_status_generation", None) or page_generation != self._server_status_page_generation or window_generation != self._page_generation:
+            return
         self.pxe_passphrase_status.set_text("No se pudo consultar la solicitud age: " + str(error))
         self.pxe_passphrase.set_sensitive(False)
 
@@ -1222,15 +1287,36 @@ class FecloraGTK:
         if not passphrase:
             self.pxe_passphrase_status.set_text("Introduce la frase age pendiente.")
             return
+        self._pxe_passphrase_submit_generation = getattr(self, "_pxe_passphrase_submit_generation", 0) + 1
+        request_generation = self._pxe_passphrase_submit_generation
+        page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
         self.pxe_passphrase.set_sensitive(False)
-        self.api.submit("provide_pxe_age_passphrase", {"passphrase": passphrase}, on_success=self._pxe_passphrase_submitted, on_error=self._pxe_passphrase_submit_failed)
+        self.api.submit(
+            "provide_pxe_age_passphrase", {"passphrase": passphrase},
+            on_success=lambda result: self._pxe_passphrase_submitted(result, request_generation, page_generation, window_generation),
+            on_error=lambda error: self._pxe_passphrase_submit_failed(error, request_generation, page_generation, window_generation),
+        )
 
-    def _pxe_passphrase_submitted(self, result: dict[str, Any]) -> None:
+    def _pxe_passphrase_submitted(
+        self, result: dict[str, Any], request_generation: int | None = None,
+        page_generation: int | None = None, window_generation: int | None = None,
+    ) -> None:
+        self._pxe_passphrase_submit_result = result
+        if request_generation != getattr(self, "_pxe_passphrase_submit_generation", None) or page_generation != self._server_status_page_generation or window_generation != self._page_generation:
+            return
         self.pxe_passphrase.set_text("")
         self.pxe_passphrase_status.set_text(str(result.get("message") or result))
         self._refresh_pxe_passphrase_status()
 
-    def _pxe_passphrase_submit_failed(self, error: Exception) -> None:
+    def _pxe_passphrase_submit_failed(
+        self, error: Exception, request_generation: int | None = None,
+        page_generation: int | None = None, window_generation: int | None = None,
+    ) -> None:
+        self._pxe_passphrase_submit_errors = getattr(self, "_pxe_passphrase_submit_errors", [])
+        self._pxe_passphrase_submit_errors.append(str(error))
+        if request_generation != getattr(self, "_pxe_passphrase_submit_generation", None) or page_generation != self._server_status_page_generation or window_generation != self._page_generation:
+            return
         self.pxe_passphrase.set_sensitive(True)
         self.pxe_passphrase_status.set_text("No se pudo entregar la frase age: " + str(error))
 
