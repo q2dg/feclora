@@ -326,3 +326,8 @@ The unattended PXE answer publisher also exposes SCP over managed SSHFS reposito
 
 
 The remote deployment action selector includes both status inspection and an explicit refresh action, matching the Textual workflow. Both use the same read-only deployment-service status endpoint; start, arm, cancel, stop and reconcile retain their separate guards.
+
+
+### Paridad de controles PXE
+
+La pantalla GTK muestra los campos de rango DHCP, gateway, DNS y confirmación de DHCP autoritativo únicamente en modo de red aislada, igual que Textual. Cambiar el modo invalida cualquier perfil previamente validado y deshabilita el inicio PXE hasta repetir el preflight. El backend sigue siendo la autoridad para validar y arrancar los servicios.
