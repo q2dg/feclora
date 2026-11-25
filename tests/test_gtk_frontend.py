@@ -1339,6 +1339,14 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self._latest_profile_operation_id = operation_id", accepted)
         self.assertIn("page_generation != self._page_generation", failed)
 
+    def test_restore_profile_cancel_failure_reenables_retry(self):
+        failed = ast.get_source_segment(self.source, self.methods["_profile_failed"])
+        cancel = ast.get_source_segment(self.source, self.methods["_cancel_restore_profile_operation"])
+        self.assertIn("self.profile_cancel.set_sensitive(False)", cancel)
+        self.assertIn("operation_id is not None and hasattr(self, \"profile_cancel\")", failed)
+        self.assertIn("self.profile_cancel.set_sensitive(True)", failed)
+        self.assertIn("operation_id != getattr(self, \"profile_operation_id\", None)", failed)
+
     def test_restore_profile_status_polling_keeps_operation_identity(self):
         poll = ast.get_source_segment(self.source, self.methods["_poll_restore_profile_operation"])
         status = ast.get_source_segment(self.source, self.methods["_show_restore_profile_operation_status"])
