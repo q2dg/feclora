@@ -1371,6 +1371,8 @@ class FecloraGTK:
     def _repository_action_done(self, response: dict[str, Any]) -> None:
         self.repository_action_result.set_text("Acción completada: " + str(response))
         self.repository_confirmation.set_text("")
+        self.remote_id.set_editable(True)
+        self.s3_id.set_editable(True)
         self._refresh_repositories(None)
 
     def _repository_action_failed(self, error: Exception) -> None:
@@ -1396,6 +1398,7 @@ class FecloraGTK:
         if action == "edit":
             if kind == "S3":
                 self.s3_id.set_text(identifier)
+                self.s3_id.set_editable(False)
                 self.s3_endpoint.set_text(item.get("endpoint_url") or "")
                 self.s3_region.set_text(item.get("region") or "")
                 self.s3_bucket.set_text(item.get("bucket") or "")
@@ -1413,6 +1416,7 @@ class FecloraGTK:
                 self.repository_action_result.set_text("Proveedor de repositorio no reconocido.")
                 return
             self.remote_id.set_text(identifier)
+            self.remote_id.set_editable(False)
             self.remote_provider.set_selected(provider_index)
             self.remote_host.set_text(item.get("host") or "")
             self.remote_path.set_text(item.get("remote_path") or "")
