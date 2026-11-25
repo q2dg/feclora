@@ -2,11 +2,17 @@
 
 ## Status
 
-The migration is staged. Textual remains the production boot interface until
-every operator workflow has been ported, tested and accepted. All 14 navigation
-pages now have GTK content, but several are read-only or have incomplete controls;
-page presence is not feature parity. The shared catalogue still contains all 25
-languages.
+The boot route has now been switched to the GTK4/Wayland kiosk on tty1 at the
+operator's explicit request. `feclora-gtk.service` launches Cage with XWayland
+disabled, then starts the GTK welcome screen fullscreen for language and
+keyboard selection. Textual remains installed as a mutually exclusive manual
+fallback, but is no longer enabled at boot. This is an intentional early
+deployment of the new route, not a claim that migration parity or boot
+acceptance is complete. All 14 navigation pages have GTK content, but several
+still have read-only or incomplete controls; page presence is not feature
+parity. The shared catalogue still contains all 25 languages. BIOS/UEFI,
+logind/seat, input, VT-switching and physical-hardware acceptance remain
+outstanding.
 
 A source-level API audit found that every one of the 49 literal
 `call_feclora(...)` action names in Textual is represented in the GTK source.
@@ -527,3 +533,28 @@ El selector GTK de trabajos de despliegue usa índices para resolver la definici
 La vista GTK del registro local presenta ahora cada elemento de `inspection_errors` devuelto por la API, con su ruta o identificador y el motivo comunicado. Mantiene además la advertencia de no repetir operaciones afectadas hasta una inspección manual. El grupo de errores se crea como parte de cada instancia de página y se repuebla al actualizar, evitando referencias a widgets desconectados tras navegar fuera y volver.
 
 La prueba añadida verifica la estructura y el enlace del grupo a la página actual; no sustituye pruebas de ejecución con GTK/GI.
+
+## GTK kiosk boot route
+
+The Live image installs Fedora's `cage`, `gtk4`, `libadwaita` and
+`python3-gobject` RPMs. On tty1, systemd creates a PAM/logind session for the
+unprivileged `feclora` user and runs:
+
+```text
+/usr/bin/cage -x -s -- /usr/bin/python3 -m feclora.gui_gtk
+```
+
+Cage's `-x` option disables XWayland; `-s` permits switching virtual
+terminals so the existing maintenance shell on tty2 remains reachable. The
+GTK frontend forces `GDK_BACKEND=wayland`, removes `DISPLAY`, and requests a
+fullscreen undecorated window. The boot smoke marker is emitted after the
+welcome window is mapped, not merely when the process starts.
+
+The Textual unit and application remain installed as a fallback. The GTK and
+Textual units conflict with one another so they cannot own tty1 simultaneously.
+The default systemd target remains `multi-user.target`; Cage is started by the
+enabled GTK unit, not by installing a full desktop or display manager.
+
+The route change has not yet been validated by a real Fedora 45 image boot.
+Static checks and source-level tests cannot establish Cage's logind seat
+acquisition, GPU/KMS operation, keyboard input or BIOS/UEFI behavior.
