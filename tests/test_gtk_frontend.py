@@ -905,7 +905,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         end = self.source.index("    def _show_client_job_rows", start)
         callbacks = self.source[start:end]
         self.assertIn("inspection_generation = self._client_inspection_generation", callbacks)
-        self.assertIn("page_generation == self._client_page_generation", callbacks)
+        self.assertIn("page_generation != self._client_page_generation", callbacks)
         self.assertIn("self._client_remote_job_results", callbacks)
         self.assertIn("status_generation != self._client_status_generation", callbacks)
         self.assertIn("current_job.get(\"job_id\")", callbacks)
