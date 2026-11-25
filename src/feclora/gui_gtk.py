@@ -516,9 +516,10 @@ class FecloraGTK:
             self.capture_passphrase_toggle_row.set_visible(False)
 
             recovery_group = capture_group("Recuperación ddrescue")
-            self.capture_retry = Gtk.DropDown.new_from_strings([str(n) for n in range(11)])
-            self.capture_retry_row = capture_row(recovery_group, "Pasadas de reintento", self.capture_retry)
-            self.capture_retry.set_selected(3)
+            self.capture_retry = Gtk.DropDown.new_from_strings(["3"])
+            self.capture_retry_row = capture_row(recovery_group, "Pasadas de reintento (fijas)", self.capture_retry)
+            self.capture_retry.set_selected(0)
+            self.capture_retry_row.set_visible(False)
             self.capture_resume = Gtk.CheckButton(label="Reanudar recuperación existente (mapfile)")
             self.capture_resume_row = capture_row(recovery_group, "Reanudar recuperación", self.capture_resume)
 
@@ -3418,7 +3419,7 @@ class FecloraGTK:
             if index >= len(getattr(self, "capture_devices", [])) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
                 self.capture_result.set_text("Selecciona un disco completo e indica un ID de recuperación válido.")
                 return
-            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "retry_passes": self.capture_retry.get_selected(), "resume": self.capture_resume.get_active()}
+            params = {"source": self.capture_devices[index]["path"], "image_id": image_id, "retry_passes": 3, "resume": self.capture_resume.get_active()}
             repository_index = self.capture_repository.get_selected()
             if repository_index < len(getattr(self, "capture_repositories", [])):
                 selected_repository = self.capture_repositories[repository_index]
