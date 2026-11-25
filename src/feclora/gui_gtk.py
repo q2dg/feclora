@@ -4929,6 +4929,12 @@ class FecloraGTK:
             return
         if request_generation is not None and request_generation != getattr(self, "_capture_request_generation", None):
             return
+        if operation_id is not None:
+            self.capture_result.set_text(
+                "No se pudo solicitar la cancelación; la operación puede seguir activa: " + str(error)
+            )
+            self.capture_cancel.set_sensitive(True)
+            return
         if hasattr(self, "capture_passphrase"):
             self.capture_passphrase.set_text("")
         self.capture_result.set_text("Operación fallida: " + str(error))
