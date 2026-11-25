@@ -2964,6 +2964,11 @@ class FecloraGTK:
             description="Los estados vacíos y los resultados se muestran por separado",
         )
         self.page_body.append(history_group)
+        self.operation_log_inspection_group = Adw.PreferencesGroup(
+            title="Errores de inspección",
+            description="Registros que el backend no pudo inspeccionar de forma completa.",
+        )
+        self.page_body.append(self.operation_log_inspection_group)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.operation_log_stack = Gtk.Stack()
@@ -3037,21 +3042,18 @@ class FecloraGTK:
         self.operation_log_inspection_errors = [
             item for item in errors if isinstance(item, dict)
         ]
-        if self.operation_log_inspection_errors:
-            error_group = getattr(self, "operation_log_inspection_group", None)
-            if error_group is None:
-                error_group = Adw.PreferencesGroup(
-                    title="Errores de inspección",
-                    description="Registros que el backend no pudo inspeccionar de forma completa.",
-                )
-                self.page_body.append(error_group)
-                self.operation_log_inspection_group = error_group
-            while child := error_group.get_first_child():
-                error_group.remove(child)
-            for item in self.operation_log_inspection_errors:
-                path = item.get("path") or item.get("operation_id") or "Registro desconocido"
-                reason = item.get("error") or item.get("reason") or "Error de inspección sin detalle"
-                error_group.add(Adw.ActionRow(title=str(path), subtitle=str(reason)))
+        error_group = self.operation_log_inspection_group
+        while child := error_group.get_first_child():
+            error_group.remove(child)
+        error_group.set_description(
+            "No repitas operaciones afectadas hasta revisar estos errores."
+            if self.operation_log_inspection_errors
+            else "No hay errores de inspección comunicados por el backend."
+        )
+        for item in self.operation_log_inspection_errors:
+            path = item.get("path") or item.get("operation_id") or "Registro desconocido"
+            reason = item.get("error") or item.get("reason") or "Error de inspección sin detalle"
+            error_group.add(Adw.ActionRow(title=str(path), subtitle=str(reason)))
 
     def _cancel_selected_logged_operation(self, _button: Gtk.Button) -> None:
         index = self.operation_select.get_selected()
