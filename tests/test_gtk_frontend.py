@@ -672,6 +672,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
             self.assertIn(state, page)
         self.assertIn('self.api.submit("remote_repositories"', page)
 
+    def test_images_page_includes_verified_file_and_s3_repositories(self):
+        self.assertIn('self.api.submit("remote_repositories", on_success=self._populate_image_repositories', self.source)
+        self.assertIn('self.api.submit("s3_repositories", on_success=self._populate_image_s3_repositories', self.source)
+        self.assertIn('item.get("mounted") and item.get("verified")', self.source)
+        self.assertIn('"_repository_kind": "remote"', self.source)
+        self.assertIn('"_repository_kind": "s3"', self.source)
+        self.assertIn('if repository and repository.get("read_only")', self.source)
+        self.assertIn('repository.get("_repository_kind") == "remote"', self.source)
+        self.assertIn('not repository.get("mounted") or not repository.get("verified")', self.source)
+
     def test_client_job_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_client_jobs_page")
         end = self.source.index("    def _show_client_job_rows", start)
