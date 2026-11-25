@@ -1605,6 +1605,13 @@ class FecloraGTK:
     def _render_repositories(self) -> None:
         if not hasattr(self, "repositories_grid"):
             return
+        previous_key = None
+        if hasattr(self, "repository_management"):
+            previous_index = self.repository_management.get_selected()
+            previous_rows = getattr(self, "repository_management_rows", [])
+            if 0 < previous_index <= len(previous_rows):
+                previous_kind, previous_item = previous_rows[previous_index - 1]
+                previous_key = (previous_kind, previous_item.get("id"))
         rows = getattr(self, "remote_repository_rows", []) + getattr(self, "s3_repository_rows", [])
         self.repository_management_rows = rows
         if hasattr(self, "repository_management"):
@@ -1612,7 +1619,12 @@ class FecloraGTK:
                 f"{kind}: {item.get('id')}" for kind, item in rows
             ]
             self.repository_management.set_model(Gtk.StringList.new(labels))
-            self.repository_management.set_selected(0)
+            selected_index = next(
+                (index + 1 for index, (kind, item) in enumerate(rows)
+                 if (kind, item.get("id")) == previous_key),
+                0,
+            )
+            self.repository_management.set_selected(selected_index)
         grid = self.repositories_grid
         while child := grid.get_first_child():
             grid.remove(child)
