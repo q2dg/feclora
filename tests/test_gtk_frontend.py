@@ -94,6 +94,19 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.keyboard_dropdown.set_selected(", welcome)
         self.assertIn("set_activatable_widget", welcome)
 
+    def test_welcome_callbacks_do_not_mutate_stale_widgets(self):
+        welcome = ast.get_source_segment(self.source, self.methods["_show_welcome"])
+        apply = ast.get_source_segment(self.source, self.methods["_apply_keyboard"])
+        applied = ast.get_source_segment(self.source, self.methods["_keyboard_layout_applied"])
+        terminal = ast.get_source_segment(self.source, self.methods["_open_root_terminal"])
+        self.assertIn('self._welcome_generation = getattr(self, "_welcome_generation", 0) + 1', welcome)
+        self.assertIn("welcome_generation = self._welcome_generation", apply)
+        self.assertIn("_keyboard_layout_applied(layout, welcome_generation)", apply)
+        self.assertIn("welcome_generation != self._welcome_generation", applied)
+        self.assertIn("self.keyboard_layout = layout", applied)
+        self.assertIn("self.toast_overlay.add_toast(", terminal)
+        self.assertNotIn("self.status.set_text", terminal)
+
     def test_keyboard_layout_selection_is_preserved_after_apply(self):
         apply = ast.get_source_segment(self.source, self.methods["_apply_keyboard"])
         accepted = ast.get_source_segment(self.source, self.methods["_keyboard_layout_applied"])
