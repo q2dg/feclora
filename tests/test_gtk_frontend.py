@@ -342,6 +342,14 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('ipaddress.IPv4Address(self.network_address.get_text().strip())', self.source)
         self.assertIn('"rollback_timeout": 120', self.source)
         self.assertIn('interface.get("interface") != profile.get("device")', self.source)
+        profiles = ast.get_source_segment(self.source, self.methods["_populate_network_profiles"])
+        interfaces = ast.get_source_segment(self.source, self.methods["_update_network_interface_options"])
+        apply = ast.get_source_segment(self.source, self.methods["_apply_network_profile"])
+        self.assertIn('"Selecciona perfil activo…"', profiles)
+        self.assertIn('"Selecciona interfaz y dirección…"', interfaces)
+        self.assertIn("index - 1", interfaces)
+        self.assertIn("profile_index == 0", apply)
+        self.assertIn("interface_index == 0", apply)
 
     def test_restore_profiles_are_bound_to_stable_disk_identity_and_single_use_confirmation(self):
         for action in ('self.api.submit("restore_profiles"', 'self.api.submit("create_restore_profile"', 'self.api.submit("execute_restore_profile"'):
