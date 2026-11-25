@@ -1067,6 +1067,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("page_generation == self._page_generation", page)
         self.assertIn("page_generation == self._page_generation and generation == self._profile_repository_generation", load)
         self.assertIn("request_generation", create)
+        self.assertIn('request_kind="create"', create)
+        execute = self.source[self.source.index("    def _execute_selected_restore_profile"):self.source.index("    def _restore_profile_operation_accepted")]
+        self.assertIn('request_kind="execute"', execute)
+        self.assertIn('request_kind == "create"', failed)
         self.assertIn("request_is_current", accepted)
         self.assertIn("self._latest_profile_operation_id = operation_id", accepted)
         self.assertIn("page_generation != self._page_generation", failed)
