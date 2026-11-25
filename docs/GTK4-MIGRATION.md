@@ -447,3 +447,23 @@ repository-mount, credential, or P2V operation was executed.
  Image-layout inspection also now stores its response under the originating
 repository/image pair and discards it from the visible view if the selection
 changed before the response arrived.
+
+
+P2V legacy import/export now follows the durable operation through
+`local_operation_status`, rather than stopping at the accepted response. The
+latest operation ID and its status are retained, stale page/request callbacks
+cannot update the repository view, and reopening that page resumes polling.
+Terminal states (completed, failed, cancelled, interrupted) are reported in
+the P2V result area, matching the Textual export flow's wait-for-completion
+behavior.
+
+Image browsing now invalidates its session ID and clears the stale directory
+listing when a browse request fails, matching the Textual behavior. Browse
+errors are kept local to the explorer and no longer mark the repository image
+catalog itself as failed. Individual-file downloads remain an independent
+side effect: a valid response is still saved securely even if the user changes
+the selected image while it is in flight, but success/error feedback is shown
+only if the same image, repository, page and download request remain selected.
+Structural regression tests cover these lifecycle rules. No P2V conversion,
+repository transfer, image mount, filesystem traversal, or file download was
+executed against a live appliance.
