@@ -2951,6 +2951,7 @@ class FecloraGTK:
         )
         self.page_body.append(cancel_group)
         self.operation_select = Gtk.DropDown.new_from_strings(["Selecciona operación…"])
+        self.operation_select.connect("notify::selected", self._operation_cancel_selection_changed)
         select_row = Adw.ActionRow(title="Operación local")
         select_row.add_suffix(self.operation_select)
         select_row.set_activatable_widget(self.operation_select)
@@ -2961,6 +2962,8 @@ class FecloraGTK:
         confirmation_row.add_suffix(self.operation_confirmation)
         cancel_group.add(confirmation_row)
         cancel = Gtk.Button(label="Solicitar cancelación")
+        cancel.set_sensitive(False)
+        self.operation_cancel_button = cancel
         cancel.connect("clicked", self._cancel_selected_logged_operation)
         cancel_row = Adw.ActionRow(title="Cancelar operación seleccionada")
         cancel_row.add_suffix(cancel)
@@ -3019,6 +3022,7 @@ class FecloraGTK:
         options = [str(item["operation_id"]) + " · " + str(item.get("action") or "—") + " · " + str(item.get("state") or "unknown") for item in self.operation_log_records]
         self.operation_select.set_model(Gtk.StringList.new(options or ["No hay operaciones registradas"]))
         self.operation_select.set_selected(0)
+        self._operation_cancel_selection_changed(self.operation_select, None)
         for row, item in enumerate(operations, start=1):
             events = item.get("events") or []
             latest = events[-1] if events else {}
@@ -3063,12 +3067,36 @@ class FecloraGTK:
             reason = item.get("error") or item.get("reason") or "Error de inspección sin detalle"
             error_group.add(Adw.ActionRow(title=str(path), subtitle=str(reason)))
 
+    def _operation_cancel_selection_changed(
+        self, _dropdown: Gtk.DropDown, _param: Any,
+    ) -> None:
+        index = self.operation_select.get_selected()
+        records = getattr(self, "operation_log_records", [])
+        operation = records[index] if index < len(records) else None
+        cancellable = bool(
+            operation
+            and operation.get("state") in {"queued", "preflight", "running"}
+            and operation.get("cancellable", True) is not False
+        )
+        self.operation_cancel_button.set_sensitive(cancellable)
+        self.operation_confirmation.set_placeholder_text(
+            "CANCEL " + str(operation["operation_id"])
+            if cancellable else "La operación seleccionada no se puede cancelar"
+        )
+
     def _cancel_selected_logged_operation(self, _button: Gtk.Button) -> None:
         index = self.operation_select.get_selected()
-        if index >= len(getattr(self, "operation_log_records", [])):
+        records = getattr(self, "operation_log_records", [])
+        if index >= len(records):
             self.operation_log_summary.set_text("Selecciona una operación registrada.")
             return
-        operation_id = self.operation_log_records[index]["operation_id"]
+        operation = records[index]
+        if (operation.get("state") not in {"queued", "preflight", "running"}
+                or operation.get("cancellable", True) is False):
+            self._operation_cancel_selection_changed(self.operation_select, None)
+            self.operation_log_summary.set_text("La operación seleccionada no admite cancelación.")
+            return
+        operation_id = operation["operation_id"]
         expected = "CANCEL " + operation_id
         if self.operation_confirmation.get_text() != expected:
             self.operation_log_summary.set_text("Escribe exactamente: " + expected)
