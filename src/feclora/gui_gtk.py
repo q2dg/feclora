@@ -450,6 +450,7 @@ class FecloraGTK:
             self.capture_image_select = Gtk.DropDown.new_from_strings(["Cargando imágenes…"])
             self.capture_image_select_label = capture_row(source_group, "Imagen existente", self.capture_image_select)
             self.capture_repository = Gtk.DropDown.new_from_strings(["Cargando repositorios…"])
+            self.capture_repository.connect("notify::selected", self._capture_repository_changed)
             self.capture_repository_label = capture_row(source_group, "Repositorio de imágenes", self.capture_repository)
 
             confirmation_group = capture_group("Confirmación y generación", "Las acciones destructivas requieren la frase exacta asociada al destino.")
@@ -3071,9 +3072,6 @@ class FecloraGTK:
         ]
         self.capture_repository.set_model(Gtk.StringList.new(labels))
         self.capture_repository.set_selected(0)
-        if not getattr(self, "_capture_repository_signal_connected", False):
-            self.capture_repository.connect("notify::selected", self._capture_repository_changed)
-            self._capture_repository_signal_connected = True
         self._capture_repository_changed(self.capture_repository, None)
 
     def _capture_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
