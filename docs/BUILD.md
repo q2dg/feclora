@@ -84,12 +84,12 @@ With QEMU and OVMF installed, run:
 python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
-This headless test verifies that both firmware variants boot and the GTK
-welcome window is mapped inside Cage, reported over a test-only virtio-serial
-channel. QEMU exposes a virtio display device for the guest DRM/KMS path. It does **not** capture the terminal display or prove that a human can
-use every workflow. Manually boot both firmware modes with a visible QEMU
-display and verify boot messages, the immediate Cage/GTK tty1 handoff,
-keyboard navigation, VT switching to tty2 and service recovery.
+This headless test verifies that both firmware variants boot and Textual
+renders its initial screen, reported over a test-only virtio-serial channel.
+It does **not** capture the terminal display or prove that a human can use
+every workflow. Manually boot both firmware modes with a visible QEMU display
+and verify boot messages, the tty1 handoff, keyboard navigation, VT switching
+to tty2 and service recovery.
 
 ## Manual boot acceptance
 
@@ -108,18 +108,17 @@ keyboard navigation, VT switching to tty2 and service recovery.
 - [ ] Server/PXE preflight, local storage confirmation and error states are
       visible without relying on mouse input.
 - [ ] A reboot recovers unfinished local operations as interrupted and starts
-      the GTK kiosk directly.
+      Textual on tty1.
 - [ ] Kernel command line, firmware details, ISO checksum and test results are
       recorded.
 
 Only use disposable virtual disks for destructive-workflow acceptance.
 Never attach a host system disk to a test VM.
 
-The current boot route is an early switch to Cage/GTK requested before the
-workflow migration and hardware acceptance are complete. The Textual unit
-remains installed as a fallback. Treat the first BIOS/UEFI Cage startup, seat
-acquisition, keyboard input, tty2 round-trip and physical display behavior as
-unverified until the manual checklist is completed.
+The GTK/Weston boot route has not been enabled. Keep Textual as the production
+interface until the complete behavioral parity, package, VM and BIOS/UEFI
+gates in the GTK migration record have passed. The final cutover removes
+Textual rather than retaining it as a fallback.
 
 The Weston/GTK target is intentionally not enabled by the current Kickstart.
 Before switching the boot unit, build Fedora 45-matched Weston and GTK4 RPMs
