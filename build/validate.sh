@@ -53,7 +53,11 @@ require_text '"finalize_recovery"' src/feclora/api.py "Privileged API dispatch m
 require_text 'action = "capture_stratis_filesystem"' src/feclora/gui_gtk.py "GTK operations must invoke the real Stratis capture API."
 require_text 'self\.api\.submit\("capture_btrfs_subvolume"' src/feclora/gui_gtk.py "GTK operations must invoke the real Btrfs capture API."
 require_text 'self\.api\.submit\("receive_btrfs_subvolume"' src/feclora/gui_gtk.py "GTK operations must invoke the real Btrfs receive API."
-require_text 'params\["repository_id"\] = self\.capture_repositories\[repository_index\]\["id"\]' src/feclora/gui_gtk.py "GTK Btrfs capture and receive must preserve the selected repository.";
+require_text 'self\.api\.submit\("s3_repositories"' src/feclora/gui_gtk.py "GTK local operations must load configured S3 repositories."
+require_text '\{\{"id": None, "_kind": "local"\}\}' src/feclora/gui_gtk.py "GTK local operations must retain local storage as an explicit repository choice."
+require_text '\{\*\*item, "_kind": "s3"\}' src/feclora/gui_gtk.py "GTK local operations must retain S3 repository identity."
+require_text 'self\.capture_repository_label\.set_visible\(True\)' src/feclora/gui_gtk.py "GTK local operations must expose repository selection for every operation type."
+require_text 'params\["repository_id"\] = selected_repository\["id"\]' src/feclora/gui_gtk.py "GTK operations must pass the selected remote or S3 repository to the backend."
 require_text 'self\.api\.submit\("recover_disk"' src/feclora/gui_gtk.py "GTK operations must invoke the real ddrescue recovery API."
 require_text 'self\.api\.submit\("finalize_recovery"' src/feclora/gui_gtk.py "GTK operations must invoke the real recovery finalization API."
 require_text 'def _flatten_logical_volumes' src/feclora/gui_gtk.py "GTK must filter logical volumes before capture."
