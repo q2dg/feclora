@@ -63,6 +63,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', self.source)
 
+    def test_wayland_environment_is_set_before_gtk_import(self):
+        gtk_import = self.source.index("import gi")
+        self.assertLess(self.source.index('os.environ["GDK_BACKEND"] = "wayland"'), gtk_import)
+        self.assertLess(self.source.index('os.environ.pop("DISPLAY", None)'), gtk_import)
+
     def test_validator_checks_all_contracts_before_reporting_success(self):
         validator = Path("build/validate.sh").read_text(encoding="utf-8")
         final_guard = validator.rfind("if (( ERRORS > 0 )); then")
