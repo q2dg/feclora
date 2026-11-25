@@ -125,6 +125,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("device.get(\"children\")", append)
         self.assertIn("self._append_inventory_device(group, child, depth + 1)", append)
         self.assertNotIn("Gtk.Grid(", render)
+        self.assertIn("_inventory_refresh_generation", method)
+        self.assertIn("page_generation == self._page_generation", method)
+        self.assertIn("generation != self._inventory_refresh_generation", render)
 
     def test_disk_capture_uses_inventory_and_privileged_operation_api(self):
         populate = ast.get_source_segment(self.source, self.methods["_populate_capture_devices"])
