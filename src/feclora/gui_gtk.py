@@ -2731,6 +2731,10 @@ class FecloraGTK:
         self._image_page_generation = getattr(self, "_image_page_generation", 0) + 1
         page_generation = self._image_page_generation
         self._image_catalog_generation = getattr(self, "_image_catalog_generation", 0) + 1
+        self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
+        self.image_catalog = []
+        self.image_layout = None
+        self.image_session_id = ""
         self.page_description.set_text("Inspección verificada de imágenes de disco, exploración de archivos y extracción de particiones.")
 
         def add_image_row(group: Adw.PreferencesGroup, title: str, widget: Gtk.Widget, subtitle: str = "") -> Adw.ActionRow:
@@ -2899,6 +2903,10 @@ class FecloraGTK:
         self._image_catalog_generation = getattr(self, "_image_catalog_generation", 0) + 1
         generation = self._image_catalog_generation
         page_generation = self._image_page_generation
+        self.image_catalog = []
+        self.image_select.set_model(Gtk.StringList.new(["Cargando imágenes…"]))
+        self.image_select.set_selected(0)
+        self._reset_image_layout()
         self.image_catalog_stack.set_visible_child_name("loading")
         repository_id = self._image_repository_id()
         if repository_id:
