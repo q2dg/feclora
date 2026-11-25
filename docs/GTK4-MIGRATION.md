@@ -511,3 +511,9 @@ Server administration and PXE start/stop callbacks now carry the exact global wi
 The follow-up review also corrected the client age-recipient inventory refresh callbacks to forward that captured window generation into the shared completion/error handlers (rather than relying on the handler's former implicit current-window check). The regression test now asserts that both callbacks forward the captured value.
 
 PXE answer publication now retains the accepted result and uses the requested job UUID as the revoke-field fallback when the backend response omits `job_id`, matching the Textual workflow. Successful revocation clears the retained published-answer state. Structural regression assertions cover both behaviors; no live PXE answer was published or revoked.
+
+### Paridad de la página de estado del sistema
+
+La página GTK de sistema muestra ahora, además del hostname y la plataforma, el estado de configuración del servidor y del cliente, cada servicio comunicado por la API y el estado de cada certificado. Los detalles se reconstruyen al recibir cada respuesta de estado, evitando conservar filas obsoletas entre actualizaciones. Esta corrección recupera los campos que ya exponía la tabla de estado Textual.
+
+La cobertura añadida es estructural (AST); no implica que se hayan ejecutado pruebas con GTK/GI ni validaciones en el appliance.
