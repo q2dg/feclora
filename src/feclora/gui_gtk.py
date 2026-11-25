@@ -932,7 +932,7 @@ class FecloraGTK:
     def _publish_pxe_answer(self, _button: Gtk.Button) -> None:
         import uuid as uuid_module
         source_index = self.pxe_answer_source.get_selected()
-        source = ("upload", "url", "repository")[source_index] if source_index < 3 else ""
+        source = ("upload", "url", "repository", "scp")[source_index] if source_index < 4 else ""
         value = self.pxe_answer_path.get_text().strip()
         job_id = self.pxe_answer_job_id.get_text().strip()
         request: dict[str, Any] = {"source": source}
@@ -1586,7 +1586,7 @@ class FecloraGTK:
         create_group.add(create_row)
         import_group = Adw.PreferencesGroup(title="Importar definición")
         self.page_body.append(import_group)
-        self.remote_import_source = Gtk.DropDown.new_from_strings(["Archivo local", "URL HTTP/HTTPS", "Repositorio montado"])
+        self.remote_import_source = Gtk.DropDown.new_from_strings(["Archivo local", "URL HTTP/HTTPS", "Repositorio montado", "SCP · SSHFS"])
         source_row = Adw.ActionRow(title="Origen de importación")
         source_row.add_suffix(self.remote_import_source)
         source_row.set_activatable_widget(self.remote_import_source)
@@ -1711,13 +1711,17 @@ class FecloraGTK:
                 self.remote_job_result.set_text("Indica una URL HTTP o HTTPS.")
                 return
             params["url"] = value
-        elif source == "repository":
+        elif source in {"repository", "scp"}:
             selected = self.remote_import_repository.get_selected()
             rows = getattr(self, "_remote_import_rows", [])
             if selected == 0 or selected - 1 >= len(rows) or not value:
                 self.remote_job_result.set_text("Selecciona repositorio y ruta relativa.")
                 return
-            params["repository_id"] = rows[selected - 1].get("id")
+            repository = rows[selected - 1]
+            if source == "scp" and repository.get("provider") != "sshfs":
+                self.remote_job_result.set_text("SCP requiere un repositorio SSHFS con credenciales SSH protegidas.")
+                return
+            params["repository_id"] = repository.get("id")
             params["source_path"] = value
         else:
             self.remote_job_result.set_text("Selecciona un origen válido.")
