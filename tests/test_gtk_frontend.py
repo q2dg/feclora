@@ -307,6 +307,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.image_catalog = []", image_loader)
         self.assertIn('Gtk.StringList.new(["Cargando imágenes…"])', image_loader)
         inspect = ast.get_source_segment(self.source, self.methods["_inspect_selected_image"])
+        self.assertLess(inspect.index("_reset_image_layout()"), inspect.index("self.api.submit("))
         self.assertIn("catalog_generation == self._image_catalog_generation", inspect)
         self.assertIn("page_generation == self._image_page_generation", inspect)
         browse = ast.get_source_segment(self.source, self.methods["_browse_selected_image"])
