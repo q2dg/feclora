@@ -83,9 +83,9 @@ require_text 'feclora-tui\.service' src/feclora/data/feclora-local-operation-rec
 require_text 'FECLORA_SELINUX_PERMISSIVE:-1' build/build-iso.sh "SELinux permissive mode must remain the diagnostic build default."
 require_text 'mkksiso --cmdline selinux=0' build/build-iso.sh "Only the temporary Anaconda build VM may disable SELinux."
 
-if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston|firefox)([[:space:]]|$)' \
+if grep -Eiq '(^|[[:space:]])(cockpit[^[:space:]]*|weston(-libs)?|gtk4|libadwaita|firefox)([[:space:]]|$)' \
   "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "The Live image package set must not include Cockpit, Weston or Firefox."
+  fail "The Live image must not install stock GTK4/Weston RPMs before X11-disabled Feclora builds are available."
 fi
 if grep -Eiq '(^|[[:space:]])(xorg-x11-server-Xwayland|xorg-x11-server-Xorg|openbox)([[:space:]]|$)' \
   "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
