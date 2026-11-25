@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import unittest
 from pathlib import Path
 
@@ -68,6 +69,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         last_contract = validator.rfind("require_text ")
         self.assertEqual(validator.count("if (( ERRORS > 0 )); then"), 1)
         self.assertGreater(final_guard, last_contract)
+
+    def test_gtk_retains_every_literal_privileged_action_from_textual(self):
+        tui_source = Path("src/feclora/tui.py").read_text(encoding="utf-8")
+        tui_actions = set(re.findall(r"""call_feclora\(\s*["']([a-z][a-z0-9_]*)["']""", tui_source))
+        gtk_actions = set(re.findall(r"""["']([a-z][a-z0-9_]*)["']""", self.source))
+        self.assertTrue(tui_actions, "Textual privileged action inventory must not be empty.")
+        self.assertFalse(tui_actions - gtk_actions, f"GTK is missing Textual API actions: {sorted(tui_actions - gtk_actions)}")
 
     def test_welcome_uses_semantic_libadwaita_preference_groups(self):
         welcome = ast.get_source_segment(self.source, self.methods["_show_welcome"])
