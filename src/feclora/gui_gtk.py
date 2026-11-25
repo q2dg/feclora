@@ -1316,6 +1316,7 @@ class FecloraGTK:
         self._populate_s3_credential_selector()
 
     def _populate_s3_credential_selector(self) -> None:
+        previous_id = self._selected_s3_credential_id()
         self._s3_credentials = [
             item for item in getattr(self, "repository_credentials", [])
             if item.get("kind") == "s3" and item.get("path")
@@ -1323,7 +1324,11 @@ class FecloraGTK:
         self.s3_credential.set_model(Gtk.StringList.new(
             ["Selecciona credencial S3…"] + [str(item.get("id")) for item in self._s3_credentials]
         ))
-        self.s3_credential.set_selected(0)
+        selected = next(
+            (index + 1 for index, item in enumerate(self._s3_credentials) if item.get("id") == previous_id),
+            0,
+        )
+        self.s3_credential.set_selected(selected)
 
     def _selected_s3_credential_id(self) -> str | None:
         selected = self.s3_credential.get_selected()
@@ -1334,15 +1339,26 @@ class FecloraGTK:
         return identifier if isinstance(identifier, str) and identifier else None
 
     def _populate_remote_credential_selector(self, kind: str, selector: Gtk.DropDown) -> None:
+        attribute = f"_remote_{kind.replace('-', '_')}_credentials"
+        previous = getattr(self, attribute, [])
+        selected_index = selector.get_selected()
+        previous_path = (
+            previous[selected_index - 1].get("path")
+            if selected_index > 0 and selected_index - 1 < len(previous) else None
+        )
         credentials = [
             item for item in getattr(self, "repository_credentials", [])
             if item.get("kind") == kind and item.get("path")
         ]
-        setattr(self, f"_remote_{kind.replace('-', '_')}_credentials", credentials)
+        setattr(self, attribute, credentials)
         selector.set_model(Gtk.StringList.new(
             ["Selecciona credencial…"] + [str(item.get("id")) for item in credentials]
         ))
-        selector.set_selected(0)
+        selected = next(
+            (index + 1 for index, item in enumerate(credentials) if item.get("path") == previous_path),
+            0,
+        )
+        selector.set_selected(selected)
 
     def _remote_provider_changed(self, _widget: Gtk.DropDown, _pspec: Any = None) -> None:
         provider = ("sshfs", "nfs", "smb")[min(self.remote_provider.get_selected(), 2)]
