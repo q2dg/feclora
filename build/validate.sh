@@ -264,6 +264,8 @@ require_text 'self\.api\.submit\("refresh_client_age_recipients"' src/feclora/gu
 require_text 'self\.api\.submit\("create_deployment_job"' src/feclora/gui_gtk.py "GTK must expose remote deployment definition creation."
 require_text 'self\.api\.submit\("import_deployment_job"' src/feclora/gui_gtk.py "GTK must expose bounded remote deployment definition import."
 require_text '"SCP · SSHFS"' src/feclora/gui_gtk.py "GTK remote job import must expose the SCP source."
+require_text '("upload", "url", "repository", "scp")\[source_index\] if source_index < 4' src/feclora/gui_gtk.py "GTK remote import must map all four source choices."
+require_text '"Actualizar estado"' src/feclora/gui_gtk.py "GTK remote job actions must retain explicit status refresh."
 require_text 'repository.get\("provider"\) != "sshfs"' src/feclora/gui_gtk.py "GTK SCP import must require an SSHFS repository."
 require_text 'self\.api\.submit\("arm_deployment_job"' src/feclora/gui_gtk.py "GTK must expose exact-phrase deployment authorization."
 require_text 'self\.api\.submit\("cancel_deployment_job"' src/feclora/gui_gtk.py "GTK must expose confirmed deployment cancellation."
