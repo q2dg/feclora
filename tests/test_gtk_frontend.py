@@ -415,6 +415,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"RENEW SERVER CERTIFICATE"', self.source)
         self.assertIn('"ROTATE SERVER TLS KEYPAIR"', self.source)
         self.assertIn('"authoritative_confirmed": self.pxe_authoritative.get_active()', self.source)
+        self.assertIn('self.pxe_mode.connect("notify::selected", self._pxe_mode_changed)', self.source)
+        self.assertIn('def _pxe_mode_changed(self, _widget: Gtk.DropDown', self.source)
+        self.assertIn('self.pxe_pool_start_row, self.pxe_pool_end_row', self.source)
+        self.assertIn('row.set_visible(isolated)', self.source)
+        self.assertIn('self._pxe_profile = None', self.source)
+        self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
         self.assertIn('self._pxe_pending_profile = profile', self.source)
         self.assertIn('self.pxe_start.set_sensitive(False)', self.source)
 
