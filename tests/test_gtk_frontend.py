@@ -991,13 +991,40 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.capture_passphrase.set_text(\"\")", self.source)
         self.assertIn("self._capture_passphrase_failed", self.source)
 
-    def test_capture_failure_clears_pending_age_passphrase(self):
+    def test_capture_failure_is_page_and_request_scoped(self):
         start = self.source.index("    def _capture_failed")
         end = self.source.index("    def _refresh_status", start)
         callback = self.source[start:end]
-        self.assertIn("self.active_capture_passphrase = \"\"", callback)
-        self.assertIn("self.capture_passphrase.set_text(\"\" )".replace(" ", ""), callback.replace(" ", ""))
+        self.assertIn("self._capture_action_errors[key] = str(error)", callback)
+        self.assertIn("page_generation != self._page_generation", self.source)
+        self.assertIn("request_generation != getattr(self, \"_capture_request_generation\", None)", callback)
+        self.assertIn('self.capture_passphrase.set_text("")', callback)
         self.assertIn("self.capture_cancel.set_sensitive(False)", callback)
+
+    def test_local_operation_callbacks_keep_identity_and_secret_per_request(self):
+        submit = self.source[self.source.index("    def _submit_capture_operation"):self.source.index("    def _capture_view_is_current")]
+        accepted = self.source[self.source.index("    def _capture_accepted"):self.source.index("    def _capture_passphrase_delivered")]
+        poll = ast.get_source_segment(self.source, self.methods["_poll_capture_status"])
+        status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
+        page = self.source[self.source.index('elif page_id == "operations":'):self.source.index('        else:\n            self.page_description.set_text("Esta pantalla aún no se ha migrado', self.source.index('elif page_id == "operations":'))]
+        self.assertIn('"passphrase": passphrase', submit)
+        self.assertIn("request_generation", submit)
+        self.assertIn("page_generation", submit)
+        self.assertIn('self._local_operation_results[operation_id]', accepted)
+        self.assertIn('"passphrase": passphrase', accepted)
+        self.assertIn("lambda status: self._show_capture_status(status, operation_id, page_generation)", poll)
+        self.assertIn("self._capture_view_is_current(page_generation, operation_id)", status)
+        self.assertIn("self._poll_capture_status(active_operation_id, operations_page_generation)", page)
+
+    def test_local_operation_status_polling_is_bound_to_operation_id(self):
+        status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
+        failed = ast.get_source_segment(self.source, self.methods["_capture_status_failed"])
+        cancel = ast.get_source_segment(self.source, self.methods["_cancel_disk_capture"])
+        self.assertIn('{"operation_id": operation_id}', self.source[self.source.index('    def _poll_capture_status'):self.source.index('    def _show_capture_status')])
+        self.assertIn("lambda: self._poll_capture_status(operation_id, page_generation)", status)
+        self.assertIn("lambda: self._poll_capture_status(operation_id, page_generation)", failed)
+        self.assertIn('"operation_id": operation_id', cancel)
+        self.assertIn("operation_id=operation_id", cancel)
 
 
     def test_restore_profiles_use_libadwaita_preference_groups(self):
