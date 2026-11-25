@@ -657,6 +657,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
         for callback in ("self._capture_mode_changed", "self._start_disk_capture", "self._cancel_disk_capture"):
             self.assertIn(callback, page)
         self.assertIn('self.capture_confirmation.set_placeholder_text("ERASE /dev/… o BUILD <imagen>")', page)
+        hint = ast.get_source_segment(self.source, self.methods["_update_capture_confirmation_hint"])
+        self.assertIn('self.capture_target.connect("notify::selected", self._update_capture_confirmation_hint)', page)
+        self.assertIn('self.capture_image_select.connect("notify::selected", self._update_capture_confirmation_hint)', page)
+        self.assertIn('phrase = "ERASE " + target', hint)
+        self.assertIn('phrase += " FROM " + source', hint)
+        self.assertIn('phrase = "BUILD " + str(images[index].get("image_id") or "")', hint)
         self.assertIn('self.capture_passphrase = Gtk.PasswordEntry()', page)
         self.assertIn("self.capture_btrfs_source_row.set_visible(is_btrfs_capture)", self.source)
         self.assertIn("self.capture_retry_row.set_visible(is_recovery)", self.source)
