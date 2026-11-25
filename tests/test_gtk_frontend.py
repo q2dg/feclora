@@ -302,6 +302,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("page_generation == self._server_status_page_generation", server_refresh)
         self.assertIn("generation != self._server_status_refresh_generation", server_part)
         self.assertIn("generation != self._server_status_refresh_generation", server_error)
+        selected_server = ast.get_source_segment(self.source, self.methods["_selected_server_interface"])
+        server_part = ast.get_source_segment(self.source, self.methods["_server_status_part"])
+        self.assertIn("selected == 0", selected_server)
+        self.assertIn("interfaces[selected - 1]", selected_server)
+        self.assertIn('"Selecciona interfaz/dirección activa…"', server_part)
 
     def test_repository_page_lists_remote_and_s3_storage_state(self):
         self.assertIn('self.api.submit("remote_repositories"', self.source)
