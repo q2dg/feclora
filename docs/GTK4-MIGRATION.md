@@ -521,3 +521,9 @@ La cobertura añadida es estructural (AST); no implica que se hayan ejecutado pr
 ### Selector de trabajos remotos
 
 El selector GTK de trabajos de despliegue usa índices para resolver la definición elegida. Su lista de respaldo ahora excluye registros que no tengan un `job_id` de texto no vacío, igual que las opciones visibles. Así, una entrada incompleta del historial no desplaza los índices ni puede asociar una acción a otro trabajo persistido.
+
+### Errores de inspección del registro de operaciones
+
+La vista GTK del registro local presenta ahora cada elemento de `inspection_errors` devuelto por la API, con su ruta o identificador y el motivo comunicado. Mantiene además la advertencia de no repetir operaciones afectadas hasta una inspección manual. El grupo de errores se crea como parte de cada instancia de página y se repuebla al actualizar, evitando referencias a widgets desconectados tras navegar fuera y volver.
+
+La prueba añadida verifica la estructura y el enlace del grupo a la página actual; no sustituye pruebas de ejecución con GTK/GI.
