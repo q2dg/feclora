@@ -279,6 +279,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
 
+    def test_disk_capture_status_identity_mismatch_retries_original_operation(self):
+        status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
+        self.assertIn('status.get("operation_id") not in (None, operation_id)', status)
+        self.assertIn("se reintentará la consulta", status)
+        self.assertIn("self._poll_capture_status(operation_id, page_generation)", status)
+        self.assertIn("self._capture_view_is_current(page_generation, operation_id)", status)
+
     def test_disk_capture_cancel_failure_allows_retry_without_resetting_operation(self):
         failed = ast.get_source_segment(self.source, self.methods["_capture_failed"])
         cancel = ast.get_source_segment(self.source, self.methods["_cancel_disk_capture"])
