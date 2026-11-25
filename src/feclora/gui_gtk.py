@@ -3791,20 +3791,33 @@ class FecloraGTK:
         page_generation = self._image_page_generation
         window_generation = self._image_window_page_generation
         catalog_generation = self._image_catalog_generation
+        self._image_inspection_generation = getattr(self, "_image_inspection_generation", 0) + 1
+        request_generation = self._image_inspection_generation
+        image_id = image["image_id"]
         self.image_result.set_text("Verificando manifiesto y tabla de particiones…")
         self.api.submit(
             "inspect_image_layout", params,
-            on_success=lambda layout: self._show_image_layout(layout)
-            if page_generation == self._image_page_generation and window_generation == self._page_generation and catalog_generation == self._image_catalog_generation else None,
+            on_success=lambda layout: self._show_image_layout(layout, image_id, repository_id, page_generation, window_generation, catalog_generation, request_generation),
             on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
-            if page_generation == self._image_page_generation and window_generation == self._page_generation and catalog_generation == self._image_catalog_generation else None,
+            if self._image_view_is_current(page_generation, window_generation, catalog_generation) and request_generation == self._image_inspection_generation else None,
         )
 
-    def _show_image_layout(self, layout: dict[str, Any]) -> None:
+    def _show_image_layout(
+        self, layout: dict[str, Any], image_id: str | None = None,
+        repository_id: str | None = None, page_generation: int | None = None,
+        window_generation: int | None = None, catalog_generation: int | None = None,
+        request_generation: int | None = None,
+    ) -> None:
+        self._image_inspection_results = getattr(self, "_image_inspection_results", {})
+        self._image_inspection_results[(repository_id, image_id)] = layout
         image = self._selected_image()
-        if not image or layout.get("image_id") != image["image_id"]:
-            self._reset_image_layout()
-            self.image_result.set_text("La respuesta corresponde a otra imagen; vuelve a inspeccionar.")
+        if (
+            not self._image_view_is_current(page_generation, window_generation, catalog_generation)
+            or request_generation != self._image_inspection_generation
+            or not image or image.get("image_id") != image_id
+            or self._image_repository_id() != repository_id
+            or layout.get("image_id") != image_id
+        ):
             return
         self.image_layout = layout
         partitions = layout.get("partitions") or []
