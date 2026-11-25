@@ -4152,7 +4152,7 @@ class FecloraGTK:
             params["encrypt_passphrase"] = True
         self.capture_start.set_sensitive(False)
         self.capture_result.set_text("Solicitando captura…")
-        self.api.submit(action, params, on_success=self._capture_accepted, on_error=self._capture_failed)
+        self._submit_capture_operation(action, params, passphrase=capture_passphrase)
 
     def _submit_capture_operation(self, action: str, params: dict[str, Any], passphrase: str = "") -> None:
         self._capture_request_generation = getattr(self, "_capture_request_generation", 0) + 1
