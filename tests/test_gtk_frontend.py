@@ -553,6 +553,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.client_igmp.get_active() if job.get("transport") == "multicast" else False', self.source)
         self.assertIn('self._client_logical_volumes', self.source)
         self.assertIn('self._client_eligible_targets', self.source)
+        client_page = ast.get_source_segment(self.source, self.methods["_show_client_jobs_page"])
+        inspection = ast.get_source_segment(self.source, self.methods["_inspect_client_job"])
+        invalidation = ast.get_source_segment(self.source, self.methods["_invalidate_client_inspection"])
+        self.assertIn("_client_page_generation", client_page)
+        self.assertIn("self.client_server_host.connect(\"changed\", self._client_inputs_changed)", client_page)
+        self.assertIn("generation == self._client_inspection_generation", inspection)
+        self.assertIn("self._client_remote_inspection = None", invalidation)
+        self.assertIn("self.client_target.set_selected(0)", invalidation)
+        self.assertIn("self._invalidate_client_inspection()", self.source)
 
     def test_remote_repository_selector_handles_async_source_completion_order(self):
         self.assertIn('self._remote_import_remote_rows =', self.source)
