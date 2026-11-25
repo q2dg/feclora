@@ -1,4 +1,4 @@
-# Explicit Feclora runtime packages for the Fedora 45 Live Textual appliance (x86_64).
+# Explicit Feclora runtime packages for the Fedora 45 Live GTK kiosk appliance (x86_64).
 # The Kickstart also selects @core; this file documents the additional runtime set.
 # Keep this list aligned with kickstart/feclora-live.ks.
 kernel
@@ -7,6 +7,10 @@ sudo
 python3
 python3-boto3
 python3-textual
+python3-gobject
+gtk4
+libadwaita
+cage
 kbd
 psmisc
 NetworkManager
@@ -15,7 +19,7 @@ firewalld
 openssl
 ca-certificates
 
-# Textual runs directly on tty1; no graphical desktop is installed.
+# Cage provides a minimal Wayland kiosk compositor on tty1; no desktop or X11 stack is installed.
 policycoreutils-python-utils
 
 # Local shell utilities
