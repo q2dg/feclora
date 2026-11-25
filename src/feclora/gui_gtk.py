@@ -3094,6 +3094,7 @@ class FecloraGTK:
         self.image_result.set_text(f"Archivo guardado: {destination}")
 
     def _image_partition_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
+        self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
         self.image_session_id = ""
         self.image_listing.set_text("")
 
