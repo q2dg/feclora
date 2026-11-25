@@ -990,6 +990,40 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self._server_status_failed(error, generation)", refresh)
         self.assertIn("window_generation == self._page_generation", pxe_repositories)
 
+    def test_pxe_answer_publish_and_revoke_callbacks_keep_job_identity(self):
+        publish = ast.get_source_segment(self.source, self.methods["_publish_pxe_answer"])
+        published = ast.get_source_segment(self.source, self.methods["_pxe_answer_published"])
+        revoke = ast.get_source_segment(self.source, self.methods["_revoke_pxe_answer"])
+        revoked = ast.get_source_segment(self.source, self.methods["_pxe_answer_revoked"])
+        self.assertIn("request_generation = self._pxe_answer_action_generation", publish)
+        self.assertIn("requested_job_id", published)
+        self.assertIn('self._pxe_answer_action_results["publish:" + requested_job_id]', published)
+        self.assertIn('{"job_id": job_id}', revoke)
+        self.assertIn('self._pxe_answer_action_results["revoke:" + job_id]', revoked)
+        self.assertIn('self.pxe_answer_revoke_id.get_text().strip() != job_id', revoked)
+
+    def test_age_passphrase_status_and_secret_submission_are_page_scoped(self):
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_pxe_passphrase_status"])
+        loaded = ast.get_source_segment(self.source, self.methods["_pxe_passphrase_status_loaded"])
+        submit = ast.get_source_segment(self.source, self.methods["_submit_pxe_passphrase"])
+        accepted = ast.get_source_segment(self.source, self.methods["_pxe_passphrase_submitted"])
+        failed = ast.get_source_segment(self.source, self.methods["_pxe_passphrase_submit_failed"])
+        self.assertIn("request_generation = self._pxe_passphrase_status_generation", refresh)
+        self.assertIn("window_generation != self._page_generation", loaded)
+        self.assertIn('{"passphrase": passphrase}', submit)
+        self.assertIn("request_generation = self._pxe_passphrase_submit_generation", submit)
+        self.assertIn("window_generation != self._page_generation", accepted)
+        self.assertIn("self.pxe_passphrase.set_text(\"\")", accepted)
+        self.assertIn("window_generation != self._page_generation", failed)
+
+    def test_age_recipient_actions_use_server_page_callbacks(self):
+        export = ast.get_source_segment(self.source, self.methods["_export_server_age_recipients"])
+        refresh = ast.get_source_segment(self.source, self.methods["_refresh_client_age_recipients"])
+        self.assertIn("page_generation = self._server_status_page_generation", export)
+        self.assertIn("self._server_action_done(result, page_generation)", export)
+        self.assertIn("page_generation = self._server_status_page_generation", refresh)
+        self.assertIn("self._server_action_done(result, page_generation)", refresh)
+
     def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
         start = self.source.index("    def _start_client_job")
         end = self.source.index("    def _show_client_job_rows", start)
