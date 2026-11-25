@@ -233,6 +233,8 @@ require_text 'self\.remote_identity\.set_visible\(provider == "sshfs"\)' src/fec
 require_text 'add_s3_repository' src/feclora/gui_gtk.py "GTK must expose S3 repository definitions."
 require_text 'update_remote_repository' src/feclora/gui_gtk.py "GTK must expose SSHFS repository definition updates."
 require_text 'update_s3_repository' src/feclora/gui_gtk.py "GTK must expose S3 repository definition updates."
+require_text 'def _populate_s3_credential_selector' src/feclora/gui_gtk.py "GTK S3 repositories must select an imported protected S3 credential."
+require_text 'def _selected_s3_credential_id' src/feclora/gui_gtk.py "GTK S3 definitions must submit only a selected protected credential ID."
 require_text 'self\.api\.submit\("put_systemd_credential"' src/feclora/gui_gtk.py "GTK must expose encrypted systemd credential import."
 require_text 'self\.api\.submit\("remove_systemd_credential"' src/feclora/gui_gtk.py "GTK must expose guarded encrypted credential removal."
 require_text 'self\.api\.submit\("systemd_credentials"' src/feclora/gui_gtk.py "GTK must load the encrypted credential inventory."
