@@ -1695,7 +1695,7 @@ class FecloraGTK:
     def _import_remote_job(self, _button: Gtk.Button) -> None:
         import base64
         source_index = self.remote_import_source.get_selected()
-        source = ("upload", "url", "repository")[source_index] if source_index < 3 else ""
+        source = ("upload", "url", "repository", "scp")[source_index] if source_index < 4 else ""
         value = self.remote_import_path.get_text().strip()
         params: dict[str, Any] = {"source": source}
         if source == "upload":
