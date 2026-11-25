@@ -2791,8 +2791,8 @@ class FecloraGTK:
 
     def _image_repository_id(self) -> str | None:
         index = self.image_repository.get_selected()
-        if index < len(getattr(self, "image_repositories", [])):
-            return self.image_repositories[index].get("id")
+        if index > 0 and index - 1 < len(getattr(self, "image_repositories", [])):
+            return self.image_repositories[index - 1].get("id")
         return None
 
     def _image_repository_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
