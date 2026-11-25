@@ -279,6 +279,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         self.assertIn('"image_format", "encrypt_passphrase"', api_source)
 
+    def test_disk_capture_cancel_failure_allows_retry_without_resetting_operation(self):
+        failed = ast.get_source_segment(self.source, self.methods["_capture_failed"])
+        cancel = ast.get_source_segment(self.source, self.methods["_cancel_disk_capture"])
+        self.assertIn("operation_id is not None", failed)
+        self.assertIn("la operación puede seguir activa", failed)
+        self.assertIn("self.capture_cancel.set_sensitive(True)", failed)
+        self.assertIn("self.capture_start.set_sensitive(True)", failed)
+        self.assertIn("operation_id=operation_id", cancel)
+
     def test_disk_capture_polls_terminal_states_and_exposes_cancel(self):
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         self.assertIn('"completed"', status)
