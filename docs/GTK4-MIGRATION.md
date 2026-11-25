@@ -214,7 +214,7 @@ The Network page uses Adw.ComboRow for active NetworkManager profile, interface/
 
 ## libadwaita image catalog states
 
-The image browser's repository catalog is presented through a `Gtk.Stack` with dedicated `Adw.StatusPage` views for loading, an empty repository, and lookup failures. The image selector is shown only when disk images are available; an empty catalog is represented as an actual empty state rather than a placeholder selectable item. Repository changes return the view to loading, and lookup errors remain distinguishable from a valid empty repository. Image inspection, verification, browsing and extraction actions are unchanged.
+The image browser's repository catalog is presented through a `Gtk.Stack` with dedicated `Adw.StatusPage` views for loading, an empty repository, and lookup failures. The image selector is shown only when disk images are available; an empty catalog is represented as an actual empty state rather than a placeholder selectable item. Repository changes return the view to loading, and lookup errors remain distinguishable from a valid empty repository. Image inspection, verification, browsing and extraction actions are unchanged. Repository discovery and image-catalog callbacks are generation-guarded across repository changes and page re-entry, preventing delayed responses from replacing the active catalog.
 
 
 ## libadwaita system status
