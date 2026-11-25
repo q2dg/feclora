@@ -3,7 +3,7 @@ Description=Feclora GTK4 Wayland kiosk on tty1
 After=dbus.socket systemd-logind.service systemd-user-sessions.service feclora-local-operation-recovery.service getty@tty1.service
 Wants=dbus.socket systemd-logind.service
 Requires=feclora-local-operation-recovery.service
-Conflicts=getty@tty1.service
+Conflicts=getty@tty1.service feclora-tui.service
 ConditionPathExists=/dev/tty0
 
 [Service]
