@@ -103,8 +103,9 @@ to tty2 and service recovery.
 - [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
       implemented control, including long and scrollable forms.
 - [ ] The root terminal action opens tty2; exiting the shell returns to Textual on tty1.
-- [ ] The GTK interface reaches the fixed allowlisted helper through sudo; no general
-      passwordless shell or unrestricted root command is available to `feclora`.
+- [ ] The current Textual interface reaches the fixed allowlisted helper through
+      sudo; no general passwordless shell or unrestricted root command is
+      available to `feclora`.
 - [ ] Server/PXE preflight, local storage confirmation and error states are
       visible without relying on mouse input.
 - [ ] A reboot recovers unfinished local operations as interrupted and starts
@@ -116,13 +117,7 @@ Only use disposable virtual disks for destructive-workflow acceptance.
 Never attach a host system disk to a test VM.
 
 The GTK/Weston boot route has not been enabled. Keep Textual as the production
-interface until the complete behavioral parity, package, VM and BIOS/UEFI
-gates in the GTK migration record have passed. The final cutover removes
-Textual rather than retaining it as a fallback.
-
-The Weston/GTK target is intentionally not enabled by the current Kickstart.
-Before switching the boot unit, build Fedora 45-matched Weston and GTK4 RPMs
-with their X11 backends disabled, rebuild libadwaita against that GTK, inspect
-all package contents/dependencies, and complete the behavioral and firmware
-acceptance gate documented in [GTK4-MIGRATION](GTK4-MIGRATION.md). The final
-cutover removes Textual rather than retaining it as a fallback.
+interface until behavioral parity, Fedora 45-matched X11-disabled Weston/GTK4
+and libadwaita packages, VM testing and BIOS/UEFI acceptance all pass. The
+final cutover replaces Textual and removes its code, package, service, tests
+and obsolete boot checks; it will not remain as a fallback.
