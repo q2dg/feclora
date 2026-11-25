@@ -1249,19 +1249,21 @@ class FecloraGTK:
         self._repository_refresh_generation = getattr(self, "_repository_refresh_generation", 0) + 1
         generation = self._repository_refresh_generation
         page_generation = self._repository_page_generation
+        self._repository_refresh_pending_parts = {"remote", "s3"}
+        self._repository_refresh_failed = False
         self.repositories_summary.set_text("Consultando repositorios de archivos y S3…")
         self.api.submit(
             "remote_repositories",
-            on_success=lambda response: self._populate_remote_repositories(response)
+            on_success=lambda response: self._populate_remote_repositories(response, refresh_generation=generation)
             if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
-            on_error=lambda error: self._repositories_failed(error)
+            on_error=lambda error: self._repository_refresh_part_failed("remote", error, generation)
             if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
         )
         self.api.submit(
             "s3_repositories",
-            on_success=lambda response: self._populate_s3_repositories(response)
+            on_success=lambda response: self._populate_s3_repositories(response, refresh_generation=generation)
             if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
-            on_error=lambda error: self._repositories_failed(error)
+            on_error=lambda error: self._repository_refresh_part_failed("s3", error, generation)
             if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
         )
         self.api.submit(
@@ -1272,7 +1274,25 @@ class FecloraGTK:
             if page_generation == self._repository_page_generation and generation == self._repository_refresh_generation else None,
         )
 
-    def _populate_remote_repositories(self, response: dict[str, Any]) -> None:
+    def _repository_refresh_part_loaded(self, part: str, generation: int) -> None:
+        if generation != self._repository_refresh_generation:
+            return
+        pending = getattr(self, "_repository_refresh_pending_parts", set())
+        pending.discard(part)
+        if not pending and not getattr(self, "_repository_refresh_failed", False):
+            self._render_repositories()
+
+    def _repository_refresh_part_failed(self, part: str, error: Exception, generation: int) -> None:
+        if generation != self._repository_refresh_generation:
+            return
+        self._repository_refresh_failed = True
+        pending = getattr(self, "_repository_refresh_pending_parts", set())
+        pending.discard(part)
+        self._repositories_failed(error)
+
+    def _populate_remote_repositories(
+        self, response: dict[str, Any], *, refresh_generation: int | None = None
+    ) -> None:
         self.remote_repository_rows = [("NFS/SSH", item) for item in response.get("repositories", []) if isinstance(item, dict)]
         if hasattr(self, "p2v_import_repository"):
             usable = [item for item in self.remote_repository_rows if item[1].get("mounted") and item[1].get("verified") and not item[1].get("read_only")]
@@ -1281,9 +1301,14 @@ class FecloraGTK:
             self.p2v_import_repository.set_model(Gtk.StringList.new(labels))
             self.p2v_export_destinations = usable
             self.p2v_export_destination.set_model(Gtk.StringList.new(["Repositorio local"] + [str(item.get("id")) for _, item in usable]))
-        self._render_repositories()
+        if refresh_generation is None:
+            self._render_repositories()
+        else:
+            self._repository_refresh_part_loaded("remote", refresh_generation)
 
-    def _populate_s3_repositories(self, response: dict[str, Any]) -> None:
+    def _populate_s3_repositories(
+        self, response: dict[str, Any], *, refresh_generation: int | None = None
+    ) -> None:
         self.s3_repository_rows = [("S3", item) for item in response.get("repositories", []) if isinstance(item, dict)]
         if hasattr(self, "p2v_export_repository"):
             usable = [item for _, item in self.s3_repository_rows]
@@ -1291,7 +1316,10 @@ class FecloraGTK:
             labels = ["Selecciona repositorio S3…"] + [str(item.get("id")) for item in usable]
             self.p2v_export_repository.set_model(Gtk.StringList.new(labels))
             self.p2v_export_repository.set_selected(0)
-        self._render_repositories()
+        if refresh_generation is None:
+            self._render_repositories()
+        else:
+            self._repository_refresh_part_loaded("s3", refresh_generation)
 
     def _import_legacy_p2v(self, _button: Gtk.Button) -> None:
         import re
