@@ -3509,6 +3509,8 @@ class FecloraGTK:
     def _show_images_page(self) -> None:
         self._image_page_generation = getattr(self, "_image_page_generation", 0) + 1
         page_generation = self._image_page_generation
+        window_generation = self._page_generation
+        self._image_window_page_generation = window_generation
         self._image_catalog_generation = getattr(self, "_image_catalog_generation", 0) + 1
         self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
         self.image_catalog = []
@@ -3627,7 +3629,7 @@ class FecloraGTK:
         self.api.submit(
             "remote_repositories",
             on_success=lambda result: self._populate_image_repositories(result)
-            if page_generation == self._image_page_generation else None,
+            if page_generation == self._image_page_generation and window_generation == self._page_generation else None,
             on_error=lambda error: self._image_page_failed(error)
             if page_generation == self._image_page_generation else None,
         )
@@ -3682,6 +3684,7 @@ class FecloraGTK:
         self._image_catalog_generation = getattr(self, "_image_catalog_generation", 0) + 1
         generation = self._image_catalog_generation
         page_generation = self._image_page_generation
+        window_generation = self._image_window_page_generation
         self.image_catalog = []
         self.image_select.set_model(Gtk.StringList.new(["Cargando imágenes…"]))
         self.image_select.set_selected(0)
@@ -3692,7 +3695,7 @@ class FecloraGTK:
             self.api.submit(
                 "repository_images", {"repository_id": repository_id},
                 on_success=lambda result: self._populate_image_catalog(result)
-                if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
+                if page_generation == self._image_page_generation and window_generation == self._page_generation and generation == self._image_catalog_generation else None,
                 on_error=lambda error: self._image_page_failed(error)
                 if page_generation == self._image_page_generation and generation == self._image_catalog_generation else None,
             )
@@ -3755,12 +3758,13 @@ class FecloraGTK:
         if repository_id:
             params["repository_id"] = repository_id
         page_generation = self._image_page_generation
+        window_generation = self._image_window_page_generation
         catalog_generation = self._image_catalog_generation
         self.image_result.set_text("Verificando manifiesto y tabla de particiones…")
         self.api.submit(
             "inspect_image_layout", params,
             on_success=lambda layout: self._show_image_layout(layout)
-            if page_generation == self._image_page_generation and catalog_generation == self._image_catalog_generation else None,
+            if page_generation == self._image_page_generation and window_generation == self._page_generation and catalog_generation == self._image_catalog_generation else None,
             on_error=lambda error: self._image_page_failed(error)
             if page_generation == self._image_page_generation and catalog_generation == self._image_catalog_generation else None,
         )
@@ -3813,12 +3817,14 @@ class FecloraGTK:
         self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
         browse_generation = self._image_browse_generation
         page_generation = self._image_page_generation
+        window_generation = self._image_window_page_generation
         catalog_generation = self._image_catalog_generation
         self.api.submit(
             "browse_image", params,
             on_success=lambda result: self._show_image_directory(result)
             if browse_generation == self._image_browse_generation
             and page_generation == self._image_page_generation
+            and window_generation == self._page_generation
             and catalog_generation == self._image_catalog_generation else None,
             on_error=lambda error: self._image_page_failed(error)
             if browse_generation == self._image_browse_generation
@@ -3847,13 +3853,25 @@ class FecloraGTK:
         except ValueError as exc:
             self.image_result.set_text(str(exc))
             return
-        self.api.submit("browse_image", params, on_success=self._save_image_download, on_error=self._image_page_failed)
+        self._image_download_generation = getattr(self, "_image_download_generation", 0) + 1
+        download_generation = self._image_download_generation
+        page_generation = self._image_page_generation
+        window_generation = self._image_window_page_generation
+        catalog_generation = self._image_catalog_generation
+        self.api.submit(
+            "browse_image", params,
+            on_success=lambda result: self._save_image_download(result, page_generation, window_generation, catalog_generation, download_generation),
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation),
+        )
 
-    def _save_image_download(self, result: dict[str, Any]) -> None:
+    def _save_image_download(self, result: dict[str, Any], page_generation: int | None = None, window_generation: int | None = None, catalog_generation: int | None = None, download_generation: int | None = None) -> None:
         import base64
         filename, encoded = result.get("filename"), result.get("content_base64")
         if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(encoded, str):
-            self.image_result.set_text("El backend devolvió datos de descarga no válidos.")
+            self._image_download_errors = getattr(self, "_image_download_errors", [])
+            self._image_download_errors.append("El backend devolvió datos de descarga no válidos.")
+            if self._image_view_is_current(page_generation, window_generation, catalog_generation):
+                self.image_result.set_text("El backend devolvió datos de descarga no válidos.")
             return
         try:
             data = base64.b64decode(encoded, validate=True)
@@ -3868,9 +3886,22 @@ class FecloraGTK:
             with os.fdopen(file_descriptor, "wb") as stream:
                 stream.write(data)
         except (OSError, ValueError) as exc:
-            self.image_result.set_text(f"No se pudo guardar el archivo: {exc}")
+            self._image_download_errors = getattr(self, "_image_download_errors", [])
+            self._image_download_errors.append(str(exc))
+            if self._image_view_is_current(page_generation, window_generation, catalog_generation):
+                self.image_result.set_text(f"No se pudo guardar el archivo: {exc}")
             return
-        self.image_result.set_text(f"Archivo guardado: {destination}")
+        self._image_download_results = getattr(self, "_image_download_results", [])
+        self._image_download_results.append(str(destination))
+        if self._image_view_is_current(page_generation, window_generation, catalog_generation) and download_generation == self._image_download_generation:
+            self.image_result.set_text(f"Archivo guardado: {destination}")
+
+    def _image_view_is_current(self, page_generation: int | None, window_generation: int | None, catalog_generation: int | None = None) -> bool:
+        return (
+            page_generation == self._image_page_generation
+            and window_generation == self._page_generation
+            and (catalog_generation is None or catalog_generation == self._image_catalog_generation)
+        )
 
     def _image_partition_changed(self, _dropdown: Gtk.DropDown, _pspec: Any) -> None:
         self._image_browse_generation = getattr(self, "_image_browse_generation", 0) + 1
@@ -3895,52 +3926,91 @@ class FecloraGTK:
         if repository_id:
             params["repository_id"] = repository_id
         self.image_result.set_text("Solicitando extracción de partición…")
-        self.api.submit("extract_partition_image", params, on_success=self._image_extraction_accepted, on_error=self._image_page_failed)
+        self._image_action_generation = getattr(self, "_image_action_generation", 0) + 1
+        request_generation = self._image_action_generation
+        page_generation = self._image_page_generation
+        window_generation = self._image_window_page_generation
+        catalog_generation = self._image_catalog_generation
+        self.api.submit(
+            "extract_partition_image", params,
+            on_success=lambda result: self._image_extraction_accepted(result, page_generation, window_generation, catalog_generation, request_generation),
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation),
+        )
 
-    def _image_extraction_accepted(self, result: dict[str, Any]) -> None:
+    def _image_extraction_accepted(self, result: dict[str, Any], page_generation: int | None = None, window_generation: int | None = None, catalog_generation: int | None = None, request_generation: int | None = None) -> None:
         operation_id = result.get("operation_id")
         if not isinstance(operation_id, str) or not operation_id:
-            self.image_result.set_text("El backend no devolvió operation_id.")
+            self._image_extraction_errors = getattr(self, "_image_extraction_errors", [])
+            self._image_extraction_errors.append("El backend no devolvió operation_id.")
+            if self._image_view_is_current(page_generation, window_generation, catalog_generation):
+                self.image_result.set_text("El backend no devolvió operation_id.")
+            return
+        self._image_operation_results = getattr(self, "_image_operation_results", {})
+        self._image_operation_results[operation_id] = {"accepted": result, "status": None}
+        if request_generation == getattr(self, "_image_action_generation", None):
+            self._latest_image_operation_id = operation_id
+        if not self._image_view_is_current(page_generation, window_generation, catalog_generation) or request_generation != getattr(self, "_image_action_generation", None):
             return
         self.image_operation_id = operation_id
         self.image_cancel.set_sensitive(True)
         self.image_result.set_text("Extracción aceptada: " + operation_id)
-        GLib.timeout_add_seconds(1, self._poll_image_extraction)
+        GLib.timeout_add_seconds(1, lambda: self._poll_image_extraction(operation_id, page_generation, window_generation))
 
-    def _poll_image_extraction(self) -> bool:
-        operation_id = getattr(self, "image_operation_id", None)
+    def _poll_image_extraction(self, operation_id: str | None = None, page_generation: int | None = None, window_generation: int | None = None) -> bool:
+        operation_id = operation_id or getattr(self, "image_operation_id", None)
         if not operation_id:
             return GLib.SOURCE_REMOVE
-        self.api.submit("local_operation_status", {"operation_id": operation_id}, on_success=self._show_image_extraction_status, on_error=self._image_extraction_status_failed)
+        self.api.submit(
+            "local_operation_status", {"operation_id": operation_id},
+            on_success=lambda status: self._show_image_extraction_status(status, operation_id, page_generation, window_generation),
+            on_error=lambda error: self._image_extraction_status_failed(error, operation_id, page_generation, window_generation),
+        )
         return GLib.SOURCE_REMOVE
 
-    def _show_image_extraction_status(self, status: dict[str, Any]) -> None:
+    def _show_image_extraction_status(self, status: dict[str, Any], operation_id: str | None = None, page_generation: int | None = None, window_generation: int | None = None) -> None:
+        operation_id = operation_id or status.get("operation_id")
+        self._image_operation_results = getattr(self, "_image_operation_results", {})
+        self._image_operation_results.setdefault(operation_id, {})["status"] = status
+        if not self._image_view_is_current(page_generation, window_generation) or operation_id != getattr(self, "image_operation_id", None):
+            return
         events = status.get("events") or []
         event = next((item for item in reversed(events) if item.get("state") == "progress"), None)
         details = event.get("details", {}) if event else {}
         total, done = details.get("bytes_total"), details.get("bytes_done", 0)
         progress = f" · {round(done / total * 100, 1)}%" if isinstance(total, int) and total > 0 and isinstance(done, int) else ""
         state = status.get("state", "unknown")
-        self.image_result.set_text(f"Extracción {self.image_operation_id}: {state}{progress}")
+        self.image_result.set_text(f"Extracción {operation_id}: {state}{progress}")
         if state in {"completed", "failed", "cancelled", "interrupted"}:
             terminal = events[-1].get("details", {}) if events else {}
             self.image_result.set_text(f"Extracción {state}: {terminal.get('error') or terminal.get('reason') or terminal}")
             self.image_cancel.set_sensitive(False)
             self.image_operation_id = None
+            if getattr(self, "_latest_image_operation_id", None) == operation_id:
+                self._latest_image_operation_id = None
         else:
-            GLib.timeout_add_seconds(2, self._poll_image_extraction)
+            GLib.timeout_add_seconds(2, lambda: self._poll_image_extraction(operation_id, page_generation, window_generation))
 
-    def _image_extraction_status_failed(self, error: Exception) -> None:
+    def _image_extraction_status_failed(self, error: Exception, operation_id: str | None = None, page_generation: int | None = None, window_generation: int | None = None) -> None:
+        self._image_extraction_errors = getattr(self, "_image_extraction_errors", [])
+        self._image_extraction_errors.append(str(error))
+        if not self._image_view_is_current(page_generation, window_generation) or operation_id != getattr(self, "image_operation_id", None):
+            return
         self.image_result.set_text("No se pudo consultar el progreso; el trabajo conserva su ID: " + str(error))
-        GLib.timeout_add_seconds(5, self._poll_image_extraction)
+        GLib.timeout_add_seconds(5, lambda: self._poll_image_extraction(operation_id, page_generation, window_generation))
 
     def _cancel_image_extraction(self, _button: Gtk.Button) -> None:
         operation_id = getattr(self, "image_operation_id", None)
         if operation_id:
             self.image_cancel.set_sensitive(False)
-            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=self._image_page_failed)
+            page_generation = self._image_page_generation
+            window_generation = self._image_window_page_generation
+            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=lambda error: self._image_page_failed(error, page_generation, window_generation))
 
-    def _image_page_failed(self, error: Exception) -> None:
+    def _image_page_failed(self, error: Exception, page_generation: int | None = None, window_generation: int | None = None) -> None:
+        self._image_page_errors = getattr(self, "_image_page_errors", [])
+        self._image_page_errors.append(str(error))
+        if page_generation is not None and not self._image_view_is_current(page_generation, window_generation):
+            return
         if hasattr(self, "image_catalog_stack"):
             self.image_catalog_error.set_description(
                 "No se pudo consultar el repositorio seleccionado. " + str(error)
