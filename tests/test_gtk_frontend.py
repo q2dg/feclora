@@ -306,6 +306,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("previous_key", render)
         self.assertIn("selected_index = next(", render)
         self.assertIn("self.repository_management.set_selected(selected_index)", render)
+        self.assertIn('self._repository_refresh_pending_parts = {"remote", "s3"}', repository_loader)
+        self.assertIn("self._repository_refresh_part_loaded", repository_loader)
+        loaded = ast.get_source_segment(self.source, self.methods["_repository_refresh_part_loaded"])
+        self.assertIn("if not pending", loaded)
+        self.assertIn("self._render_repositories()", loaded)
 
     def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
         for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
