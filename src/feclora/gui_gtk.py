@@ -1618,7 +1618,7 @@ class FecloraGTK:
         job_row.add_suffix(self.remote_job_select)
         job_row.set_activatable_widget(self.remote_job_select)
         action_group.add(job_row)
-        self.remote_job_action = Gtk.DropDown.new_from_strings(["Consultar estado", "Iniciar servicio", "Autorizar trabajo", "Cancelar trabajo", "Detener servicio", "Reconciliar interrumpido"])
+        self.remote_job_action = Gtk.DropDown.new_from_strings(["Consultar estado", "Iniciar servicio", "Actualizar estado", "Autorizar trabajo", "Cancelar trabajo", "Detener servicio", "Reconciliar interrumpido"])
         action_row = Adw.ActionRow(title="Acción")
         action_row.add_suffix(self.remote_job_action)
         action_row.set_activatable_widget(self.remote_job_action)
@@ -1760,7 +1760,7 @@ class FecloraGTK:
         job = jobs[selected - 1]
         job_id = str(job.get("job_id") or "")
         confirmation = self.remote_job_confirmation.get_text()
-        actions = ("status", "start", "arm", "cancel", "stop", "reconcile")
+        actions = ("status", "start", "refresh", "arm", "cancel", "stop", "reconcile")
         action_index = self.remote_job_action.get_selected()
         if not job_id or action_index >= len(actions):
             self.remote_job_result.set_text("Trabajo o acción no válidos.")
@@ -1771,7 +1771,7 @@ class FecloraGTK:
                 self.remote_job_result.set_text("Solo se inicia el servicio de una definición nueva no interrumpida.")
                 return
             self._submit_remote_job_action("start_deployment_service", {"job_id": job_id})
-        elif action == "status":
+        elif action in {"status", "refresh"}:
             self._submit_remote_job_action("deployment_service_status", {"job_id": job_id})
         elif action == "arm":
             expected = self._gtk_deployment_arm_phrase(job)
