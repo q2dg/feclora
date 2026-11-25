@@ -2966,8 +2966,16 @@ class FecloraGTK:
         repository_id = self._image_repository_id()
         if repository_id:
             params["repository_id"] = repository_id
+        page_generation = self._image_page_generation
+        catalog_generation = self._image_catalog_generation
         self.image_result.set_text("Verificando manifiesto y tabla de particiones…")
-        self.api.submit("inspect_image_layout", params, on_success=self._show_image_layout, on_error=self._image_page_failed)
+        self.api.submit(
+            "inspect_image_layout", params,
+            on_success=lambda layout: self._show_image_layout(layout)
+            if page_generation == self._image_page_generation and catalog_generation == self._image_catalog_generation else None,
+            on_error=lambda error: self._image_page_failed(error)
+            if page_generation == self._image_page_generation and catalog_generation == self._image_catalog_generation else None,
+        )
 
     def _show_image_layout(self, layout: dict[str, Any]) -> None:
         image = self._selected_image()
