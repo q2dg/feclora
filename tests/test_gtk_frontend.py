@@ -119,6 +119,16 @@ class GTKFrontendStructureTests(unittest.TestCase):
         language = ast.get_source_segment(self.source, self.methods["_language_changed"])
         self.assertIn("self.keyboard_selection = KEYBOARD_LAYOUTS[keyboard_index][1]", language)
         self.assertIn("apply_ok", accepted)
+    def test_capture_completion_refreshes_inventory_and_image_catalog(self):
+        status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
+        self.assertIn('status.get("operation_id") not in (None, operation_id)', status)
+        self.assertIn('self._capture_action_errors[operation_id] = "El estado devuelto pertenece a otra operación."', status)
+        terminal = status[status.index('if state in {"completed", "failed", "cancelled", "interrupted"}:'):]
+        self.assertIn('if state == "completed":', terminal)
+        self.assertIn('self.api.submit(\n                    "inventory"', terminal)
+        self.assertIn("self._populate_capture_devices(response)", terminal)
+        self.assertIn("self._capture_repository_changed(self.capture_repository, None)", terminal)
+
     def test_overview_uses_real_status_api(self):
         method = ast.get_source_segment(self.source, self.methods["_refresh_status"])
         self.assertIn('self.api.submit("status"', method)
