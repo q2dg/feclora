@@ -354,6 +354,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.p2v_export_repository', self.source)
         self.assertIn('self.p2v_result.set_text', self.source)
 
+    def test_pxe_answer_s3_repository_selector_includes_configured_s3_without_mount_flags(self):
+        start = self.source.index("    def _pxe_answer_s3_repositories")
+        end = self.source.index("    def _render_pxe_answer_repositories", start)
+        method = self.source[start:end]
+        self.assertIn('item for item in response.get("repositories", [])', method)
+        self.assertIn('isinstance(item, dict) and item.get("id")', method)
+        self.assertNotIn('item.get("mounted")', method)
+        self.assertNotIn('item.get("verified")', method)
+
     def test_repository_management_and_credential_controls_use_allowlisted_api(self):
         for action in (
             '"check": "check_s3_repository"',
