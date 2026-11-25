@@ -69,17 +69,18 @@ Checked against Fedora's Fedora 45 package metadata on 2026-11-25:
 | `libadwaita` | `1.10.0-2.fc45` | Native Adwaita widgets used by the frontend |
 
 The Weston 15.0.1 command-line interface documents `-B drm` for the DRM/KMS
-backend, `--shell=kiosk-shell.so` for kiosk mode, and `--idle-time=0` to
-disable the idle timeout. Weston can launch the GUI as its child with the
-mandatory `--` separator; it supplies `WAYLAND_DISPLAY` to that child.
-XWayland support is explicitly enabled with `--xwayland`, so the production
-command must omit that option and the ISO must not contain the XWayland server
-package.
+backend, `--shell=kiosk-shell.so` for kiosk mode, `--idle-time=0` to disable
+the idle timeout, and `--no-config` to ignore all `weston.ini` files and
+configured modules. Weston can launch the GUI as its child with the mandatory
+`--` separator; it supplies `WAYLAND_DISPLAY` to that child. XWayland support
+is explicitly enabled with `--xwayland`; the production command must omit
+that option, use `--no-config` so a user or system `weston.ini` cannot enable
+it indirectly, and the ISO must not contain the XWayland server package.
 
 The verified command shape for a seat-enabled session is:
 
 ```sh
-env -u DISPLAY weston -B drm --shell=kiosk-shell.so --idle-time=0 -- \
+env -u DISPLAY weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- \
   /usr/bin/python3 -m feclora.gui_gtk
 ```
 
