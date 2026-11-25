@@ -571,6 +571,7 @@ class FecloraGTK:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
     def _history_page(self, title: str, columns: tuple[str, ...], action: str, key: str, renderer: Any) -> None:
+        self._history_page_generation = self._page_generation
         self.page_description.set_text(title)
         history_group = Adw.PreferencesGroup(title="Consulta del historial")
         self.page_body.append(history_group)
@@ -593,8 +594,17 @@ class FecloraGTK:
         self._refresh_history(action, key, renderer)
 
     def _refresh_history(self, action: str, key: str, renderer: Any) -> None:
+        self._history_refresh_generation = getattr(self, "_history_refresh_generation", 0) + 1
+        generation = self._history_refresh_generation
+        page_generation = self._history_page_generation
         self.history_summary.set_text("Consultando " + action + "…")
-        self.api.submit(action, on_success=lambda response: self._show_history_rows(response, key, renderer), on_error=self._history_failed)
+        self.api.submit(
+            action,
+            on_success=lambda response: self._show_history_rows(response, key, renderer)
+            if page_generation == self._page_generation and generation == self._history_refresh_generation else None,
+            on_error=lambda error: self._history_failed(error)
+            if page_generation == self._page_generation and generation == self._history_refresh_generation else None,
+        )
 
     def _show_history_rows(self, response: dict[str, Any], key: str, renderer: Any) -> None:
         grid = self.history_grid
