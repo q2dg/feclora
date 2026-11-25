@@ -1725,6 +1725,14 @@ class FecloraGTK:
             self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", {})
             self._p2v_operation_errors[operation_id] = "El estado devuelto pertenece a otra operación."
             return
+        if status.get("operation_id") not in (None, operation_id):
+            self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", {})
+            self._p2v_operation_errors[operation_id] = "El estado devuelto pertenece a otra operación."
+            self.p2v_result.set_text("El estado consultado no corresponde a la operación " + operation_id + "; se reintentará.")
+            GLib.timeout_add_seconds(
+                5, lambda: self._poll_p2v_operation(operation_id, page_generation, window_generation)
+            )
+            return
         state = status.get("state", "unknown")
         events = status.get("events") or []
         if state in {"completed", "failed", "cancelled", "interrupted"}:
@@ -4212,6 +4220,14 @@ class FecloraGTK:
         self._image_operation_results = getattr(self, "_image_operation_results", {})
         self._image_operation_results.setdefault(operation_id, {})["status"] = status
         if not self._image_view_is_current(page_generation, window_generation) or operation_id != getattr(self, "image_operation_id", None):
+            return
+        if status.get("operation_id") not in (None, operation_id):
+            self._image_extraction_errors = getattr(self, "_image_extraction_errors", [])
+            self._image_extraction_errors.append("El estado devuelto pertenece a otra operación.")
+            self.image_result.set_text("El estado consultado no corresponde a la extracción " + operation_id + "; se reintentará.")
+            GLib.timeout_add_seconds(
+                5, lambda: self._poll_image_extraction(operation_id, page_generation, window_generation)
+            )
             return
         events = status.get("events") or []
         event = next((item for item in reversed(events) if item.get("state") == "progress"), None)
