@@ -341,3 +341,6 @@ La interfaz GTK actualiza la ayuda de confirmación al cambiar el destino o la i
 ### Paridad de formularios de operaciones
 
 El selector GTK oculta el campo de identificador de imagen al finalizar una recuperación ddrescue: esa acción recibe un identificador de trabajo, no un identificador de imagen de captura. La visibilidad se mantiene alineada con la lógica de estados de Textual y queda cubierta por una comprobación estructural.
+
+
+La recuperación ddrescue mantiene el valor fijo de tres pasadas de reintento, igual que Textual. GTK no expone un selector configurable para este parámetro; la opción de reanudación mediante mapfile sí permanece disponible.
