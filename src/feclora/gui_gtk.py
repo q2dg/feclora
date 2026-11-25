@@ -828,9 +828,9 @@ class FecloraGTK:
     def _selected_server_interface(self) -> dict[str, Any] | None:
         selected = self.server_interface.get_selected()
         interfaces = getattr(self, "server_interfaces", [])
-        if selected >= len(interfaces):
+        if selected == 0 or selected > len(interfaces):
             return None
-        return interfaces[selected]
+        return interfaces[selected - 1]
 
     def _bootstrap_server(self, _button: Gtk.Button) -> None:
         selected = self._selected_server_interface()
@@ -1119,8 +1119,10 @@ class FecloraGTK:
             and isinstance(item.get("prefix_length"), int)
         ]
         if hasattr(self, "server_interface"):
-            labels = [f"{item['interface']} · {item['address']}/{item['prefix_length']}" for item in self.server_interfaces]
-            self.server_interface.set_model(Gtk.StringList.new(labels or ["No hay interfaces IPv4 disponibles"]))
+            labels = ["Selecciona interfaz/dirección activa…"] + [
+                f"{item['interface']} · {item['address']}/{item['prefix_length']}" for item in self.server_interfaces
+            ]
+            self.server_interface.set_model(Gtk.StringList.new(labels))
             self.server_interface.set_selected(0)
         lines = [
             f"Equipo: {status.get('hostname', '—')}",
