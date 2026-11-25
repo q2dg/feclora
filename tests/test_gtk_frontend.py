@@ -175,6 +175,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('self.api.submit("capture_btrfs_subvolume"', start)
         self.assertIn('self.api.submit("receive_btrfs_subvolume"', start)
 
+    def test_pxe_answer_publication_supports_scp_over_sshfs(self):
+        page = ast.get_source_segment(self.source, self.methods["_show_server_status_page"])
+        publisher = ast.get_source_segment(self.source, self.methods["_publish_pxe_answer"])
+        self.assertIn('"SCP · SSHFS"', page)
+        self.assertIn('source in {"repository", "scp"}', publisher)
+        self.assertIn('repository.get("provider") != "sshfs"', publisher)
+        self.assertIn('"repository_id"', publisher)
+        self.assertIn('"source_path"', publisher)
+
     def test_remote_job_import_supports_scp_over_sshfs(self):
         page = ast.get_source_segment(self.source, self.methods["_show_remote_jobs_page"])
         importer = ast.get_source_segment(self.source, self.methods["_import_remote_job"])
