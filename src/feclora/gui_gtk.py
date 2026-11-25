@@ -3948,6 +3948,8 @@ class FecloraGTK:
         self._image_inspection_generation = getattr(self, "_image_inspection_generation", 0) + 1
         request_generation = self._image_inspection_generation
         image_id = image["image_id"]
+        # Never leave a previously verified partition table usable when re-inspection starts.
+        self._reset_image_layout()
         self.image_result.set_text("Verificando manifiesto y tabla de particiones…")
         self.api.submit(
             "inspect_image_layout", params,
