@@ -700,8 +700,6 @@ class FecloraGTK:
         add_row(pxe_group, "Duración máxima", self.pxe_max_duration)
         self.pxe_authoritative = Gtk.CheckButton(label="Confirmo que esta interfaz/red puede servir DHCP autoritativo")
         self.pxe_authoritative_row = add_row(pxe_group, "Autorización DHCP", self.pxe_authoritative)
-        self.pxe_mode.connect("notify::selected", self._pxe_mode_changed)
-        self._pxe_mode_changed(self.pxe_mode)
         validate = Gtk.Button(label="Validar perfil")
         validate.connect("clicked", self._validate_pxe_profile)
         add_row(pxe_group, "Preflight sin cambios", validate)
@@ -719,6 +717,8 @@ class FecloraGTK:
         result_row.add_suffix(self.pxe_result)
         pxe_group.add(result_row)
         self._pxe_profile = None
+        self.pxe_mode.connect("notify::selected", self._pxe_mode_changed)
+        self._pxe_mode_changed(self.pxe_mode)
 
         answer_group = Adw.PreferencesGroup(
             title="Respuestas PXE desatendidas",
