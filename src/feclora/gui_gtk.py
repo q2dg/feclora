@@ -3630,16 +3630,22 @@ class FecloraGTK:
             "remote_repositories",
             on_success=lambda result: self._populate_image_repositories(result)
             if page_generation == self._image_page_generation and window_generation == self._page_generation else None,
-            on_error=lambda error: self._image_page_failed(error)
-            if page_generation == self._image_page_generation else None,
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
+            if page_generation == self._image_page_generation and window_generation == self._page_generation else None,
         )
         self.api.submit(
             "s3_repositories",
             on_success=lambda result: self._populate_image_s3_repositories(result)
-            if page_generation == self._image_page_generation else None,
-            on_error=lambda error: self._image_page_failed(error)
-            if page_generation == self._image_page_generation else None,
+            if page_generation == self._image_page_generation and window_generation == self._page_generation else None,
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
+            if page_generation == self._image_page_generation and window_generation == self._page_generation else None,
         )
+        pending_operation_id = getattr(self, "_latest_image_operation_id", None)
+        if pending_operation_id:
+            self.image_operation_id = pending_operation_id
+            self.image_cancel.set_sensitive(True)
+            self.image_result.set_text("Recuperando seguimiento de extracción " + pending_operation_id + "…")
+            self._poll_image_extraction(pending_operation_id, page_generation, window_generation)
 
     def _populate_image_repositories(self, result: dict[str, Any]) -> None:
         self._image_remote_repositories = [
@@ -3742,9 +3748,34 @@ class FecloraGTK:
         if repository_id:
             params["repository_id"] = repository_id
         self.image_result.set_text("Verificando todos los artefactos y sus hashes…")
-        self.api.submit("verify_image", params, on_success=self._show_image_verification, on_error=self._image_page_failed)
+        self._image_verification_generation = getattr(self, "_image_verification_generation", 0) + 1
+        request_generation = self._image_verification_generation
+        page_generation = self._image_page_generation
+        window_generation = self._image_window_page_generation
+        catalog_generation = self._image_catalog_generation
+        image_id = image["image_id"]
+        self.api.submit(
+            "verify_image", params,
+            on_success=lambda result: self._show_image_verification(result, image_id, repository_id, page_generation, window_generation, catalog_generation, request_generation),
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
+            if self._image_view_is_current(page_generation, window_generation, catalog_generation) and request_generation == self._image_verification_generation else None,
+        )
 
-    def _show_image_verification(self, result: dict[str, Any]) -> None:
+    def _show_image_verification(
+        self, result: dict[str, Any], image_id: str | None = None,
+        repository_id: str | None = None, page_generation: int | None = None,
+        window_generation: int | None = None, catalog_generation: int | None = None,
+        request_generation: int | None = None,
+    ) -> None:
+        self._image_verification_results = getattr(self, "_image_verification_results", {})
+        self._image_verification_results[(repository_id, image_id)] = result
+        if (
+            not self._image_view_is_current(page_generation, window_generation, catalog_generation)
+            or request_generation != self._image_verification_generation
+            or (self._selected_image() or {}).get("image_id") != image_id
+            or self._image_repository_id() != repository_id
+        ):
+            return
         import json
         self.image_result.set_text("Resultado de verificación: " + json.dumps(result, ensure_ascii=False))
 
@@ -3765,8 +3796,8 @@ class FecloraGTK:
             "inspect_image_layout", params,
             on_success=lambda layout: self._show_image_layout(layout)
             if page_generation == self._image_page_generation and window_generation == self._page_generation and catalog_generation == self._image_catalog_generation else None,
-            on_error=lambda error: self._image_page_failed(error)
-            if page_generation == self._image_page_generation and catalog_generation == self._image_catalog_generation else None,
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
+            if page_generation == self._image_page_generation and window_generation == self._page_generation and catalog_generation == self._image_catalog_generation else None,
         )
 
     def _show_image_layout(self, layout: dict[str, Any]) -> None:
@@ -3826,9 +3857,10 @@ class FecloraGTK:
             and page_generation == self._image_page_generation
             and window_generation == self._page_generation
             and catalog_generation == self._image_catalog_generation else None,
-            on_error=lambda error: self._image_page_failed(error)
+            on_error=lambda error: self._image_page_failed(error, page_generation, window_generation)
             if browse_generation == self._image_browse_generation
             and page_generation == self._image_page_generation
+            and window_generation == self._page_generation
             and catalog_generation == self._image_catalog_generation else None,
         )
 
@@ -4004,7 +4036,13 @@ class FecloraGTK:
             self.image_cancel.set_sensitive(False)
             page_generation = self._image_page_generation
             window_generation = self._image_window_page_generation
-            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=lambda error: self._image_page_failed(error, page_generation, window_generation))
+            self.api.submit("cancel_local_operation", {"operation_id": operation_id}, on_success=lambda _result: None, on_error=lambda error: self._image_cancel_failed(error, operation_id, page_generation, window_generation))
+
+    def _image_cancel_failed(self, error: Exception, operation_id: str, page_generation: int, window_generation: int) -> None:
+        self._image_cancel_errors = getattr(self, "_image_cancel_errors", {})
+        self._image_cancel_errors[operation_id] = str(error)
+        if self._image_view_is_current(page_generation, window_generation) and operation_id == getattr(self, "image_operation_id", None):
+            self._image_page_failed(error, page_generation, window_generation)
 
     def _image_page_failed(self, error: Exception, page_generation: int | None = None, window_generation: int | None = None) -> None:
         self._image_page_errors = getattr(self, "_image_page_errors", [])
