@@ -412,3 +412,16 @@ acceptance have not been executed.
 NetworkManager interface refresh, server status error handling, and PXE answer
 repository loading, so those responses cannot repopulate hidden or superseded
 page instances.
+
+
+PXE answer publication/revocation now records each result against its requested
+job ID and only updates the active server page for the latest matching request;
+revocation feedback also checks that the same job ID remains selected. age
+passphrase-status reads and one-shot passphrase submissions capture the server
+page, navigation generation and request generation. A delayed secret-delivery
+callback therefore cannot clear or re-enable the secret field on a newer page;
+the result/error is retained without retaining the secret in UI state. Server
+and client age-recipient maintenance actions also use page-scoped callbacks.
+These changes preserve the existing privileged API payloads and secret-delivery
+semantics. Structural tests were added; no live PXE worker, age delivery,
+certificate, or server runtime test was executed.
