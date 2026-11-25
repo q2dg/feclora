@@ -314,4 +314,4 @@ than treating the password as a generic replacement for recipient encryption.
 The GTK image selector mirrors Textual's repository choices: it includes mounted and identity-verified file repositories plus configured S3 repositories. Extraction rejects read-only targets; file repositories additionally require a mounted, verified state, while S3 repositories follow the existing Textual read-only restriction.
 
 
-Btrfs subvolume capture and receive also forward the selected repository ID, matching Textual's explicit repository routing. When no remote repository is selected, the backend retains its local/default behavior. The structural GTK test guards both request paths.
+Btrfs subvolume capture/receive and ddrescue recovery/finalization forward the selected repository ID, matching Textual's explicit repository routing. When no remote repository is selected, the backend retains its local/default behavior. The structural GTK test guards all four request paths.
