@@ -856,6 +856,7 @@ class FecloraGTK:
                 and generation == self._server_status_refresh_generation else None,
                 on_error=lambda error: self._server_status_failed(error, generation)
                 if page_generation == self._server_status_page_generation
+                and window_generation == self._page_generation
                 and generation == self._server_status_refresh_generation else None,
             )
 
@@ -1045,6 +1046,7 @@ class FecloraGTK:
 
     def _refresh_pxe_answer_repositories(self) -> None:
         page_generation = self._server_status_page_generation
+        window_generation = self._server_window_page_generation
         self._pxe_answer_remote_rows = []
         self._pxe_answer_s3_rows = []
         self._pxe_answer_pending_parts = {"remote", "s3"}
@@ -1052,9 +1054,9 @@ class FecloraGTK:
         self.api.submit(
             "remote_repositories",
             on_success=lambda response: self._pxe_answer_remote_repositories(response, page_generation)
-            if page_generation == self._server_status_page_generation else None,
+            if page_generation == self._server_status_page_generation and window_generation == self._page_generation else None,
             on_error=lambda error: self._pxe_answer_repository_error(error, page_generation)
-            if page_generation == self._server_status_page_generation else None,
+            if page_generation == self._server_status_page_generation and window_generation == self._page_generation else None,
         )
         self.api.submit(
             "s3_repositories",
@@ -3064,7 +3066,7 @@ class FecloraGTK:
         self.api.submit(
             "network_interfaces",
             on_success=lambda response: self._populate_network_interfaces(response)
-            if current_generation == self._network_page_generation else None,
+            if current_generation == self._network_page_generation and current_window_generation == self._page_generation else None,
             on_error=lambda error, page=current_generation, window=current_window_generation: self._network_failed(error, page, window)
             if page == self._network_page_generation and window == self._page_generation else None,
         )
