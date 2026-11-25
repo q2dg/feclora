@@ -359,3 +359,6 @@ Generic deployment, remote-job and journal history pages guard refresh responses
 
 
 The local operation log and persistent ddrescue recovery history guard refreshes by page and request generation. Late results from an earlier refresh or page instance cannot replace the currently displayed records.
+
+
+Client-job start responses are retained by job identifier even if navigation or a newer TLS inspection makes the initiating view stale; only the matching page/inspection may update its widgets. Client status refreshes additionally use a request generation and job-identifier check, preventing delayed status or error callbacks from replacing the state of another inspected job. These guards affect presentation only: they do not cancel or suppress a privileged action already submitted to the API.
