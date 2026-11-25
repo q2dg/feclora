@@ -2177,7 +2177,7 @@ class FecloraGTK:
         self.api.submit(
             "deployment_jobs",
             on_success=lambda response: self._populate_remote_job_controls(response)
-            if generation == self._remote_jobs_page_generation else None,
+            if self._remote_job_context_is_current(generation, job_id) else None,
             on_error=lambda error: self._remote_job_action_failed(error, generation, job_id),
         )
 
