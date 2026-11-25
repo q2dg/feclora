@@ -900,6 +900,23 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("if index > 0 and index - 1 < len(getattr(self, \"image_repositories\", [])):", self.source)
         self.assertIn('not repository.get("mounted") or not repository.get("verified")', self.source)
 
+    def test_remote_job_actions_are_bound_to_page_and_selected_job(self):
+        context = ast.get_source_segment(self.source, self.methods["_remote_job_context_is_current"])
+        stop = ast.get_source_segment(self.source, self.methods["_stop_remote_job_after_status"])
+        submit = ast.get_source_segment(self.source, self.methods["_submit_remote_job_action"])
+        done = ast.get_source_segment(self.source, self.methods["_remote_job_action_done"])
+        failed = ast.get_source_segment(self.source, self.methods["_remote_job_action_failed"])
+        self.assertIn("page_generation != self._remote_jobs_page_generation", context)
+        self.assertIn('str(jobs[selected - 1].get("job_id") or "") == job_id', context)
+        self.assertIn("_remote_job_context_is_current(page_generation, job_id)", stop)
+        self.assertIn("self._submit_remote_job_action(\"stop_deployment_service\"", stop)
+        self.assertIn("on_success=lambda result: self._remote_job_action_done", submit)
+        self.assertIn("self._remote_job_action_results", done)
+        self.assertIn("_remote_job_context_is_current(page_generation, job_id)", done)
+        self.assertIn("_remote_job_context_is_current(page_generation, job_id)", failed)
+        self.assertIn("generation == self._remote_jobs_page_generation", done)
+
+
     def test_server_and_pxe_action_callbacks_are_page_guarded(self):
         server_done = ast.get_source_segment(self.source, self.methods["_server_action_done"])
         server_failed = ast.get_source_segment(self.source, self.methods["_server_action_failed"])
