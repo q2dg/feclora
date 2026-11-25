@@ -704,6 +704,13 @@ class FecloraGTK:
         add_row(pxe_group, "Duración máxima", self.pxe_max_duration)
         self.pxe_authoritative = Gtk.CheckButton(label="Confirmo que esta interfaz/red puede servir DHCP autoritativo")
         self.pxe_authoritative_row = add_row(pxe_group, "Autorización DHCP", self.pxe_authoritative)
+        for field in (
+            self.pxe_pool_start, self.pxe_pool_end, self.pxe_lease, self.pxe_gateway,
+            self.pxe_dns, self.pxe_port, self.pxe_max_clients, self.pxe_max_duration,
+        ):
+            field.connect("changed", self._pxe_inputs_changed)
+        self.pxe_authoritative.connect("toggled", self._pxe_inputs_changed)
+        self.server_interface.connect("notify::selected", self._pxe_inputs_changed)
         validate = Gtk.Button(label="Validar perfil")
         validate.connect("clicked", self._validate_pxe_profile)
         add_row(pxe_group, "Preflight sin cambios", validate)
@@ -841,6 +848,16 @@ class FecloraGTK:
         self.api.submit("rotate_server_keypair", {"confirmation": confirmation}, on_success=self._server_action_done, on_error=self._server_action_failed)
         self.server_rotate_confirmation.set_text("")
 
+    def _invalidate_pxe_validation(self) -> None:
+        self._pxe_validation_generation = getattr(self, "_pxe_validation_generation", 0) + 1
+        self._pxe_profile = None
+        self._pxe_pending_profile = None
+        self.pxe_start.set_sensitive(False)
+        self.pxe_result.set_text("Perfil PXE no validado.")
+
+    def _pxe_inputs_changed(self, *_args: Any) -> None:
+        self._invalidate_pxe_validation()
+
     def _pxe_mode_changed(self, _widget: Gtk.DropDown, _pspec: Any = None) -> None:
         isolated = self.pxe_mode.get_selected() == 1
         for row in (
@@ -849,9 +866,7 @@ class FecloraGTK:
         ):
             row.set_visible(isolated)
         # A profile validated for the previous DHCP mode must never be startable.
-        self._pxe_profile = None
-        self.pxe_start.set_sensitive(False)
-        self.pxe_result.set_text("Perfil PXE no validado.")
+        self._invalidate_pxe_validation()
 
     def _validate_pxe_profile(self, _button: Gtk.Button) -> None:
         selected = self._selected_server_interface()
@@ -884,8 +899,16 @@ class FecloraGTK:
         self.pxe_result.set_text("Validando perfil PXE…")
         self.pxe_start.set_sensitive(False)
         self._pxe_profile = None
+        self._pxe_validation_generation = getattr(self, "_pxe_validation_generation", 0) + 1
+        generation = self._pxe_validation_generation
         self._pxe_pending_profile = profile
-        self.api.submit("validate_pxe_profile", profile, on_success=self._pxe_profile_validated, on_error=self._pxe_profile_rejected)
+        self.api.submit(
+            "validate_pxe_profile", profile,
+            on_success=lambda result: self._pxe_profile_validated(result)
+            if generation == self._pxe_validation_generation else None,
+            on_error=lambda error: self._pxe_profile_rejected(error)
+            if generation == self._pxe_validation_generation else None,
+        )
 
     def _pxe_profile_validated(self, result: dict[str, Any]) -> None:
         self._pxe_profile = getattr(self, "_pxe_pending_profile", None)
