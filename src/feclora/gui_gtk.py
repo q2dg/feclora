@@ -127,6 +127,7 @@ class FecloraGTK:
             self.back_button.set_visible(split.get_collapsed())
 
     def _show_welcome(self) -> None:
+        self._welcome_generation = getattr(self, "_welcome_generation", 0) + 1
         root = self._box(Gtk.Orientation.VERTICAL, 18)
         root.set_halign(Gtk.Align.CENTER)
         root.set_valign(Gtk.Align.CENTER)
@@ -213,21 +214,26 @@ class FecloraGTK:
         index = self.keyboard_dropdown.get_selected()
         layout = KEYBOARD_LAYOUTS[index][1] if index < len(KEYBOARD_LAYOUTS) else "us"
         self.status.set_text("Aplicando distribución del teclado…")
+        welcome_generation = self._welcome_generation
         self.api.submit(
             "set_keyboard_layout", {"layout": layout},
-            on_success=lambda _result: self._keyboard_layout_applied(layout),
+            on_success=lambda _result: self._keyboard_layout_applied(layout, welcome_generation),
             on_error=self._show_error,
         )
 
-    def _keyboard_layout_applied(self, layout: str) -> None:
+    def _keyboard_layout_applied(self, layout: str, welcome_generation: int | None = None) -> None:
         self.keyboard_layout = layout
         self.keyboard_selection = layout
+        if welcome_generation is None or welcome_generation != self._welcome_generation:
+            return
         self.status.set_text(self.tr("apply_ok"))
 
     def _open_root_terminal(self, _button: Gtk.Button) -> None:
         self.api.submit(
             "open_root_terminal",
-            on_success=lambda _result: self.status.set_text("Solicitud de terminal root enviada."),
+            on_success=lambda _result: self.toast_overlay.add_toast(
+                Adw.Toast.new("Solicitud de terminal root enviada.")
+            ),
             on_error=self._show_error,
         )
 
