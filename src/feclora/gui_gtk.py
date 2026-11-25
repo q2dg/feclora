@@ -953,25 +953,64 @@ class FecloraGTK:
         self.pxe_result.set_text("Error en servicios PXE: " + str(error))
 
     def _refresh_pxe_answer_repositories(self) -> None:
+        page_generation = self._server_status_page_generation
         self._pxe_answer_remote_rows = []
-        self.api.submit("remote_repositories", on_success=self._pxe_answer_remote_repositories, on_error=self._pxe_answer_repository_error)
-        self.api.submit("s3_repositories", on_success=self._pxe_answer_s3_repositories, on_error=self._pxe_answer_repository_error)
+        self._pxe_answer_s3_rows = []
+        self._pxe_answer_pending_parts = {"remote", "s3"}
+        self._pxe_answer_repository_failed = False
+        self.api.submit(
+            "remote_repositories",
+            on_success=lambda response: self._pxe_answer_remote_repositories(response, page_generation)
+            if page_generation == self._server_status_page_generation else None,
+            on_error=lambda error: self._pxe_answer_repository_error(error, page_generation)
+            if page_generation == self._server_status_page_generation else None,
+        )
+        self.api.submit(
+            "s3_repositories",
+            on_success=lambda response: self._pxe_answer_s3_repositories(response, page_generation)
+            if page_generation == self._server_status_page_generation else None,
+            on_error=lambda error: self._pxe_answer_repository_error(error, page_generation)
+            if page_generation == self._server_status_page_generation else None,
+        )
 
-    def _pxe_answer_remote_repositories(self, response: dict[str, Any]) -> None:
+    def _pxe_answer_remote_repositories(
+        self, response: dict[str, Any], page_generation: int | None = None
+    ) -> None:
         self._pxe_answer_remote_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("mounted") and item.get("verified")
         ]
-        self._render_pxe_answer_repositories()
+        if page_generation is None:
+            self._render_pxe_answer_repositories()
+        else:
+            self._pxe_answer_repository_part_loaded("remote", page_generation)
 
-    def _pxe_answer_s3_repositories(self, response: dict[str, Any]) -> None:
+    def _pxe_answer_s3_repositories(
+        self, response: dict[str, Any], page_generation: int | None = None
+    ) -> None:
         self._pxe_answer_s3_rows = [
             item for item in response.get("repositories", [])
             if isinstance(item, dict) and item.get("id")
         ]
-        self._render_pxe_answer_repositories()
+        if page_generation is None:
+            self._render_pxe_answer_repositories()
+        else:
+            self._pxe_answer_repository_part_loaded("s3", page_generation)
 
-    def _pxe_answer_repository_error(self, error: Exception) -> None:
+    def _pxe_answer_repository_part_loaded(self, part: str, page_generation: int) -> None:
+        if page_generation != self._server_status_page_generation:
+            return
+        pending = getattr(self, "_pxe_answer_pending_parts", set())
+        pending.discard(part)
+        if not pending and not getattr(self, "_pxe_answer_repository_failed", False):
+            self._render_pxe_answer_repositories()
+
+    def _pxe_answer_repository_error(
+        self, error: Exception, page_generation: int | None = None
+    ) -> None:
+        if page_generation is not None and page_generation != self._server_status_page_generation:
+            return
+        self._pxe_answer_repository_failed = True
         self.pxe_answer_result.set_text("No se pudieron cargar los repositorios para respuestas PXE: " + str(error))
 
     def _render_pxe_answer_repositories(self) -> None:
