@@ -3156,8 +3156,8 @@ class FecloraGTK:
             "restore_profiles", {"repository_id": repository_id},
             on_success=lambda result: self._populate_restore_profiles(result)
             if page_generation == self._page_generation and generation == self._profile_repository_generation else None,
-            on_error=lambda error: self._profile_failed(error)
-            if generation == self._profile_repository_generation else None,
+            on_error=lambda error: self._profile_failed(error, page_generation)
+            if page_generation == self._page_generation and generation == self._profile_repository_generation else None,
         )
 
     def _populate_profile_images(self, result: dict[str, Any]) -> None:
@@ -3207,7 +3207,7 @@ class FecloraGTK:
         self.api.submit(
             "create_restore_profile", params,
             on_success=lambda result: self._restore_profile_created(result, page_generation, request_generation),
-            on_error=lambda error: self._profile_failed(error, page_generation, request_generation),
+            on_error=lambda error: self._profile_failed(error, page_generation, request_generation, request_kind="create"),
         )
 
     def _restore_profile_created(self, result: dict[str, Any], page_generation: int | None = None, request_generation: int | None = None) -> None:
@@ -3240,13 +3240,13 @@ class FecloraGTK:
         self.api.submit(
             "execute_restore_profile", params,
             on_success=lambda result: self._restore_profile_operation_accepted(result, page_generation, request_generation, profile_id),
-            on_error=lambda error: self._profile_failed(error, page_generation, request_generation),
+            on_error=lambda error: self._profile_failed(error, page_generation, request_generation, request_kind="execute"),
         )
 
     def _restore_profile_operation_accepted(self, result: dict[str, Any], page_generation: int | None = None, request_generation: int | None = None, profile_id: str | None = None) -> None:
         operation_id = result.get("operation_id")
         if not isinstance(operation_id, str) or not operation_id:
-            self._profile_failed(RuntimeError("El backend no devolvió operation_id."), page_generation, request_generation)
+            self._profile_failed(RuntimeError("El backend no devolvió operation_id."), page_generation, request_generation, request_kind="execute")
             return
         self._profile_operation_results = getattr(self, "_profile_operation_results", {})
         self._profile_operation_results[operation_id] = {"profile_id": profile_id, "accepted": result}
@@ -3307,6 +3307,7 @@ class FecloraGTK:
     def _profile_failed(
         self, error: Exception, page_generation: int | None = None,
         request_generation: int | None = None, operation_id: str | None = None,
+        request_kind: str | None = None,
     ) -> None:
         self._profile_action_errors = getattr(self, "_profile_action_errors", {})
         key = operation_id or (f"request:{request_generation}" if request_generation is not None else "latest")
@@ -3316,8 +3317,8 @@ class FecloraGTK:
         if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None):
             return
         if request_generation is not None:
-            current = getattr(self, "_profile_execute_generation", None)
-            if request_generation not in {current, getattr(self, "_profile_create_generation", None)}:
+            current = getattr(self, "_profile_create_generation" if request_kind == "create" else "_profile_execute_generation", None)
+            if request_generation != current:
                 return
         if hasattr(self, "profile_result"):
             self.profile_result.set_text("Operación de perfil fallida: " + str(error))
