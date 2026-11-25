@@ -467,3 +467,6 @@ only if the same image, repository, page and download request remain selected.
 Structural regression tests cover these lifecycle rules. No P2V conversion,
 repository transfer, image mount, filesystem traversal, or file download was
 executed against a live appliance.
+ The accepted operation ID is retained before the page-visibility check, so
+navigation during submission does not lose the handle; returning to Repositories
+can resume status polling for that operation.
