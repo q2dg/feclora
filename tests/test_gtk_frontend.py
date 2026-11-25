@@ -667,6 +667,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.capture_btrfs_source_row.set_visible(is_btrfs_capture)", self.source)
         self.assertIn("self.capture_retry_row.set_visible(is_recovery)", self.source)
         self.assertIn("self.capture_image_id_label.set_title(", self.source)
+        self.assertIn("image_id_visible = not (is_restore or is_clone or is_image_build or is_finalize)", self.source)
+        self.assertIn("self.capture_image_id.set_visible(image_id_visible)", self.source)
 
     def test_repository_controls_use_semantic_libadwaita_groups(self):
         start = self.source.index("    def _show_repositories_page")
