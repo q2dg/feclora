@@ -527,7 +527,7 @@ class PartitionRestoreTests(unittest.TestCase):
 
     def test_decoder_shutdown_failure_removes_completed_staging_file(self):
         class Decoder:
-            def __init__(self, _source, mode):
+            def __init__(self, fileobj=None, mode="rb"):
                 self.reads = 0
             def read(self, _size):
                 self.reads += 1
