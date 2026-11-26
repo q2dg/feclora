@@ -30,6 +30,9 @@ keyboard-navigation acceptance checks against the built image.
 - `packages/base.txt` and the Kickstart `%packages` block must remain in sync.
 - `build/validate.sh` verifies the Textual boot service, privileged helper
   boundary and absence of the removed graphical packages.
+- The staged GTK candidate must select `LIBSEAT_BACKEND=logind`, unset
+  inherited X11 display variables and obtain its user runtime directory through
+  its PAM session; VM acceptance is required before enabling it.
 - GitHub Actions runs the pinned Textual tests and static checks.
 - `docs/BUILD.md` describes the ISO build and BIOS/UEFI smoke-test procedure.
 
