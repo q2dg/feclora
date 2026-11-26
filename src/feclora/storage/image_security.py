@@ -297,6 +297,7 @@ def decrypt_artifact_stream_to_temp(
     if not age:
         raise ImageSecurityError("age executable is required for image decryption")
     fd, temporary = tempfile.mkstemp(prefix=".feclora-decrypted-", dir=target_dir)
+    keep_output = False
     try:
         with os.fdopen(fd, "wb") as output:
             result = subprocess.run(
@@ -313,19 +314,18 @@ def decrypt_artifact_stream_to_temp(
         if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
             raise ImageSecurityError("age produced no non-empty plaintext artifact")
         os.chmod(temporary, 0o600)
+        keep_output = True
         return temporary
     except ImageSecurityError:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
         raise
     except (OSError, subprocess.SubprocessError) as exc:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
         raise ImageSecurityError(f"could not decrypt artifact stream: {exc}") from exc
+    finally:
+        if not keep_output:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
 
 
 def decrypt_artifact_to_temp(
