@@ -35,7 +35,8 @@ the visible manual checks below.
 - [ ] Keyboard-layout selection changes the system keyboard layout without
       requiring a mouse or restarting the interface.
 - [ ] The root-terminal action opens tty2; exiting the shell returns the
-      display to tty1.
+      display to tty1. The root shell has no password prompt, so restrict
+      physical access to the appliance.
 - [ ] The interface can call only the validated helper through its scoped
       sudo rule; no unrestricted passwordless shell is available.
 - [ ] Storage inventory, confirmation prompts and operation failures remain
