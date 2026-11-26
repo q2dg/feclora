@@ -366,6 +366,20 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(store.status(identifier)["state"], "interrupted")
 
 
+    def test_restart_recovery_ignores_progress_event_when_finding_current_state(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            identifier = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily",
+                "compression": "zstd", "encrypt": False,
+            })
+            store.append(identifier, "preflight")
+            store.append(identifier, "running")
+            store.append(identifier, "progress", {"bytes_done": 4096})
+            recovered = store.mark_interrupted(identifier)
+            self.assertEqual(recovered["state"], "interrupted")
+            self.assertEqual(store.status(identifier)["state"], "interrupted")
+
     def test_rejects_bad_destructive_confirmation(self):
         with self.assertRaisesRegex(LocalOperationError, "confirmation"):
             validate_definition({
