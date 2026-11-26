@@ -84,7 +84,7 @@ for rpm_file in "${rpm_files[@]}"; do
     libadwaita|libadwaita-devel) expected_version="1.10.0" ;;
     *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
   esac
-  metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\\n' "$rpm_file")" ||
+  metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" ||
     fail "Cannot read Fedora source metadata: $rpm_file"
   IFS='|' read -r version release source_rpm <<<"$metadata"
   [[ "$version" == "$expected_version" ]] ||
