@@ -14,7 +14,7 @@ This procedure copies a **legacy** P2V bundle (QCOW2 plus its `.p2v.json` sideca
 
 ## Before you start
 
-- Configure an S3 object repository in Textual and import its S3 credential through the encrypted credential manager.
+- Configure an S3 object repository in GTK and import its S3 credential through the encrypted credential manager.
 - Ensure the S3 repository contains the legacy image and matching `.p2v.json` sidecar.
 - If exporting to SSHFS, NFS or SMB/CIFS, mount the destination and verify its mount identity. The destination must be read/write.
 - If exporting locally, ensure the local repository has enough free space.
@@ -22,19 +22,19 @@ This procedure copies a **legacy** P2V bundle (QCOW2 plus its `.p2v.json` sideca
 ## Procedure
 
 <ol>
-<li>Open Textual and select <strong>Repositories</strong>.</li>
+<li>Open GTK and select <strong>Repositories</strong>.</li>
 <li>In <strong>S3 object repositories</strong>, use <strong>Test connection</strong> on the source repository. Resolve credential, endpoint or bucket errors before continuing.</li>
 <li>Scroll to <strong>Legacy P2V bundle export from S3</strong>.</li>
 <li>Choose the source S3 repository.</li>
 <li>Enter the legacy P2V image identifier exactly as stored in that repository. Do not add the `.qcow2` suffix.</li>
 <li>Choose <strong>Local repository</strong>, or select a mounted, identity-verified, read/write filesystem repository.</li>
-<li>Select <strong>Export legacy P2V bundle</strong>. The operation runs in the durable worker; Textual disconnection does not cancel it.</li>
+<li>Select <strong>Export legacy P2V bundle</strong>. The operation runs in the durable worker; GTK disconnection does not cancel it.</li>
 <li>Follow progress and the terminal result in the notification and <strong>Operation log</strong>. On failure, inspect the operation details and destination before retrying.</li>
 </ol>
 
 ![Illustrative repository configuration mockup](assets/mockups/p2v-export.svg)
 
-*Illustrative mockup, not a live screenshot. The S3 export controls are implemented in Textual; the drawing is conceptual.*
+*Illustrative mockup, not a live screenshot. The S3 export controls are implemented in GTK; the drawing is conceptual.*
 
 ## Verify the result
 
