@@ -45,9 +45,11 @@ class FecloraGTK:
         self.window.set_decorated(False)
         self.window.set_deletable(False)
         self.window.fullscreen()
+        # Subscribe before presenting the first window so the initial map event
+        # cannot race ahead of the GTK readiness signal.
+        self.window.connect("map", lambda _window: GLib.idle_add(self._report_boot_rendered))
         self.window.connect("close-request", self._on_close_request)
         self._show_welcome()
-        self.window.connect("map", lambda _window: GLib.idle_add(self._report_boot_rendered))
         self.api.submit("get_keyboard_layout", on_success=self._accept_keyboard_layout, on_error=self._show_error)
 
     @staticmethod
