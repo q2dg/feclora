@@ -106,8 +106,7 @@ to tty2 and service recovery.
 Only use disposable virtual disks for destructive-workflow acceptance.
 Never attach a host system disk to a test VM.
 
-The production boot route is GTK/Weston. The old Textual implementation,
-service, package and dedicated tests have been removed. Keep BIOS/UEFI,
+GTK/Weston is the production boot route. Keep BIOS/UEFI,
 physical-hardware and destructive-workflow acceptance results separate from
 source-level checks; a successful GTK window alone does not validate every
 workflow or every hardware configuration.
