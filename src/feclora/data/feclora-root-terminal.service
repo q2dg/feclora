@@ -1,7 +1,7 @@
 [Unit]
 Description=Feclora local root shell on tty2
 After=systemd-logind.service
-Conflicts=getty@tty2.service
+Conflicts=getty@tty2.service kmsconvt@tty2.service
 
 [Service]
 Type=idle
