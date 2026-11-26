@@ -9,8 +9,9 @@ target is Weston DRM/KMS with `kiosk-shell`, launching the GTK welcome screen
 fullscreen for language and keyboard selection. GTK source now contains
 routes and views for all 14 navigation pages and the full 18-operation local
 operation selector. The GTK structural suite checks that every catalogue page
-has an explicit route, and separately checks the privileged API action surface.
-This is source-level coverage, not proof of runtime behavioral parity:
+has an explicit route, checks all 18 shared local-operation identifiers against
+both GTK and the privileged API, and checks the Textual privileged-action
+inventory. This is source-level coverage, not proof of runtime behavioral parity:
 the GTK/Wayland session, operator workflows and BIOS/UEFI boot acceptance still
 require execution in the target image. Textual remains the production interface
 until those acceptance gates pass; it is not a permanent fallback.
