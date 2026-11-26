@@ -37,14 +37,24 @@ class DiskCloneTests(unittest.TestCase):
             path = command[-1]
             return SimpleNamespace(stdout=json.dumps({"blockdevices": [{"path": self.backing[path], "type": "disk"}]}))
         return SimpleNamespace(stdout=self.sizes[command[-1]])
+    def factory(self, first=None):
+        calls = {"count": 0}
+        def create(argv, **opts):
+            self.started.append((argv, opts))
+            calls["count"] += 1
+            if calls["count"] == 1:
+                return first or FakeProcess()
+            index = calls["count"] - 2
+            data = self.readbacks[index] if index < len(self.readbacks) else b""
+            return FakeProcess(stdout=io.BytesIO(data))
+        return create
     def clone(self, **kwargs):
         return clone_disk(
             "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
             executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
             device_validator=lambda _path: True, runner=self.runner,
             device_safety_check=lambda path: self.safety.append(path),
-            effective_uid=lambda: 0,
-            popen_factory=lambda argv, **opts: self.started.append((argv, opts)) or FakeProcess(),
+            effective_uid=lambda: 0, popen_factory=self.factory(),
             **kwargs,
         )
     def test_direct_clone_uses_exact_source_byte_count(self):
@@ -57,6 +67,14 @@ class DiskCloneTests(unittest.TestCase):
         self.assertIn("iflag=count_bytes", argv)
         self.assertIn("conv=fsync", argv)
         self.assertEqual(self.safety, ["/dev/source", "/dev/target"] * 2)
+    def test_rejects_destination_readback_mismatch(self):
+        self.readbacks[1] = b"T" * 100000
+        with self.assertRaisesRegex(DiskCloneError, "SHA-256"):
+            self.clone()
+    def test_rejects_short_source_readback(self):
+        self.readbacks[0] = b"S" * 99999
+        with self.assertRaisesRegex(DiskCloneError, "exactly 100000 bytes"):
+            self.clone()
     def test_reports_dd_progress(self):
         progress = []
         proc = FakeProcess(stderr=b"50000 bytes copied, 1.0 s, 50 kB/s\r100000 bytes copied, 2.0 s, 50 kB/s\r")
@@ -65,7 +83,7 @@ class DiskCloneTests(unittest.TestCase):
             executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
             device_validator=lambda _path: True, runner=self.runner,
             device_safety_check=lambda _path: None, effective_uid=lambda: 0,
-            popen_factory=lambda *a, **k: proc,
+            popen_factory=self.factory(first=proc),
             progress_callback=lambda done, total, detail: progress.append((done, total)),
         )
         self.assertEqual(progress, [(50000, 100000), (100000, 100000)])
@@ -132,7 +150,7 @@ class DiskCloneTests(unittest.TestCase):
             executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd", "sgdisk": "/usr/sbin/sgdisk"},
             device_validator=lambda _path: True, runner=self.runner,
             device_safety_check=lambda _path: None, effective_uid=lambda: 0,
-            popen_factory=lambda argv, **opts: self.started.append((argv, opts)) or FakeProcess(),
+            popen_factory=self.factory(),
         )
     def test_rejects_read_only_target(self):
         self.sizes["/dev/target"] = self.geometry(120000, 512, True, "dos")
