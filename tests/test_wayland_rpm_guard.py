@@ -43,6 +43,14 @@ class WaylandRPMGuardTests(unittest.TestCase):
                 "files": ["/usr/lib64/libadwaita-1.so.0"],
                 "requires": ["gtk4 >= 4.24.1"],
             },
+            "gtk4-devel.rpm": {
+                "name": "gtk4-devel",
+                "files": [
+                    "/usr/include/gtk-4.0/gdk/wayland/gdkwaylanddisplay.h",
+                    "/usr/lib64/pkgconfig/gtk4-wayland.pc",
+                ],
+                "requires": ["gtk4 = 4.24.1", "wayland-devel"],
+            },
         }
         fake_rpm = self.fake_bin / "rpm"
         fake_rpm.write_text(
@@ -121,6 +129,21 @@ else:
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("libX11.so.6", result.stderr)
+
+    def test_audits_optional_gtk4_development_rpm(self):
+        extra = self.root / "gtk4-devel.rpm"
+        extra.write_bytes(b"fake rpm fixture")
+        result = self._run([*self.rpm_paths, extra])
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_x11_build_dependency_in_optional_development_rpm(self):
+        self.records["gtk4-devel.rpm"]["requires"].append("pkgconfig(x11)")
+        self._write_database()
+        extra = self.root / "gtk4-devel.rpm"
+        extra.write_bytes(b"fake rpm fixture")
+        result = self._run([*self.rpm_paths, extra])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pkgconfig(x11)", result.stderr)
 
     def test_requires_all_four_runtime_packages(self):
         result = self._run(self.rpm_paths[:-1])
