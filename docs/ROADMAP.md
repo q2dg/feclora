@@ -13,8 +13,9 @@ group and Feclora's explicit runtime packages. The current Live boot continues t
 libadwaita is being migrated as the replacement interface, with Weston DRM/KMS
 and Weston's kiosk shell as the target compositor; Cage is explicitly excluded.
 The production boot switch and Textual removal are gated on complete behavioral
-parity, Fedora-matched X11-disabled Weston/GTK/libadwaita RPMs, VM smoke tests
-and BIOS/UEFI acceptance. See [GTK4 migration](GTK4-MIGRATION.md) for the
+parity, VM smoke tests and BIOS/UEFI acceptance. The Live image now selects
+Fedora's official Weston/GTK/libadwaita runtime packages and excludes the
+separate Xorg/XWayland server packages. See [GTK4 migration](GTK4-MIGRATION.md) for the
 remaining parity and acceptance work.
 
 The Live session is intentionally ephemeral: each boot creates fresh local
