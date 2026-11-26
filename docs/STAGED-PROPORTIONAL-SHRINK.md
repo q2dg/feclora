@@ -123,7 +123,7 @@ operator task.
 
 ## Interactive proportional restore workflow
 
-The Textual imaging wizard now exposes a separate proportional restore operation for
+The GTK imaging wizard now exposes a separate proportional restore operation for
 whole-disk GPT images. The operator selects the smaller destination and the
 original source disk. The source must still be present, offline and unused:
 its capacity and logical sector size must match the image, and its partition
@@ -167,9 +167,9 @@ example, a disk removed and replaced between inventory collection and
 selection) is rejected before source probing or destination confirmation.
 
 
-## Textual and durable-worker integration
+## GTK and durable-worker integration
 
-The primary Textual imaging wizard now offers **Proportional whole-disk
+The primary GTK imaging wizard now offers **Proportional whole-disk
 restore** as a distinct operation. It requires selection of the verified RAW
 disk image, the original source disk and a strictly smaller destination disk.
 The UI submits both selected kernel MAJ:MIN identities with the durable
