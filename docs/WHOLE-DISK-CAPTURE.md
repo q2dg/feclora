@@ -8,7 +8,7 @@ title: Whole-disk capture
 
 # Whole-disk capture
 
-**Status: implemented in Textual.**
+**Status: implemented in GTK.**
 
 ![Illustrative mockup of the capture source-selection wizard]({{ '/assets/mockups/capture-wizard.svg' | relative_url }})
 
@@ -37,6 +37,6 @@ fails, names created by this transaction are removed. Existing files are
 never replaced.
 
 This implementation is read-only with respect to the source device. It checks
-mounted/busy/root-backed sources and revalidates before reading. The Textual Operations wizard shows byte-based progress and supports cancellation; a cancelled capture removes its staging data and does not publish a manifest. Power-loss recovery for a crash
+mounted/busy/root-backed sources and revalidates before reading. The GTK Operations wizard shows byte-based progress and supports cancellation; a cancelled capture removes its staging data and does not publish a manifest. Power-loss recovery for a crash
 between individual hard-link operations remains pending. The manifest-last convention lets readers
 ignore incomplete image sets without a manifest.
