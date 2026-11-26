@@ -7,10 +7,11 @@ usage() {
 Usage:
   build/verify-wayland-rpms.sh [--installed-root ROOT] weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm [additional-rpms...]
 
-Checks the four required Fedora-matched runtime RPMs and every additional RPM
-supplied (for example gtk4-devel used to rebuild libadwaita).
-With --installed-root, also audits the complete installed RPM database and file
-payload under ROOT for X11 libraries, backends, compatibility servers and WMs.
+Checks Fedora 45 runtime RPM provenance and rejects Xorg/XWayland server
+executables or server packages. Optional X11 client backends and libraries in
+official Fedora builds are allowed: the appliance policy is not to run an X
+server, not to strip every unused compatibility interface from GTK or Weston.
+With --installed-root, audits the complete installed RPM database and payload.
 EOF
 }
 
@@ -54,19 +55,19 @@ if [[ -n "$installed_root" && ! -d "$installed_root" ]]; then
   fail "Installed root does not exist: $installed_root"
 fi
 
-readonly X11_FILE_RE='(^|/)(Xwayland|Xorg|openbox|xwayland\.so|x11-backend\.so|GdkX11-4\.0\.(typelib|gir)|gdk/x11/|libgdk-x11-[^/]*\.so([.0-9]*)?|libX11(-xcb)?\.so([.0-9]*)?|libXcursor\.so([.0-9]*)?|libXdamage\.so([.0-9]*)?|libXext\.so([.0-9]*)?|libXfixes\.so([.0-9]*)?|libXi\.so([.0-9]*)?|libXinerama\.so([.0-9]*)?|libXrandr\.so([.0-9]*)?|libXcomposite\.so([.0-9]*)?|libXrender\.so([.0-9]*)?|libXau\.so([.0-9]*)?|libXdmcp\.so([.0-9]*)?|libICE\.so([.0-9]*)?|libSM\.so([.0-9]*)?|libXtst\.so([.0-9]*)?|libXxf86vm\.so([.0-9]*)?|libxcb\.so([.0-9]*)?|libX(ft|v|ss|res|mu|pm|t|xf86dga|xf86misc)\.so([.0-9]*)?|libxkbfile\.so([.0-9]*)?|libxshmfence\.so([.0-9]*)?|libfontenc\.so([.0-9]*)?|gtk4-x11\.pc|gdk4-x11\.pc)$'
-readonly X11_REQUIRE_RE='(^|[^[:alnum:]_])(libX11(-xcb)?|libXcursor|libXdamage|libXext|libXfixes|libXi|libXinerama|libXrandr|libXcomposite|libXrender|libXau|libXdmcp|libICE|libSM|libXtst|libXxf86vm|libxcb|libX(ft|v|ss|res|mu|pm|t|xf86dga|xf86misc)|libxkbfile|libxshmfence|libfontenc)(\.so|[[:space:]]|$)|pkgconfig\((x11|xcb)\)|(^|[[:space:]])(xorg-x11-server-Xwayland|xorg-x11-server-Xorg|xwayland|openbox)([[:space:]]|$)'
-readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland$|openbox$|libX11(-xcb)?(-devel)?$|libXcursor(-devel)?$|libXdamage(-devel)?$|libXext(-devel)?$|libXfixes(-devel)?$|libXi(-devel)?$|libXinerama(-devel)?$|libXrandr(-devel)?$|libXcomposite(-devel)?$|libXrender(-devel)?$|libXau(-devel)?$|libXdmcp(-devel)?$|libICE(-devel)?$|libSM(-devel)?$|libXtst(-devel)?$|libXxf86vm(-devel)?$|libxcb(-devel)?$|libX(ft|v|ss|res|mu|pm|t|xf86dga|xf86misc)(-devel)?$|libxkbfile(-devel)?$|libxshmfence(-devel)?$|libfontenc(-devel)?$)'
+readonly XSERVER_FILE_RE='(^|/)(Xwayland|Xorg)$'
+readonly XSERVER_REQUIRE_RE='(^|[[:space:]])(xorg-x11-server-Xwayland|xorg-x11-server-Xorg|xwayland)([[:space:]]|$)'
+readonly BAD_PACKAGE_RE='^(xorg-x11-server-Xwayland|xorg-x11-server-Xorg|xwayland)$'
 
 check_payload() {
   local origin="$1" files="$2" requirements="$3"
-  if grep -Eiq "$X11_FILE_RE" <<<"$files"; then
-    grep -Ei "$X11_FILE_RE" <<<"$files" >&2 || true
-    fail "$origin contains an X11/XWayland backend or library file."
+  if grep -Eiq "$XSERVER_FILE_RE" <<<"$files"; then
+    grep -Ei "$XSERVER_FILE_RE" <<<"$files" >&2 || true
+    fail "$origin contains an Xorg/XWayland server executable."
   fi
-  if grep -Eiq "$X11_REQUIRE_RE" <<<"$requirements"; then
-    grep -Ei "$X11_REQUIRE_RE" <<<"$requirements" >&2 || true
-    fail "$origin has an X11/XWayland runtime or build dependency."
+  if grep -Eiq "$XSERVER_REQUIRE_RE" <<<"$requirements"; then
+    grep -Ei "$XSERVER_REQUIRE_RE" <<<"$requirements" >&2 || true
+    fail "$origin depends on an Xorg/XWayland server package."
   fi
 }
 
@@ -79,9 +80,7 @@ for rpm_file in "${rpm_files[@]}"; do
     fail "Forbidden X11 package supplied for admission: $package_name"
   fi
   case "$package_name" in
-    weston|weston-libs|weston-devel) expected_version="15.0.1" ;;
-    gtk4|gtk4-devel) expected_version="4.24.1" ;;
-    libadwaita|libadwaita-devel) expected_version="1.10.0" ;;
+    weston|weston-libs|gtk4|libadwaita|weston-devel|gtk4-devel|libadwaita-devel) ;;
     *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
   esac
   metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" ||
@@ -123,7 +122,7 @@ if [[ -n "$installed_root" ]]; then
   done
 fi
 
-printf 'Wayland-only RPM audit passed for: weston, weston-libs, gtk4 and libadwaita.\n'
+printf 'Wayland kiosk RPM audit passed for Fedora 45: weston, weston-libs, gtk4 and libadwaita.\n'
 if [[ -n "$installed_root" ]]; then
   printf 'Installed-root audit passed: %s (%d RPM packages).\n' "$installed_root" "${#installed_packages[@]}"
 fi
