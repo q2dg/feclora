@@ -19,6 +19,7 @@ import shutil
 from typing import BinaryIO
 
 from .image_manifest import ImageArtifact
+from .process_control import stop_process
 
 
 class ArtifactWriteError(ValueError):
@@ -162,14 +163,10 @@ def write_artifact(
                         detail = stderr.read(8192).decode("utf-8", errors="replace").strip()
                         raise ArtifactWriteError(f"{compression} exited with status {result}" + (f": {detail}" if detail else ""))
                 except OSError as exc:
-                    if process is not None and process.poll() is None:
-                        process.terminate()
-                        process.wait()
+                    stop_process(process)
                     raise ArtifactWriteError(f"{compression} compression failed: {exc}") from exc
                 finally:
-                    if process is not None and process.poll() is None:
-                        process.terminate()
-                        process.wait()
+                    stop_process(process)
                     stderr.close()
                 raw.flush()
                 raw.seek(0)
