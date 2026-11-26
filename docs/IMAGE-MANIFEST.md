@@ -8,10 +8,10 @@ It is not an executable restore plan and never authorizes a target write.
 
 | Manifest image type | Meaning | Capture status | Restore status |
 |---|---|---|---|
-| `disk` | Complete block-device image plus partition-table metadata | Implemented in local Textual workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
-| `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Textual workflow; requires current storage inventory | Implemented for an existing partition target |
-| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Textual workflow for uniquely identified, non-hidden, non-snapshot LVs | Implemented into an existing active, unmounted linear or thin LV after topology, identity, capacity and sector-size preflight; no LVM objects are created or resized |
-| `stratis_filesystem` | Filesystem data from one existing Stratis XFS filesystem | Implemented in local Textual workflow; requires complete Stratis metadata and `partclone.xfs` | Implemented into a distinct, pre-created, active and unmounted Stratis XFS filesystem; no pool/filesystem provisioning or resize |
+| `disk` | Complete block-device image plus partition-table metadata | Implemented in local GTK workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
+| `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local GTK workflow; requires current storage inventory | Implemented for an existing partition target |
+| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local GTK workflow for uniquely identified, non-hidden, non-snapshot LVs | Implemented into an existing active, unmounted linear or thin LV after topology, identity, capacity and sector-size preflight; no LVM objects are created or resized |
+| `stratis_filesystem` | Filesystem data from one existing Stratis XFS filesystem | Implemented in local GTK workflow; requires complete Stratis metadata and `partclone.xfs` | Implemented into a distinct, pre-created, active and unmounted Stratis XFS filesystem; no pool/filesystem provisioning or resize |
 
 These are **image source types/layers**, not repository types. A repository is
 the explicitly selected local or remote destination holding the image files.
@@ -86,7 +86,7 @@ size are recorded; logical-volume and Stratis filesystem manifests use
 
 Artifact roles include:
 
-- `partition-table`: textual partition-table metadata (not a block image).
+- `partition-table`: GTK partition-table metadata (not a block image).
 - `disk-metadata`: descriptive source metadata.
 - `boot-area`: raw boot-area bytes where explicitly captured.
 - `disk-image`: raw whole-disk stream or QCOW2 virtual-disk container.
