@@ -1,28 +1,57 @@
 # Maintainer acceptance checklist
 
-> **Repository visibility:** this file is committed in the public Feclora repository. It is an internal-style maintainer checklist, not a private document. Do not put passwords, private keys, personal data, or unpublished credentials here. Move it to a private repository or local untracked file if confidential handling is required.
+This checklist records release evidence that cannot be established by unit
+tests, static checks, documentation validation or CI. It is committed in the
+public repository: never add passwords, private keys, personal data or
+unpublished credentials.
 
-This checklist records the remaining hands-on validation owned by the maintainer. These tasks are deliberately not represented as completed by unit tests, CI, static checks, or documentation. CI covers Python tests and source-level boot checks; those automated checks do not replace runtime acceptance.
+## Owner-run acceptance
 
-## Owner-run release tasks
-
-- [ ] Build the ISO using the documented procedure and record the commit, Fedora build host, installer ISO checksum, build logs, output size and final SHA-256.
-- [ ] Boot the ISO in BIOS and UEFI modes; record firmware/VM configuration and results separately.
-- [ ] Verify that no diagnostic password or unnecessary console account remains, and that the `feclora` appliance account stays password-locked.
-- [ ] Test the production GTK/Weston kiosk on physical hardware and virtual machines, including first-boot language selection, keyboard-only navigation, keyboard-layout changes, root-terminal handoff to tty2 and return to tty1, DRM/KMS seat recovery and restart behavior. GTK is now the production interface; record the runtime acceptance results separately from source-level tests.
-- [ ] Perform restore operations against disposable real disks. Verify source/target identity, overwrite confirmation, read-back verification and failure behavior. Never use production data or a disk whose contents are not disposable.
-- [ ] Validate each remote repository provider against a real endpoint: SSHFS, NFS, SMB/CIFS and S3-compatible storage. Include permissions, bad credentials, disconnects, interrupted transfers and recovery.
-- [ ] Validate deployment with multiple Clients, including unicast and multicast where applicable. Record Client count, network topology, IGMP/switch configuration, per-Client results and failures.
-- [ ] Capture a disposable/offline physical source through the normal whole-disk workflow in both RAW and QCOW2 formats. Verify each manifest, artifact digest, logical sector size and partition-table snapshot; restore the QCOW2 image directly to a disposable VM disk and compare the restored sectors. Then boot under documented hypervisor/firmware combinations. Record guest OS, virtual hardware, firmware, storage controller and any manual boot remediation; do not equate a successful sector restore with a bootable guest.
-- [ ] Run `build/create-deployment-bundle.py` on the documented disposable Fedora x86_64/KVM build host using an existing Feclora image, then repeat with `--capture-source` against a disposable/offline source. Verify the ISO build logs/checksum, image manifest and artifact digests, one shared answer in the published bundle, complete MAC target bindings, no-overwrite behavior and cleanup after interrupted publication. Do not count this as BIOS/UEFI boot or real-network deployment acceptance.
-- [ ] Exercise the GTK bundle assembly operation separately using already-built inputs. Verify every bundle-manifest digest, byte-identical shared answer content, complete MAC target bindings, no-overwrite behavior and cleanup after interrupted publication. Removable-media answer discovery and Caddy/DHCP delivery remain separate acceptance items; do not claim ISO/USB or PXE discovery from bundle co-location alone.
-- [ ] Test interactive and unattended PXE in an isolated network, including DHCP/ProxyDHCP, BIOS/UEFI, answer publication/revocation, client admission limits, repository resolution and restore failure paths.
-- [ ] After runtime acceptance, add version-matched real screenshots where useful. Task-specific illustrative SVG mockups are published for the operator workflows; keep their mockup labels and never present them as runtime evidence.
-- [ ] Review all visible UI strings and complete/verify the 14 advertised locale dictionaries; record any intentionally untranslated text rather than silently claiming full localization.
-- [ ] Review Dependabot proposals for GitHub Actions and resolve CodeQL findings before a release.
+- [ ] Build the ISO using [the documented procedure](BUILD.md). Record the
+      tested commit, Fedora build host, installer ISO checksum, build logs,
+      output size and final SHA-256.
+- [ ] Boot the ISO on physical hardware in BIOS and UEFI modes. Record firmware,
+      hardware, kernel command line and results separately from QEMU smoke
+      tests.
+- [ ] Test the GTK/Weston kiosk on physical hardware, including first-boot
+      language selection, keyboard-only navigation, keyboard-layout changes,
+      tty2 maintenance handoff and return to tty1, DRM/KMS recovery and service
+      restart behavior.
+- [ ] Verify the appliance account remains password-locked and that physical
+      access to the passwordless root maintenance shell on tty2 is restricted.
+- [ ] Perform restore and clone operations against disposable real disks.
+      Verify source/target identity, overwrite confirmation, read-back
+      verification and failure behavior. Never use production data or a disk
+      whose contents are not disposable.
+- [ ] Validate SSHFS, NFS, SMB/CIFS and S3 against real endpoints, including
+      permissions, invalid credentials, disconnects, interrupted transfers
+      and recovery.
+- [ ] Validate multi-Client unicast and multicast deployment. Record Client
+      count, network topology, IGMP/switch configuration, per-Client outcomes
+      and failures.
+- [ ] Capture a disposable/offline physical source in RAW and QCOW2 formats.
+      Verify manifests, artifact digests, logical sector size and partition
+      table; restore to disposable media and verify sectors. Separately record
+      guest boot tests and any remediation.
+- [ ] Exercise deployment-bundle creation on the documented disposable
+      Fedora x86_64/KVM host, both with an existing image and with
+      --capture-source. Verify ISO logs/checksum, image manifest and digests,
+      shared answer, MAC bindings, no-overwrite behavior and interrupted
+      publication cleanup.
+- [ ] Test interactive and unattended PXE on an isolated network, including
+      DHCP/ProxyDHCP, BIOS/UEFI, answer publication/revocation, admission
+      limits, repository resolution and restore failure paths.
+- [ ] Review visible UI strings and verify advertised locale coverage. Record
+      untranslated strings and test physical keyboard layouts and RTL behavior.
+- [ ] Review Dependabot proposals and resolve CodeQL findings before release.
+- [ ] Add version-matched real screenshots where useful. Keep illustrative
+      SVGs visibly labeled as mockups, never runtime evidence.
 
 ## Evidence to record
 
-For each run, record the tested commit SHA, date, host/VM hardware, Fedora/kernel/tool versions, exact procedure, expected result, actual result, logs or screenshots, deviations and a clear PASS/FAIL/BLOCKED outcome. Keep automated test results and operator acceptance evidence separate.
+For every run, record the tested commit SHA, date, host/VM hardware,
+Fedora/kernel/tool versions, exact procedure, expected and actual results,
+logs or screenshots, deviations and a clear PASS/FAIL/BLOCKED outcome.
 
-A failed or unexecuted check remains pending. Do not mark the release complete solely because CI passes.
+An unexecuted or failed check remains pending. Do not mark a release complete
+solely because CI passes.
