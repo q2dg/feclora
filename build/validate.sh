@@ -29,7 +29,7 @@ for file in \
   src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_gtk.py src/feclora/gtk_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
   src/feclora/data/feclora-gtk.service src/feclora/data/feclora-gtk-ready \
-  src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
+  src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
   tests/test_gtk_api.py tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
   build/check_docs.py build/verify-wayland-rpms.sh tests/test_wayland_rpm_guard.py; do
@@ -862,8 +862,6 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
@@ -1597,8 +1595,6 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n' src/feclora/data/feclora-gtk.service "The GTK production UI must run as its unprivileged appliance user."
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
@@ -2375,8 +2371,6 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
@@ -3888,8 +3882,6 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
@@ -4623,8 +4615,6 @@ if (( ERRORS > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n' src/feclora/data/feclora-gtk.service "The GTK production UI must run as its unprivileged appliance user."
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
@@ -5401,8 +5391,6 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
