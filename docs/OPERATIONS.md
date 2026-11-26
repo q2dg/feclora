@@ -190,15 +190,14 @@ the publisher.
 
 The Live interface uses Fedora's official GTK4, libadwaita and PyGObject
 packages. No frontend package is installed from PyPI. Dependabot proposes
-GitHub Actions updates, and CodeQL complements (but does not replace) code review, tests and
-maintainer release acceptance.
+GitHub Actions updates, and CodeQL complements (but does not replace) code
+review, tests and maintainer release acceptance.
 
-The interface offers 25 language catalogs: English, Spanish, Catalan, Galician,
-Basque, French, German, Italian, Portuguese, Brazilian Portuguese, Russian,
-Turkish, Arabic, Japanese, Simplified Chinese, Polish, Dutch, Korean, Greek,
-Czech, Swedish, Finnish, Hungarian, Bulgarian and Norwegian Bokmål. Startup
-and primary navigation are translated in all 25 languages. Operational forms and messages are still being migrated; do not
-advertise full-interface translation until the coverage tests include them.
+Localization is partial. Consult the
+[feature and compatibility matrix](FEATURE-MATRIX.md) for the current
+language-selector scope and verified translation coverage. Do not advertise
+full-interface translation until operational forms, validation messages,
+status text and detailed instructions are covered.
 
 ## Screenshots and mockups
 
