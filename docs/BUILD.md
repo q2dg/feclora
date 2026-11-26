@@ -102,7 +102,8 @@ to tty2 and service recovery.
       language and keyboard-layout controls require separate acceptance.
 - [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
       implemented control, including long and scrollable forms.
-- [ ] The root terminal action opens tty2; exiting the shell returns to Textual on tty1.
+- [ ] The root terminal action opens the independent raw tty2 maintenance VT; exiting the shell returns to Textual on tty1.
+- [ ] Fedora 45 KMSCON instances are masked on tty1–tty6 so a userspace DRM console cannot retain the GPU while Feclora owns the VTs.
 - [ ] The current Textual interface reaches the fixed allowlisted helper through
       sudo; no general passwordless shell or unrestricted root command is
       available to `feclora`.
