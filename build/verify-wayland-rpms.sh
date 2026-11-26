@@ -89,7 +89,7 @@ for rpm_file in "${rpm_files[@]}"; do
   IFS='|' read -r version release source_rpm <<<"$metadata"
   [[ "$version" == "$expected_version" ]] ||
     fail "$package_name must be built from version $expected_version; found $version."
-  [[ "$release" == *fc45* && "$source_rpm" == *fc45.src.rpm ]] ||
+  [[ "$release" == *fc45* && "$source_rpm" == *fc45*.src.rpm ]] ||
     fail "$package_name must retain Fedora 45 release and source-RPM provenance."
   [[ -z "${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
   seen[$package_name]=1
