@@ -1,7 +1,7 @@
 [Unit]
 Description=Reconcile unfinished Feclora local storage operations
 After=local-fs.target
-Before=feclora-gtk.service feclora-tui.service
+Before=feclora-gtk.service
 RequiresMountsFor=/var/lib/feclora
 
 [Service]
