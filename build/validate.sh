@@ -39,7 +39,7 @@ require_text '^#version=F45$' kickstart/feclora-live.ks "Kickstart must target F
 require_text 'packages/build-host\.txt' build/install-host-deps.sh "Build dependencies must come from the build-host package manifest."
 require_text '^python3-textual$' packages/base.txt "Textual must remain installed until GTK/Weston passes the complete acceptance gate."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
-require_text '^# GTK4 and PyGObject are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
+require_text '^# GTK4, PyGObject and libadwaita are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
 require_text 'ThreadPoolExecutor|GLib\.idle_add' src/feclora/gtk_api.py "The GTK API bridge must keep blocking subprocess work off the GLib main loop."
 require_text 'GDK_BACKEND.*wayland' src/feclora/gui_gtk.py "The GTK frontend must force the native Wayland backend."
@@ -174,7 +174,6 @@ if ! python3 "$ROOT_DIR/build/check_docs.py"; then
   fail "Documentation links and guide assets failed validation."
 fi
 
-
 require_action "images" src/feclora/gui_gtk.py "GTK restore workflow must load image manifests through the privileged API."
 require_text '"restore_disk".*"restore_partition".*"restore_logical_volume"' src/feclora/gui_gtk.py "GTK must expose disk, partition and logical-volume restore operations."
 require_text '"clone_disk".*"clone_partition"' src/feclora/gui_gtk.py "GTK must expose disk and partition cloning."
@@ -301,7 +300,6 @@ require_text 'def _update_client_inventory_summary' src/feclora/gui_gtk.py "GTK 
 require_text 'f"ERASE \{target\}"' src/feclora/gui_gtk.py "GTK destructive client operations must require exact target confirmation."
 require_text 'f"READ \{target\} TO \{inspection.get' src/feclora/gui_gtk.py "GTK capture client operations must bind confirmation to server identity."
 
-
 require_text 'base64\.b64encode\(payload\)\.decode\("ascii"\)' src/feclora/gui_gtk.py "GTK must bound and encode local PXE answer uploads."
 require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk.py "GTK must mask one-shot age passphrases."
 
@@ -316,7 +314,6 @@ require_text 'params\["encrypt_passphrase"\] = True' src/feclora/gui_gtk.py "GTK
 require_text '"provide_capture_passphrase"' src/feclora/gui_gtk.py "GTK must deliver the one-shot age passphrase to the accepted operation."
 require_text 'self\.capture_passphrase\.set_text\(""\)' src/feclora/gui_gtk.py "GTK must clear the age passphrase field after submission."
 
-require_text 'self\.active_capture_passphrase = ""' src/feclora/gui_gtk.py "GTK must clear a pending age passphrase after capture failure."
 require_text 'self\.capture_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK must disable capture cancellation after failure."
 
 require_text 'gi\.require_version\("Adw", "1"\)' src/feclora/gui_gtk.py "GTK frontend must require the supported libadwaita namespace."
@@ -334,7 +331,6 @@ require_text 'icon\.set_from_icon_name\("emblem-ok-symbolic" if selected else "g
 require_text 'Adw\.NavigationPage\.new\(sidebar_scroller' src/feclora/gui_gtk.py "GTK frontend must wrap the navigation sidebar in an Adw page."
 require_text 'notify::collapsed' src/feclora/gui_gtk.py "GTK frontend must respond to compact navigation transitions."
 require_text 'set_show_content\(True\)' src/feclora/gui_gtk.py "GTK frontend must reveal the selected page in compact navigation."
-
 
 require_text 'Adw\.StatusPage\(' src/feclora/gui_gtk.py "GTK histories must use native libadwaita empty and error states."
 require_text 'self\.operation_log_stack\.set_visible_child_name\("records" if operations else "empty"\)' src/feclora/gui_gtk.py "GTK operation history must distinguish empty from populated results."
@@ -362,17 +358,15 @@ require_text 'title="Identidad y certificados TLS"' src/feclora/gui_gtk.py "GTK 
 require_text 'title="Servicios PXE"' src/feclora/gui_gtk.py "GTK PXE profile controls must use a semantic preferences group."
 require_text 'title="Respuestas PXE desatendidas"' src/feclora/gui_gtk.py "GTK unattended PXE answer actions must use a semantic preferences group."
 require_text 'title="Cifrado age y destinatarios"' src/feclora/gui_gtk.py "GTK age recipient and passphrase workflows must use a semantic preferences group."
-require_text 'row.set_activatable_widget(widget)' src/feclora/gui_gtk.py "GTK server preference rows must preserve direct control activation."
-require_text 'self.pxe_start.set_sensitive(False)' src/feclora/gui_gtk.py "GTK PXE services must remain disabled until profile validation succeeds."
-require_text 'self.pxe_passphrase.set_visibility(False)' src/feclora/gui_gtk.py "GTK one-shot PXE age passphrases must remain masked."
-
+require_text 'row\.set_activatable_widget\(widget\)' src/feclora/gui_gtk.py "GTK server preference rows must preserve direct control activation."
+require_text 'self\.pxe_start\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK PXE services must remain disabled until profile validation succeeds."
+require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk.py "GTK one-shot PXE age passphrases must remain masked."
 
 require_text 'title="Origen y destino"' src/feclora/gui_gtk.py "GTK restore profiles must group source and target selection."
 require_text 'title="Definición del perfil"' src/feclora/gui_gtk.py "GTK restore profiles must separate profile creation from execution."
 require_text 'title="Ejecución controlada"' src/feclora/gui_gtk.py "GTK restore profiles must group guarded execution controls."
 require_text 'row\.set_activatable_widget\(widget\)' src/feclora/gui_gtk.py "GTK restore profile rows must preserve direct control activation."
 require_text 'self\.profile_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK restore profile cancellation must remain disabled until an operation is active."
-
 
 require_text 'title="Estado del registro"' src/feclora/gui_gtk.py "GTK operation log must group persistent status and refresh."
 require_text 'title="Cancelación controlada"' src/feclora/gui_gtk.py "GTK operation cancellation must remain a distinct guarded section."
@@ -382,20 +376,18 @@ require_text 'title="Trabajos ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue re
 require_text 'row\.set_activatable_widget\(cancel\)' src/feclora/gui_gtk.py "GTK operation cancellation rows must preserve direct button activation."
 require_text 'self\.operation_confirmation\.set_placeholder_text\("CANCEL <operation_id>"\)' src/feclora/gui_gtk.py "GTK operation cancellation must retain the exact confirmation phrase."
 
-
 require_text 'title="Consulta del historial"' src/feclora/gui_gtk.py "GTK remote and deployment histories must group status and refresh controls."
 require_text 'title="Definición del trabajo"' src/feclora/gui_gtk.py "GTK remote jobs must group validated definition creation."
 require_text 'title="Importar definición"' src/feclora/gui_gtk.py "GTK remote jobs must group import source controls."
 require_text 'title="Servicio de despliegue"' src/feclora/gui_gtk.py "GTK remote jobs must group guarded deployment service actions."
-require_text 'job_row\\.set_activatable_widget\\(self\\.remote_job_select\\)' src/feclora/gui_gtk.py "GTK remote job selection must remain directly activatable."
+require_text 'job_row\.set_activatable_widget\(self\.remote_job_select\)' src/feclora/gui_gtk.py "GTK remote job selection must remain directly activatable."
 require_text 'title="Historial de clientes"' src/feclora/gui_gtk.py "GTK client job history must use a semantic preferences group."
-require_text 'client_refresh_row\\.set_activatable_widget\\(refresh\\)' src/feclora/gui_gtk.py "GTK client history refresh must remain directly activatable."
-
+require_text 'client_refresh_row\.set_activatable_widget\(refresh\)' src/feclora/gui_gtk.py "GTK client history refresh must remain directly activatable."
 
 require_text 'title="Conexión e inspección autenticada"' src/feclora/gui_gtk.py "GTK client jobs must group authenticated server inspection controls."
 require_text 'title="Transferencia y protección"' src/feclora/gui_gtk.py "GTK client jobs must group transfer protection options."
-require_text 'capture_group\\("Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK client jobs must group execution and status controls."
-require_text 'host_row\\.set_activatable_widget\\(self\\.client_server_host\\)' src/feclora/gui_gtk.py "GTK client server host row must preserve direct activation."
+require_text 'capture_group\("Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK client jobs must group execution and status controls."
+require_text 'host_row\.set_activatable_widget\(self\.client_server_host\)' src/feclora/gui_gtk.py "GTK client server host row must preserve direct activation."
 require_text 'self\.client_confirmation\.set_placeholder_text\("Escribe exactamente ERASE destino o READ destino"\)' src/feclora/gui_gtk.py "GTK client jobs must retain API-compatible destructive/read confirmation guidance."
 require_text 'CLIENT_JOB_COMPRESSION' src/feclora/ui_catalog.py "Client codec choices must be shared by both frontends."
 require_text 'Select\(list\(CLIENT_JOB_COMPRESSION\)' src/feclora/tui.py "Textual Client codec choices must use the shared API-compatible list."
@@ -408,26 +400,25 @@ require_text 'self\.client_encrypt\.set_sensitive\(encryption_allowed\)' src/fec
 require_text 'igmp_allowed = job\.get\("transport"\) == "multicast" and job\.get\("operation"\) == "restore"' src/feclora/gui_gtk.py "Client IGMP confirmation must only be available for multicast restore jobs."
 require_text 'self\.client_igmp\.set_sensitive\(igmp_allowed\)' src/feclora/gui_gtk.py "GTK must apply the Client IGMP policy to the control."
 
-require_text 'add_group\\("Repositorios SSHFS, NFS y SMB/CIFS"' src/feclora/gui_gtk.py "GTK repository definitions must use a semantic libadwaita preferences group."
-require_text 'add_group\\("Repositorios S3"' src/feclora/gui_gtk.py "GTK S3 definitions must use a semantic libadwaita preferences group."
-require_text 'add_group\\("Credenciales systemd cifradas"' src/feclora/gui_gtk.py "GTK protected credential management must use a semantic preferences group."
+require_text 'add_group\("Repositorios SSHFS, NFS y SMB/CIFS"' src/feclora/gui_gtk.py "GTK repository definitions must use a semantic libadwaita preferences group."
+require_text 'add_group\("Repositorios S3"' src/feclora/gui_gtk.py "GTK S3 definitions must use a semantic libadwaita preferences group."
+require_text 'add_group\("Credenciales systemd cifradas"' src/feclora/gui_gtk.py "GTK protected credential management must use a semantic preferences group."
 require_text 'add_row\(remote_group, "Clave SSH protegida", self\.remote_identity\)' src/feclora/gui_gtk.py "GTK SSH identity selection must remain in the SSHFS repository preferences."
 require_text 'add_row\(remote_group, "Credencial SMB protegida", self\.remote_credential\)' src/feclora/gui_gtk.py "GTK SMB credential selection must remain in the SMB repository preferences."
 require_text 'self\.remote_credential\.set_visible\(provider == "smb"\)' src/feclora/gui_gtk.py "GTK SMB credentials must remain conditional on the SMB provider."
 require_text 'self\.remote_identity\.set_visible\(provider == "sshfs"\)' src/feclora/gui_gtk.py "GTK SSH identities must remain conditional on the SSHFS provider."
 require_action "put_systemd_credential" src/feclora/gui_gtk.py "GTK repository credential import must continue using the privileged credential API."
 
-require_text 'capture_group\\("Inventario y selección de operación"' src/feclora/gui_gtk.py "GTK local operations must group operation selection in libadwaita preferences."
-require_text 'capture_group\\("Origen, destino e imagen"' src/feclora/gui_gtk.py "GTK local operations must group source and target selection."
-require_text 'capture_group\\("Confirmación y generación"' src/feclora/gui_gtk.py "GTK local operations must separate destructive confirmation and artifact generation."
-require_text 'capture_group\\("Formato y protección"' src/feclora/gui_gtk.py "GTK local operations must group format and encryption controls."
-require_text 'capture_group\\("Recuperación ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue controls must use a semantic preferences group."
+require_text 'capture_group\("Inventario y selección de operación"' src/feclora/gui_gtk.py "GTK local operations must group operation selection in libadwaita preferences."
+require_text 'capture_group\("Origen, destino e imagen"' src/feclora/gui_gtk.py "GTK local operations must group source and target selection."
+require_text 'capture_group\("Confirmación y generación"' src/feclora/gui_gtk.py "GTK local operations must separate destructive confirmation and artifact generation."
+require_text 'capture_group\("Formato y protección"' src/feclora/gui_gtk.py "GTK local operations must group format and encryption controls."
+require_text 'capture_group\("Recuperación ddrescue"' src/feclora/gui_gtk.py "GTK ddrescue controls must use a semantic preferences group."
 require_text 'title="Ejecución y seguimiento"' src/feclora/gui_gtk.py "GTK local operation progress and cancellation must use a semantic preferences group."
 require_text 'self\.capture_passphrase = Gtk\.PasswordEntry\(\)' src/feclora/gui_gtk.py "GTK local operation age passphrases must remain masked."
 require_text 'self\.capture_confirmation\.set_placeholder_text\("ERASE /dev/… o BUILD <imagen>"\)' src/feclora/gui_gtk.py "GTK destructive operation confirmation guidance must remain visible."
 require_text 'self\.capture_retry_row\.set_visible\(is_recovery\)' src/feclora/gui_gtk.py "GTK ddrescue controls must hide and show as complete preference rows."
 require_text 'self\.capture_btrfs_source_row\.set_visible\(is_btrfs_capture\)' src/feclora/gui_gtk.py "GTK Btrfs capture controls must hide and show as complete preference rows."
-
 
 require_text 'title="Repositorio e imagen"' src/feclora/gui_gtk.py "GTK image selection must use a semantic preferences group."
 require_text 'title="Inspección y verificación"' src/feclora/gui_gtk.py "GTK image inspection and integrity verification must be grouped."
@@ -438,7 +429,6 @@ require_text 'self\.image_catalog_stack\.set_visible_child_name\("loading"\)' sr
 require_text 'self\.image_cancel\.set_sensitive\(False\)' src/feclora/gui_gtk.py "GTK image extraction cancellation must remain disabled until accepted."
 require_action "verify_image" src/feclora/gui_gtk.py "GTK image integrity verification must retain its privileged API request."
 require_action "extract_partition_image" src/feclora/gui_gtk.py "GTK partition extraction must retain its privileged API request."
-
 
 require_text 'title="Idioma de la interfaz"' src/feclora/gui_gtk.py "GTK welcome must group interface language preferences."
 require_text 'title="Distribución del teclado"' src/feclora/gui_gtk.py "GTK welcome must group keyboard layout preferences."
