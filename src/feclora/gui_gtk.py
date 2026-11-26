@@ -4820,7 +4820,6 @@ class FecloraGTK:
             selected_repository = self.capture_repositories[repository_index]
             if selected_repository.get("id"):
                 params["repository_id"] = selected_repository["id"]
-        capture_passphrase = ""
         if kind == 0 and not qcow2 and self.capture_passphrase_toggle.get_active():
             capture_passphrase = self.capture_passphrase.get_text()
             if not capture_passphrase:
