@@ -29,7 +29,7 @@ Partclone.
 
 ## Optional read-only pre-capture filesystem preflight
 
-The privileged Textual API exposes `check_capture_filesystem` with exactly
+The privileged GTK API exposes `check_capture_filesystem` with exactly
 `source` and `filesystem` parameters. It currently supports offline ext2/3/4, NTFS/ntfs3 and XFS sources. ext uses `blkid`, `e2fsck -f -n`,
 `dumpe2fs`, `resize2fs -P` and `blockdev`; NTFS uses `blkid`,
 `ntfsresize --info` and `blockdev`; XFS uses `blkid`, `xfs_repair -n` and
@@ -38,7 +38,7 @@ refuse mounted, busy, root-backed or otherwise unverifiable devices. The API
 returns the estimated minimum filesystem size for ext/NTFS or the checked
 partition capacity for XFS, and identifies the read-only probe used. It never repairs or writes to the source.
 
-The Textual partition-capture form offers an optional read-only preflight
+The GTK partition-capture form offers an optional read-only preflight
 for detected ext2/3/4, NTFS/ntfs3 and XFS sources. The user explicitly starts it;
 capture remains available without running it. The
 selected source and filesystem are bound to the result; changing the source
@@ -55,7 +55,7 @@ does not provide application-level snapshot consistency.
   writer. Standard error goes to a temporary file to avoid pipe deadlocks. A progress
 callback counts bytes read; raw capture reports a percentage when source size
 is known, while Partclone capture reports bytes without guessing its final size.
-Cancelling the Textual operation stops the producer and prevents publication.
+Cancelling the GTK operation stops the producer and prevents publication.
 - Output is first written in a private staging directory beneath the repository.
   A non-zero producer exit prevents publication and staging data is discarded.
 - A successful artifact is hard-linked into its final name; an existing name
@@ -79,7 +79,7 @@ may appear in topology inventory, but a dedicated mapping-image capture
 workflow is not exposed. LVM logical volumes use the separate manifest-backed
 LV capture workflow documented in [the image manifest guide](IMAGE-MANIFEST.html).
 
-In Textual's **Operations** workflow, choose partition capture, select the
+In GTK's **Operations** workflow, choose partition capture, select the
 source partition, enter a unique image identifier, choose compression and
 optional image protection, and review the operation summary. The source is
 read-only. Monitor streamed progress; cancelling stops the producer and
