@@ -9,14 +9,12 @@ for the repository owner.
 ## Product model
 
 Feclora is a Fedora-based minimal Live appliance built from the `@core` package
-group and Feclora's explicit runtime packages. The current Live boot continues to launch Textual on tty1. GTK4/PyGObject/
-libadwaita is being migrated as the replacement interface, with Weston DRM/KMS
-and Weston's kiosk shell as the target compositor; Cage is explicitly excluded.
-The production boot switch and Textual removal are gated on complete behavioral
-parity, VM smoke tests and BIOS/UEFI acceptance. The Live image now selects
-Fedora's official Weston/GTK/libadwaita runtime packages and excludes the
-separate Xorg/XWayland server packages. See [GTK4 migration](GTK4-MIGRATION.md) for the
-remaining parity and acceptance work.
+group and Feclora's explicit runtime packages. The production Live boot launches GTK4/PyGObject/libadwaita on tty1 through
+Weston DRM/KMS and Weston's kiosk shell; Cage is explicitly excluded. The image
+uses Fedora's official graphical runtime packages and excludes the separate
+Xorg/XWayland server packages. The former Textual frontend, service, package
+and dedicated tests have been removed. BIOS/UEFI, hardware and destructive
+workflow acceptance remain maintainer-run tasks.
 
 The Live session is intentionally ephemeral: each boot creates fresh local
 credentials, certificates and temporary configuration. Durable images and
@@ -39,7 +37,7 @@ inventory; the following product boundaries are important when assessing
 remaining work:
 
 - **Interactive PXE** boots the standard Feclora Live runtime and opens the
-  normal Textual workflow. PXE is a boot transport, not an image-data proxy.
+  normal GTK workflow. PXE is a boot transport, not an image-data proxy.
 - **Unattended PXE** is a separate answer-file workflow with narrower admission,
   target-binding and operation semantics. The Live Client resolves the
   repository through its normal repository managers.
@@ -59,12 +57,12 @@ authenticated transport provide the trust boundary. Age encryption is optional.
 
 ## Remaining engineering work
 
-- **Disk recovery:** GNU ddrescue now retains a private mapfile and partial image, supports bounded direct retry passes, reports mapfile-based progress, and resumes against a stable WWN/serial when available (otherwise the original path plus major:minor identity) and exact geometry. A completed map can be finalized into a normal raw disk image set with SHA-256 and manifest-last publication; degraded maps are rejected. The Textual recovery-jobs page lists local jobs and derives progress from the private mapfile; completed, degraded, interrupted and failed workspaces remain distinct. Automated fault-injection now covers timeout, cancellation, retained mapfiles and resume after cancellation. Remaining work is acceptance with disposable failing media and a real reboot/resume cycle on the shipped Live system.
+- **Disk recovery:** GNU ddrescue now retains a private mapfile and partial image, supports bounded direct retry passes, reports mapfile-based progress, and resumes against a stable WWN/serial when available (otherwise the original path plus major:minor identity) and exact geometry. A completed map can be finalized into a normal raw disk image set with SHA-256 and manifest-last publication; degraded maps are rejected. The GTK recovery-jobs page lists local jobs and derives progress from the private mapfile; completed, degraded, interrupted and failed workspaces remain distinct. Automated fault-injection now covers timeout, cancellation, retained mapfiles and resume after cancellation. Remaining work is acceptance with disposable failing media and a real reboot/resume cycle on the shipped Live system.
 - **Btrfs:** full/incremental subvolume send/receive, none/gzip/xz/zstd/lz4
   compression and optional age encryption are implemented and exposed through
   the durable capture operation. Tests now cover gzip/xz/zstd/lz4 round trips, age-plus-gzip composition,
   corrupt-stream rejection for all four compressed codecs, and age-authentication
-  failure quarantine. The Btrfs codec work is complete; a richer Textual view for
+  failure quarantine. The Btrfs codec work is complete; a richer GTK view for
   selecting incremental dependency chains remains a possible UI enhancement. Coordinated multi-device block-image capture and
   profile-aware layer restore remain separate, unimplemented capabilities;
   the partition-image path remains restricted to supported single-device Btrfs.
@@ -79,7 +77,7 @@ authenticated transport provide the trust boundary. Age encryption is optional.
   interrupted publication, cleanup and service restart. Do not conflate
   provider integration with acceptance against live services.
 - **PXE and multi-Client deployment:** preserve the separate interactive
-  Live/Textual, unattended answer-file and multicast deployment workflows.
+  Live/GTK, unattended answer-file and multicast deployment workflows.
   Expand unattended answer failure-path tests and Server-side result
   reconciliation only where the product contract requires it. The Live Client
   keeps its operation history and sends best-effort operational telemetry to
@@ -98,12 +96,12 @@ authenticated transport provide the trust boundary. Age encryption is optional.
   live service-restart and real two-host receiver-loss acceptance remain
   maintainer-owned (see [the acceptance checklist](MAINTAINER-ACCEPTANCE.md)).
 - **Quality and distribution:** the Live UI is packaged as a Python application
-  and uses Fedora's `python3-textual`; UI tests use the pinned test dependency.
+  and uses Fedora's GTK4/libadwaita/PyGObject RPMs; UI tests use the Python standard library and project test doubles.
   CI verifies the helper allowlist and backend dispatch. CI and GitHub Pages
   also validate local documentation links/assets and illustrated guide cards.
   Localization remains partial: the selector exposes 25 language catalogs,
   while only startup and primary navigation are translated; operational forms
-  and messages remain Spanish. Full TUI localization is still outstanding.
+  and messages remain Spanish. Full UI localization is still outstanding.
   Also review scanner findings and maintain the
   backup/upgrade/rollback and release-evidence runbook.
 
@@ -112,7 +110,7 @@ authenticated transport provide the trust boundary. Age encryption is optional.
 The repository owner builds the ISO using the documented procedure. The
 project work here is to keep that procedure accurate and reproducible; this
 assistant does not build or boot the ISO. The owner must then record BIOS and
-UEFI boots, Textual behavior on VMs and hardware, restores on disposable
+UEFI boots, GTK behavior on VMs and hardware, restores on disposable
 real disks, live remote-provider behavior, multi-Client deployment, and
 interactive/unattended PXE on an isolated network. The public operator guides now include task-specific, explicitly labeled
 SVG mockups for partition capture/restore, local cloning, repository setup,
