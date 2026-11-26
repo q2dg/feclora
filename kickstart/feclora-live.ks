@@ -77,6 +77,10 @@ grub2-pc-modules
 shim-x64
 syslinux
 
+# Exclude all X servers; the appliance runs native Wayland clients only.
+-xorg-x11-server-Xorg
+-xorg-x11-server-Xwayland
+
 # Exclude splash packages that may otherwise be selected by @core.
 -plymouth
 -plymouth-plugin-script
