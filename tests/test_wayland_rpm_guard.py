@@ -92,7 +92,7 @@ else:
         environment["PATH"] = str(self.fake_bin) + os.pathsep + environment.get("PATH", "")
         environment["FAKE_RPM_DB"] = str(self.db_path)
         return subprocess.run(
-            ["bash", str(GUARD), *(str(path) for path in (paths or self.rpm_paths))],
+            ["bash", str(GUARD), *(str(path) for path in (paths if paths is not None else self.rpm_paths[:4]))],
             cwd=ROOT,
             env=environment,
             capture_output=True,
@@ -131,22 +131,20 @@ else:
         self.assertIn("libX11.so.6", result.stderr)
 
     def test_audits_optional_gtk4_development_rpm(self):
-        extra = self.root / "gtk4-devel.rpm"
-        extra.write_bytes(b"fake rpm fixture")
-        result = self._run([*self.rpm_paths, extra])
+        extra = self.rpm_paths[4]
+        result = self._run([*self.rpm_paths[:4], extra])
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_x11_build_dependency_in_optional_development_rpm(self):
         self.records["gtk4-devel.rpm"]["requires"].append("pkgconfig(x11)")
         self._write_database()
-        extra = self.root / "gtk4-devel.rpm"
-        extra.write_bytes(b"fake rpm fixture")
-        result = self._run([*self.rpm_paths, extra])
+        extra = self.rpm_paths[4]
+        result = self._run([*self.rpm_paths[:4], extra])
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("pkgconfig(x11)", result.stderr)
 
     def test_requires_all_four_runtime_packages(self):
-        result = self._run(self.rpm_paths[:-1])
+        result = self._run(self.rpm_paths[:3])
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("exactly four RPMs", result.stderr)
 
