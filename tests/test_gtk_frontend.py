@@ -1456,6 +1456,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("_poll_restore_profile_operation(pending_operation_id, page_generation)", page)
         self.assertIn('self._profile_operation_results.setdefault(operation_id, {})["status"] = status', status)
 
+    def test_operation_log_cancel_success_checks_response_identity_and_request_state(self):
+        callback = ast.get_source_segment(self.source, self.methods["_operation_cancelled"])
+        self.assertIn('result.get("operation_id") != operation_id', callback)
+        self.assertIn('self._operation_log_failed(', callback)
+        self.assertIn('result.get("requested") is True', callback)
+        self.assertIn('el trabajador puede tardar en detenerse', callback)
+
     def test_operation_log_cancel_feedback_is_scoped_to_selected_operation(self):
         cancel = ast.get_source_segment(self.source, self.methods["_cancel_selected_logged_operation"])
         done = ast.get_source_segment(self.source, self.methods["_operation_cancelled"])
