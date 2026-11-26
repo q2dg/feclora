@@ -196,7 +196,7 @@ chmod 0700 "$TARGET_ROOT/var/lib/feclora/client-jobs"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
 systemctl --root="$TARGET_ROOT" enable feclora-tui.service
 systemctl --root="$TARGET_ROOT" mask getty@tty1.service
-systemctl --root="$TARGET_ROOT" mask kmsconvt@tty1.service
+systemctl --root="$TARGET_ROOT" mask kmsconvt@tty1.service kmsconvt@tty2.service kmsconvt@tty3.service kmsconvt@tty4.service kmsconvt@tty5.service kmsconvt@tty6.service
 systemctl --root="$TARGET_ROOT" set-default multi-user.target
 systemctl --root="$TARGET_ROOT" mask getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
