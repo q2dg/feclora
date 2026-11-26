@@ -10,7 +10,7 @@ fullscreen for language and keyboard selection. GTK source covers all 14
 navigation pages, but several still have read-only or incomplete controls;
 page presence is not feature parity. Textual will remain the production
 interface during the audit, not as a permanent fallback. Once behavioral
-parity, X11-disabled Fedora runtime packaging, VM testing and BIOS/UEFI
+parity, Fedora runtime package integration, VM testing and BIOS/UEFI
 acceptance are proven, the final cutover will remove Textual completely.
 The shared catalogue contains all 25 languages.
 
@@ -102,80 +102,39 @@ back to XWayland, Xorg, Openbox, or another X11 compatibility layer. Fedora's
 system GTK4, PyGObject and libadwaita RPMs provide the runtime; do not vendor
 GTK or install Python GUI bindings from PyPI.
 
-### Fedora 45 package and CLI verification
+### Fedora 45 official package selection
 
-Checked against Fedora's Fedora 45 package metadata on 2026-11-25:
+The appliance uses Fedora 45's official runtime RPMs; no Feclora-specific
+rebuild is required merely to run a native Wayland session:
 
-| RPM | Fedora 45 stable build | Purpose |
+| RPM | Fedora 45 package | Relevant detail |
 | --- | --- | --- |
-| `weston` | `15.0.1-3.fc45` source baseline | **Do not ship the stock RPM unchanged**; it depends on `weston-libs` |
-| `weston-libs` | `15.0.1-3.fc45` source baseline | Stock RPM contains `xwayland.so` and `x11-backend.so`, and has X11 library dependencies |
-| `gtk4` | `4.24.1-1.fc45` source baseline | Stock RPM includes the optional GDK X11 backend and X11 library dependencies |
-| `python3-gobject` | `3.58.0-6.fc45` | PyGObject Python bindings; keep as a Fedora system package |
-| `libadwaita` | `1.10.0-2.fc45` source baseline | Rebuild against the custom GTK4 package |
+| `weston` | `15.0.1-3.fc45` | Includes the DRM/KMS compositor and `kiosk-shell.so`; depends on `weston-libs` |
+| `weston-libs` | `15.0.1-3.fc45` | Includes DRM and Wayland backends; also ships optional `x11-backend.so` and `xwayland.so` modules |
+| `gtk4` | Fedora 45 stable | Includes Wayland and optional GDK X11 support |
+| `libadwaita` | Fedora 45 stable | Uses the distribution GTK4 runtime |
+| `python3-gobject` | Fedora 45 | System PyGObject bindings |
 
-**Important packaging constraint:** stock Fedora 45 `weston-libs` is not
-strict-Wayland-only. Its file list includes both `xwayland.so` and
-`x11-backend.so`; its dependency set includes `libX11`, `libX11-xcb`,
-`libXcursor` and `libxcb`. The stock Fedora `gtk4` RPM likewise includes
-`GdkX11-4.0.typelib` and depends on `libX11`, `libXcursor`, `libXdamage`,
-`libXext`, `libXfixes`, `libXi`, `libXinerama` and `libXrandr`.
-Consequently, simply not running an X server is enough for a Wayland-only
-session, but it is not enough for the stricter appliance policy of shipping
-no X11 backends or X11 libraries. Do not install the stock `weston`,
-`weston-libs` or `gtk4` RPMs unchanged in the appliance.
+The presence of optional X11 client backends, GDK X11 typelibs or X11 client
+libraries in these RPMs does **not** mean an X server is installed or running.
+Fedora's Weston split puts the XWayland server executable in the separate
+`xorg-x11-server-Xwayland` package; that package is not selected for Feclora.
+Likewise, GTK chooses its Wayland backend through `GDK_BACKEND=wayland`.
+Feclora's runtime policy is therefore enforced at the session boundary:
+install the official Fedora packages, do not install `xorg-x11-server-Xwayland`
+or `xorg-x11-server-Xorg`, do not pass `--xwayland` to Weston, clear
+`DISPLAY`/ `XAUTHORITY`, and set GTK's backend to Wayland.
 
-Weston 15.0.1 upstream Meson options explicitly provide `xwayland` and
-`backend-x11`, both enabled by default. Rebuild the Fedora 45-matched 15.0.1
-source with `-Dxwayland=false -Dbackend-x11=false`, while retaining
-`-Dbackend-drm=true -Dshell-kiosk=true`. The GTK 4.24.1 source likewise
-provides `x11-backend` and `wayland-backend` options; rebuild with
-`-Dx11-backend=false -Dwayland-backend=true`. Rebuild libadwaita against that
-GTK4 RPM, and retain Fedora's `python3-gobject` system binding package.
-Package the custom builds as Feclora-specific RPMs using Fedora's packaging
-integration. Inspect the RPMs before adding them to the Live image: no installed
-file may provide `xwayland.so`, `x11-backend.so`, `GdkX11-4.0.typelib`, and
-no runtime dependency may pull `libX11`, `libX11-xcb`, `libXcursor`,
-`libXdamage`, `libXext`, `libXfixes`, `libXi`, `libXinerama`,
-`libXrandr`, `libxcb` or the XWayland server. These custom builds have not
-yet been produced or tested.
+The repository RPM admission check validates Fedora 45 provenance and rejects
+Xorg/XWayland server executables or server-package dependencies. It deliberately
+allows optional X11 backend modules and client libraries supplied by Fedora.
+This is the correct distinction for a Wayland-only runtime; it does not claim
+that the RPM payloads are stripped of all X11 compatibility code.
 
-Before adding them to the Live image, run the repository's RPM admission
-check against all four generated runtime packages:
-
-```sh
-build/verify-wayland-rpms.sh \
-  /path/to/weston.rpm /path/to/weston-libs.rpm \
-  /path/to/gtk4.rpm /path/to/libadwaita.rpm
-```
-
-After installing the stack into a prepared target root, repeat the audit over
-the complete installed dependency closure:
-
-```sh
-build/verify-wayland-rpms.sh --installed-root /path/to/target-root \
-  /path/to/weston.rpm /path/to/weston-libs.rpm \
-  /path/to/gtk4.rpm /path/to/libadwaita.rpm
-```
-
-The checker rejects the named X11/XWayland payloads, X11 library requirements,
-forbidden server/window-manager packages and X11 dependencies anywhere in the
-installed RPM database. It is an admission check, not a package builder; no
-RPM artifacts have been generated or passed through it yet.
-
-The Weston 15.0.1 command-line interface documents `-B drm` for the DRM/KMS
-backend, `--shell=kiosk-shell.so` for kiosk mode, `--idle-time=0` to disable
-the idle timeout, and `--no-config` to ignore all `weston.ini` files and
-configured modules. Weston can launch the GUI as its child with the mandatory
-`--` separator; it supplies `WAYLAND_DISPLAY` to that child. The production
-command must omit `--xwayland` and use `--no-config`.
-
-The verified command shape for a seat-enabled session is:
-
-```sh
-env -u DISPLAY weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- \
-  /usr/bin/python3 -m feclora.gui_gtk
-```
+Install the official packages in the Kickstart and base manifest. The GTK
+systemd unit remains a staged candidate, not enabled, until behavioral parity
+and the graphical boot acceptance tests pass. The package selection itself
+does not prove Weston starts successfully on the target hardware.
 
 ### Fedora 45 KMSCON and VT ownership
 
@@ -632,10 +591,10 @@ env -u DISPLAY weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 --
   /usr/bin/python3 -m feclora.gui_gtk
 ```
 
-Do not enable a Weston systemd unit or add compositor packages to the Live
-image until the Fedora 45-matched X11-disabled Weston, GTK4 and libadwaita
-RPMs have been built and inspected, and the logind/libseat/DRM session has
-passed VM testing. Do not run Weston as root or weaken device permissions.
+Do not enable the Weston systemd unit until GTK behavioral parity and the
+logind/libseat/DRM session have passed VM testing. The official Fedora runtime
+packages are already selected; do not install the separate XWayland server
+package. Do not run Weston as root or weaken device permissions.
 The final cutover must replace Textual and remove its package, service,
 application, tests and obsolete boot checks; Textual is not a permanent
 fallback.
