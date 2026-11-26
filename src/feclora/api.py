@@ -3206,7 +3206,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         raise APIError("compression must be none, gzip or xz")
     expected_confirmation = (
         f"ERASE {device_path}"
-        if job["operation"] == "restore"
+        if job["operation"] in {"restore", "clone"}
         else f"READ {device_path}"
     )
     if confirmation != expected_confirmation:
