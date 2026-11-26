@@ -139,6 +139,20 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("libX11.so.6", result.stderr)
 
+    def test_rejects_additional_x11_library_dependencies(self):
+        self.records["weston-libs.rpm"]["requires"].append("libxkbfile.so.1()(64bit)")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("libxkbfile.so.1", result.stderr)
+
+    def test_rejects_additional_x11_library_payloads(self):
+        self.records["gtk4.rpm"]["files"].append("/usr/lib64/libXft.so.2")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("libXft.so.2", result.stderr)
+
     def test_audits_optional_gtk4_development_rpm(self):
         extra = self.rpm_paths[4]
         result = self._run([*self.rpm_paths[:4], extra])
