@@ -60,6 +60,21 @@ the source audit, but that does not rule out semantic gaps in individual forms
 or workflows. Pages must not be treated as complete merely because their
 status/history views are present.
 
+A deeper Client-workflow contract audit found mismatches inherited from the
+Textual frontend: its codec selector offered Zstandard/LZ4 although the
+persistent Client API accepts only gzip, XZ and no compression; its save
+confirmation included a Server-identity suffix rejected by both the API and
+Client runtime; and the API treated unicast clone confirmation as a read rather
+than a destructive write. Both frontends now share the API-supported codec
+catalog, use READ <device> for save and ERASE <device> for restore/clone,
+and restrict age encryption to save jobs. GTK also disables IGMP acknowledgement
+outside multicast restore, which is the only multicast Client operation accepted
+by the current API. Physical multicast clone remains a separate backend blocker:
+the lower-level Client service and documentation describe it, but the current
+API and persistent Server-service validation still reject it. It must not be
+counted as migrated or accepted until those gates and their end-to-end tests are
+reconciled.
+
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject with libadwaita is the sole graphical frontend target; no Tk or
 X11 compatibility runtime is retained. The frontend is not production-ready.
