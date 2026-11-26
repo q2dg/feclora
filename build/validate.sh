@@ -39,6 +39,7 @@ require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API
 require_text 'ThreadPoolExecutor|GLib\.idle_add' src/feclora/gtk_api.py "The GTK API bridge must keep blocking subprocess work off the GLib main loop."
 require_text 'GDK_BACKEND.*wayland' src/feclora/gui_gtk.py "The GTK frontend must force the native Wayland backend."
 require_text 'WAYLAND_DISPLAY' src/feclora/gui_gtk.py "The GTK frontend must require a Wayland compositor socket."
+require_text 'if not os\.environ\.get\("WAYLAND_DISPLAY"\):' src/feclora/gui_gtk.py "The GTK frontend must fail closed when no Wayland socket is supplied."
 require_text 'os\.environ\.pop\("DISPLAY", None\)' src/feclora/gui_gtk.py "The GTK frontend must remove any inherited X11 display variable."
 require_text 'self\.api\.submit\("status"' src/feclora/gui_gtk.py "GTK overview must call the real status API."
 require_text 'self\.api\.submit\("inventory"' src/feclora/gui_gtk.py "GTK inventory must call the real inventory API."
