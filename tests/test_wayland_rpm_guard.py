@@ -146,7 +146,7 @@ else:
     def test_requires_all_four_runtime_packages(self):
         result = self._run(self.rpm_paths[:3])
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("exactly four RPMs", result.stderr)
+        self.assertIn("four required RPMs", result.stderr)
 
 
 if __name__ == "__main__":
