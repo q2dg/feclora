@@ -46,7 +46,7 @@ while (($#)); do
   esac
 done
 
-(("\${#rpm_files[@]}" == 4)) ||
+(("${#rpm_files[@]}" == 4)) ||
   fail "Supply exactly four RPMs: weston, weston-libs, gtk4 and libadwaita."
 command -v rpm >/dev/null 2>&1 || fail "The rpm command is required."
 if [[ -n "$installed_root" && ! -d "$installed_root" ]]; then
@@ -70,7 +70,7 @@ check_payload() {
 }
 
 declare -A seen=()
-for rpm_file in "\${rpm_files[@]}"; do
+for rpm_file in "${rpm_files[@]}"; do
   [[ -s "$rpm_file" ]] || fail "RPM file is missing or empty: $rpm_file"
   package_name="$(rpm -qp --qf '%{NAME}\n' "$rpm_file")" ||
     fail "Cannot read RPM metadata: $rpm_file"
@@ -78,7 +78,7 @@ for rpm_file in "\${rpm_files[@]}"; do
     weston|weston-libs|gtk4|libadwaita) ;;
     *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
   esac
-  [[ -z "\${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
+  [[ -z "${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
   seen[$package_name]=1
   files="$(rpm -qpl "$rpm_file")" || fail "Cannot list payload files: $rpm_file"
   requirements="$(rpm -qpR "$rpm_file")" || fail "Cannot list RPM requirements: $rpm_file"
@@ -86,19 +86,19 @@ for rpm_file in "\${rpm_files[@]}"; do
 done
 
 for required in weston weston-libs gtk4 libadwaita; do
-  [[ -n "\${seen[$required]+x}" ]] || fail "Required RPM package is missing: $required"
+  [[ -n "${seen[$required]+x}" ]] || fail "Required RPM package is missing: $required"
 done
 
 if [[ -n "$installed_root" ]]; then
   installed_listing="$(rpm --root "$installed_root" -qa --qf '%{NAME}\n')" ||
     fail "Cannot query installed RPM database under $installed_root."
   mapfile -t installed_packages <<<"$installed_listing"
-  (("\${#installed_packages[@]}" > 0)) || fail "No installed RPM database found under $installed_root."
+  (("${#installed_packages[@]}" > 0)) || fail "No installed RPM database found under $installed_root."
   for required in weston weston-libs gtk4 libadwaita; do
     grep -Fxq "$required" <<<"$installed_listing" ||
       fail "Required Wayland runtime package is not installed under $installed_root: $required"
   done
-  for package_name in "\${installed_packages[@]}"; do
+  for package_name in "${installed_packages[@]}"; do
     if [[ "$package_name" =~ $BAD_PACKAGE_RE ]]; then
       fail "Forbidden X11 package is installed in the target root: $package_name"
     fi
@@ -112,5 +112,5 @@ fi
 
 printf 'Wayland-only RPM audit passed for: weston, weston-libs, gtk4 and libadwaita.\n'
 if [[ -n "$installed_root" ]]; then
-  printf 'Installed-root audit passed: %s (%d RPM packages).\n' "$installed_root" "\${#installed_packages[@]}"
+  printf 'Installed-root audit passed: %s (%d RPM packages).\n' "$installed_root" "${#installed_packages[@]}"
 fi
