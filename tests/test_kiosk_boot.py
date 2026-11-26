@@ -18,6 +18,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn('enable feclora-tui.service', kickstart)
         self.assertNotIn('enable feclora-gtk.service', kickstart)
         self.assertIn('feclora-tui.service', kickstart)
+        self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").exists())
 
     def test_no_cage_or_stock_gtk_weston_stack_is_shipped_early(self):
         kickstart = self.read("kickstart/feclora-live.ks")
@@ -27,8 +28,24 @@ class KioskBootConfigurationTests(unittest.TestCase):
             self.assertNotIn(f"\n{package}\n", base)
         self.assertIn("\npython3-textual\n", kickstart)
         self.assertIn("\npython3-textual\n", base)
-        self.assertFalse((ROOT / "src/feclora/data/feclora-gtk.service").exists())
-        self.assertFalse((ROOT / "src/feclora/data/feclora-gtk-ready").exists())
+        self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").is_file())
+        self.assertTrue((ROOT / "src/feclora/data/feclora-gtk-ready").is_file())
+
+
+    def test_gtk_candidate_uses_weston_wayland_and_waits_for_render(self):
+        service = self.read("src/feclora/data/feclora-gtk.service")
+        ready = self.read("src/feclora/data/feclora-gtk-ready")
+        self.assertIn("PAMName=login", service)
+        self.assertIn("Environment=GDK_BACKEND=wayland", service)
+        self.assertIn(
+            "weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk",
+            service,
+        )
+        self.assertIn("TTYPath=/dev/tty1", service)
+        self.assertIn("ExecStartPost=+/usr/libexec/feclora/feclora-gtk-ready", service)
+        self.assertIn("FECLORA_BOOT_SMOKE rendered", ready)
+        self.assertNotIn("--xwayland", service)
+        self.assertNotIn("enable feclora-gtk.service", self.read("kickstart/feclora-live.ks"))
 
     def test_fedora45_kmscon_cannot_own_application_or_maintenance_vts(self):
         kickstart = self.read("kickstart/feclora-live.ks")
