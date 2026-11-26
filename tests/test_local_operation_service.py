@@ -188,8 +188,10 @@ class LocalOperationWorkerTests(unittest.TestCase):
         store = Mock()
         store.definition.side_effect = LocalOperationCancelled("stop during startup")
         store.status.return_value = {"state": "queued"}
-        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \\
-             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store):
+        with (
+            patch("feclora.storage.local_operation_service.os.geteuid", return_value=0),
+            patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store),
+        ):
             self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
         self.assertEqual(store.append.call_args.args[1], "cancelled")
         self.assertFalse(store.append.call_args.args[2]["destination_may_be_partial"])
