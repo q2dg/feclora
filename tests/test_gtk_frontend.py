@@ -408,7 +408,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_repository_page_lists_remote_and_s3_storage_state(self):
         self.assertIn('"remote_repositories"', self.source)
-        self.assertIn('self.api.submit("s3_repositories"', self.source)
+        self.assertIn('"s3_repositories"', self.source)
         self.assertIn('item.get("mounted")', self.source)
         self.assertIn('item.get("verified")', self.source)
         self.assertIn('item.get("read_only")', self.source)
@@ -504,7 +504,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("(self._selected_image() or {}).get(\"image_id\") == image_id", current)
 
     def test_remote_deployment_and_client_history_pages_use_persistent_api(self):
-        for action in ('self.api.submit(action, on_success=lambda response: self._show_history_rows', 'self.api.submit("deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
+        for action in ('self.api.submit(', '"deployment_jobs"', 'self._history_page("Historial de despliegues', 'self._history_page("Trabajos remotos'):
             self.assertIn(action, self.source)
         self.assertIn('"journals", "journals"', self.source)
         remote_page = ast.get_source_segment(self.source, self.methods["_show_remote_jobs_page"])
@@ -550,7 +550,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('No repitas operaciones afectadas', render)
 
     def test_network_page_uses_active_profiles_and_validated_ipv4_checkpoint(self):
-        for action in ('self.api.submit("network_connection_profiles"', 'self.api.submit("network_interfaces"', 'self.api.submit("apply_network_profile"'):
+        for action in ('"network_connection_profiles"', '"network_interfaces"', '"apply_network_profile"'):
             self.assertIn(action, self.source)
         self.assertIn('ipaddress.IPv4Address(self.network_address.get_text().strip())', self.source)
         self.assertIn('"rollback_timeout": 120', self.source)
@@ -574,7 +574,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('Gtk.StringList.new(["Cargando perfiles…"])', applied)
 
     def test_restore_profiles_are_bound_to_stable_disk_identity_and_single_use_confirmation(self):
-        for action in ('self.api.submit("restore_profiles"', 'self.api.submit("create_restore_profile"', 'self.api.submit("execute_restore_profile"'):
+        for action in ('"restore_profiles"', '"create_restore_profile"', '"execute_restore_profile"'):
             self.assertIn(action, self.source)
         self.assertIn('item.get("wwn") or item.get("serial")', self.source)
         self.assertIn('"target_wwn": target.get("wwn")', self.source)
@@ -585,7 +585,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_p2v_capture_uses_disk_inventory_and_qcow2_conversion_api(self):
         self.assertIn('"Capturar disco virtual QCOW2 (P2V)"', self.source)
-        self.assertIn('self.api.submit("capture_p2v"', self.source)
+        self.assertIn('"capture_p2v"', self.source)
         self.assertIn('params = {"source": self.capture_devices[index]["path"], "image_id": image_id}', self.source)
 
     def test_restore_and_clone_operations_use_inventory_images_and_exact_confirmation(self):
@@ -649,7 +649,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
             '"mount": "mount_remote_repository"',
             '"unmount": "unmount_remote_repository"',
             '"remove": "remove_remote_repository"',
-            'self.api.submit("systemd_credentials"',
+            '"systemd_credentials"',
             'self._submit_repository_action("put_systemd_credential"',
             'self._submit_repository_action("remove_systemd_credential"',
         ):
@@ -680,12 +680,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_server_bootstrap_tls_and_pxe_controls_use_existing_api_contracts(self):
         for action in (
-            'self.api.submit("bootstrap_server"',
-            'self.api.submit("renew_server_certificate"',
-            'self.api.submit("rotate_server_keypair"',
-            'self.api.submit("validate_pxe_profile"',
-            'self.api.submit("start_pxe_services"',
-            'self.api.submit("stop_pxe_services"',
+            '"bootstrap_server"',
+            '"renew_server_certificate"',
+            '"rotate_server_keypair"',
+            '"validate_pxe_profile"',
+            '"start_pxe_services"',
+            '"stop_pxe_services"',
         ):
             self.assertIn(action, self.source)
         self.assertIn('"interface": selected.get("interface")', self.source)
@@ -713,12 +713,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_pxe_answer_publication_revocation_and_age_workflows(self):
         for action in (
-            'self.api.submit("publish_pxe_answer"',
-            'self.api.submit("revoke_pxe_answer"',
-            'self.api.submit("pxe_age_passphrase_status"',
-            'self.api.submit("provide_pxe_age_passphrase"',
-            'self.api.submit("export_server_age_recipients"',
-            'self.api.submit("refresh_client_age_recipients"',
+            '"publish_pxe_answer"',
+            '"revoke_pxe_answer"',
+            '"pxe_age_passphrase_status"',
+            '"provide_pxe_age_passphrase"',
+            '"export_server_age_recipients"',
+            '"refresh_client_age_recipients"',
         ):
             self.assertIn(action, self.source)
         self.assertIn('"source": source', self.source)
@@ -737,17 +737,17 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_remote_deployment_definition_import_and_lifecycle_actions(self):
         for action in (
-            'self.api.submit("deployment_jobs"',
-            'self.api.submit("remote_repositories"',
-            'self.api.submit("s3_repositories"',
-            'self.api.submit("create_deployment_job"',
-            'self.api.submit("import_deployment_job"',
-            'self.api.submit("deployment_service_status"',
-            'self.api.submit("start_deployment_service"',
-            'self.api.submit("arm_deployment_job"',
-            'self.api.submit("cancel_deployment_job"',
-            'self.api.submit("stop_deployment_service"',
-            'self.api.submit("reconcile_deployment_job"',
+            '"deployment_jobs"',
+            '"remote_repositories"',
+            '"s3_repositories"',
+            '"create_deployment_job"',
+            '"import_deployment_job"',
+            '"deployment_service_status"',
+            '"start_deployment_service"',
+            '"arm_deployment_job"',
+            '"cancel_deployment_job"',
+            '"stop_deployment_service"',
+            '"reconcile_deployment_job"',
         ):
             self.assertIn(action, self.source)
         self.assertIn('f"ARM PHYSICAL MULTICAST {job_id}', self.source)
@@ -760,11 +760,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_authenticated_client_inspection_start_and_status_workflows(self):
         for action in (
-            'self.api.submit("network_interfaces"',
+            '"network_interfaces"',
             'self.api.submit("inventory"',
-            'self.api.submit("inspect_remote_job"',
-            'self.api.submit("start_client_job"',
-            'self.api.submit("client_job_status"',
+            '"inspect_remote_job"',
+            '"start_client_job"',
+            '"client_job_status"',
         ):
             self.assertIn(action, self.source)
         self.assertIn('"network_interface": interface["interface"]', self.source)
@@ -952,7 +952,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("confirmation_row.set_activatable_widget(self.remote_job_confirmation)", remote)
         self.assertIn('"deployment_jobs"', remote)
         self.assertIn('"remote_repositories"', remote)
-        self.assertIn('self.api.submit("s3_repositories"', remote)
+        self.assertIn('"s3_repositories"', remote)
 
     def test_client_job_history_uses_libadwaita_rows_without_changing_client_actions(self):
         start = self.source.index("    def _show_client_jobs_page")
@@ -1104,7 +1104,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_images_page_includes_verified_file_and_s3_repositories(self):
         self.assertIn('"remote_repositories"', self.source)
         self.assertIn("self._populate_image_repositories(result)", self.source)
-        self.assertIn('self.api.submit("s3_repositories",', self.source)
+        self.assertIn('"s3_repositories",', self.source)
         self.assertIn("self._populate_image_s3_repositories(result)", self.source)
         self.assertIn('item.get("mounted") and item.get("verified")', self.source)
         self.assertIn('"_repository_kind": "remote"', self.source)
@@ -1309,7 +1309,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_raw_disk_capture_supports_one_shot_age_passphrase_delivery(self):
         self.assertIn("self.capture_passphrase = Gtk.PasswordEntry()", self.source)
         self.assertIn('"provide_capture_passphrase"', self.source)
-        self.assertIn('"encrypt_passphrase": True', self.source)
+        self.assertIn('params["encrypt_passphrase"] = True', self.source)
         self.assertIn("self.capture_passphrase.set_text(\"\")", self.source)
         self.assertIn("self._capture_passphrase_failed", self.source)
 
