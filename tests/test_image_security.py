@@ -1,3 +1,4 @@
+import io
 import os
 import pty
 import select
@@ -10,7 +11,8 @@ from types import SimpleNamespace
 
 from feclora.storage.image_manifest import ImageArtifact
 from feclora.storage.image_security import (
-    ImageSecurityError, decrypt_artifact_to_temp, decrypt_artifact_stream_with_passphrase_to_temp,
+    ImageSecurityError, decrypt_artifact_to_temp, decrypt_artifact_stream_to_temp,
+    decrypt_artifact_stream_with_passphrase_to_temp,
     encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security,
 )
 
@@ -78,6 +80,17 @@ class ImageSecurityTests(unittest.TestCase):
         with open(staged, "rb") as decrypted:
             self.assertEqual(decrypted.read(), b"compressed bytes")
         self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
+
+    def test_interrupted_stream_decryption_removes_plaintext_stage(self):
+        before = set(os.listdir(self.root))
+        with patch("feclora.storage.image_security.subprocess.run", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                decrypt_artifact_stream_to_temp(
+                    io.BytesIO(b"ciphertext"), self.identity, self.root,
+                    age_executable="/usr/bin/age",
+                )
+        after = set(os.listdir(self.root))
+        self.assertEqual(after, before)
 
     def test_symmetric_age_decryption_uses_private_pty_and_authenticates(self):
         encrypted = os.path.join(self.root, "disk.raw.gz.age")
