@@ -101,7 +101,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("The presence of optional X11 client backends", migration)
         self.assertIn("does not mean an X server is installed or running", migration)
         self.assertIn("--no-config -B drm --shell=kiosk-shell.so", migration)
-        self.assertIn("Then remove Textual and obsolete text-boot checks.", migration)
+        self.assertIn("The Kickstart now enables `feclora-gtk.service` on tty1", migration)
 
     def test_qemu_boot_smoke_waits_for_rendered_interface(self):
         smoke = self.read("tests/vm/run-boot-smoke.py")
