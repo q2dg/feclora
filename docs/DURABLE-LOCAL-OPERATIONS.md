@@ -1,6 +1,6 @@
 # Long-running local storage operations
 
-The unprivileged Textual interface sends bounded JSON requests to the
+The unprivileged GTK interface sends bounded JSON requests to the
 root-owned, allowlisted helper. The helper validates parameters and submits
 long-running local disk and partition operations to a durable queue executed
 by a root-owned systemd worker. The UI process can exit without terminating an
@@ -17,7 +17,7 @@ does not mean persistent across a Live reboot.
    a monotonically increasing sequence, previous-event hash and SHA-256 event
    hash. Files and directories are private to root.
 3. `feclora-local-operation@.service` loads the definition in a process
-   independent of the Textual interface.
+   independent of the GTK interface.
 4. The worker acquires the existing host-wide deployment/storage lock, then
    exclusive locks keyed by resolved block-device major/minor identity. This
    also prevents aliases such as a device node and its by-id symlink from
@@ -27,7 +27,7 @@ does not mean persistent across a Live reboot.
    are appended to the journal. Each valid byte-progress checkpoint records
    monotonic elapsed time; sampled bytes/second is persisted only when two
    consecutive counters are comparable and time advanced.
-6. The Textual interface requests operation status and recent journal events
+6. The GTK interface requests operation status and recent journal events
    through the privileged helper.
 
 ## Recovery and cancellation
