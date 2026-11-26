@@ -47,6 +47,8 @@ OPERATIONS = (
     ("Crear paquete de despliegue", "build_deployment_bundle"),
 )
 COMPRESSION = (("Zstandard", "zstd"), ("LZ4", "lz4"), ("Gzip", "gzip"), ("XZ", "xz"), ("Sin compresión", "none"))
+# Client jobs use the narrower codec set accepted by the persistent Client service.
+CLIENT_JOB_COMPRESSION = (("Gzip", "gzip"), ("XZ", "xz"), ("Sin compresión", "none"))
 # Keep this list aligned with MESSAGES and the supported keyboard locales.
 # Operational forms and messages are being migrated incrementally.
 LANGUAGES = (("English", "en"), ("Español", "es"), ("Català", "ca"), ("Galego", "gl"), ("Euskara", "eu"), ("Français", "fr"), ("Deutsch", "de"), ("Italiano", "it"), ("Português", "pt"), ("Português (Brasil)", "pt_BR"), ("中文（简体）", "zh_CN"), ("Polski", "pl"), ("Nederlands", "nl"), ("한국어", "ko"), ("Ελληνικά", "el"), ("Čeština", "cs"), ("Svenska", "sv"), ("Suomi", "fi"), ("Magyar", "hu"), ("Български", "bg"), ("Norsk bokmål", "nb_NO"), ("Русский", "ru"), ("Türkçe", "tr"), ("العربية", "ar"), ("日本語", "ja"))
