@@ -6,7 +6,7 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
+from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition, _decompress_to_temp
 from unittest.mock import patch
 
 
@@ -524,6 +524,24 @@ class PartitionRestoreTests(unittest.TestCase):
                 popen_factory=lambda *a, **k: self.fail("writer must not start"),
             )
 
+
+    def test_decoder_shutdown_failure_removes_completed_staging_file(self):
+        class Decoder:
+            def __init__(self, _source, mode):
+                self.reads = 0
+            def read(self, _size):
+                self.reads += 1
+                return b"decoded bytes" if self.reads == 1 else b""
+            def close(self):
+                raise OSError("decoder process could not be reaped")
+
+        with tempfile.TemporaryDirectory() as stage:
+            with patch("feclora.storage.partition_restore.gzip.GzipFile", Decoder):
+                with self.assertRaisesRegex(PartitionRestoreError, "shutdown failed"):
+                    _decompress_to_temp(
+                        io.BytesIO(b"compressed"), "gzip", None, stage,
+                    )
+            self.assertEqual(os.listdir(stage), [])
 
     def test_decompressed_partition_stages_outside_source_repository(self):
         from feclora.storage import partition_restore
