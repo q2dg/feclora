@@ -154,7 +154,7 @@ def _run_guest(
                             last_event = event
                             if event == "FECLORA_BOOT_SMOKE rendered":
                                 print(
-                                    f"{firmware}: Textual rendered its initial screen on tty1."
+                                    f"{firmware}: GTK rendered its initial window on tty1."
                                 )
                                 return
                             if event == "FECLORA_BOOT_SMOKE ready":
