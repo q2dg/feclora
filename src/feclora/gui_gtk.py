@@ -2,8 +2,8 @@
 
 This frontend is under behavioral parity review. The intended production
 compositor is Weston DRM/KMS with kiosk-shell; no Cage-based launch path is
-supported. Textual remains the production tty1 interface until the complete
-GTK/Weston acceptance gate has passed.
+supported. GTK4 is the production tty1 interface; physical BIOS/UEFI and GTK/Weston
+acceptance remain maintainer-run release gates.
 """
 from __future__ import annotations
 
@@ -687,7 +687,7 @@ class FecloraGTK:
         self.page_body.append(system_group)
         self.system_details_group = Adw.PreferencesGroup(
             title="Configuración, servicios y certificados",
-            description="Desglose equivalente al estado del sistema mostrado por la interfaz Textual.",
+            description="Desglose del estado del sistema y sus servicios.",
         )
         self.page_body.append(self.system_details_group)
         self._refresh_status(None)
