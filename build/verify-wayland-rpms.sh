@@ -5,9 +5,10 @@ export LC_ALL=C
 usage() {
   cat <<'EOF'
 Usage:
-  build/verify-wayland-rpms.sh [--installed-root ROOT] weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm
+  build/verify-wayland-rpms.sh [--installed-root ROOT] weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm [additional-rpms...]
 
-Checks the four Fedora-matched runtime RPMs before they are admitted to Feclora.
+Checks the four required Fedora-matched runtime RPMs and every additional RPM
+supplied (for example gtk4-devel used to rebuild libadwaita).
 With --installed-root, also audits the complete installed RPM database and file
 payload under ROOT for X11 libraries, backends, compatibility servers and WMs.
 EOF
@@ -46,16 +47,16 @@ while (($#)); do
   esac
 done
 
-(("${#rpm_files[@]}" == 4)) ||
-  fail "Supply exactly four RPMs: weston, weston-libs, gtk4 and libadwaita."
+(("${#rpm_files[@]}" >= 4)) ||
+  fail "Supply the four required RPMs: weston, weston-libs, gtk4 and libadwaita."
 command -v rpm >/dev/null 2>&1 || fail "The rpm command is required."
 if [[ -n "$installed_root" && ! -d "$installed_root" ]]; then
   fail "Installed root does not exist: $installed_root"
 fi
 
-readonly X11_FILE_RE='(^|/)(Xwayland|Xorg|openbox|xwayland\.so|x11-backend\.so|GdkX11-4\.0\.(typelib|gir)|libgdk-x11-[^/]*\.so([.0-9]*)?|libX11(-xcb)?\.so([.0-9]*)?|libXcursor\.so([.0-9]*)?|libXdamage\.so([.0-9]*)?|libXext\.so([.0-9]*)?|libXfixes\.so([.0-9]*)?|libXi\.so([.0-9]*)?|libXinerama\.so([.0-9]*)?|libXrandr\.so([.0-9]*)?|libxcb\.so([.0-9]*)?|gtk4-x11\.pc|gdk4-x11\.pc)$'
+readonly X11_FILE_RE='(^|/)(Xwayland|Xorg|openbox|xwayland\.so|x11-backend\.so|GdkX11-4\.0\.(typelib|gir)|gdk/x11/|libgdk-x11-[^/]*\.so([.0-9]*)?|libX11(-xcb)?\.so([.0-9]*)?|libXcursor\.so([.0-9]*)?|libXdamage\.so([.0-9]*)?|libXext\.so([.0-9]*)?|libXfixes\.so([.0-9]*)?|libXi\.so([.0-9]*)?|libXinerama\.so([.0-9]*)?|libXrandr\.so([.0-9]*)?|libXcomposite\.so([.0-9]*)?|libXrender\.so([.0-9]*)?|libXau\.so([.0-9]*)?|libXdmcp\.so([.0-9]*)?|libICE\.so([.0-9]*)?|libSM\.so([.0-9]*)?|libXtst\.so([.0-9]*)?|libXxf86vm\.so([.0-9]*)?|libxcb\.so([.0-9]*)?|gtk4-x11\.pc|gdk4-x11\.pc)$'
 readonly X11_REQUIRE_RE='(^|[^[:alnum:]_])(libX11(-xcb)?|libXcursor|libXdamage|libXext|libXfixes|libXi|libXinerama|libXrandr|libXcomposite|libXrender|libXau|libXdmcp|libICE|libSM|libXtst|libXxf86vm|libxcb)(\.so|[[:space:]]|$)|pkgconfig\((x11|xcb)\)|(^|[[:space:]])(xorg-x11-server-Xwayland|xorg-x11-server-Xorg|xwayland|openbox)([[:space:]]|$)'
-readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland$|openbox$|libX11$|libX11-xcb$|libXcursor$|libXdamage$|libXext$|libXfixes$|libXi$|libXinerama$|libXrandr$|libXcomposite$|libXrender$|libXau$|libXdmcp$|libICE$|libSM$|libXtst$|libXxf86vm$|libxcb$)'
+readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland$|openbox$|libX11(-xcb)?(-devel)?$|libXcursor(-devel)?$|libXdamage(-devel)?$|libXext(-devel)?$|libXfixes(-devel)?$|libXi(-devel)?$|libXinerama(-devel)?$|libXrandr(-devel)?$|libXcomposite(-devel)?$|libXrender(-devel)?$|libXau(-devel)?$|libXdmcp(-devel)?$|libICE(-devel)?$|libSM(-devel)?$|libXtst(-devel)?$|libXxf86vm(-devel)?$|libxcb(-devel)?$)'
 
 check_payload() {
   local origin="$1" files="$2" requirements="$3"
@@ -74,10 +75,9 @@ for rpm_file in "${rpm_files[@]}"; do
   [[ -s "$rpm_file" ]] || fail "RPM file is missing or empty: $rpm_file"
   package_name="$(rpm -qp --qf '%{NAME}\n' "$rpm_file")" ||
     fail "Cannot read RPM metadata: $rpm_file"
-  case "$package_name" in
-    weston|weston-libs|gtk4|libadwaita) ;;
-    *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
-  esac
+  if [[ "$package_name" =~ $BAD_PACKAGE_RE ]]; then
+    fail "Forbidden X11 package supplied for admission: $package_name"
+  fi
   [[ -z "${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
   seen[$package_name]=1
   files="$(rpm -qpl "$rpm_file")" || fail "Cannot list payload files: $rpm_file"
