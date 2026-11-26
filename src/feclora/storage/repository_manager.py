@@ -2,7 +2,7 @@
 
 Repository definitions contain paths and credential references only. Secret
 material remains in separately provisioned root-owned files and is never
-accepted from the Textual interface or copied into the repository registry.
+accepted from the GTK interface or copied into the repository registry.
 """
 from __future__ import annotations
 
