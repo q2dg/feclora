@@ -54,6 +54,11 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("TTYPath=/dev/tty1", service)
         self.assertIn("ExecStartPost=+/usr/libexec/feclora/feclora-gtk-ready", service)
         self.assertIn("FECLORA_BOOT_SMOKE gtk-rendered", ready)
+        self.assertLess(
+            ready.index('if [ ! -c "$CHANNEL" ]'),
+            ready.index("while [ ! -f"),
+            "Physical boots without a virtio channel must not wait for the QEMU-only readiness marker.",
+        )
         self.assertNotIn("--xwayland", service)
         self.assertNotIn("enable feclora-gtk.service", self.read("kickstart/feclora-live.ks"))
 
@@ -76,6 +81,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
             frontend.index('self._show_welcome()'),
             "GTK must subscribe to the first map event before presenting its initial window.",
         )
+        self.assertIn('"after-paint", self._on_first_frame_painted', frontend)
+        self.assertIn("def _on_first_frame_painted(", frontend)
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', frontend)
         self.assertIn('os.environ.pop("DISPLAY", None)', frontend)
         self.assertIn("self.window.set_decorated(False)", frontend)
