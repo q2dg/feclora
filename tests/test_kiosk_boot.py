@@ -86,7 +86,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn('"virtio"', smoke)
         self.assertIn("FECLORA_BOOT_SMOKE gtk-rendered", smoke)
         self.assertIn("FECLORA_BOOT_SMOKE rendered", smoke)
-        self.assertIn("FECLORA_BOOT_SMOKE rendered", ready)
+        self.assertIn("FECLORA_BOOT_SMOKE gtk-rendered", ready)
 
 
 if __name__ == "__main__":
