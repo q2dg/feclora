@@ -1,4 +1,4 @@
-"""Persistent, single-job Server deployment service for the Textual interface.
+"""Persistent, single-job Server deployment service for the GTK operator interface.
 
 The service reuses the established TLS control plane, coordinator, journal and
 image-transfer engines. It never resumes an interrupted job after process loss.
