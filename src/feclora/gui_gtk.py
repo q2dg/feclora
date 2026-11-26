@@ -24,7 +24,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GLib
 
 from feclora.gtk_api import GtkAPIClient
-from feclora.ui_catalog import KEYBOARD_LAYOUTS, LANGUAGES, MESSAGES, PAGES, PAGE_MESSAGE_KEYS
+from feclora.ui_catalog import CLIENT_JOB_COMPRESSION, KEYBOARD_LAYOUTS, LANGUAGES, MESSAGES, PAGES, PAGE_MESSAGE_KEYS
 
 
 class FecloraGTK:
@@ -2553,17 +2553,20 @@ class FecloraGTK:
 
         transfer_group = Adw.PreferencesGroup(title="Transferencia y protección")
         self.page_body.append(transfer_group)
-        self.client_compression = Gtk.DropDown.new_from_strings(["Gzip", "Zstandard", "LZ4", "Sin compresión"])
+        self.client_compression = Gtk.DropDown.new_from_strings([label for label, _value in CLIENT_JOB_COMPRESSION])
+        self.client_compression.set_sensitive(False)
         compression_row = Adw.ActionRow(title="Compresión")
         compression_row.add_suffix(self.client_compression)
         compression_row.set_activatable_widget(self.client_compression)
         transfer_group.add(compression_row)
         self.client_encrypt = Gtk.DropDown.new_from_strings(["Sin cifrado", "Cifrar imagen con age"])
+        self.client_encrypt.set_sensitive(False)
         encryption_row = Adw.ActionRow(title="Cifrado de imagen")
         encryption_row.add_suffix(self.client_encrypt)
         encryption_row.set_activatable_widget(self.client_encrypt)
         transfer_group.add(encryption_row)
         self.client_igmp = Gtk.CheckButton(label="Confirmo multicast en una red aislada con IGMP verificado")
+        self.client_igmp.set_sensitive(False)
         igmp_row = Adw.ActionRow(title="Multicast", subtitle="Solo en una red aislada con IGMP verificado")
         igmp_row.add_suffix(self.client_igmp)
         igmp_row.set_activatable_widget(self.client_igmp)
@@ -2572,7 +2575,7 @@ class FecloraGTK:
         execution_group = Adw.PreferencesGroup(title="Ejecución y seguimiento")
         self.page_body.append(execution_group)
         self.client_confirmation = Gtk.Entry()
-        self.client_confirmation.set_placeholder_text("Escribe exactamente ERASE destino o READ destino TO identidad")
+        self.client_confirmation.set_placeholder_text("Escribe exactamente ERASE destino o READ destino")
         confirmation_row = Adw.ActionRow(title="Confirmación exacta")
         confirmation_row.add_suffix(self.client_confirmation)
         confirmation_row.set_activatable_widget(self.client_confirmation)
@@ -2660,6 +2663,11 @@ class FecloraGTK:
         self._client_eligible_targets = []
         self.client_target.set_model(Gtk.StringList.new(["Inspecciona primero el trabajo remoto…"]))
         self.client_target.set_selected(0)
+        self.client_compression.set_sensitive(False)
+        self.client_encrypt.set_sensitive(False)
+        self.client_encrypt.set_selected(0)
+        self.client_igmp.set_sensitive(False)
+        self.client_igmp.set_active(False)
         self.client_job_details.set_text("Sin inspección autenticada.")
         self.client_confirmation.set_text("")
         self.client_confirmation.set_placeholder_text("Inspecciona primero el trabajo remoto")
@@ -2745,6 +2753,15 @@ class FecloraGTK:
             self.client_result.set_text("El servidor no devolvió una definición de trabajo válida.")
             return
         self._client_remote_inspection = result
+        self.client_compression.set_sensitive(True)
+        encryption_allowed = job.get("operation") == "save"
+        self.client_encrypt.set_sensitive(encryption_allowed)
+        if not encryption_allowed:
+            self.client_encrypt.set_selected(0)
+        igmp_allowed = job.get("transport") == "multicast" and job.get("operation") == "restore"
+        self.client_igmp.set_sensitive(igmp_allowed)
+        if not igmp_allowed:
+            self.client_igmp.set_active(False)
         target_type = job.get("target_type")
         if target_type == "logical_volume":
             eligible = self._client_logical_volumes
@@ -2777,7 +2794,7 @@ class FecloraGTK:
         job = inspection["job"]
         phrase = (
             f"ERASE {target}" if job.get("operation") in {"restore", "clone"}
-            else f"READ {target} TO {inspection.get('server_identity')}"
+            else f"READ {target}"
         )
         self.client_confirmation.set_placeholder_text(f"Confirmación exacta: {phrase}")
 
@@ -2794,17 +2811,30 @@ class FecloraGTK:
             self.client_result.set_text("Selecciona un destino local y una interfaz IPv4 activa.")
             return
         job = inspection["job"]
+        if job.get("transport") == "multicast" and job.get("operation") != "restore":
+            self.client_result.set_text(
+                "El API del cliente solo admite restauraciones multicast; el clon físico multicast sigue bloqueado en la validación del servicio persistente."
+            )
+            return
+        igmp_confirmed = (
+            job.get("transport") == "multicast"
+            and job.get("operation") == "restore"
+            and self.client_igmp.get_active()
+        )
+        if job.get("transport") == "multicast" and not igmp_confirmed:
+            self.client_result.set_text("Confirma explícitamente IGMP y la red aislada antes de iniciar la restauración multicast.")
+            return
         target = str(targets[selected_target - 1]["path"])
         interface = interfaces[selected_interface - 1]
         phrase = (
             f"ERASE {target}" if job.get("operation") in {"restore", "clone"}
-            else f"READ {target} TO {inspection.get('server_identity')}"
+            else f"READ {target}"
         )
         confirmation = self.client_confirmation.get_text()
         if confirmation != phrase:
             self.client_result.set_text(f"Escribe exactamente: {phrase}")
             return
-        compression_values = ("gzip", "zstd", "lz4", "none")
+        compression_values = tuple(value for _label, value in CLIENT_JOB_COMPRESSION)
         compression_index = self.client_compression.get_selected()
         if compression_index >= len(compression_values):
             self.client_result.set_text("Selecciona un método de compresión válido.")
@@ -2813,9 +2843,9 @@ class FecloraGTK:
             "host": self.client_server_host.get_text().strip(), "job_id": job["job_id"],
             "device_path": target, "confirmation": confirmation,
             "compression": compression_values[compression_index],
-            "image_encrypt": self.client_encrypt.get_selected() == 1,
+            "image_encrypt": job.get("operation") == "save" and self.client_encrypt.get_selected() == 1,
             "network_interface": interface["interface"], "source_address": interface["address"],
-            "igmp_confirmed": self.client_igmp.get_active() if job.get("transport") == "multicast" else False,
+            "igmp_confirmed": igmp_confirmed,
         }
         if job.get("transport") == "multicast" and not params["igmp_confirmed"]:
             self.client_result.set_text("El trabajo multicast requiere confirmación explícita de IGMP/red aislada.")
