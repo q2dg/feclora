@@ -67,7 +67,7 @@ class DiskCloneTests(unittest.TestCase):
         self.assertIn("count=100000", argv)
         self.assertIn("iflag=count_bytes", argv)
         self.assertIn("conv=fsync", argv)
-        self.assertEqual(self.safety, ["/dev/source", "/dev/target"] * 2)
+        self.assertEqual(self.safety, ["/dev/source", "/dev/target"] * 3)
     def test_rejects_destination_readback_mismatch(self):
         self.readbacks[1] = b"T" * 100000
         with self.assertRaisesRegex(DiskCloneError, "SHA-256"):
