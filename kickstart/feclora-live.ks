@@ -1,7 +1,7 @@
 #version=F45
 # Feclora Fedora 45 Live appliance Kickstart for x86_64.
 # Use Fedora's core package group, not the full Server product environment.
-# Textual remains the production tty1 UI until GTK/Weston parity and acceptance are complete.
+# GTK4/Weston is the tty1 production kiosk; tty2 is reserved for local maintenance.
 
 url --url=https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
 
@@ -194,7 +194,7 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-clie
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service" "$TARGET_ROOT/etc/systemd/system/feclora-tui.service"
-# Stage the GTK/Weston candidate without enabling it or changing the current boot route.
+# Install the native GTK4/Weston kiosk as the production tty1 interface.
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service" "$TARGET_ROOT/etc/systemd/system/feclora-gtk.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-gtk-ready"
 chroot "$TARGET_ROOT" /usr/sbin/restorecon -F /etc/systemd/system/feclora-gtk.service /usr/libexec/feclora/feclora-gtk-ready
@@ -207,8 +207,8 @@ chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 chown root:root "$TARGET_ROOT/var/lib/feclora/client-jobs"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/client-jobs"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service feclora-recovery-boot.service
-systemctl --root="$TARGET_ROOT" enable feclora-tui.service
-systemctl --root="$TARGET_ROOT" mask getty@tty1.service
+systemctl --root="$TARGET_ROOT" enable feclora-gtk.service feclora-root-terminal.service
+systemctl --root="$TARGET_ROOT" mask getty@tty1.service getty@tty2.service
 systemctl --root="$TARGET_ROOT" mask kmsconvt@tty1.service kmsconvt@tty2.service kmsconvt@tty3.service kmsconvt@tty4.service kmsconvt@tty5.service kmsconvt@tty6.service
 systemctl --root="$TARGET_ROOT" set-default multi-user.target
 systemctl --root="$TARGET_ROOT" mask getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
