@@ -1,6 +1,8 @@
 import unittest
+from pathlib import Path
 
 from feclora.ui_catalog import (
+    CLIENT_JOB_COMPRESSION,
     KEYBOARD_LAYOUTS,
     LANGUAGES,
     MESSAGES,
@@ -27,6 +29,14 @@ class UICatalogTests(unittest.TestCase):
         keyboard_ids = [layout_id for _label, layout_id in KEYBOARD_LAYOUTS]
         self.assertEqual(len(operation_ids), len(set(operation_ids)))
         self.assertEqual(len(keyboard_ids), len(set(keyboard_ids)))
+
+    def test_client_job_compression_matches_the_privileged_api_contract(self):
+        codecs = tuple(value for _label, value in CLIENT_JOB_COMPRESSION)
+        self.assertEqual(codecs, ("gzip", "xz", "none"))
+        api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
+        tui_source = Path("src/feclora/tui.py").read_text(encoding="utf-8")
+        self.assertIn('compression not in {"none", "gzip", "xz"}', api_source)
+        self.assertIn("Select(list(CLIENT_JOB_COMPRESSION)", tui_source)
 
 
 if __name__ == "__main__":
