@@ -28,6 +28,7 @@ for file in \
   packages/base.txt packages/build-host.txt requirements-test.txt requirements-gui.txt \
   src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_gtk.py src/feclora/gtk_api.py src/feclora/api.py \
   src/feclora/data/feclora-api src/feclora/data/feclora-tui.service \
+  src/feclora/data/feclora-gtk.service src/feclora/data/feclora-gtk-ready \
   src/feclora/data/feclora-tui-ready src/feclora/data/feclora-root-terminal.service \
   src/feclora/data/feclora-local-operation-recovery.service \
   tests/test_gtk_api.py tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_catalog.py build/validate-text-boot.sh build/verify-iso-text-boot.sh \
