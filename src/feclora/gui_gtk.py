@@ -4526,6 +4526,10 @@ class FecloraGTK:
         self.capture_encrypt_row.set_visible(recipient_encryption_visible)
         self.capture_passphrase_toggle_row.set_visible(passphrase_encryption_visible)
         self.capture_passphrase_row.set_visible(passphrase_encryption_visible and self.capture_passphrase_toggle.get_active())
+        # A passphrase is scoped to one RAW-disk capture. Clear it as soon
+        # as the operator leaves that mode or selects QCOW2.
+        if kind != 0 or self.capture_format.get_selected() != 0:
+            self.capture_passphrase.set_text("")
         self.capture_image_id_label.set_title("Identificador del stream Btrfs" if kind in {4, 5} else "ID del trabajo de recuperación" if kind == 7 else "ID de recuperación" if kind == 6 else "Identificador de imagen")
         self.capture_start.set_label("Recibir stream Btrfs" if kind == 5 else "Iniciar recuperación ddrescue" if kind == 6 else "Finalizar recuperación ddrescue" if kind == 7 else "Restaurar proporcionalmente" if is_proportional else "Capturar disco virtual QCOW2 (P2V)" if kind == 17 else "Iniciar restauración" if is_restore else "Iniciar clonación" if is_clone else "Construir ISO de recuperación" if is_recovery_iso else "Construir bundle de despliegue" if is_bundle else "Iniciar captura: " + label.lower())
         self._update_capture_confirmation_hint()
@@ -4593,6 +4597,9 @@ class FecloraGTK:
         index = self.capture_source.get_selected()
         image_id = self.capture_image_id.get_text().strip()
         kind = self.capture_kind.get_selected()
+        # Every operation branch can share the submission path below; keep the
+        # optional one-shot secret defined even for restore/clone operations.
+        capture_passphrase = ""
         if kind in {14, 15}:
             image_index = self.capture_image_select.get_selected()
             repository_index = self.capture_repository.get_selected()
