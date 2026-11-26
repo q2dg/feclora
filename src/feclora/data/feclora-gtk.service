@@ -13,6 +13,8 @@ PAMName=login
 Environment=HOME=/home/feclora
 Environment=PYTHONPATH=/usr/share/feclora/python
 Environment=GDK_BACKEND=wayland
+Environment=LIBSEAT_BACKEND=logind
+UnsetEnvironment=DISPLAY XAUTHORITY
 RuntimeDirectory=feclora-gtk
 RuntimeDirectoryMode=0700
 TTYPath=/dev/tty1
