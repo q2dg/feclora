@@ -22,7 +22,7 @@ from feclora.storage.local_operations import (
 RUNTIME = Path("/run/feclora")
 DEVICE_LOCKS = RUNTIME / "local-operation-locks"
 
-# Stable vocabulary shared by every engine and the Textual operation history.
+# Stable vocabulary shared by every engine and the GTK operation history.
 _PROGRESS_PHASES = frozenset({
     "preflight", "reading", "capturing", "compressing", "encrypting",
     "transferring", "publishing", "verifying", "restoring",
