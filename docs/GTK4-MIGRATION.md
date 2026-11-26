@@ -119,7 +119,7 @@ rebuild is required merely to run a native Wayland session:
 | `python3-gobject` | Fedora 45 | System PyGObject bindings |
 
 The presence of optional X11 client backends, GDK X11 typelibs or X11 client
-libraries in these RPMs does **not** mean an X server is installed or running.
+libraries in these RPMs does not mean an X server is installed or running.
 Fedora's Weston split puts the XWayland server executable in the separate
 `xorg-x11-server-Xwayland` package; that package is not selected for Feclora.
 Likewise, GTK chooses its Wayland backend through `GDK_BACKEND=wayland`.
