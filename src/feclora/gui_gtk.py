@@ -3679,6 +3679,20 @@ class FecloraGTK:
 
     def _show_restore_profile_operation_status(self, status: dict[str, Any], operation_id: str | None = None, page_generation: int | None = None) -> None:
         operation_id = operation_id or status.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            return
+        if status.get("operation_id") not in (None, operation_id):
+            message = "El estado devuelto pertenece a otra operación; se reintentará la consulta."
+            self._profile_operation_errors = getattr(self, "_profile_operation_errors", {})
+            self._profile_operation_errors[operation_id] = message
+            if (page_generation == self._page_generation
+                    and page_generation == getattr(self, "_profile_page_generation", None)
+                    and operation_id == getattr(self, "profile_operation_id", None)):
+                self.profile_result.set_text(message)
+                GLib.timeout_add_seconds(
+                    5, lambda: self._poll_restore_profile_operation(operation_id, page_generation)
+                )
+            return
         self._profile_operation_results = getattr(self, "_profile_operation_results", {})
         self._profile_operation_results.setdefault(operation_id, {})["status"] = status
         if page_generation != self._page_generation or page_generation != getattr(self, "_profile_page_generation", None) or operation_id != getattr(self, "profile_operation_id", None):
