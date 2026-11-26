@@ -17,7 +17,7 @@ python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
 The headless test boots both firmware variants without attaching host disks or
-networking. It waits for Textual to render its first screen before reporting over a
+networking. It waits for GTK to render its first screen before reporting over a
 test-only virtio-serial channel. This does not prove that the
 display is visible to an operator or that every screen is usable; those require
 the visible manual checks below.
@@ -25,11 +25,11 @@ the visible manual checks below.
 ## Visible BIOS/UEFI boot acceptance
 
 - [ ] BIOS and UEFI boot the first GRUB entry without a visible menu.
-- [ ] White-on-black boot messages remain visible until Textual starts on tty1;
+- [ ] White-on-black boot messages remain visible until GTK starts on tty1;
       there is no splash or persistent black screen.
-- [ ] `feclora-tui.service` runs Textual as the locked, unprivileged `feclora`
+- [ ] `feclora-gtk.service` runs GTK as the locked, unprivileged `feclora`
       account on tty1 while GTK/Weston parity remains incomplete.
-- [ ] The current Textual interface offers language and keyboard-layout selection.
+- [ ] The current GTK interface offers language and keyboard-layout selection.
 - [ ] Every implemented workflow is reachable using the keyboard: Tab,
       Shift+Tab, arrows, Enter and Space; focus remains visible.
 - [ ] Keyboard-layout selection changes the system keyboard layout without
@@ -39,9 +39,9 @@ the visible manual checks below.
 - [ ] The interface can call only the validated helper through its scoped
       sudo rule; no unrestricted passwordless shell is available.
 - [ ] Storage inventory, confirmation prompts and operation failures remain
-      readable and actionable in the current Textual interface.
+      readable and actionable in the current GTK interface.
 - [ ] The root filesystem and session credentials are ephemeral; no browser, Xorg/XWayland, desktop environment or display manager is installed;
-      no compositor is currently installed.
+      Weston is the kiosk compositor; no desktop environment or display manager is installed.
 - [ ] Kernel command line, firmware details, ISO checksum and test results are
       recorded.
 
