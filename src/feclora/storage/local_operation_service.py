@@ -220,14 +220,18 @@ def execute(operation_id: str) -> int:
     if os.geteuid() != 0:
         raise LocalOperationError("local storage worker must run as root")
     previous_sigterm_handler = signal.getsignal(signal.SIGTERM)
-    signal.signal(signal.SIGTERM, _cancel_on_sigterm)
-    store = LocalOperationStore()
-    definition = store.definition(operation_id)
-    status = store.status(operation_id)
-    if status["state"] != "queued":
-        raise LocalOperationError("only a queued operation can be started")
+    store: LocalOperationStore | None = None
+    definition: dict[str, Any] | None = None
     fds: list[int] = []
     try:
+        # Install the handler inside the protected region: startup itself can be
+        # interrupted while opening the journal or loading the immutable job.
+        signal.signal(signal.SIGTERM, _cancel_on_sigterm)
+        store = LocalOperationStore()
+        definition = store.definition(operation_id)
+        status = store.status(operation_id)
+        if status["state"] != "queued":
+            raise LocalOperationError("only a queued operation can be started")
         store.append(operation_id, "preflight", {"message": "Validating operation definition and device locks"})
         # Reuse the existing host-wide Server/Client/storage exclusion lock.
         from feclora.api import _execute_operation, _storage_operation_lock
@@ -266,6 +270,10 @@ def execute(operation_id: str) -> int:
             store.append(operation_id, "completed", safe_result)
         return 0
     except LocalOperationCancelled:
+        # SIGTERM may arrive during startup, before the definition is loaded.
+        # Re-open the store if initialization itself was interrupted.
+        if store is None:
+            store = LocalOperationStore()
         current = store.status(operation_id)["state"]
         if current == "verifying":
             # The storage engine has already returned successfully. The state
@@ -275,7 +283,8 @@ def execute(operation_id: str) -> int:
                 "reason": "worker received a stop signal while finalizing the completed engine result",
             })
         elif current not in TERMINAL_STATES:
-            destructive = definition["action"].startswith(("restore_", "clone_")) or definition["action"] == "execute_restore_profile"
+            action = definition["action"] if definition is not None else ""
+            destructive = action.startswith(("restore_", "clone_")) or action == "execute_restore_profile"
             store.append(operation_id, "cancelled", {
                 "reason": "operator requested cancellation; worker and child processes were stopped",
                 "destination_may_be_partial": bool(destructive and current == "running"),
@@ -284,19 +293,21 @@ def execute(operation_id: str) -> int:
         # not a failed service invocation. ExecStopPost remains idempotent.
         return 0
     except BaseException as exc:
-        try:
-            current = store.status(operation_id)["state"]
-            if current not in TERMINAL_STATES:
-                store.append(operation_id, "failed", {
-                    "error_type": type(exc).__name__,
-                    "diagnostic_category": _diagnostic_category(exc),
-                    "error": str(exc)[:512],
-                })
-        except Exception:
-            pass
+        if store is not None:
+            try:
+                current = store.status(operation_id)["state"]
+                if current not in TERMINAL_STATES:
+                    store.append(operation_id, "failed", {
+                        "error_type": type(exc).__name__,
+                        "diagnostic_category": _diagnostic_category(exc),
+                        "error": str(exc)[:512],
+                    })
+            except Exception:
+                pass
         raise
     finally:
-        if definition["action"] == "capture_disk" and definition["params"].get("encrypt_passphrase"):
+        if (definition is not None and definition["action"] == "capture_disk"
+                and definition["params"].get("encrypt_passphrase")):
             try:
                 from feclora.storage.capture_passphrase import discard
                 discard(operation_id)
