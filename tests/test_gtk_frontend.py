@@ -25,7 +25,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("Adw.ApplicationWindow(application=application)", self.source)
         self.assertIn("Adw.ToolbarView()", self.source)
         self.assertIn("Adw.HeaderBar()", self.source)
-        self.assertIn("Adw.WindowTitle(title, subtitle)", self.source)
+        self.assertIn("Adw.WindowTitle.new(title, subtitle)", self.source)
         self.assertIn("Adw.Clamp()", self.source)
         self.assertIn("Adw.ToastOverlay()", self.source)
         self.assertIn("Adw.Toast.new(message)", self.source)
