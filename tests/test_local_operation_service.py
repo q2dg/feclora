@@ -184,6 +184,16 @@ class LocalOperationWorkerTests(unittest.TestCase):
         self.assertEqual(store.append.call_args_list[-1].args[1], "interrupted")
         self.assertIn("finalizing", store.append.call_args_list[-1].args[2]["reason"])
 
+    def test_sigterm_during_worker_startup_records_queued_job_cancelled(self):
+        store = Mock()
+        store.definition.side_effect = LocalOperationCancelled("stop during startup")
+        store.status.return_value = {"state": "queued"}
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \\
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store):
+            self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
+        self.assertEqual(store.append.call_args.args[1], "cancelled")
+        self.assertFalse(store.append.call_args.args[2]["destination_may_be_partial"])
+
     def test_recovery_continues_after_one_damaged_journal(self):
         store = Mock()
         store.operation_ids.return_value = ["running-job", "damaged-job", "finished-job"]
