@@ -43,7 +43,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         )
         self.assertIn("TTYPath=/dev/tty1", service)
         self.assertIn("ExecStartPost=+/usr/libexec/feclora/feclora-gtk-ready", service)
-        self.assertIn("FECLORA_BOOT_SMOKE rendered", ready)
+        self.assertIn("FECLORA_BOOT_SMOKE gtk-rendered", ready)
         self.assertNotIn("--xwayland", service)
         self.assertNotIn("enable feclora-gtk.service", self.read("kickstart/feclora-live.ks"))
 
@@ -77,7 +77,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
 
     def test_qemu_boot_smoke_waits_for_rendered_interface(self):
         smoke = self.read("tests/vm/run-boot-smoke.py")
-        ready = self.read("src/feclora/data/feclora-tui-ready")
+        ready = self.read("src/feclora/data/feclora-gtk-ready")
         self.assertIn('"virtio-serial-pci"', smoke)
         self.assertIn('"virtio"', smoke)
         self.assertIn("FECLORA_BOOT_SMOKE rendered", smoke)
