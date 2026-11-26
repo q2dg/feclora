@@ -39,6 +39,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
         ready = self.read("src/feclora/data/feclora-gtk-ready")
         self.assertIn("PAMName=login", service)
         self.assertIn("Environment=GDK_BACKEND=wayland", service)
+        self.assertIn("Environment=LIBSEAT_BACKEND=logind", service)
+        self.assertIn("UnsetEnvironment=DISPLAY XAUTHORITY", service)
         self.assertIn(
             "weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk",
             service,
