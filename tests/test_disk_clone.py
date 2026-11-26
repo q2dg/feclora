@@ -7,9 +7,10 @@ from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone
 
 
 class FakeProcess:
-    def __init__(self, returncode=0, stderr=b""):
+    def __init__(self, returncode=0, stderr=b"", stdout=None):
         self.returncode = returncode
         self.stderr = io.BytesIO(stderr)
+        self.stdout = stdout
         self.terminated = False
     def wait(self):
         return self.returncode
