@@ -21,8 +21,8 @@ for file in "$KS" "$BASE" "$BUILD" "$TUI" "$READY" "$ROOT_TERMINAL"; do
   [[ -s "$file" ]] || fail "Required boot file is missing: $file"
 done
 
-grep -Fxq 'python3-textual' "$KS" || fail "Kickstart must retain the current production Textual UI."
-grep -Fxq 'python3-textual' "$BASE" || fail "Base manifest must retain the current production Textual UI."
+grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS" || fail "Kickstart must enable the GTK production UI."
+grep -Fxq 'gtk4' "$BASE" || fail "Base manifest must include GTK4."
 grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service"' "$KS" \
   || fail "Kickstart must install the current tty1 UI service."
 grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready"' "$KS" \
@@ -33,8 +33,8 @@ grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/fe
   || fail "The candidate GTK first-render helper must be staged in the image."
 grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service' "$KS" \
   || fail "Textual must remain the production boot UI until GTK/Weston acceptance."
-if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
-  fail "GTK must not become the production boot route before functional parity and acceptance."
+if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service' "$KS"; then
+  fail "Textual must not be enabled as the production boot route."
 fi
 
 grep -Fxq 'ExecStart=/usr/bin/python3 -m feclora.tui' "$TUI" \
@@ -65,7 +65,7 @@ if grep -Eiq '(^|[[:space:]])(cage|xorg-x11-server-Xorg|xorg-x11-server-Xwayland
 fi
 
 if (( ERRORS > 0 )); then
-  printf 'Textual production boot validation failed with %d error(s).\n' "$ERRORS" >&2
+  printf 'GTK production boot validation failed with %d error(s).\n' "$ERRORS" >&2
   exit 1
 fi
 printf 'Textual production boot checks passed; official GTK/Weston RPMs are staged, but GTK remains gated on parity.\n'
