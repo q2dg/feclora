@@ -129,6 +129,29 @@ no runtime dependency may pull `libX11`, `libX11-xcb`, `libXcursor`,
 `libXrandr`, `libxcb` or the XWayland server. These custom builds have not
 yet been produced or tested.
 
+Before adding them to the Live image, run the repository's RPM admission
+check against all four generated runtime packages:
+
+```sh
+build/verify-wayland-rpms.sh \
+  /path/to/weston.rpm /path/to/weston-libs.rpm \
+  /path/to/gtk4.rpm /path/to/libadwaita.rpm
+```
+
+After installing the stack into a prepared target root, repeat the audit over
+the complete installed dependency closure:
+
+```sh
+build/verify-wayland-rpms.sh --installed-root /path/to/target-root \
+  /path/to/weston.rpm /path/to/weston-libs.rpm \
+  /path/to/gtk4.rpm /path/to/libadwaita.rpm
+```
+
+The checker rejects the named X11/XWayland payloads, X11 library requirements,
+forbidden server/window-manager packages and X11 dependencies anywhere in the
+installed RPM database. It is an admission check, not a package builder; no
+RPM artifacts have been generated or passed through it yet.
+
 The Weston 15.0.1 command-line interface documents `-B drm` for the DRM/KMS
 backend, `--shell=kiosk-shell.so` for kiosk mode, `--idle-time=0` to disable
 the idle timeout, and `--no-config` to ignore all `weston.ini` files and
