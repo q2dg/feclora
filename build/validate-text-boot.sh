@@ -7,6 +7,7 @@ BASE="$ROOT_DIR/packages/base.txt"
 BUILD="$ROOT_DIR/build/build-iso.sh"
 TUI="$ROOT_DIR/src/feclora/data/feclora-tui.service"
 READY="$ROOT_DIR/src/feclora/data/feclora-tui-ready"
+ROOT_TERMINAL="$ROOT_DIR/src/feclora/data/feclora-root-terminal.service"
 ERRORS=0
 
 fail() {
@@ -14,7 +15,7 @@ fail() {
   ERRORS=$((ERRORS + 1))
 }
 
-for file in "$KS" "$BASE" "$BUILD" "$TUI" "$READY"; do
+for file in "$KS" "$BASE" "$BUILD" "$TUI" "$READY" "$ROOT_TERMINAL"; do
   [[ -s "$file" ]] || fail "Required boot file is missing: $file"
 done
 
@@ -33,6 +34,9 @@ fi
 grep -Fxq 'ExecStart=/usr/bin/python3 -m feclora.tui' "$TUI" \
   || fail "The current tty1 service must start Textual."
 grep -Fxq 'TTYPath=/dev/tty1' "$TUI" || fail "The current UI must own tty1."
+grep -Fxq 'Conflicts=getty@tty1.service kmsconvt@tty1.service' "$TUI" || fail "The current UI must exclude Fedora 45 kmscon from tty1."
+grep -Fxq 'Conflicts=getty@tty2.service kmsconvt@tty2.service' "$ROOT_TERMINAL" || fail "The maintenance shell must exclude Fedora 45 kmscon from tty2."
+grep -Fq 'mask kmsconvt@tty1.service kmsconvt@tty2.service kmsconvt@tty3.service kmsconvt@tty4.service kmsconvt@tty5.service kmsconvt@tty6.service' "$KS" || fail "All appliance VTs 1-6 must be reserved from Fedora 45 kmscon DRM ownership."
 grep -Fxq 'ExecStartPost=+/usr/libexec/feclora/feclora-tui-ready' "$TUI" \
   || fail "The current UI must report its first rendered screen."
 grep -Fq 'FECLORA_BOOT_SMOKE rendered' "$READY" \
