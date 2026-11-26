@@ -4,7 +4,7 @@
 
 The production boot route remains Textual on tty1. The earlier experimental
 Cage boot configuration has been withdrawn: Cage is not the requested
-compositor and no GTK kiosk service is installed or enabled. The replacement
+compositor. The GTK kiosk service is staged but not enabled. The replacement
 target is Weston DRM/KMS with `kiosk-shell`, launching the GTK welcome screen
 fullscreen for language and keyboard selection. GTK source covers all 14
 navigation pages, but several still have read-only or incomplete controls;
@@ -176,12 +176,12 @@ but Kickstart deliberately does not enable the unit or change the current boot
 route. The VM smoke protocol
 now distinguishes a GTK window-render event from the legacy Textual event.
 
-No Weston, GTK, or libadwaita runtime packages have been added to the Live
-image yet, and no Fedora-matched X11-disabled RPM build pipeline or artifacts
-exist in the repository. Textual therefore remains the enabled production
-interface. The candidate service is boot wiring groundwork, not a working
-GTK boot path; the package builds, full GTK/Weston session lifecycle, workflow
-parity, VM smoke tests and BIOS/UEFI acceptance remain outstanding.
+The official Fedora Weston, GTK4, libadwaita and PyGObject runtime packages
+are now selected by both the Kickstart and base manifest. No custom RPM build
+pipeline is required. Textual therefore remains the enabled production
+interface. The candidate service is boot wiring groundwork, not a proven
+GTK boot path; the full GTK/Weston session lifecycle, workflow parity, VM
+smoke tests and BIOS/UEFI acceptance remain outstanding.
 
 Package references:
 - [Fedora 45 weston](https://packages.fedoraproject.org/pkgs/weston/weston/fedora-45.html)
