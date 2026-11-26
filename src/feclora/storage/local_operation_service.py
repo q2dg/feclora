@@ -267,7 +267,14 @@ def execute(operation_id: str) -> int:
         return 0
     except LocalOperationCancelled:
         current = store.status(operation_id)["state"]
-        if current not in TERMINAL_STATES:
+        if current == "verifying":
+            # The storage engine has already returned successfully. The state
+            # machine deliberately does not allow verifying -> cancelled; record
+            # interruption rather than masking SIGTERM with an invalid transition.
+            store.append(operation_id, "interrupted", {
+                "reason": "worker received a stop signal while finalizing the completed engine result",
+            })
+        elif current not in TERMINAL_STATES:
             destructive = definition["action"].startswith(("restore_", "clone_")) or definition["action"] == "execute_restore_profile"
             store.append(operation_id, "cancelled", {
                 "reason": "operator requested cancellation; worker and child processes were stopped",
