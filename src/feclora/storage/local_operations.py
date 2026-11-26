@@ -329,6 +329,10 @@ class LocalOperationStore:
         return validate_definition(value)
 
     def events(self, operation_id: str) -> list[dict[str, Any]]:
+        """Read a consistent journal snapshot while excluding concurrent appenders."""
+        return self._read_events(operation_id, lock=True)
+
+    def _read_events(self, operation_id: str, *, lock: bool) -> list[dict[str, Any]]:
         name = self._name(operation_id, "jsonl")
         directory_fd = _safe_directory(self.directory, create=False)
         try:
@@ -337,6 +341,8 @@ class LocalOperationStore:
             except FileNotFoundError:
                 return []
             try:
+                if lock:
+                    fcntl.flock(fd, fcntl.LOCK_SH)
                 info = os.fstat(fd)
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077 or info.st_size > MAX_JOURNAL_BYTES:
                     raise LocalOperationError("operation journal permissions or size are unsafe")
@@ -387,7 +393,7 @@ class LocalOperationStore:
                 info = os.fstat(fd)
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
                     raise LocalOperationError("operation journal permissions or ownership are unsafe")
-                history = self.events(operation_id)
+                history = self._read_events(operation_id, lock=False)
                 current = next((item["state"] for item in reversed(history) if item["state"] != "progress"), None)
                 if current is None:
                     if state != "queued":
