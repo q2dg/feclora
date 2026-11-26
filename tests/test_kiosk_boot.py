@@ -22,12 +22,16 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn('feclora-tui.service', kickstart)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").exists())
 
-    def test_no_cage_or_stock_gtk_weston_stack_is_shipped_early(self):
+    def test_official_fedora_gtk_weston_stack_is_selected(self):
         kickstart = self.read("kickstart/feclora-live.ks")
         base = self.read("packages/base.txt")
-        for package in ("cage", "weston", "weston-libs", "gtk4", "libadwaita", "python3-gobject"):
-            self.assertNotIn(f"\n{package}\n", kickstart)
-            self.assertNotIn(f"\n{package}\n", base)
+        for package in ("weston", "weston-libs", "gtk4", "libadwaita", "python3-gobject"):
+            self.assertIn(f"\n{package}\n", kickstart)
+            self.assertIn(f"\n{package}\n", base)
+        self.assertNotIn("\ncage\n", kickstart)
+        self.assertNotIn("\ncage\n", base)
+        self.assertNotIn("xorg-x11-server-Xwayland", kickstart)
+        self.assertNotIn("xorg-x11-server-Xwayland", base)
         self.assertIn("\npython3-textual\n", kickstart)
         self.assertIn("\npython3-textual\n", base)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").is_file())
@@ -74,8 +78,9 @@ class KioskBootConfigurationTests(unittest.TestCase):
 
     def test_weston_target_is_documented_as_x11_disabled_build(self):
         migration = self.read("docs/GTK4-MIGRATION.md")
-        self.assertIn("-Dxwayland=false -Dbackend-x11=false", migration)
-        self.assertIn("-Dx11-backend=false -Dwayland-backend=true", migration)
+        self.assertIn("official Fedora 45 RPMs", migration)
+        self.assertIn("xorg-x11-server-Xwayland", migration)
+        self.assertNotIn("Do not install the stock", migration)
         self.assertIn("--no-config -B drm --shell=kiosk-shell.so", migration)
         self.assertIn("Then remove Textual and obsolete text-boot checks.", migration)
 
