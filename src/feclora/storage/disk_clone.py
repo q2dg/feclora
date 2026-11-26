@@ -214,6 +214,8 @@ def clone_disk(
     except DiskCloneCancelled:
         stop_process(process)
         raise
+    except PrivilegeError as exc:
+        raise DiskCloneError(f"cannot obtain privileges for destination verification: {exc}") from exc
     except (BrokenPipeError, OSError) as exc:
         stop_process(process)
         raise DiskCloneCancelled(f"disk clone progress UI closed; operation stopped: {exc}") from exc
