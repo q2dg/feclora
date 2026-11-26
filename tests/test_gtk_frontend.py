@@ -162,7 +162,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
             and node.func.attr == "_submit_capture_operation"
             and any(keyword.arg == "passphrase" for keyword in node.keywords)
         ]
-        self.assertTrue(assignments, "the optional passphrase must be initialized on every operation path")
+        self.assertEqual(len(assignments), 1, "the optional passphrase should have one operation-wide initialization")
         self.assertTrue(submit_calls, "restore/clone submissions must keep the shared passphrase argument safe")
         self.assertLess(assignments[0].lineno, submit_calls[0].lineno)
         self.assertIn("if kind != 0 or self.capture_format.get_selected() != 0:", method)
