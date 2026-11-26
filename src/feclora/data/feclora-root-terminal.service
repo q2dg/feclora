@@ -19,3 +19,6 @@ ExecStart=/usr/bin/bash --login
 ExecStopPost=+/usr/bin/chvt 1
 Restart=no
 UMask=0077
+
+[Install]
+WantedBy=multi-user.target
