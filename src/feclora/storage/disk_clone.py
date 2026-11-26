@@ -1,11 +1,13 @@
 """Direct local whole-disk cloning with fail-closed source and target checks."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import stat
 import subprocess
+import tempfile
 from typing import Any, Callable
 
 from .privilege import PrivilegeError, privileged_argv
@@ -76,6 +78,52 @@ def _backing_disks(path: str, lsblk: str, runner: Callable[..., Any]) -> set[str
         return disks
     except (OSError, subprocess.SubprocessError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise DiskCloneError(f"cannot trace physical backing disks for {path}: {exc}") from exc
+
+
+def _read_digest(
+    dd: str, path: str, expected_size: int, *,
+    factory: Callable[..., Any], effective_uid: Callable[[], int] | None,
+) -> str:
+    """Hash exactly expected_size bytes from a block device using a bounded stream."""
+    stderr = tempfile.TemporaryFile(mode="w+b")
+    process = None
+    try:
+        command = privileged_argv(
+            [dd, f"if={path}", "bs=4M", "iflag=count_bytes",
+             f"count={expected_size}", "status=none"],
+            effective_uid=effective_uid,
+        )
+        process = factory(
+            command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=stderr, close_fds=True,
+        )
+        if process.stdout is None:
+            raise DiskCloneError("verification dd did not provide stdout")
+        digest = hashlib.sha256()
+        total = 0
+        while True:
+            chunk = process.stdout.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > expected_size:
+                raise DiskCloneError(f"verification read more than {expected_size} bytes from {path}")
+            digest.update(chunk)
+        process.stdout.close()
+        return_code = process.wait()
+        if return_code != 0 or total != expected_size:
+            stderr.seek(0)
+            detail = stderr.read(8192).decode("utf-8", errors="replace").strip()
+            raise DiskCloneError(
+                f"could not verify exactly {expected_size} bytes from {path}"
+                + (f": {detail}" if detail else "")
+            )
+        return digest.hexdigest()
+    except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+        raise DiskCloneError(f"read-back verification failed for {path}: {exc}") from exc
+    finally:
+        stop_process(process)
+        stderr.close()
 
 
 def clone_disk(
@@ -205,12 +253,31 @@ def clone_disk(
             raise DiskCloneError(
                 f"dd exited with status {return_code}" + (f": {detail}" if detail else "")
             )
+        # Verify the copied range before relocating a backup GPT header.
+        try:
+            if not validator(source_path) or not validator(target_path):
+                raise DiskCloneError("source or target disappeared before read-back verification")
+            if source_rdev is not None and os.stat(source_path).st_rdev != source_rdev:
+                raise DiskCloneError("source device identity changed before read-back")
+            if target_rdev is not None and os.stat(target_path).st_rdev != target_rdev:
+                raise DiskCloneError("target device identity changed before read-back")
+            safety(source_path)
+            safety(target_path)
+        except SourceSafetyError as exc:
+            raise DiskCloneError(f"source or target became unsafe before read-back: {exc}") from exc
+        except OSError as exc:
+            raise DiskCloneError(f"cannot revalidate devices before read-back: {exc}") from exc
+        source_digest = _read_digest(dd, source_path, source_size, factory=factory, effective_uid=effective_uid)
+        target_digest = _read_digest(dd, target_path, source_size, factory=factory, effective_uid=effective_uid)
+        if source_digest != target_digest:
+            raise DiskCloneError("destination read-back SHA-256 does not match source")
+
         if source_pttype == "gpt" and target_size > source_size:
             try:
                 repair = privileged_argv([sgdisk, "-e", target_path], effective_uid=effective_uid)
                 run(repair, check=True, capture_output=True, text=True, timeout=60)
             except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
-                raise DiskCloneError(f"disk data copied but backup GPT relocation failed: {exc}") from exc
+                raise DiskCloneError(f"disk data copied and verified, but backup GPT relocation failed: {exc}") from exc
     except DiskCloneCancelled:
         stop_process(process)
         raise
