@@ -25,6 +25,7 @@ class DiskCloneTests(unittest.TestCase):
         self.commands = []
         self.safety = []
         self.started = []
+        self.readbacks = [b"S" * 100000, b"S" * 100000]
         self.backing = {"/dev/source": "/dev/source", "/dev/target": "/dev/target"}
         self.sizes = {"/dev/source": self.geometry(100000, 512, False, "dos"), "/dev/target": self.geometry(120000, 512, False, "dos")}
     def geometry(self, size, sector, read_only, pttype):
