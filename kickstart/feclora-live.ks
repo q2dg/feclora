@@ -42,7 +42,6 @@ tar
 sudo
 python3
 python3-boto3
-python3-textual
 weston
 weston-libs
 gtk4
