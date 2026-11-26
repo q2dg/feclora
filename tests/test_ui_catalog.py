@@ -34,9 +34,9 @@ class UICatalogTests(unittest.TestCase):
         codecs = tuple(value for _label, value in CLIENT_JOB_COMPRESSION)
         self.assertEqual(codecs, ("gzip", "xz", "none"))
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
-        tui_source = Path("src/feclora/tui.py").read_text(encoding="utf-8")
+        gtk_source = Path("src/feclora/gui_gtk.py").read_text(encoding="utf-8")
         self.assertIn('compression not in {"none", "gzip", "xz"}', api_source)
-        self.assertIn("Select(list(CLIENT_JOB_COMPRESSION)", tui_source)
+        self.assertIn("CLIENT_JOB_COMPRESSION", gtk_source)
 
 
 if __name__ == "__main__":
