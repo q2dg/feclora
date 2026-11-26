@@ -52,7 +52,7 @@ class _Process:
         self.returncode = -15
 
 
-class TUIAPITests(unittest.TestCase):
+class APIClientTests(unittest.TestCase):
     def test_root_helper_rejects_unknown_actions_and_extra_arguments(self):
         helper = ROOT / "src/feclora/data/feclora-api"
         for arguments in (["unsupported"], ["status", "extra"]):
