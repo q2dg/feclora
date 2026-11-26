@@ -153,7 +153,18 @@ def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | 
         raise
     finally:
         if decoder is not source:
-            decoder.close()
+            try:
+                decoder.close()
+            except Exception as exc:
+                # A decoder may fail while reaping its external process after
+                # producing all bytes. Do not leak a staged image on that path.
+                try:
+                    os.unlink(staged_path)
+                except FileNotFoundError:
+                    pass
+                raise PartitionRestoreError(
+                    f"partition decompressor shutdown failed: {exc}"
+                ) from exc
     source.seek(0)
     return staged_path, total
 
