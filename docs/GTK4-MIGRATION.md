@@ -207,9 +207,10 @@ Package references:
    Complete behavioral review of confirmations, preflight, progress, cancellation
    and error paths; verify bootstrap, certificate renewal and TLS keypair rotation end to end.
 5. **Pending runtime/acceptance work:** run unit/contract tests and
-   `build/validate.sh`; build the X11-disabled Fedora-source GTK4/libadwaita and
-   Weston RPMs; validate Weston DRM + kiosk-shell session/seat lifecycle; then
-   run VM smoke tests. Keep tty2 as the independent maintenance/recovery path.
+   `build/validate.sh`; use the official Fedora 45 Weston/GTK4/libadwaita
+   packages already selected in the image; validate the Weston DRM +
+   kiosk-shell session/seat lifecycle; then run VM smoke tests. Keep tty2 as
+   the independent maintenance/recovery path.
 6. Switch the default boot service only after behavioral feature parity and
    BIOS/UEFI acceptance. Then remove Textual and obsolete text-boot checks.
 
