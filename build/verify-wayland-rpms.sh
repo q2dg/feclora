@@ -78,6 +78,19 @@ for rpm_file in "${rpm_files[@]}"; do
   if [[ "$package_name" =~ $BAD_PACKAGE_RE ]]; then
     fail "Forbidden X11 package supplied for admission: $package_name"
   fi
+  case "$package_name" in
+    weston|weston-libs|weston-devel) expected_version="15.0.1" ;;
+    gtk4|gtk4-devel) expected_version="4.24.1" ;;
+    libadwaita|libadwaita-devel) expected_version="1.10.0" ;;
+    *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
+  esac
+  metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\\n' "$rpm_file")" ||
+    fail "Cannot read Fedora source metadata: $rpm_file"
+  IFS='|' read -r version release source_rpm <<<"$metadata"
+  [[ "$version" == "$expected_version" ]] ||
+    fail "$package_name must be built from version $expected_version; found $version."
+  [[ "$release" == *fc45* && "$source_rpm" == *fc45.src.rpm ]] ||
+    fail "$package_name must retain Fedora 45 release and source-RPM provenance."
   [[ -z "${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
   seen[$package_name]=1
   files="$(rpm -qpl "$rpm_file")" || fail "Cannot list payload files: $rpm_file"
