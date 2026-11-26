@@ -91,10 +91,13 @@ class FecloraGTK:
                 "after-paint", self._on_first_frame_painted
             )
 
-    def _on_first_frame_painted(self, _frame_clock: Any) -> None:
+    def _on_first_frame_painted(self, frame_clock: Any) -> None:
         if self._boot_rendered:
             return
         self._boot_rendered = True
+        if self._boot_frame_clock_handler is not None:
+            frame_clock.disconnect(self._boot_frame_clock_handler)
+            self._boot_frame_clock_handler = None
         ready = Path("/run/feclora-gtk/ready")
         ready.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         ready.write_text("rendered\n", encoding="ascii")
