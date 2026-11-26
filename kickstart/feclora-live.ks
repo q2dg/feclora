@@ -188,6 +188,7 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.
 # Stage the GTK/Weston candidate without enabling it or changing the current boot route.
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service" "$TARGET_ROOT/etc/systemd/system/feclora-gtk.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-gtk-ready"
+chroot "$TARGET_ROOT" /usr/sbin/restorecon -F /etc/systemd/system/feclora-gtk.service /usr/libexec/feclora/feclora-gtk-ready
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-root-terminal.service" "$TARGET_ROOT/etc/systemd/system/feclora-root-terminal.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
