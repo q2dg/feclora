@@ -83,6 +83,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         )
         self.assertIn('"after-paint", self._on_first_frame_painted', frontend)
         self.assertIn("def _on_first_frame_painted(", frontend)
+        self.assertIn("frame_clock.disconnect(self._boot_frame_clock_handler)", frontend)
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', frontend)
         self.assertIn('os.environ.pop("DISPLAY", None)', frontend)
         self.assertIn("self.window.set_decorated(False)", frontend)
