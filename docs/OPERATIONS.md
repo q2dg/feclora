@@ -16,7 +16,7 @@ backup, artifact provenance or a published release pipeline.
 
 A fresh Feclora Live boot creates a new ephemeral system session. The local
 CA/private key, temporary configuration and service state are regenerated or
-reset. The Textual interface has no password prompt; the separate administrator
+reset. The GTK interface has no password prompt; the separate administrator
 account remains locked. Images and manifests must live in explicitly
 selected repositories outside the ephemeral Live root.
 
@@ -55,7 +55,7 @@ operational approach is to build and boot a new ISO using
 3. Build the new ISO by following [BUILD](BUILD.html). Record the installer
    ISO checksum, source commit, build logs, output size and resulting ISO
    SHA-256.
-4. Boot the candidate ISO in disposable BIOS and UEFI VMs. Validate Textual
+4. Boot the candidate ISO in disposable BIOS and UEFI VMs. Validate GTK
    startup, storage discovery and repository connectivity before using
    it on operational machines.
 5. On disposable target media, exercise the storage operations relevant to
@@ -188,10 +188,9 @@ the publisher.
 
 ## Quality and localization status
 
-The Live interface uses Fedora's `python3-textual` package. The pinned
-`textual==8.1.1` dependency in `requirements-test.txt` is used for tests; it is
-not installed from PyPI into the Live image. Dependabot proposes GitHub Actions
-updates, and CodeQL complements (but does not replace) code review, tests and
+The Live interface uses Fedora's official GTK4, libadwaita and PyGObject
+packages. No frontend package is installed from PyPI. Dependabot proposes
+GitHub Actions updates, and CodeQL complements (but does not replace) code review, tests and
 maintainer release acceptance.
 
 The interface offers 25 language catalogs: English, Spanish, Catalan, Galician,
