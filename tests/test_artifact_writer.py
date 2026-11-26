@@ -69,6 +69,49 @@ class ArtifactWriterTests(unittest.TestCase):
                 self.assertEqual(artifact.size_bytes, len(encoded))
                 self.assertEqual(artifact.sha256, hashlib.sha256(encoded).hexdigest())
 
+    def test_external_compressor_cleanup_escalates_after_terminate_timeout(self):
+        class BrokenStdin:
+            def write(self, _data):
+                raise BrokenPipeError("simulated compressor pipe failure")
+
+        class StubbornProcess:
+            def __init__(self):
+                self.stdin = BrokenStdin()
+                self.returncode = None
+                self.terminated = False
+                self.killed = False
+                self.wait_calls = 0
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                self.terminated = True
+
+            def wait(self, timeout=None):
+                self.wait_calls += 1
+                if not self.killed:
+                    raise subprocess.TimeoutExpired("zstd", timeout)
+                self.returncode = -9
+                return self.returncode
+
+            def kill(self):
+                self.killed = True
+
+        process = StubbornProcess()
+        with patch("feclora.storage.artifact_writer.shutil.which", return_value="/usr/bin/zstd"), \\
+             patch("feclora.storage.artifact_writer.subprocess.Popen", return_value=process):
+            with self.assertRaisesRegex(ArtifactWriteError, "compression failed"):
+                write_artifact(
+                    self.temp.name, "stubborn.zst", io.BytesIO(self.payload),
+                    role="disk-image", image_format="raw", compression="zstd",
+                )
+
+        self.assertTrue(process.terminated)
+        self.assertTrue(process.killed)
+        self.assertEqual(process.wait_calls, 2)
+        self.assertEqual(os.listdir(self.temp.name), [])
+
     def test_records_selected_compression_level(self):
         artifact = write_artifact(
             self.temp.name, "image.gz", io.BytesIO(self.payload),
