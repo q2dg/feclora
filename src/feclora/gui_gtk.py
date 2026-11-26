@@ -45,9 +45,11 @@ class FecloraGTK:
         self.window.set_decorated(False)
         self.window.set_deletable(False)
         self.window.fullscreen()
-        # Subscribe before presenting the first window so the initial map event
-        # cannot race ahead of the GTK readiness signal.
-        self.window.connect("map", lambda _window: GLib.idle_add(self._report_boot_rendered))
+        # Readiness means GTK completed a frame, not merely that the surface
+        # was mapped. Subscribe before presenting the first window.
+        self._boot_rendered = False
+        self._boot_frame_clock_handler: int | None = None
+        self.window.connect("map", self._on_window_map)
         self.window.connect("close-request", self._on_close_request)
         self._show_welcome()
         self.api.submit("get_keyboard_layout", on_success=self._accept_keyboard_layout, on_error=self._show_error)
@@ -80,11 +82,22 @@ class FecloraGTK:
     def _on_close_request(_window: Gtk.Window) -> bool:
         return True
 
-    def _report_boot_rendered(self) -> bool:
+    def _on_window_map(self, window: Gtk.Widget) -> None:
+        if self._boot_rendered or self._boot_frame_clock_handler is not None:
+            return
+        frame_clock = window.get_frame_clock()
+        if frame_clock is not None:
+            self._boot_frame_clock_handler = frame_clock.connect(
+                "after-paint", self._on_first_frame_painted
+            )
+
+    def _on_first_frame_painted(self, _frame_clock: Any) -> None:
+        if self._boot_rendered:
+            return
+        self._boot_rendered = True
         ready = Path("/run/feclora-gtk/ready")
         ready.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         ready.write_text("rendered\n", encoding="ascii")
-        return GLib.SOURCE_REMOVE
 
     def _show_error(self, error: Exception) -> None:
         message = f"{self.tr('apply_error')} {error}"
