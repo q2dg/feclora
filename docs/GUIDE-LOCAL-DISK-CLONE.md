@@ -13,7 +13,7 @@ title: Local disk-to-disk cloning
 
 # Local disk-to-disk cloning
 
-**Status: available in Textual**
+**Status: available in GTK**
 
 This procedure copies one complete block device directly to another on the
 same Feclora machine. The destination is overwritten. It does not create an
@@ -21,7 +21,7 @@ image file and does not resize partitions or filesystems.
 
 ## Before you start
 
-- Boot Feclora and open its Textual application.
+- Boot Feclora and open its GTK application.
 - Identify the source and destination by model, capacity and, where available,
   serial number. Do not rely on `/dev/sdX` names alone.
 - The source must be safe to read. Do not use a mounted/running system disk
@@ -33,7 +33,7 @@ image file and does not resize partitions or filesystems.
 
 ## Procedure
 
-1. Open **Imaging operations** in the Feclora Textual application.
+1. Open **Imaging operations** in the Feclora GTK application.
 2. In **Operation**, select **Clone disk to disk**.
 3. Under **Source disk**, select the disk to copy. Check its displayed path,
    capacity and model.
@@ -72,7 +72,7 @@ underlying issue, and repeat the clone only after rechecking both devices.
 
 ## Scope and limitations
 
-This guide covers the local whole-disk clone workflow exposed in Textual.
+This guide covers the local whole-disk clone workflow exposed in GTK.
 Partition-to-partition cloning is a separate operation. Remote disk cloning,
 remote repository mounting, fleet restore, and unattended PXE restore are
 tracked separately and must not be inferred from this local workflow.
