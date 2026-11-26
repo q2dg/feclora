@@ -5,7 +5,7 @@ import asyncio
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any, Callable
 
-from feclora.tui_api import call_feclora
+from feclora.ui_api import call_feclora
 
 Callback = Callable[..., None]
 Dispatcher = Callable[[Callable[[], bool]], Any]
