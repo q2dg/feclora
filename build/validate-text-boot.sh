@@ -51,6 +51,8 @@ grep -Fq 'systemctl --root="$TARGET_ROOT" mask getty@tty1.service' "$KS" \
   || fail "The login prompt must not compete for tty1."
 grep -Fq 'systemctl --root="$TARGET_ROOT" set-default multi-user.target' "$KS" \
   || fail "The appliance must retain its minimal multi-user target."
+grep -Fxq -- '-xorg-x11-server-Xorg' "$KS" || fail "Kickstart must explicitly exclude the Xorg server."
+grep -Fxq -- '-xorg-x11-server-Xwayland' "$KS" || fail "Kickstart must explicitly exclude the XWayland server."
 
 for package in weston weston-libs gtk4 libadwaita python3-gobject; do
   grep -Fxq "$package" "$KS" || fail "Kickstart must install Fedora's official $package RPM."
