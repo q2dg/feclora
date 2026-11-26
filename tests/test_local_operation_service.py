@@ -162,6 +162,28 @@ class LocalOperationWorkerTests(unittest.TestCase):
         details = store.append.call_args_list[-1].args[2]
         self.assertTrue(details["destination_may_be_partial"])
 
+    def test_sigterm_during_finalization_records_interrupted_not_cancelled(self):
+        store = Mock()
+        store.definition.return_value = {
+            "action": "capture_disk",
+            "params": {"source": "/dev/sda", "image_id": "daily",
+                       "compression": "zstd", "encrypt": False},
+        }
+        store.status.side_effect = [{"state": "queued"}, {"state": "verifying"}]
+        def append(_operation_id, state, details=None):
+            if state == "completed":
+                raise LocalOperationCancelled("stop during finalization")
+            return {"state": state, "details": details or {}}
+        store.append.side_effect = append
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
+             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \
+             patch("feclora.api._storage_operation_lock", return_value=nullcontext()), \
+             patch("feclora.api._execute_operation", return_value={"image_id": "daily"}):
+            self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
+        self.assertEqual(store.append.call_args_list[-1].args[1], "interrupted")
+        self.assertIn("finalizing", store.append.call_args_list[-1].args[2]["reason"])
+
     def test_recovery_continues_after_one_damaged_journal(self):
         store = Mock()
         store.operation_ids.return_value = ["running-job", "damaged-job", "finished-job"]
