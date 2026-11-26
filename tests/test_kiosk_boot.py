@@ -71,6 +71,11 @@ class KioskBootConfigurationTests(unittest.TestCase):
 
     def test_gtk_source_is_native_wayland_and_fullscreen_but_not_boot_enabled(self):
         frontend = self.read("src/feclora/gui_gtk.py")
+        self.assertLess(
+            frontend.index('self.window.connect("map",'),
+            frontend.index('self._show_welcome()'),
+            "GTK must subscribe to the first map event before presenting its initial window.",
+        )
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', frontend)
         self.assertIn('os.environ.pop("DISPLAY", None)', frontend)
         self.assertIn("self.window.set_decorated(False)", frontend)
