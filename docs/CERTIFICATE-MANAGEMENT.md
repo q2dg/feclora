@@ -21,9 +21,9 @@ Image manifests record artifact byte counts and SHA-256 digests. Those checks de
 
 ## 2. Initialize the Server
 
-1. Start the Feclora Server deployment service from Textual.
+1. Start the Feclora Server deployment service from GTK.
 2. On first use, Feclora creates a local deployment CA and a Server TLS certificate/key, then writes the root-only Server configuration.
-3. Open the trust details in Textual and record the displayed CA SHA-256 fingerprint through a trusted administrative channel.
+3. Open the trust details in GTK and record the displayed CA SHA-256 fingerprint through a trusted administrative channel.
 4. Protect the CA private key on the Server. Back it up only using the organization's approved secret-management process.
 
 ## 3. Provision each Client
