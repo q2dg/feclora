@@ -204,10 +204,21 @@ arrangement must be validated in a VM before the runtime is added to the ISO.
 Do not work around seat permissions by running Weston as root or by making
 `/dev/dri` world-writable.
 
+A candidate unit now defines the intended Weston DRM/KMS + kiosk-shell
+session on tty1 and launches `feclora.gui_gtk` as the unprivileged
+`feclora` user. It requests a PAM login session so logind/libseat can grant
+the active VT and DRM access; that exact `PAMName=login` arrangement,
+XDG_RUNTIME_DIR creation, seat activation and input/DRM handoff still require
+VM verification. The unit and its GTK-specific first-render helper are
+deliberately not installed or enabled by Kickstart yet. The VM smoke protocol
+now distinguishes a GTK window-render event from the legacy Textual event.
+
 No Weston, GTK, or libadwaita runtime packages have been added to the Live
-image yet. Textual remains the enabled production interface until the GTK
-workflow audit, Weston session lifecycle, VM smoke tests and BIOS/UEFI
-acceptance are complete.
+image yet, and no Fedora-matched X11-disabled RPM build pipeline or artifacts
+exist in the repository. Textual therefore remains the enabled production
+interface. The candidate service is boot wiring groundwork, not a working
+GTK boot path; the package builds, full GTK/Weston session lifecycle, workflow
+parity, VM smoke tests and BIOS/UEFI acceptance remain outstanding.
 
 Package references:
 - [Fedora 45 weston](https://packages.fedoraproject.org/pkgs/weston/weston/fedora-45.html)
