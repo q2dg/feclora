@@ -1367,6 +1367,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
             self.assertIn('status.get("operation_id") not in (None, operation_id)', callback)
             self.assertIn("se reintentará", callback)
             self.assertIn(poller, callback)
+        self.assertEqual(p2v.count('status.get("operation_id") not in (None, operation_id)'), 1)
+        self.assertLess(p2v.index('status.get("operation_id") not in'), p2v.index('["status"] = status'))
+        self.assertLess(image.index('status.get("operation_id") not in'), image.index('["status"] = status'))
 
     def test_local_operation_status_polling_is_bound_to_operation_id(self):
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
