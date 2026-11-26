@@ -91,7 +91,7 @@ to tty2 and service recovery.
       keyboard-layout selection.
 - [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
       implemented control, including long and scrollable forms.
-- [ ] The root terminal action opens the independent raw tty2 maintenance VT; exiting the shell returns to GTK on tty1.
+- [ ] The root terminal action opens the independent raw tty2 maintenance VT; exiting the shell returns to GTK on tty1. The tty2 root shell has no password prompt, so physical access must be restricted.
 - [ ] Fedora 45 KMSCON instances are masked on tty1–tty6 so a userspace DRM console cannot retain the GPU while Feclora owns the VTs.
 - [ ] The GTK interface reaches the fixed allowlisted helper through
       sudo; no general passwordless shell or unrestricted root command is
