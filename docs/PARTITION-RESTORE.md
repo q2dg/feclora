@@ -36,7 +36,7 @@ Raw partition artifacts are written with `dd`. Partclone artifacts use the
 filesystem-specific `partclone.* -r` executable recorded in the manifest.
 The image stream is fully staged and verified before either writer starts.
 Partclone is invoked with forced one-second progress updates; its stderr
-percentage reports are forwarded to the Textual operation progress display.
+percentage reports are forwarded to the GTK operation progress display.
 Cancelling the operation terminates the active restore process. Raw restores report byte progress.
 
 After a raw restore, feclora reads the exact source byte count back from the
