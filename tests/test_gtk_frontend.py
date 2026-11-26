@@ -178,8 +178,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertEqual(len(assignments), 1, "the optional passphrase should have one operation-wide initialization")
         self.assertTrue(submit_calls, "restore/clone submissions must keep the shared passphrase argument safe")
         self.assertLess(assignments[0].lineno, submit_calls[0].lineno)
-        self.assertIn("if kind != 0 or self.capture_format.get_selected() != 0:", method)
-        self.assertIn("self.capture_passphrase.set_text(\"\")", method)
+        self.assertIn('capture_passphrase = ""', method)
+        capture_mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
+        self.assertIn("if kind != 0 or self.capture_format.get_selected() != 0:", capture_mode)
+        self.assertIn('self.capture_passphrase.set_text("")', capture_mode)
 
 
     def test_capture_completion_refreshes_inventory_and_image_catalog(self):
@@ -403,8 +405,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('Gtk.StringList.new(["Cargando imágenes…"])', image_loader)
         inspect = ast.get_source_segment(self.source, self.methods["_inspect_selected_image"])
         self.assertLess(inspect.index("_reset_image_layout()"), inspect.index("self.api.submit("))
-        self.assertIn("catalog_generation == self._image_catalog_generation", inspect)
-        self.assertIn("page_generation == self._image_page_generation", inspect)
+        self.assertIn("catalog_generation = self._image_catalog_generation", inspect)
+        self.assertIn("_show_image_layout(layout, image_id, repository_id, page_generation, window_generation, catalog_generation, request_generation)", inspect)
         browse = ast.get_source_segment(self.source, self.methods["_browse_selected_image"])
         self.assertIn("_image_browse_generation", browse)
         self.assertIn("catalog_generation == self._image_catalog_generation", browse)
@@ -466,6 +468,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("previous_key", render)
         self.assertIn("selected_index = next(", render)
         self.assertIn("self.repository_management.set_selected(selected_index)", render)
+        repository_loader = ast.get_source_segment(self.source, self.methods["_refresh_repositories"])
         self.assertIn('self._repository_refresh_pending_parts = {"remote", "s3"}', repository_loader)
         self.assertIn("self._repository_refresh_part_loaded", repository_loader)
         loaded = ast.get_source_segment(self.source, self.methods["_repository_refresh_part_loaded"])
@@ -512,7 +515,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('{"operation_id": operation_id}', poll)
         self.assertIn('self._image_operation_results.setdefault(operation_id, {})["status"] = status', status)
         self.assertIn("_poll_image_extraction(pending_operation_id, page_generation, window_generation)", page)
-        self.assertIn("window_generation != self._page_generation", status)
+        self.assertIn("not self._image_view_is_current(page_generation, window_generation)", status)
 
     def test_p2v_operations_are_polled_to_terminal_state_and_resumed(self):
         page = ast.get_source_segment(self.source, self.methods["_show_repositories_page"])
@@ -726,7 +729,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('previous_path = (', self.source)
         self.assertIn('if item.get("path") == previous_path', self.source)
         self.assertIn('self._submit_repository_action(api_action', self.source)
-        self.assertIn('self.api.submit(action, params', self.source)
+        self.assertRegex(self.source, r"self\.api\.submit\(\s*action,\s*params")
 
     def test_server_bootstrap_tls_and_pxe_controls_use_existing_api_contracts(self):
         for action in (
@@ -772,7 +775,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         ):
             self.assertIn(action, self.source)
         self.assertIn('"source": source', self.source)
-        self.assertIn('"answer_base64": base64.b64encode(payload).decode("ascii")', self.source)
+        self.assertIn('request["answer_base64"] = base64.b64encode(payload).decode("ascii")', self.source)
         self.assertIn('request["repository_id"]', self.source)
         self.assertIn('request["source_path"]', self.source)
         self.assertIn('self.pxe_answer_revoke_id.set_text(job_id)', self.source)
@@ -1414,7 +1417,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         start = self.source.index("    def _show_restore_profiles_page")
         end = self.source.index("    def _populate_profile_inventory", start)
         page = self.source[start:end]
-        self.assertEqual(page.count("Adw.PreferencesGroup("), 4)
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 3)
         self.assertIn('title="Origen y destino"', page)
         self.assertIn('title="Definición del perfil"', page)
         self.assertIn('title="Ejecución controlada"', page)
@@ -1430,7 +1433,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         start = self.source.index("    def _show_operation_log_page")
         end = self.source.index("    def _show_recovery_jobs_page", start)
         page = self.source[start:end]
-        self.assertEqual(page.count("Adw.PreferencesGroup("), 3)
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 4)
         self.assertIn('title="Estado del registro"', page)
         self.assertIn('title="Cancelación controlada"', page)
         self.assertIn('title="Operaciones registradas"', page)
