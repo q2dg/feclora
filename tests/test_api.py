@@ -270,7 +270,7 @@ class APITests(unittest.TestCase):
         with self.assertRaisesRegex(APIError, "does not accept parameters"):
             dispatch({"action": "status", "params": {"command": "id"}})
 
-    def test_service_state_reports_the_current_textual_systemd_unit(self):
+    def test_service_state_reports_the_current_gtk_systemd_unit(self):
         from feclora.api import _service_state
 
         with patch("feclora.api.subprocess.run", side_effect=[
@@ -280,10 +280,10 @@ class APITests(unittest.TestCase):
         ]) as run:
             services = _service_state()
 
-        self.assertEqual(services["Textual interface"], "active")
+        self.assertEqual(services["GTK interface"], "active")
         self.assertEqual(
             run.call_args_list[0].args[0],
-            ["/usr/bin/systemctl", "is-active", "feclora-tui.service"],
+            ["/usr/bin/systemctl", "is-active", "feclora-gtk.service"],
         )
 
     def test_remote_clone_source_lookup_finds_nested_partition(self):
