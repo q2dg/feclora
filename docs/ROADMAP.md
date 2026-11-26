@@ -12,9 +12,8 @@ Feclora is a Fedora-based minimal Live appliance built from the `@core` package
 group and Feclora's explicit runtime packages. The production Live boot launches GTK4/PyGObject/libadwaita on tty1 through
 Weston DRM/KMS and Weston's kiosk shell; Cage is explicitly excluded. The image
 uses Fedora's official graphical runtime packages and excludes the separate
-Xorg/XWayland server packages. The former Textual frontend, service, package
-and dedicated tests have been removed. BIOS/UEFI, hardware and destructive
-workflow acceptance remain maintainer-run tasks.
+Xorg/XWayland server packages. BIOS/UEFI, hardware and destructive workflow acceptance remain
+maintainer-run tasks.
 
 The Live session is intentionally ephemeral: each boot creates fresh local
 credentials, certificates and temporary configuration. Durable images and
