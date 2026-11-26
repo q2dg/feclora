@@ -209,8 +209,9 @@ session on tty1 and launches `feclora.gui_gtk` as the unprivileged
 `feclora` user. It requests a PAM login session so logind/libseat can grant
 the active VT and DRM access; that exact `PAMName=login` arrangement,
 XDG_RUNTIME_DIR creation, seat activation and input/DRM handoff still require
-VM verification. The unit and its GTK-specific first-render helper are
-deliberately not installed or enabled by Kickstart yet. The VM smoke protocol
+VM verification. The unit and its GTK-specific first-render helper are now staged in the image,
+but Kickstart deliberately does not enable the unit or change the current boot
+route. The VM smoke protocol
 now distinguishes a GTK window-render event from the legacy Textual event.
 
 No Weston, GTK, or libadwaita runtime packages have been added to the Live
