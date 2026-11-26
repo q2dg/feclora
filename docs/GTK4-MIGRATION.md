@@ -75,6 +75,17 @@ API and persistent Server-service validation still reject it. It must not be
 counted as migrated or accepted until those gates and their end-to-end tests are
 reconciled.
 
+A separate source-level audit compared the 18 local-operation form branches
+against Textual, including parameter construction, destructive phrases,
+repository state checks, progress polling, cancellation and error paths. It
+found that restore, clone and proportional-restore branches passed an optional
+capture passphrase before that local variable had been initialized, which
+would raise `UnboundLocalError` before the privileged API call. The GTK handler
+now initializes the optional value at entry and clears the password field when
+leaving RAW-disk capture or selecting QCOW2. A regression test checks the
+initialization order and mode-scoped clearing. This is a static code correction;
+the Python suite and real storage workflows have not yet been executed.
+
 The CustomTkinter/Tk prototype and its dedicated tests have been removed.
 GTK4/PyGObject with libadwaita is the sole graphical frontend target; no Tk or
 X11 compatibility runtime is retained. The frontend is not production-ready.
