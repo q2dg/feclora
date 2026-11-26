@@ -1294,6 +1294,37 @@ class APITests(unittest.TestCase):
             "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
         ])
 
+    def test_start_client_clone_uses_erase_confirmation(self):
+        import stat
+        import tempfile
+        from pathlib import Path
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_stat = os.stat
+            with patch("feclora.api._inspect_remote_job", return_value={
+                "host": "192.0.2.10", "server_identity": "URI:server",
+                "job": {"job_id": job_id, "operation": "clone", "target_type": "disk", "transport": "unicast"},
+            }), patch("feclora.api._client_job_directory", return_value=root), \
+                 patch("feclora.storage.inventory.collect_inventory", return_value={
+                     "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
+                 }), patch("feclora.api.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == "/dev/sda" else real_stat(path, *args, **kwargs)), \
+                 patch("feclora.api.subprocess.run", return_value=SimpleNamespace(
+                     returncode=0, stdout="", stderr="",
+                 )), patch("feclora.api._client_job_status", return_value={
+                     "job_id": job_id, "phase": "connecting",
+                 }):
+                result = dispatch({"action": "start_client_job", "params": {
+                    "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
+                    "confirmation": "ERASE /dev/sda", "compression": "gzip",
+                    "network_interface": "enp1s0", "source_address": "192.0.2.20",
+                    "igmp_confirmed": False,
+                }})
+            request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
+        self.assertEqual(result["phase"], "connecting")
+        self.assertEqual(request["confirmation"], "ERASE /dev/sda")
+
     def test_start_client_job_rejects_image_protection_flags_for_restore(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         with patch("feclora.api._inspect_remote_job", return_value={
