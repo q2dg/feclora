@@ -1721,13 +1721,7 @@ class FecloraGTK:
         self, status: dict[str, Any], operation_id: str,
         page_generation: int, window_generation: int,
     ) -> None:
-        self._p2v_operation_results = getattr(self, "_p2v_operation_results", {})
-        self._p2v_operation_results.setdefault(operation_id, {})["status"] = status
         if not self._p2v_view_is_current(page_generation, window_generation, operation_id):
-            return
-        if status.get("operation_id") not in (None, operation_id):
-            self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", {})
-            self._p2v_operation_errors[operation_id] = "El estado devuelto pertenece a otra operación."
             return
         if status.get("operation_id") not in (None, operation_id):
             self._p2v_operation_errors = getattr(self, "_p2v_operation_errors", {})
@@ -1737,6 +1731,8 @@ class FecloraGTK:
                 5, lambda: self._poll_p2v_operation(operation_id, page_generation, window_generation)
             )
             return
+        self._p2v_operation_results = getattr(self, "_p2v_operation_results", {})
+        self._p2v_operation_results.setdefault(operation_id, {})["status"] = status
         state = status.get("state", "unknown")
         events = status.get("events") or []
         if state in {"completed", "failed", "cancelled", "interrupted"}:
@@ -4300,8 +4296,6 @@ class FecloraGTK:
 
     def _show_image_extraction_status(self, status: dict[str, Any], operation_id: str | None = None, page_generation: int | None = None, window_generation: int | None = None) -> None:
         operation_id = operation_id or status.get("operation_id")
-        self._image_operation_results = getattr(self, "_image_operation_results", {})
-        self._image_operation_results.setdefault(operation_id, {})["status"] = status
         if not self._image_view_is_current(page_generation, window_generation) or operation_id != getattr(self, "image_operation_id", None):
             return
         if status.get("operation_id") not in (None, operation_id):
@@ -4312,6 +4306,8 @@ class FecloraGTK:
                 5, lambda: self._poll_image_extraction(operation_id, page_generation, window_generation)
             )
             return
+        self._image_operation_results = getattr(self, "_image_operation_results", {})
+        self._image_operation_results.setdefault(operation_id, {})["status"] = status
         events = status.get("events") or []
         event = next((item for item in reversed(events) if item.get("state") == "progress"), None)
         details = event.get("details", {}) if event else {}
