@@ -17,6 +17,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("ExecStart=/usr/bin/python3 -m feclora.tui", service)
         self.assertIn('enable feclora-tui.service', kickstart)
         self.assertNotIn('enable feclora-gtk.service', kickstart)
+        self.assertIn('etc/systemd/system/feclora-gtk.service', kickstart)
+        self.assertIn('usr/libexec/feclora/feclora-gtk-ready', kickstart)
         self.assertIn('feclora-tui.service', kickstart)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").exists())
 
