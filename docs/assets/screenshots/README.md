@@ -15,7 +15,7 @@ identify the feature status (implemented, partial or planned).
 ## Published illustrative mockups
 
 The current operator guides use task-specific conceptual screens under
-`docs/assets/mockups/`. They are conceptual illustrations, not screenshots of the Textual terminal UI:
+`docs/assets/mockups/`. They are conceptual illustrations, not screenshots of the GTK operator interface:
 
 | File | Subject | Purpose |
 |---|---|---|
@@ -31,7 +31,7 @@ The current operator guides use task-specific conceptual screens under
 | `restore-profile.svg` | Single-use restore profile | Explain persistent profile storage, WWN/serial binding and one-time execution |
 | `proportional-restore.svg` | Proportional whole-disk restore | Explain private staging, eligible filesystem shrink and exact-size target write |
 
-These SVGs are design illustrations, not captures of the current Textual UI.
+These SVGs are design illustrations, not captures of the current GTK UI.
 Sample disk names, capacities, addresses and statuses are fictional. The
 published guides use them only to explain the operator flow.
 
@@ -50,7 +50,7 @@ published guides use them only to explain the operator flow.
 
 ## Mockup procedure
 
-- Base the workflow and labels on the current Textual implementation.
+- Base the workflow and labels on the current GTK implementation.
 - Do not invent a completed workflow or imply backend behavior not present in
   the code.
 - Keep destructive confirmation, source/target identity and safety warnings
