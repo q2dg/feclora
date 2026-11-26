@@ -52,12 +52,16 @@ grep -Fq 'systemctl --root="$TARGET_ROOT" mask getty@tty1.service' "$KS" \
 grep -Fq 'systemctl --root="$TARGET_ROOT" set-default multi-user.target' "$KS" \
   || fail "The appliance must retain its minimal multi-user target."
 
-if grep -Eiq '(^|[[:space:]])(cage|weston|weston-libs|gtk4|libadwaita|python3-gobject|xorg-x11-server-Xorg|xorg-x11-server-Xwayland)([[:space:]]|$)' "$KS" "$BASE"; then
-  fail "Do not ship Cage or stock GTK/Weston packages before the X11-disabled Fedora rebuilds are ready."
+for package in weston weston-libs gtk4 libadwaita python3-gobject; do
+  grep -Fxq "$package" "$KS" || fail "Kickstart must install Fedora's official $package RPM."
+  grep -Fxq "$package" "$BASE" || fail "Base manifest must include Fedora's official $package RPM."
+done
+if grep -Eiq '(^|[[:space:]])(cage|xorg-x11-server-Xorg|xorg-x11-server-Xwayland)([[:space:]]|$)' "$KS" "$BASE"; then
+  fail "Do not install Cage, Xorg or the XWayland server in the native Wayland appliance."
 fi
 
 if (( ERRORS > 0 )); then
   printf 'Textual production boot validation failed with %d error(s).\n' "$ERRORS" >&2
   exit 1
 fi
-printf 'Textual production boot checks passed; GTK/Weston remains gated on parity.\n'
+printf 'Textual production boot checks passed; official GTK/Weston RPMs are staged, but GTK remains gated on parity.\n'
