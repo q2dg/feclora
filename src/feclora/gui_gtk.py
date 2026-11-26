@@ -129,7 +129,7 @@ class FecloraGTK:
     def _present_content(self, content: Gtk.Widget, title: str, subtitle: str = "") -> None:
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
-        self.window_title = Adw.WindowTitle(title, subtitle)
+        self.window_title = Adw.WindowTitle.new(title, subtitle)
         header.set_title_widget(self.window_title)
         self.back_button = Gtk.Button.new_from_icon_name("go-previous-symbolic")
         self.back_button.set_tooltip_text("Volver a la navegación")
