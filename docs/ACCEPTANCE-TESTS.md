@@ -38,7 +38,7 @@ a wired network path between the hosts.
    /dev/disk/by-id. Verify it is a whole disk and reports read-only (RO=1).
 3. On the receiver, identify the disposable target independently. Verify its
    capacity and logical sector size are compatible with the source.
-4. In Textual, create a unicast clone deployment, select the source disk and
+4. In GTK, create a unicast clone deployment, select the source disk and
    authorize exactly the enrolled receiver.
 5. On the receiver, inspect the authenticated job, select the local target and
    enter the exact destructive confirmation displayed by Feclora.
@@ -108,7 +108,7 @@ two disposable Client machines, enrolled identities, and a dedicated test
 network. Multicast additionally requires a network whose IGMP snooping and
 querier behavior has been independently configured and checked.
 
-1. Verify the image manifest and every referenced artifact in Textual before
+1. Verify the image manifest and every referenced artifact in GTK before
    creating the deployment. The manifest and all artifacts must match their recorded SHA-256 digests. An
    independently trusted key; an encrypted artifact must decrypt/authenticate
    with the configured age identity. Do not treat SHA-256 alone as publisher
@@ -146,10 +146,10 @@ publishes an image and multiple Clients may read/restore it concurrently.
 Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS endpoint. Use a dedicated test account, export or share and a disposable image. Do not reuse production credentials. S3 has a separate object-API acceptance procedure below; it is not a filesystem mount.
 
 1. Prepare the provider endpoint and provision credentials using the provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS export ownership/mapping or SMB share permissions as appropriate.
-2. Add the repository in Textual with the correct provider, endpoint/share,
+2. Add the repository in GTK with the correct provider, endpoint/share,
    remote path and access mode. Credential contents must never be pasted into
-   Textual fields or stored in ordinary project configuration.
-3. Mount it through Feclora. Confirm Textual distinguishes `unmounted`, `mounted_unverified`, `identity_verified` and `unknown`. The identity check reads mount metadata via `findmnt` with a five-second subprocess timeout; timeout or malformed output must report `unknown`, never `unmounted` or verified. `health_state` must remain `unknown` even when source, filesystem type and access mode match. Inspection must not run stat/statvfs, path lookups, directory listings or any other remote filesystem I/O. A network outage may leave a mount identity record present; this is not evidence of remote availability.
+   GTK fields or stored in ordinary project configuration.
+3. Mount it through Feclora. Confirm GTK distinguishes `unmounted`, `mounted_unverified`, `identity_verified` and `unknown`. The identity check reads mount metadata via `findmnt` with a five-second subprocess timeout; timeout or malformed output must report `unknown`, never `unmounted` or verified. `health_state` must remain `unknown` even when source, filesystem type and access mode match. Inspection must not run stat/statvfs, path lookups, directory listings or any other remote filesystem I/O. A network outage may leave a mount identity record present; this is not evidence of remote availability.
 4. Exercise the remote path with a real inventory/read operation after identity verification. Confirm that it completes (not merely that the mount is listed as verified), then open the repository image inventory. Confirm it lists only images from the
    selected verified repository, not files from the local directory beneath
    an unmounted mountpoint. While a controlled inventory scan holds its shared usage lease, attempt an unmount or definition update and confirm the exclusive lifecycle operation is refused. After the scan exits (including an injected scan error), confirm the lease is released and the lifecycle operation can be retried.
@@ -183,7 +183,7 @@ another supported S3-compatible service. Provision access keys through
 Feclora's protected credential store; never put key material in the registry,
 test output or ordinary configuration.
 
-1. Add an S3 repository in Textual with the HTTPS endpoint (or provider
+1. Add an S3 repository in GTK with the HTTPS endpoint (or provider
    default), region, bucket, prefix and protected credential reference.
 2. Run the repository connection check. Confirm bucket access is verified
    without creating, deleting or overwriting objects.
@@ -250,7 +250,7 @@ for the full service lifetime.
    containing an image with valid manifest SHA-256 digests suitable for restoration.
 2. Create and start a remote-repository restore job with a disposable Client.
 3. Once the persistent Server service has acquired the repository usage lease,
-   attempt to unmount the repository through Textual or the supported manager
+   attempt to unmount the repository through GTK or the supported manager
    action.
 4. Confirm unmount is refused while the lease is held and the active restore
    continues to resolve the same verified repository.
@@ -277,7 +277,7 @@ discovery only; it must not unlock, activate, repair or modify the container.
    listed with LUKS2 version and UUID. Compare cipher, sector size where
    available, and keyslot/token/segment counts with the independent inspection.
 3. Confirm token payloads, key material, passphrases and recovery secrets are
-   never included in inventory output, Textual, logs or profiles.
+   never included in inventory output, GTK, logs or profiles.
 4. Repeat without cryptsetup and without sufficient read permissions; the
    inventory must report unavailable/permission-required rather than guessing.
 5. Confirm no `luksOpen`, activation, repair, format or write operation occurs.
@@ -354,7 +354,7 @@ For each row:
    A missing checker must reject a Partclone restore before target writes.
 8. Record pass/fail/not-run separately for each filesystem and tool version.
    Unit tests and command-map coverage alone do not constitute acceptance.
-9. Confirm Textual capability inventory reports the installed Partclone
+9. Confirm GTK capability inventory reports the installed Partclone
    executables and filesystem checkers independently. Missing `fsck.exfat` or
    `fsck.f2fs` must be visible as a missing checker; a Partclone restore for
    that filesystem must fail before starting its target writer.
