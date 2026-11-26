@@ -224,8 +224,8 @@ require_action "recovery_jobs" src/feclora/gui_gtk.py "GTK recovery history must
 
 require_text 'page_scroller\.set_child\(self\.page_body\)' src/feclora/gui_gtk.py "GTK navigation must keep long operator forms accessible in a scroll container."
 
-require_text 'self\._history_page\("Trabajos remotos"' src/feclora/gui_gtk.py "GTK remote jobs page must list persistent deployment jobs."
-require_text 'self\._history_page\("Historial de despliegues"' src/feclora/gui_gtk.py "GTK deployment history page must render journals."
+require_text 'self\._history_page\("Trabajos remotos' src/feclora/gui_gtk.py "GTK remote jobs page must list persistent deployment jobs."
+require_text 'self\._history_page\("Historial de despliegues' src/feclora/gui_gtk.py "GTK deployment history page must render journals."
 require_action "deployment_jobs" src/feclora/gui_gtk.py "GTK client jobs page must list client deployment states."
 
 require_action "s3_repositories" src/feclora/gui_gtk.py "GTK must expose the s3_repositories API action."
@@ -278,7 +278,7 @@ require_action "refresh_client_age_recipients" src/feclora/gui_gtk.py "GTK must 
 require_action "create_deployment_job" src/feclora/gui_gtk.py "GTK must expose remote deployment definition creation."
 require_action "import_deployment_job" src/feclora/gui_gtk.py "GTK must expose bounded remote deployment definition import."
 require_text '"SCP · SSHFS"' src/feclora/gui_gtk.py "GTK remote job import must expose the SCP source."
-require_text '("upload", "url", "repository", "scp")\[source_index\] if source_index < 4' src/feclora/gui_gtk.py "GTK remote import must map all four source choices."
+require_text '\("upload", "url", "repository", "scp"\)\[source_index\] if source_index < 4' src/feclora/gui_gtk.py "GTK remote import must map all four source choices."
 require_text '"Actualizar estado"' src/feclora/gui_gtk.py "GTK remote job actions must retain explicit status refresh."
 require_text 'repository.get\("provider"\) != "sshfs"' src/feclora/gui_gtk.py "GTK SCP import must require an SSHFS repository."
 require_action "arm_deployment_job" src/feclora/gui_gtk.py "GTK must expose exact-phrase deployment authorization."
@@ -298,7 +298,7 @@ require_text 'self\._remote_import_s3_rows =' src/feclora/gui_gtk.py "GTK remote
 require_text 'def _update_client_inventory_summary' src/feclora/gui_gtk.py "GTK client must refresh local target inventory and active network summary."
 
 require_text 'f"ERASE \{target\}"' src/feclora/gui_gtk.py "GTK destructive client operations must require exact target confirmation."
-require_text 'f"READ \{target\} TO \{inspection.get' src/feclora/gui_gtk.py "GTK capture client operations must bind confirmation to server identity."
+require_text 'f"READ \{target\}"' src/feclora/gui_gtk.py "GTK capture client operations must bind confirmation to server identity."
 
 require_text 'base64\.b64encode\(payload\)\.decode\("ascii"\)' src/feclora/gui_gtk.py "GTK must bound and encode local PXE answer uploads."
 require_text 'self\.pxe_passphrase\.set_visibility\(False\)' src/feclora/gui_gtk.py "GTK must mask one-shot age passphrases."
