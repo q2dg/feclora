@@ -83,7 +83,7 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
 fi
 
 require_text '^User=feclora$' src/feclora/data/feclora-gtk.service "GTK production UI must run as its unprivileged appliance user."
-require_text '^ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora\\.gui_gtk$' src/feclora/data/feclora-gtk.service "GTK must launch under native Weston DRM/KMS."
+require_text '^ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell\\.so --idle-time=0 -- /usr/bin/python3 -m feclora\\.gui_gtk$' src/feclora/data/feclora-gtk.service "GTK must launch under native Weston DRM/KMS."
 require_text '^ExecStartPost=\\+/usr/libexec/feclora/feclora-gtk-ready$' src/feclora/data/feclora-gtk.service "GTK must report its first rendered frame."
 if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-gtk.service"; then
   fail "The GTK service must allow its scoped sudo helper to perform privileged appliance operations."
@@ -91,7 +91,7 @@ fi
 require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -864,12 +864,12 @@ fi
 
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -1599,12 +1599,12 @@ fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n' src/feclora/data/feclora-gtk.service "The GTK production UI must run as its unprivileged appliance user."
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -2377,12 +2377,12 @@ fi
 
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -3112,12 +3112,12 @@ fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n' "$ROOT_DIR/src/feclora/data/feclora-gtk.service"; then
   fail "The GTK service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -3890,12 +3890,12 @@ fi
 
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -4625,12 +4625,12 @@ fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n' src/feclora/data/feclora-gtk.service "The GTK production UI must run as its unprivileged appliance user."
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
@@ -5403,12 +5403,12 @@ fi
 
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
-require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 
 
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
-require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
+require_text 'enable feclora-gtk\\.service feclora-root-terminal\\.service' kickstart/feclora-live.ks "GTK kiosk and tty2 maintenance shell must be enabled."
 require_text 'mask getty@tty1\\.service getty@tty2\\.service' kickstart/feclora-live.ks "tty1 and tty2 must be reserved from getty."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
 require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
