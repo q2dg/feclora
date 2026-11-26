@@ -526,7 +526,13 @@ class LocalOperationStore:
         history = self.events(operation_id)
         if not history:
             raise LocalOperationError("operation has no state history")
-        current = history[-1]["state"]
+        current_event = next(
+            (event for event in reversed(history) if event["state"] != "progress"),
+            None,
+        )
+        if current_event is None:
+            raise LocalOperationError("operation has no state history")
+        current = current_event["state"]
         if current in TERMINAL_STATES:
-            return history[-1]
+            return current_event
         return self.append(operation_id, "interrupted", {"reason": reason[:512]})
