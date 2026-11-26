@@ -3148,8 +3148,24 @@ class FecloraGTK:
         selected_id = self.operation_log_records[selected_index]["operation_id"] if selected_index < len(getattr(self, "operation_log_records", [])) else None
         if operation_id and selected_id != operation_id:
             return
+        if (not operation_id or not isinstance(result, dict)
+                or result.get("operation_id") != operation_id):
+            self._operation_log_failed(
+                RuntimeError("La respuesta de cancelación no corresponde a la operación solicitada."),
+                page_generation, operation_id,
+            )
+            return
         self.operation_confirmation.set_text("")
-        self.operation_log_summary.set_text("Resultado de cancelación: " + str(result))
+        if result.get("state") == "cancelled":
+            message = "La operación " + operation_id + " está cancelada."
+        elif result.get("requested") is True:
+            message = (
+                "Solicitud de cancelación enviada para " + operation_id
+                + "; el trabajador puede tardar en detenerse. Se comprobará el estado final."
+            )
+        else:
+            message = "No se confirmó una cancelación para " + operation_id + ": " + str(result)
+        self.operation_log_summary.set_text(message)
         self._refresh_operation_log(None)
 
     def _operation_log_failed(
