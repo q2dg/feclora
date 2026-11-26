@@ -420,7 +420,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('for item in self._remote_jobs', method)
         self.assertNotIn('if item.get("job_id")', method)
 
-    def test_system_page_restores_textual_configuration_service_and_certificate_details(self):
+    def test_system_page_restores_gtk_configuration_service_and_certificate_details(self):
         page = ast.get_source_segment(self.source, self.methods["_show_system_page"])
         status = ast.get_source_segment(self.source, self.methods["_show_status"])
         self.assertIn("self.system_details_group = Adw.PreferencesGroup(", page)
