@@ -1,4 +1,4 @@
-"""Privileged, allowlisted API for Feclora terminal workflows.
+"""Privileged, allowlisted API for Feclora graphical workflows.
 
 Requests are one bounded JSON object on stdin. Long operations run in this
 process and emit newline-delimited progress events followed by one result.
@@ -1026,13 +1026,13 @@ def _service_state() -> dict[str, str]:
     services = {}
     try:
         result = subprocess.run(
-            ["/usr/bin/systemctl", "is-active", "feclora-tui.service"],
+            ["/usr/bin/systemctl", "is-active", "feclora-gtk.service"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=3,
         )
-        services["Textual interface"] = result.stdout.strip() or "inactive"
+        services["GTK interface"] = result.stdout.strip() or "inactive"
     except (OSError, subprocess.SubprocessError):
-        services["Textual interface"] = "unknown"
+        services["GTK interface"] = "unknown"
     for label, pattern in (
         ("PXE dnsmasq", "feclora-dnsmasq-*.service"),
         ("PXE Caddy", "feclora-caddy-*.service"),
