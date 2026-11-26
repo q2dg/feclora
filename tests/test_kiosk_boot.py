@@ -80,7 +80,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
         migration = self.read("docs/GTK4-MIGRATION.md")
         self.assertIn("official Fedora 45 RPMs", migration)
         self.assertIn("xorg-x11-server-Xwayland", migration)
-        self.assertNotIn("Do not install the stock", migration)
+        self.assertIn("The presence of optional X11 client backends", migration)
+        self.assertIn("does not mean an X server is installed or running", migration)
         self.assertIn("--no-config -B drm --shell=kiosk-shell.so", migration)
         self.assertIn("Then remove Textual and obsolete text-boot checks.", migration)
 
