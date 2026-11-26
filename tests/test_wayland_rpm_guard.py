@@ -28,7 +28,7 @@ class WaylandRPMGuardTests(unittest.TestCase):
             },
             "weston-libs.rpm": {
                 "name": "weston-libs",
-                "version": "15.0.1", "release": "3.fc45.feclora1", "source": "weston-15.0.1-3.fc45.src.rpm",
+                "version": "15.0.1", "release": "3.fc45", "source": "weston-15.0.1-3.fc45.src.rpm",
                 "files": ["/usr/lib64/libweston-15/drm-backend.so", "/usr/lib64/libweston-15/x11-backend.so", "/usr/lib64/libweston-15/xwayland.so"],
                 "requires": ["libwayland-server.so.0", "libdrm.so.2"],
             },
