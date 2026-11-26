@@ -98,7 +98,8 @@ require_text '^After=.*kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.ser
 require_text '^Conflicts=getty@tty2\.service kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must exclude Fedora 45 kmscon DRM ownership."
 require_text '^After=.*kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must wait for kmscon to release the DRM seat."
 require_text 'mask kmsconvt@tty1\.service kmsconvt@tty2\.service kmsconvt@tty3\.service kmsconvt@tty4\.service kmsconvt@tty5\.service kmsconvt@tty6\.service' kickstart/feclora-live.ks "Fedora 45 kmscon must not own any appliance VT."
-require_text '^-xorg-x11-server-Xorg
+require_text '^-xorg-x11-server-Xorg$' kickstart/feclora-live.ks "The Live image must explicitly exclude the Xorg server."
+require_text '^-xorg-x11-server-Xwayland$' kickstart/feclora-live.ks "The Live image must explicitly exclude the XWayland server."
 require_text 'FECLORA_SELINUX_PERMISSIVE:-1' build/build-iso.sh "SELinux permissive mode must remain the diagnostic build default."
 require_text 'mkksiso --cmdline selinux=0' build/build-iso.sh "Only the temporary Anaconda build VM may disable SELinux."
 
