@@ -22,16 +22,19 @@ class WaylandRPMGuardTests(unittest.TestCase):
         self.records = {
             "weston.rpm": {
                 "name": "weston",
+                "version": "15.0.1", "release": "3.fc45.feclora1", "source": "weston-15.0.1-3.fc45.src.rpm",
                 "files": ["/usr/bin/weston", "/usr/lib64/weston/kiosk-shell.so"],
                 "requires": ["weston-libs", "libwayland-client.so.0"],
             },
             "weston-libs.rpm": {
                 "name": "weston-libs",
+                "version": "15.0.1", "release": "3.fc45.feclora1", "source": "weston-15.0.1-3.fc45.src.rpm",
                 "files": ["/usr/lib64/libweston-15/drm-backend.so"],
                 "requires": ["libwayland-server.so.0", "libdrm.so.2"],
             },
             "gtk4.rpm": {
                 "name": "gtk4",
+                "version": "4.24.1", "release": "1.fc45.feclora1", "source": "gtk4-4.24.1-1.fc45.src.rpm",
                 "files": [
                     "/usr/lib64/libgtk-4.so.1",
                     "/usr/lib64/girepository-1.0/GdkWayland-4.0.typelib",
@@ -40,11 +43,13 @@ class WaylandRPMGuardTests(unittest.TestCase):
             },
             "libadwaita.rpm": {
                 "name": "libadwaita",
+                "version": "1.10.0", "release": "2.fc45.feclora1", "source": "libadwaita-1.10.0-2.fc45.src.rpm",
                 "files": ["/usr/lib64/libadwaita-1.so.0"],
                 "requires": ["gtk4 >= 4.24.1"],
             },
             "gtk4-devel.rpm": {
                 "name": "gtk4-devel",
+                "version": "4.24.1", "release": "1.fc45.feclora1", "source": "gtk4-4.24.1-1.fc45.src.rpm",
                 "files": [
                     "/usr/include/gtk-4.0/gdk/wayland/gdkwaylanddisplay.h",
                     "/usr/lib64/pkgconfig/gtk4-wayland.pc",
@@ -63,7 +68,11 @@ import sys
 database = json.loads(Path(os.environ["FAKE_RPM_DB"]).read_text(encoding="utf-8"))
 args = sys.argv[1:]
 if args[:2] == ["-qp", "--qf"]:
-    print(database[Path(args[-1]).name]["name"])
+    record = database[Path(args[-1]).name]
+    if "%{SOURCERPM}" in args[2]:
+        print("|".join((record["version"], record["release"], record["source"])))
+    else:
+        print(record["name"])
 elif args[0] == "-qpl":
     print("\\n".join(database[Path(args[-1]).name]["files"]))
 elif args[0] == "-qpR":
@@ -142,6 +151,20 @@ else:
         result = self._run([*self.rpm_paths[:4], extra])
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("pkgconfig(x11)", result.stderr)
+
+    def test_rejects_wrong_fedora_source_version(self):
+        self.records["gtk4.rpm"]["version"] = "4.24.2"
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must be built from version 4.24.1", result.stderr)
+
+    def test_rejects_non_fedora45_source_release(self):
+        self.records["weston-libs.rpm"]["release"] = "3.el10"
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Fedora 45 release and source-RPM provenance", result.stderr)
 
     def test_requires_all_four_runtime_packages(self):
         result = self._run(self.rpm_paths[:3])
