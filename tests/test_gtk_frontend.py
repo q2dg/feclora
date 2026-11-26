@@ -1435,6 +1435,14 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.profile_cancel.set_sensitive(True)", failed)
         self.assertIn("operation_id != getattr(self, \"profile_operation_id\", None)", failed)
 
+    def test_restore_profile_status_rejects_mismatched_operation_identity_and_retries(self):
+        status = ast.get_source_segment(self.source, self.methods["_show_restore_profile_operation_status"])
+        self.assertIn('status.get("operation_id") not in (None, operation_id)', status)
+        self.assertIn('self._profile_operation_errors[operation_id] = message', status)
+        self.assertIn('lambda: self._poll_restore_profile_operation(operation_id, page_generation)', status)
+        self.assertLess(status.index('status.get("operation_id") not in'), status.index('["status"] = status'))
+        self.assertIn('operation_id == getattr(self, "profile_operation_id", None)', status)
+
     def test_restore_profile_status_polling_keeps_operation_identity(self):
         poll = ast.get_source_segment(self.source, self.methods["_poll_restore_profile_operation"])
         status = ast.get_source_segment(self.source, self.methods["_show_restore_profile_operation_status"])
