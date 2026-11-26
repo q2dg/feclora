@@ -72,7 +72,10 @@ class KioskBootConfigurationTests(unittest.TestCase):
         )
         self.assertIn("Conflicts=getty@tty1.service kmsconvt@tty1.service", tui)
         self.assertIn("Conflicts=getty@tty2.service kmsconvt@tty2.service", terminal)
-        self.assertIn("After=systemd-logind.service kmsconvt@tty2.service", terminal)\n        self.assertIn("[Install]", terminal)\n        self.assertIn("WantedBy=multi-user.target", terminal)\n        self.assertIn("enable feclora-root-terminal.service", kickstart)
+        self.assertIn("After=systemd-logind.service kmsconvt@tty2.service", terminal)
+        self.assertIn("[Install]", terminal)
+        self.assertIn("WantedBy=multi-user.target", terminal)
+        self.assertIn("enable feclora-root-terminal.service", kickstart)
 
     def test_gtk_source_is_native_wayland_fullscreen_and_boot_enabled(self):
         frontend = self.read("src/feclora/gui_gtk.py")
