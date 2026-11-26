@@ -327,6 +327,21 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("kind == 6", mode)
         self.assertIn("kind == 7", mode)
 
+    def test_every_shared_local_operation_has_a_gtk_and_api_implementation(self):
+        catalog = ast.parse(Path("src/feclora/ui_catalog.py").read_text(encoding="utf-8"))
+        operations_node = next(
+            node for node in catalog.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "OPERATIONS" for target in node.targets)
+        )
+        operations = ast.literal_eval(operations_node.value)
+        self.assertEqual(len(operations), 18)
+        api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
+        for _label, action in operations:
+            with self.subTest(action=action):
+                self.assertIn(f'"{action}"', self.source)
+                self.assertIn(f'"{action}"', api_source)
+
     def test_all_migrated_operations_are_exposed_by_api_dispatch(self):
         api_source = Path("src/feclora/api.py").read_text(encoding="utf-8")
         dispatch = api_source[api_source.index('    if action in {"capture_disk"'):]
