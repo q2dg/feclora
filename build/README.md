@@ -13,7 +13,7 @@ path.
 
 ## Repeated builds
 
-The Live interface is implemented in Python with Textual. There is no separate
+The Live interface is implemented in Python with GTK. There is no separate
 frontend build or JavaScript runtime dependency; `build/build-iso.sh` stages the
 Python package directly.
 
@@ -123,7 +123,7 @@ refuses to overwrite an existing answer. The answer contains no credentials.
 
 This is a separate consumer of the answer file, not an extension of the
 answer generator. First create the shared answer with
-`build/generate-shared-answer.py` (or prepare it in the Textual interface). Then pass that
+`build/generate-shared-answer.py` (or prepare it in the GTK interface). Then pass that
 existing file to the bundle coordinator. The coordinator builds the generic
 Live ISO, selects or captures a Feclora whole-disk image, validates the answer
 against those inputs, and publishes the versioned bundle. It never generates
@@ -162,14 +162,14 @@ Whole-disk images may use either the native RAW artifact format or QCOW2; both
 are manifest-backed and can be selected directly for local or coordinated
 restore.
 
-This is a build-host workflow, not a Live ISO builder. The Textual interface's
+This is a build-host workflow, not a Live ISO builder. The GTK interface's
 bundle operation remains available for assembling already-built inputs. ISO
 boot, target hardware, repository-provider and real multicast acceptance are
 still maintainer-run tasks.
 
 ## Important limitations
 
-- The Recovery ISO workflow is exposed in Textual and runs as a durable local
+- The Recovery ISO workflow is exposed in GTK and runs as a durable local
   operation. The Live image installs and enables
   `feclora-recovery-boot.service`; at boot it discovers exactly one mounted
   `/FECLORA/RECOVERY` payload, rejects symlinked or ambiguous payload
@@ -178,7 +178,7 @@ still maintainer-run tasks.
   El Torito metadata and publishes a separate ISO to a local or mounted
   filesystem repository. BIOS/UEFI and destructive-media acceptance remain
   operator responsibilities. See [Recovery ISO operator procedure](../docs/RECOVERY-ISO.md).
-- Textual restore profiles create, list and explicitly execute single-use
+- GTK restore profiles create, list and explicitly execute single-use
   whole-disk restore authorizations from a mounted persistent filesystem
   repository. Execution requires a typed destructive confirmation, stable
   WWN/serial identity and read-back verification.
