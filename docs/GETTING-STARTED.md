@@ -18,7 +18,7 @@ title: Getting started
     <h2>1. Prepare the environment</h2>
     <ol>
       <li>Obtain a Feclora ISO from a trusted source and verify its published SHA-256 when one is available.</li>
-      <li>Boot the Live system. Feclora opens its keyboard-first Textual interface directly on tty1; it is not a general-purpose desktop.</li>
+      <li>Boot the Live system. Feclora opens its keyboard-first GTK interface directly on tty1; it is not a general-purpose desktop.</li>
       <li>Select the interface language on the first Feclora screen; the operations menu then opens without a local login or password.</li>
       <li>Configure the network only if you need a remote repository, a Server/Client workflow or PXE.</li>
     </ol>
@@ -29,7 +29,7 @@ title: Getting started
     <h2>2. Add an image repository</h2>
     <div class="guide-card"><img src="{{ '/assets/mockups/repository-setup.svg' | relative_url }}" alt="Illustrative repository configuration workflow"><div class="guide-card-body"><p>Illustrative provider-selection mockup; the actual options and credentials are controlled by the configured repository provider.</p></div></div>
     <ol>
-      <li>Choose <strong>Repositories</strong> in the Textual interface.</li>
+      <li>Choose <strong>Repositories</strong> in the GTK interface.</li>
       <li>Select a supported provider: local filesystem, SSHFS, NFS, SMB/CIFS or S3-compatible object storage.</li>
       <li>Enter the endpoint and access details in the protected UI. Never put credentials in documentation, screenshots or PXE answer files.</li>
       <li>Mount the repository, verify its configured identity and access, and confirm that the expected images are visible before capturing data.</li>
