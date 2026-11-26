@@ -11,15 +11,15 @@ class KioskBootConfigurationTests(unittest.TestCase):
     def read(self, relative: str) -> str:
         return (ROOT / relative).read_text(encoding="utf-8")
 
-    def test_textual_remains_production_until_gtk_weston_parity(self):
+    def test_gtk_weston_is_production_and_textual_is_not_enabled(self):
         service = self.read("src/feclora/data/feclora-tui.service")
         kickstart = self.read("kickstart/feclora-live.ks")
         self.assertIn("ExecStart=/usr/bin/python3 -m feclora.tui", service)
-        self.assertIn('enable feclora-tui.service', kickstart)
-        self.assertNotIn('enable feclora-gtk.service', kickstart)
+        self.assertIn('enable feclora-gtk.service feclora-root-terminal.service', kickstart)
+        self.assertNotIn('enable feclora-tui.service', kickstart)
         self.assertIn('etc/systemd/system/feclora-gtk.service', kickstart)
         self.assertIn('usr/libexec/feclora/feclora-gtk-ready', kickstart)
-        self.assertIn('feclora-tui.service', kickstart)
+        self.assertNotIn('feclora-tui.service\"', kickstart)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").exists())
 
     def test_official_fedora_gtk_weston_stack_is_selected(self):
@@ -34,7 +34,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("-xorg-x11-server-Xorg", kickstart)
         self.assertNotIn("xorg-x11-server-Xwayland", base)
         self.assertNotIn("xorg-x11-server-Xorg", base)
-        self.assertIn("\npython3-textual\n", kickstart)
+        self.assertIn("\npython3-textual\n", kickstart)  # retained temporarily for rollback
         self.assertIn("\npython3-textual\n", base)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").is_file())
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk-ready").is_file())
@@ -60,7 +60,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
             "Physical boots without a virtio channel must not wait for the QEMU-only readiness marker.",
         )
         self.assertNotIn("--xwayland", service)
-        self.assertNotIn("enable feclora-gtk.service", self.read("kickstart/feclora-live.ks"))
+        self.assertIn("enable feclora-gtk.service", self.read("kickstart/feclora-live.ks"))
 
     def test_fedora45_kmscon_cannot_own_application_or_maintenance_vts(self):
         kickstart = self.read("kickstart/feclora-live.ks")
@@ -72,9 +72,9 @@ class KioskBootConfigurationTests(unittest.TestCase):
         )
         self.assertIn("Conflicts=getty@tty1.service kmsconvt@tty1.service", tui)
         self.assertIn("Conflicts=getty@tty2.service kmsconvt@tty2.service", terminal)
-        self.assertIn("After=systemd-logind.service kmsconvt@tty2.service", terminal)
+        self.assertIn("After=systemd-logind.service kmsconvt@tty2.service", terminal)\n        self.assertIn("[Install]", terminal)\n        self.assertIn("WantedBy=multi-user.target", terminal)\n        self.assertIn("enable feclora-root-terminal.service", kickstart)
 
-    def test_gtk_source_is_native_wayland_and_fullscreen_but_not_boot_enabled(self):
+    def test_gtk_source_is_native_wayland_fullscreen_and_boot_enabled(self):
         frontend = self.read("src/feclora/gui_gtk.py")
         self.assertLess(
             frontend.index('self.window.connect("map",'),
