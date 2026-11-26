@@ -166,6 +166,25 @@ env -u DISPLAY weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 --
   /usr/bin/python3 -m feclora.gui_gtk
 ```
 
+### Fedora 45 KMSCON and VT ownership
+
+Fedora 45 replaces the traditional userspace-facing virtual-console path on
+VTs 1–6 with KMSCON. KMSCON is a DRM/KMS console emulator and holds exclusive
+access to the GPU while it owns a VT; Fedora provides `kmscon-launch-gui` to
+release that ownership before starting a graphics application. Feclora does
+not use that wrapper for its kiosk session. Instead, the Kickstart masks
+`kmsconvt@tty1.service` through `kmsconvt@tty6.service`: tty1 remains available
+for the current Textual UI and future Weston compositor, tty2 remains a raw
+independent maintenance VT, and tty3–tty6 do not acquire a userspace DRM
+console. The Textual and root-terminal units also declare conflicts and
+ordering against the corresponding KMSCON instance as a defensive measure.
+
+This avoids a second compositor/console competing for DRM; it does not imply
+that Weston has already been integrated or that the VT/seat handoff has passed
+VM acceptance. Verify the actual unit state and DRM ownership in both BIOS and
+UEFI boots before enabling the graphical service. KMSCON is a VT console, not
+an X11 component.
+
 This is a CLI/package verification, not yet an approved systemd unit. The
 Weston process must receive a real logind/libseat session, the active tty and
 DRM/input seat access, plus a valid `XDG_RUNTIME_DIR`. The existing
