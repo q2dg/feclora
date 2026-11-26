@@ -8,7 +8,7 @@ title: Build and validate the live ISO
 
 # Build and validate the Live ISO
 
-This runbook covers the Fedora 45 x86_64 Live appliance; Textual remains the production boot UI while GTK/Weston parity is incomplete. Static checks and
+This runbook covers the Fedora 45 x86_64 Live appliance. GTK4/libadwaita is the production operator interface, launched by Weston DRM/KMS on tty1. Static checks and
 unit tests do not establish that an ISO builds or boots; keep BIOS, UEFI and
 physical-hardware acceptance results separate from automated test results.
 
@@ -35,16 +35,7 @@ Update and test the baseline before substituting a different release.
 
 ## Validate and build
 
-Install the pinned UI-test dependency in a virtual environment:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements-test.txt
-```
-
-Then run the complete hardware-independent validation suite and build
-preflight:
+Run the complete hardware-independent validation suite and build preflight:
 
 ```bash
 make validate
@@ -53,20 +44,17 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
 `make validate` includes static project checks, documentation-link and guide
-asset checks, Python compilation, Textual boot-configuration checks and the
+asset checks, Python compilation, GTK boot-configuration checks and the
 hardware-independent unit tests. Use `make test` when you want to rerun only
 the unit tests.
 
 The build stages the Python application, adds it to a temporary installer ISO,
 and runs `livemedia-creator` with QEMU virtualization. The resulting
 `out/feclora-live.iso` is checked for BIOS and UEFI text-console arguments and
-absence of Plymouth from the shipped boot initramfs. The Live image currently boots the unprivileged Textual interface on tty1
-after visible kernel/systemd messages. GTK4 is being migrated as the replacement
-frontend. The target compositor is Weston DRM/KMS with `kiosk-shell`; Cage is
-not used. The Kickstart now installs Fedora's official Weston, GTK4, libadwaita
-and PyGObject RPMs. The separate XWayland server package is not installed.
-The GTK systemd unit remains staged but disabled; Textual remains the production
-UI until GTK behavioral parity and graphical boot acceptance are complete.
+absence of Plymouth from the shipped boot initramfs. The Live image boots the unprivileged GTK interface on tty1 after visible
+kernel/systemd messages. Weston DRM/KMS uses `kiosk-shell`; Cage is not used.
+The Kickstart installs Fedora's official Weston, GTK4, libadwaita and PyGObject
+RPMs and excludes the separate Xorg and XWayland server packages.
 
 SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
 to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
@@ -85,8 +73,8 @@ With QEMU and OVMF installed, run:
 python3 tests/vm/run-boot-smoke.py --iso out/feclora-live.iso
 ```
 
-This headless test verifies that both firmware variants boot and Textual
-renders its initial screen, reported over a test-only virtio-serial channel.
+This headless test verifies that both firmware variants boot and GTK
+renders its initial window, reported over a test-only virtio-serial channel.
 It does **not** capture the terminal display or prove that a human can use
 every workflow. Manually boot both firmware modes with a visible QEMU display
 and verify boot messages, the tty1 handoff, keyboard navigation, VT switching
@@ -95,32 +83,31 @@ to tty2 and service recovery.
 ## Manual boot acceptance
 
 - [ ] BIOS and UEFI select the first GRUB entry without a visible menu.
-- [ ] System boot messages remain visible until Textual takes over tty1; no
+- [ ] System boot messages remain visible until GTK takes over tty1; no
       persistent black screen or boot splash appears.
-- [ ] `feclora-tui.service` runs Textual on tty1 as the locked, unprivileged
-      `feclora` account while GTK/Weston parity is incomplete.
-- [ ] The current Textual interface accepts keyboard input. The GTK welcome screen's
-      language and keyboard-layout controls require separate acceptance.
+- [ ] `feclora-gtk.service` runs Weston and GTK on tty1 as the locked, unprivileged
+      `feclora` account.
+- [ ] The GTK interface accepts keyboard input, including first-boot language and
+      keyboard-layout selection.
 - [ ] Tab, Shift+Tab, arrows, Enter and Space reach and activate each
       implemented control, including long and scrollable forms.
-- [ ] The root terminal action opens the independent raw tty2 maintenance VT; exiting the shell returns to Textual on tty1.
+- [ ] The root terminal action opens the independent raw tty2 maintenance VT; exiting the shell returns to GTK on tty1.
 - [ ] Fedora 45 KMSCON instances are masked on tty1–tty6 so a userspace DRM console cannot retain the GPU while Feclora owns the VTs.
-- [ ] The current Textual interface reaches the fixed allowlisted helper through
+- [ ] The GTK interface reaches the fixed allowlisted helper through
       sudo; no general passwordless shell or unrestricted root command is
       available to `feclora`.
 - [ ] Server/PXE preflight, local storage confirmation and error states are
       visible without relying on mouse input.
 - [ ] A reboot recovers unfinished local operations as interrupted and starts
-      Textual on tty1.
+      GTK on tty1.
 - [ ] Kernel command line, firmware details, ISO checksum and test results are
       recorded.
 
 Only use disposable virtual disks for destructive-workflow acceptance.
 Never attach a host system disk to a test VM.
 
-The GTK/Weston boot route has not been enabled. Keep Textual as the production
-interface until behavioral parity, VM testing and BIOS/UEFI acceptance all pass.
-The image already contains Fedora's official Weston/GTK4/libadwaita runtime
-packages; the XWayland server package is intentionally excluded. The
-final cutover replaces Textual and removes its code, package, service, tests
-and obsolete boot checks; it will not remain as a fallback.
+The production boot route is GTK/Weston. The old Textual implementation,
+service, package and dedicated tests have been removed. Keep BIOS/UEFI,
+physical-hardware and destructive-workflow acceptance results separate from
+source-level checks; a successful GTK window alone does not validate every
+workflow or every hardware configuration.
