@@ -15,5 +15,5 @@ while [ ! -f "$READY" ]; do
 done
 
 if [ -c "$CHANNEL" ] && [ -w "$CHANNEL" ]; then
-  printf 'FECLORA_BOOT_SMOKE rendered\n' > "$CHANNEL"
+  printf 'FECLORA_BOOT_SMOKE gtk-rendered\n' > "$CHANNEL"
 fi
