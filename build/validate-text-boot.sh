@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Literal grep patterns intentionally match shell source text, not expanded variables.
+# shellcheck disable=SC2016
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
