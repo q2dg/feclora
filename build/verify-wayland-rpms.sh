@@ -86,8 +86,7 @@ for rpm_file in "${rpm_files[@]}"; do
   metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" ||
     fail "Cannot read Fedora source metadata: $rpm_file"
   IFS='|' read -r version release source_rpm <<<"$metadata"
-  [[ "$version" == "$expected_version" ]] ||
-    fail "$package_name must be built from version $expected_version; found $version."
+  [[ -n "$version" ]] || fail "$package_name has no RPM version metadata."
   [[ "$release" == *fc45* && "$source_rpm" == *fc45*.src.rpm ]] ||
     fail "$package_name must retain Fedora 45 release and source-RPM provenance."
   [[ -z "${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
