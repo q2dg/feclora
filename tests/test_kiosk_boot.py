@@ -76,7 +76,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("Idioma de la interfaz", frontend)
         self.assertIn("Distribución del teclado", frontend)
 
-    def test_weston_target_is_documented_as_x11_disabled_build(self):
+    def test_weston_target_uses_official_fedora_packages_without_xwayland_server(self):
         migration = self.read("docs/GTK4-MIGRATION.md")
         self.assertIn("official Fedora 45 RPMs", migration)
         self.assertIn("xorg-x11-server-Xwayland", migration)
