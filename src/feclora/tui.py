@@ -18,6 +18,7 @@ from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, 
 from feclora.tui_api import TUIAPIError, call_feclora
 
 from feclora.ui_catalog import (
+    CLIENT_JOB_COMPRESSION,
     COMPRESSION,
     KEYBOARD_LAYOUTS,
     LANGUAGES,
@@ -325,9 +326,9 @@ class FecloraTUI(App[None]):
                     yield Static("", id="client-job-details")
                     yield Select([("Selecciona destino local…", "")], value="", id="client-target")
                     yield Input(placeholder="Frase de confirmación local (ERASE… o READ…)", id="client-confirmation")
-                    yield Select([("Gzip", "gzip"), ("Zstandard", "zstd"), ("LZ4", "lz4"), ("Sin compresión", "none")], value="gzip", id="client-compression")
-                    yield Select([("Sin cifrado", "false"), ("Cifrar imagen con age", "true")], value="false", id="client-encrypt")
-                    yield Select([("No confirmar IGMP", "false"), ("Confirmo multicast en red aislada", "true")], value="false", id="client-igmp")
+                    yield Select(list(CLIENT_JOB_COMPRESSION), value="gzip", id="client-compression", disabled=True)
+                    yield Select([("Sin cifrado", "false"), ("Cifrar imagen con age", "true")], value="false", id="client-encrypt", disabled=True)
+                    yield Select([("No confirmar IGMP", "false"), ("Confirmo multicast en red aislada", "true")], value="false", id="client-igmp", disabled=True)
                     yield Button("Iniciar servicio cliente", id="client-start", variant="primary")
                     yield Button("Consultar estado del cliente", id="client-status", variant="default")
                     yield Static("", id="client-result")
@@ -1268,6 +1269,7 @@ class FecloraTUI(App[None]):
             })
         except TUIAPIError as exc:
             self._client_remote_inspection = None
+            self._update_client_confirmation()
             self.query_one("#client-result", Static).update(f"No se pudo autenticar/inspeccionar el servidor: {exc}")
             return
         self._client_remote_inspection = result
@@ -1289,14 +1291,31 @@ class FecloraTUI(App[None]):
 
     def _update_client_confirmation(self) -> None:
         inspection = getattr(self, "_client_remote_inspection", None)
+        compression = self.query_one("#client-compression", Select)
+        encryption = self.query_one("#client-encrypt", Select)
+        igmp = self.query_one("#client-igmp", Select)
         if not isinstance(inspection, dict) or not isinstance(inspection.get("job"), dict):
+            compression.disabled = True
+            encryption.disabled = True
+            igmp.disabled = True
+            encryption.value = "false"
+            igmp.value = "false"
             return
         job = inspection["job"]
+        compression.disabled = False
+        encryption_allowed = job.get("operation") == "save"
+        encryption.disabled = not encryption_allowed
+        if not encryption_allowed:
+            encryption.value = "false"
+        igmp_allowed = job.get("transport") == "multicast" and job.get("operation") == "restore"
+        igmp.disabled = not igmp_allowed
+        if not igmp_allowed:
+            igmp.value = "false"
         target = self.query_one("#client-target", Select).value
         target = target if isinstance(target, str) else ""
         phrase = (
             f"ERASE {target}" if job.get("operation") in {"restore", "clone"}
-            else f"READ {target} TO {inspection.get('server_identity')}"
+            else f"READ {target}"
         ) if target else ""
         self.query_one("#client-job-details", Static).update(
             json.dumps({"server_identity": inspection.get("server_identity"), "job": job}, ensure_ascii=False, indent=2)
@@ -1309,6 +1328,21 @@ class FecloraTUI(App[None]):
             self.query_one("#client-result", Static).update("Inspecciona y autentica primero el trabajo del servidor.")
             return
         job = inspection["job"]
+        if job.get("transport") == "multicast" and job.get("operation") != "restore":
+            self.query_one("#client-result", Static).update(
+                "El API del cliente solo admite restauraciones multicast; el clon físico multicast sigue bloqueado en la validación del servicio persistente."
+            )
+            return
+        igmp_confirmed = (
+            job.get("transport") == "multicast"
+            and job.get("operation") == "restore"
+            and str(self.query_one("#client-igmp", Select).value) == "true"
+        )
+        if job.get("transport") == "multicast" and not igmp_confirmed:
+            self.query_one("#client-result", Static).update(
+                "Confirma explícitamente IGMP y la red aislada antes de iniciar la restauración multicast."
+            )
+            return
         target = self.query_one("#client-target", Select).value
         binding = self.query_one("#client-interface", Select).value
         interface = next((item for item in getattr(self, "_client_network_interfaces", []) if item.get("binding") == binding), None)
@@ -1317,7 +1351,7 @@ class FecloraTUI(App[None]):
             return
         phrase = (
             f"ERASE {target}" if job.get("operation") in {"restore", "clone"}
-            else f"READ {target} TO {inspection.get('server_identity')}"
+            else f"READ {target}"
         )
         confirmation = self.query_one("#client-confirmation", Input).value
         if confirmation != phrase:
@@ -1330,13 +1364,10 @@ class FecloraTUI(App[None]):
                 "device_path": target,
                 "confirmation": confirmation,
                 "compression": str(self.query_one("#client-compression", Select).value),
-                "image_encrypt": str(self.query_one("#client-encrypt", Select).value) == "true",
+                "image_encrypt": job.get("operation") == "save" and str(self.query_one("#client-encrypt", Select).value) == "true",
                 "network_interface": interface["interface"],
                 "source_address": interface["address"],
-                "igmp_confirmed": (
-                    str(self.query_one("#client-igmp", Select).value) == "true"
-                    if job.get("transport") == "multicast" else False
-                ),
+                "igmp_confirmed": igmp_confirmed,
             })
         except TUIAPIError as exc:
             self.query_one("#client-result", Static).update(f"No se pudo iniciar el cliente: {exc}")
