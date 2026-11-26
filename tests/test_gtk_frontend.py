@@ -96,7 +96,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         last_contract = validator.rfind("require_text ")
         self.assertEqual(validator.count("if (( ERRORS > 0 )); then"), 1)
         self.assertGreater(final_guard, last_contract)
-        self.assertIn("weston(-libs)?|gtk4|libadwaita", validator)
+        self.assertIn("for package in weston weston-libs gtk4 libadwaita python3-gobject", validator)
         self.assertIn("xorg-x11-server-Xwayland", validator)
 
     def test_gtk_retains_every_literal_privileged_action_from_textual(self):
