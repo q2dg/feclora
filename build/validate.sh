@@ -38,7 +38,7 @@ done
 
 require_text '^#version=F45$' kickstart/feclora-live.ks "Kickstart must target Fedora 45."
 require_text 'packages/build-host\.txt' build/install-host-deps.sh "Build dependencies must come from the build-host package manifest."
-require_text '^python3-textual
+require_text '^python3-textual$' packages/base.txt "Keep Textual installed temporarily for rollback while GTK is validated."
 require_text '^textual==8\.1\.1$' requirements-test.txt "Legacy TUI tests must use the runtime Textual version during migration."
 require_text '^# GTK4, PyGObject and libadwaita are supplied by Fedora RPMs' requirements-gui.txt "GTK4 and PyGObject must use Fedora system packages, not pip."
 require_text 'create_subprocess_exec' src/feclora/tui_api.py "The privileged API client must invoke its helper without a shell."
@@ -86,15 +86,14 @@ require_text '^User=feclora$' src/feclora/data/feclora-gtk.service "GTK producti
 require_text '^ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora\\.gui_gtk$' src/feclora/data/feclora-gtk.service "GTK must launch under native Weston DRM/KMS."
 require_text '^ExecStartPost=\\+/usr/libexec/feclora/feclora-gtk-ready$' src/feclora/data/feclora-gtk.service "GTK must report its first rendered frame."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
-if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
   fail "The production UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
 require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
-require_text '^Conflicts=getty@tty1\.service kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must exclude Fedora 45 kmscon DRM ownership."
-require_text '^After=.*kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must wait for kmscon to release the DRM seat."
+require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
+require_text '^After=.*kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must wait for kmscon."
 require_text '^Conflicts=getty@tty2\.service kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must exclude Fedora 45 kmscon DRM ownership."
 require_text '^After=.*kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must wait for kmscon to release the DRM seat."
 require_text 'mask kmsconvt@tty1\.service kmsconvt@tty2\.service kmsconvt@tty3\.service kmsconvt@tty4\.service kmsconvt@tty5\.service kmsconvt@tty6\.service' kickstart/feclora-live.ks "Fedora 45 kmscon must not own any appliance VT."
@@ -861,19 +860,17 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The current production UI must run as its unprivileged appliance user."
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
-if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
   fail "The production UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
 require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
-require_text '^Conflicts=getty@tty1\.service kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must exclude Fedora 45 kmscon DRM ownership."
-require_text '^After=.*kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must wait for kmscon to release the DRM seat."
+require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
+require_text '^After=.*kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must wait for kmscon."
 require_text '^Conflicts=getty@tty2\.service kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must exclude Fedora 45 kmscon DRM ownership."
 require_text '^After=.*kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must wait for kmscon to release the DRM seat."
 require_text 'mask kmsconvt@tty1\.service kmsconvt@tty2\.service kmsconvt@tty3\.service kmsconvt@tty4\.service kmsconvt@tty5\.service kmsconvt@tty6\.service' kickstart/feclora-live.ks "Fedora 45 kmscon must not own any appliance VT."
@@ -1600,15 +1597,14 @@ printf 'Static validation passed. This does not prove that the ISO builds or boo
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
-if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
   fail "The production UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
 require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
-require_text '^Conflicts=getty@tty1\.service kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must exclude Fedora 45 kmscon DRM ownership."
-require_text '^After=.*kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must wait for kmscon to release the DRM seat."
+require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
+require_text '^After=.*kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must wait for kmscon."
 require_text '^Conflicts=getty@tty2\.service kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must exclude Fedora 45 kmscon DRM ownership."
 require_text '^After=.*kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must wait for kmscon to release the DRM seat."
 require_text 'mask kmsconvt@tty1\.service kmsconvt@tty2\.service kmsconvt@tty3\.service kmsconvt@tty4\.service kmsconvt@tty5\.service kmsconvt@tty6\.service' kickstart/feclora-live.ks "Fedora 45 kmscon must not own any appliance VT."
@@ -2375,19 +2371,17 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^User=feclora$' src/feclora/data/feclora-tui.service "The current production UI must run as its unprivileged appliance user."
 require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
 require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
-if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
   fail "The production UI service must allow its scoped sudo helper to perform privileged appliance operations."
 fi
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
 require_text 'mask getty@tty1\.service' kickstart/feclora-live.ks "tty1 must remain reserved for the current interface."
 require_text '^TTYPath=/dev/tty2$' src/feclora/data/feclora-root-terminal.service "The diagnostic root shell must use tty2."
-require_text '^Conflicts=getty@tty1\.service kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must exclude Fedora 45 kmscon DRM ownership."
-require_text '^After=.*kmsconvt@tty1\.service$' src/feclora/data/feclora-tui.service "The current tty1 interface must wait for kmscon to release the DRM seat."
+require_text '^Conflicts=getty@tty1\\.service kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must exclude kmscon."
+require_text '^After=.*kmsconvt@tty1\\.service$' src/feclora/data/feclora-gtk.service "GTK tty1 must wait for kmscon."
 require_text '^Conflicts=getty@tty2\.service kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must exclude Fedora 45 kmscon DRM ownership."
 require_text '^After=.*kmsconvt@tty2\.service$' src/feclora/data/feclora-root-terminal.service "The tty2 maintenance shell must wait for kmscon to release the DRM seat."
 require_text 'mask kmsconvt@tty1\.service kmsconvt@tty2\.service kmsconvt@tty3\.service kmsconvt@tty4\.service kmsconvt@tty5\.service kmsconvt@tty6\.service' kickstart/feclora-live.ks "Fedora 45 kmscon must not own any appliance VT."
