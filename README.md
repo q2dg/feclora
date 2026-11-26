@@ -6,9 +6,10 @@ PyGObject/libadwaita migration is audited for complete behavioral parity.
 The target graphical stack is native Wayland using Weston DRM/KMS with
 Weston's kiosk shell; Cage is not part of the design. Textual will be removed
 only after all workflows, destructive-operation safeguards, tests and
-BIOS/UEFI acceptance have been demonstrated against GTK. The strict
-Wayland-only target requires Fedora-matched X11-disabled Weston, GTK4 and
-libadwaita builds; stock Fedora packages are not acceptable. See
+BIOS/UEFI acceptance have been demonstrated against GTK. The Wayland-only runtime uses Fedora's official Weston, GTK4 and libadwaita
+packages, with the Xorg and XWayland server packages excluded and GTK forced
+onto its native Wayland backend. Optional unused X11 client modules in the
+distribution RPMs are not launched. See
 [the GTK4 migration record](docs/GTK4-MIGRATION.md) for the acceptance gate.
 
 ## What it does
