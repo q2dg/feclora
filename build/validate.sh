@@ -505,11 +505,12 @@ exclusions = {
     if line.strip().startswith("-")
 }
 expected_exclusions = {
-    "plymouth", "plymouth-plugin-script", "plymouth-plugin-two-step", "plymouth-scripts"
+    "plymouth", "plymouth-plugin-script", "plymouth-plugin-two-step", "plymouth-scripts",
+    "xorg-x11-server-Xorg", "xorg-x11-server-Xwayland",
 }
 if exclusions != expected_exclusions:
     raise SystemExit(
-        f"Kickstart splash-package exclusions differ. Expected {sorted(expected_exclusions)}; "
+        f"Kickstart package exclusions differ. Expected {sorted(expected_exclusions)}; "
         f"found {sorted(exclusions)}."
     )
 if "openssh-clients" not in ks:
