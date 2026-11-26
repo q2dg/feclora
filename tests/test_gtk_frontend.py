@@ -761,7 +761,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_authenticated_client_inspection_start_and_status_workflows(self):
         for action in (
             '"network_interfaces"',
-            'self.api.submit("inventory"',
+            '"inventory"',
             '"inspect_remote_job"',
             '"start_client_job"',
             '"client_job_status"',
