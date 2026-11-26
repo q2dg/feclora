@@ -82,9 +82,9 @@ if grep -Fq 'create_subprocess_shell' "$ROOT_DIR/src/feclora/tui_api.py"; then
   fail "API requests must not use a command shell."
 fi
 
-require_text '^User=feclora
-require_text '^ExecStart=/usr/bin/python3 -m feclora\.tui$' src/feclora/data/feclora-tui.service "Textual remains the production UI until GTK/Weston parity is proven."
-require_text '^ExecStartPost=\+/usr/libexec/feclora/feclora-tui-ready$' src/feclora/data/feclora-tui.service "The production UI must report its first rendered screen."
+require_text '^User=feclora$' src/feclora/data/feclora-gtk.service "GTK production UI must run as its unprivileged appliance user."
+require_text '^ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora\\.gui_gtk$' src/feclora/data/feclora-gtk.service "GTK must launch under native Weston DRM/KMS."
+require_text '^ExecStartPost=\\+/usr/libexec/feclora/feclora-gtk-ready$' src/feclora/data/feclora-gtk.service "GTK must report its first rendered frame."
 require_text 'feclora ALL=\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-tui.service"; then
   fail "The production UI service must allow its scoped sudo helper to perform privileged appliance operations."
