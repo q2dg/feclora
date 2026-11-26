@@ -22,7 +22,7 @@ The stream can be stored using one of these compression settings:
 
 Age recipient encryption can be enabled independently of compression. When
 enabled, Feclora compresses the stream first and encrypts the compressed
-artifact afterwards. The capture controls are available in the Textual
+artifact afterwards. The capture controls are available in the GTK
 operation form. Recipient keys must already be initialized; the API uses the
 configured Feclora recipient material.
 
