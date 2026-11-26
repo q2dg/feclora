@@ -29,7 +29,7 @@ server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 server.bind(path)
 server.listen(1)
 connection, _ = server.accept()
-connection.sendall(b"FECLORA_BOOT_SMOKE rendered\\n")
+connection.sendall(b"FECLORA_BOOT_SMOKE gtk-rendered\\n")
 time.sleep(30)
 """,
                 encoding="utf-8",
