@@ -580,25 +580,28 @@ La vista GTK del registro local presenta ahora cada elemento de `inspection_erro
 
 La prueba añadida verifica la estructura y el enlace del grupo a la página actual; no sustituye pruebas de ejecución con GTK/GI.
 
-## Weston kiosk boot target
+## GTK4/Weston production boot route
 
-The GTK frontend is not enabled at boot. The current production interface
-continues to run Textual on tty1 until the parity and acceptance gates above
-are complete. Cage is explicitly excluded.
+The Kickstart now enables `feclora-gtk.service` on tty1 and
+`feclora-root-terminal.service` on tty2. The Textual service and readiness
+helper are no longer staged into the image. The Textual Python package and
+source remain temporarily available as rollback material until the first
+real BIOS/UEFI ISO boots and GTK/Weston runtime acceptance is complete.
 
-The intended replacement is Weston 15.0.1 on its DRM/KMS backend with
-`kiosk-shell`, launching `/usr/bin/python3 -m feclora.gui_gtk` as a native
-Wayland client. The verified command shape is:
+Weston uses its DRM/KMS backend and `kiosk-shell`, launching
+`/usr/bin/python3 -m feclora.gui_gtk` as a native Wayland client. The service
+sets `GDK_BACKEND=wayland`, selects logind for libseat, removes inherited
+X11 display variables, and does not pass `--xwayland`. Xorg and XWayland
+servers remain excluded from the image.
 
-```sh
-env -u DISPLAY weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- \
-  /usr/bin/python3 -m feclora.gui_gtk
-```
+tty2 is reserved for the local maintenance root console. This is a physically
+accessible root shell without an interactive password prompt; protect access
+to the appliance console accordingly. The normal getty and kmscon services
+are masked on tty1/tty2, and kmscon is masked on the remaining appliance VTs.
 
-Do not enable the Weston systemd unit until GTK behavioral parity and the
-logind/libseat/DRM session have passed VM testing. The official Fedora runtime
-packages are already selected; do not install the separate XWayland server
-package. Do not run Weston as root or weaken device permissions.
-The final cutover must replace Textual and remove its package, service,
-application, tests and obsolete boot checks; Textual is not a permanent
-fallback.
+**Important validation limit:** enabling the GTK unit changes the next ISO's
+boot target; it does not prove that Weston can acquire DRM, logind/libseat can
+create the session, GTK can initialise PyGObject, or the first frame is
+painted on a particular GPU. Those runtime checks and actual BIOS/UEFI boots
+remain outstanding. Keep Textual package/source until that acceptance is
+completed; this commit does not claim a tested ISO.
