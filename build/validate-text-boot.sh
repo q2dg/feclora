@@ -3,7 +3,7 @@
 # shellcheck disable=SC2016
 set -Eeuo pipefail
 
-ROOT_DIR="$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BASE="$ROOT_DIR/packages/base.txt"
 BUILD="$ROOT_DIR/build/build-iso.sh"
