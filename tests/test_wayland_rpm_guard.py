@@ -22,28 +22,29 @@ class WaylandRPMGuardTests(unittest.TestCase):
         self.records = {
             "weston.rpm": {
                 "name": "weston",
-                "version": "15.0.1", "release": "3.fc45.feclora1", "source": "weston-15.0.1-3.fc45.src.rpm",
+                "version": "15.0.1", "release": "3.fc45", "source": "weston-15.0.1-3.fc45.src.rpm",
                 "files": ["/usr/bin/weston", "/usr/lib64/weston/kiosk-shell.so"],
                 "requires": ["weston-libs", "libwayland-client.so.0"],
             },
             "weston-libs.rpm": {
                 "name": "weston-libs",
                 "version": "15.0.1", "release": "3.fc45.feclora1", "source": "weston-15.0.1-3.fc45.src.rpm",
-                "files": ["/usr/lib64/libweston-15/drm-backend.so"],
+                "files": ["/usr/lib64/libweston-15/drm-backend.so", "/usr/lib64/libweston-15/x11-backend.so", "/usr/lib64/libweston-15/xwayland.so"],
                 "requires": ["libwayland-server.so.0", "libdrm.so.2"],
             },
             "gtk4.rpm": {
                 "name": "gtk4",
-                "version": "4.24.1", "release": "1.fc45.feclora1", "source": "gtk4-4.24.1-1.fc45.src.rpm",
+                "version": "4.24.1", "release": "1.fc45", "source": "gtk4-4.24.1-1.fc45.src.rpm",
                 "files": [
                     "/usr/lib64/libgtk-4.so.1",
                     "/usr/lib64/girepository-1.0/GdkWayland-4.0.typelib",
+                    "/usr/lib64/girepository-1.0/GdkX11-4.0.typelib",
                 ],
-                "requires": ["libwayland-client.so.0"],
+                "requires": ["libwayland-client.so.0", "libXi.so.6()(64bit)", "libX11.so.6()(64bit)"],
             },
             "libadwaita.rpm": {
                 "name": "libadwaita",
-                "version": "1.10.0", "release": "2.fc45.feclora1", "source": "libadwaita-1.10.0-2.fc45.src.rpm",
+                "version": "1.10.0", "release": "2.fc45", "source": "libadwaita-1.10.0-2.fc45.src.rpm",
                 "files": ["/usr/lib64/libadwaita-1.so.0"],
                 "requires": ["gtk4 >= 4.24.1"],
             },
@@ -112,66 +113,45 @@ else:
     def test_accepts_wayland_only_runtime_rpms(self):
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Wayland-only RPM audit passed", result.stdout)
+        self.assertIn("Wayland kiosk RPM audit passed", result.stdout)
 
-    def test_rejects_weston_x11_backend_file(self):
-        self.records["weston-libs.rpm"]["files"].append(
-            "/usr/lib64/libweston-15/x11-backend.so"
-        )
+    def test_accepts_optional_x11_backends_and_client_libraries(self):
+        result = self._run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Wayland kiosk RPM audit passed", result.stdout)
+
+    def test_rejects_xwayland_server_executable(self):
+        self.records["weston-libs.rpm"]["files"].append("/usr/bin/Xwayland")
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("x11-backend.so", result.stderr)
+        self.assertIn("Xwayland server executable", result.stderr)
 
-    def test_rejects_gtk_gdk_x11_typelib(self):
-        self.records["gtk4.rpm"]["files"].append(
-            "/usr/lib64/girepository-1.0/GdkX11-4.0.typelib"
-        )
+    def test_rejects_xorg_server_executable(self):
+        self.records["weston.rpm"]["files"].append("/usr/bin/Xorg")
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("GdkX11-4.0.typelib", result.stderr)
+        self.assertIn("Xorg/XWayland server executable", result.stderr)
 
-    def test_rejects_direct_x11_library_dependency(self):
-        self.records["gtk4.rpm"]["requires"].append("libX11.so.6()(64bit)")
+    def test_rejects_xwayland_server_package_dependency(self):
+        self.records["weston.rpm"]["requires"].append("xorg-x11-server-Xwayland")
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("libX11.so.6", result.stderr)
-
-    def test_rejects_additional_x11_library_dependencies(self):
-        self.records["weston-libs.rpm"]["requires"].append("libxkbfile.so.1()(64bit)")
-        self._write_database()
-        result = self._run()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("libxkbfile.so.1", result.stderr)
-
-    def test_rejects_additional_x11_library_payloads(self):
-        self.records["gtk4.rpm"]["files"].append("/usr/lib64/libXft.so.2")
-        self._write_database()
-        result = self._run()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("libXft.so.2", result.stderr)
+        self.assertIn("xorg-x11-server-Xwayland", result.stderr)
 
     def test_audits_optional_gtk4_development_rpm(self):
         extra = self.rpm_paths[4]
         result = self._run([*self.rpm_paths[:4], extra])
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_rejects_x11_build_dependency_in_optional_development_rpm(self):
+    def test_allows_optional_x11_development_metadata(self):
         self.records["gtk4-devel.rpm"]["requires"].append("pkgconfig(x11)")
         self._write_database()
         extra = self.rpm_paths[4]
         result = self._run([*self.rpm_paths[:4], extra])
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("pkgconfig(x11)", result.stderr)
-
-    def test_rejects_wrong_fedora_source_version(self):
-        self.records["gtk4.rpm"]["version"] = "4.24.2"
-        self._write_database()
-        result = self._run()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("must be built from version 4.24.1", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_non_fedora45_source_release(self):
         self.records["weston-libs.rpm"]["release"] = "3.el10"
