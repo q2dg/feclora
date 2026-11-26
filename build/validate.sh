@@ -85,9 +85,10 @@ fi
 require_text '^User=feclora$' src/feclora/data/feclora-gtk.service "GTK production UI must run as its unprivileged appliance user."
 require_text '^ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora\\.gui_gtk$' src/feclora/data/feclora-gtk.service "GTK must launch under native Weston DRM/KMS."
 require_text '^ExecStartPost=\\+/usr/libexec/feclora/feclora-gtk-ready$' src/feclora/data/feclora-gtk.service "GTK must report its first rendered frame."
-if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)\(root\) NOPASSWD: /usr/libexec/feclora/feclora-api \*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
-
-
+if grep -Eq '^(NoNewPrivileges=true|ProtectSystem=full)$' "$ROOT_DIR/src/feclora/data/feclora-gtk.service"; then
+  fail "The GTK service must allow its scoped sudo helper to perform privileged appliance operations."
+fi
+require_text 'feclora ALL=\\(root\\) NOPASSWD: /usr/libexec/feclora/feclora-api \\*' kickstart/feclora-live.ks "Passwordless root access must be limited to the validated API helper."
 require_text 'set-default multi-user\.target' kickstart/feclora-live.ks "The appliance must retain the minimal multi-user systemd target."
 require_text '^WantedBy=multi-user\\.target$' src/feclora/data/feclora-root-terminal.service "tty2 maintenance shell must be enabled in multi-user target."
 require_text 'enable feclora-tui\.service' kickstart/feclora-live.ks "Textual remains the production boot UI until GTK/Weston parity is accepted."
