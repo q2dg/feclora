@@ -28,13 +28,13 @@ the visible manual checks below.
 - [ ] White-on-black boot messages remain visible until GTK starts on tty1;
       there is no splash or persistent black screen.
 - [ ] `feclora-gtk.service` runs GTK as the locked, unprivileged `feclora`
-      account on tty1 while GTK/Weston parity remains incomplete.
+      account on tty1.
 - [ ] The current GTK interface offers language and keyboard-layout selection.
 - [ ] Every implemented workflow is reachable using the keyboard: Tab,
       Shift+Tab, arrows, Enter and Space; focus remains visible.
 - [ ] Keyboard-layout selection changes the system keyboard layout without
       requiring a mouse or restarting the interface.
-- [ ] The root-terminal action opens tty2; exiting the shell returns the
+- [ ] The GTK root-terminal action opens tty2; exiting the shell returns the
       display to tty1. The root shell has no password prompt, so restrict
       physical access to the appliance.
 - [ ] The interface can call only the validated helper through its scoped
