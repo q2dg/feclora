@@ -25,6 +25,10 @@ grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/fe
   || fail "Kickstart must install the current tty1 UI service."
 grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready"' "$KS" \
   || fail "Kickstart must install the Textual first-render readiness helper."
+grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service" "$TARGET_ROOT/etc/systemd/system/feclora-gtk.service"' "$KS" \
+  || fail "The candidate GTK kiosk unit must be staged in the image."
+grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-gtk-ready"' "$KS" \
+  || fail "The candidate GTK first-render helper must be staged in the image."
 grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service' "$KS" \
   || fail "Textual must remain the production boot UI until GTK/Weston acceptance."
 if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
