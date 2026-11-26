@@ -147,6 +147,28 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"provide_capture_passphrase"', accepted)
         self.assertIn('"passphrase": passphrase', accepted)
 
+    def test_restore_and_clone_operations_initialize_optional_capture_secret(self):
+        method_node = self.methods["_start_disk_capture"]
+        method = ast.get_source_segment(self.source, method_node)
+        assignments = [
+            statement for statement in method_node.body
+            if isinstance(statement, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "capture_passphrase" for target in statement.targets)
+        ]
+        submit_calls = [
+            node for node in ast.walk(method_node)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "_submit_capture_operation"
+            and any(keyword.arg == "passphrase" for keyword in node.keywords)
+        ]
+        self.assertTrue(assignments, "the optional passphrase must be initialized on every operation path")
+        self.assertTrue(submit_calls, "restore/clone submissions must keep the shared passphrase argument safe")
+        self.assertLess(assignments[0].lineno, submit_calls[0].lineno)
+        self.assertIn("if kind != 0 or self.capture_format.get_selected() != 0:", method)
+        self.assertIn("self.capture_passphrase.set_text(\"\")", method)
+
+
     def test_capture_completion_refreshes_inventory_and_image_catalog(self):
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         self.assertIn('status.get("operation_id") not in (None, operation_id)', status)
