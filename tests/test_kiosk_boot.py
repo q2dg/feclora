@@ -11,15 +11,13 @@ class KioskBootConfigurationTests(unittest.TestCase):
     def read(self, relative: str) -> str:
         return (ROOT / relative).read_text(encoding="utf-8")
 
-    def test_gtk_weston_is_production_and_textual_is_not_enabled(self):
+    def test_gtk_weston_is_the_only_production_interface(self):
         service = self.read("src/feclora/data/feclora-gtk.service")
         kickstart = self.read("kickstart/feclora-live.ks")
         self.assertIn("ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk", service)
         self.assertIn('enable feclora-gtk.service feclora-root-terminal.service', kickstart)
-        self.assertNotIn('enable feclora-tui.service', kickstart)
         self.assertIn('etc/systemd/system/feclora-gtk.service', kickstart)
         self.assertIn('usr/libexec/feclora/feclora-gtk-ready', kickstart)
-        self.assertNotIn('install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service"', kickstart)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").exists())
 
     def test_official_fedora_gtk_weston_stack_is_selected(self):
@@ -34,8 +32,8 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("-xorg-x11-server-Xorg", kickstart)
         self.assertNotIn("xorg-x11-server-Xwayland", base)
         self.assertNotIn("xorg-x11-server-Xorg", base)
-        self.assertIn("\npython3-textual\n", kickstart)  # retained temporarily for rollback
-        self.assertIn("\npython3-textual\n", base)
+        self.assertNotIn("\npython3-textual\n", kickstart)
+        self.assertNotIn("\npython3-textual\n", base)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").is_file())
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk-ready").is_file())
 
@@ -94,15 +92,6 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("self.window.fullscreen()", frontend)
         self.assertIn("Idioma de la interfaz", frontend)
         self.assertIn("Distribución del teclado", frontend)
-
-    def test_weston_target_uses_official_fedora_packages_without_xwayland_server(self):
-        migration = self.read("docs/GTK4-MIGRATION.md")
-        self.assertIn("Fedora 45's official runtime RPMs", migration)
-        self.assertIn("xorg-x11-server-Xwayland", migration)
-        self.assertIn("The presence of optional X11 client backends", migration)
-        self.assertIn("does not mean an X server is installed or running", migration)
-        self.assertIn("--no-config -B drm --shell=kiosk-shell.so", migration)
-        self.assertIn("The Kickstart now enables `feclora-gtk.service` on tty1", migration)
 
     def test_qemu_boot_smoke_waits_for_rendered_interface(self):
         smoke = self.read("tests/vm/run-boot-smoke.py")
