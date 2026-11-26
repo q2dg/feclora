@@ -99,8 +99,10 @@ class ArtifactWriterTests(unittest.TestCase):
                 self.killed = True
 
         process = StubbornProcess()
-        with patch("feclora.storage.artifact_writer.shutil.which", return_value="/usr/bin/zstd"), \\
-             patch("feclora.storage.artifact_writer.subprocess.Popen", return_value=process):
+        with (
+            patch("feclora.storage.artifact_writer.shutil.which", return_value="/usr/bin/zstd"),
+            patch("feclora.storage.artifact_writer.subprocess.Popen", return_value=process),
+        ):
             with self.assertRaisesRegex(ArtifactWriteError, "compression failed"):
                 write_artifact(
                     self.temp.name, "stubborn.zst", io.BytesIO(self.payload),
