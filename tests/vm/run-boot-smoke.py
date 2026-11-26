@@ -157,10 +157,6 @@ def _run_guest(
                                     f"{firmware}: GTK rendered its initial window on tty1."
                                 )
                                 return
-                            if event == "FECLORA_BOOT_SMOKE rendered":
-                                raise RuntimeError(
-                                    f"{firmware} ISO booted the legacy Textual UI, not the GTK kiosk."
-                                )
                     raise TimeoutError(
                         f"{firmware} guest did not report its initial GTK window render within {timeout}s.\n"
                         f"Last guest status: {last_event}\n{_tail(log)}"
