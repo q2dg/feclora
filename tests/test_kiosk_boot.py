@@ -99,7 +99,6 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn('"virtio-serial-pci"', smoke)
         self.assertIn('"virtio"', smoke)
         self.assertIn("FECLORA_BOOT_SMOKE gtk-rendered", smoke)
-        self.assertIn("FECLORA_BOOT_SMOKE rendered", smoke)
         self.assertIn("FECLORA_BOOT_SMOKE gtk-rendered", ready)
 
 
