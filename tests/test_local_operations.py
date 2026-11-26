@@ -1,3 +1,4 @@
+import fcntl
 import os
 from pathlib import Path
 import tempfile
@@ -322,6 +323,18 @@ class LocalOperationStoreTests(unittest.TestCase):
                     "bundle_name": "fleet-bundle", "repository_id": "primary",
                 },
             })
+
+    def test_events_take_shared_lock_for_consistent_snapshot(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            operation_id = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False,
+            })
+            from unittest.mock import patch
+            with patch("feclora.storage.local_operations.fcntl.flock", wraps=fcntl.flock) as lock:
+                store.events(operation_id)
+            self.assertTrue(any(call.args[1] == fcntl.LOCK_SH for call in lock.call_args_list))
 
     def test_enforces_state_machine_and_hash_chain(self):
         with tempfile.TemporaryDirectory() as root:
