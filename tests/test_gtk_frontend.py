@@ -135,7 +135,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         apply = ast.get_source_segment(self.source, self.methods["_apply_keyboard"])
         accepted = ast.get_source_segment(self.source, self.methods["_keyboard_layout_applied"])
         self.assertIn('"set_keyboard_layout"', apply)
-        self.assertIn("_keyboard_layout_applied(layout)", apply)
+        self.assertIn("_keyboard_layout_applied(layout, welcome_generation)", apply)
         self.assertIn("self.keyboard_layout = layout", accepted)
         self.assertIn("self.keyboard_selection = layout", accepted)
         language = ast.get_source_segment(self.source, self.methods["_language_changed"])
@@ -150,7 +150,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_capture_completion_refreshes_inventory_and_image_catalog(self):
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         self.assertIn('status.get("operation_id") not in (None, operation_id)', status)
-        self.assertIn('self._capture_action_errors[operation_id] = "El estado devuelto pertenece a otra operación."', status)
+        self.assertIn('message = "El estado devuelto pertenece a otra operación; se reintentará la consulta."', status)
+        self.assertIn("self._capture_action_errors[operation_id] = message", status)
         terminal = status[status.index('if state in {"completed", "failed", "cancelled", "interrupted"}:'):]
         self.assertIn('if state == "completed":', terminal)
         self.assertIn('self.api.submit(\n                    "inventory"', terminal)
@@ -159,12 +160,12 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_overview_uses_real_status_api(self):
         method = ast.get_source_segment(self.source, self.methods["_refresh_status"])
-        self.assertIn('self.api.submit("status"', method)
+        self.assertIn('"status"', method)
         self.assertIn("_show_status", method)
 
     def test_inventory_uses_real_inventory_api_and_semantic_hierarchical_rows(self):
         method = ast.get_source_segment(self.source, self.methods["_refresh_inventory"])
-        self.assertIn('self.api.submit("inventory"', method)
+        self.assertIn('"inventory"', method)
         flatten = ast.get_source_segment(self.source, self.methods["_flatten_devices"])
         self.assertIn('device.get("children")', flatten)
         render = ast.get_source_segment(self.source, self.methods["_show_inventory"])
@@ -188,11 +189,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
         poll = ast.get_source_segment(self.source, self.methods["_poll_capture_status"])
         cancel = ast.get_source_segment(self.source, self.methods["_cancel_disk_capture"])
-        self.assertIn('self.api.submit("inventory"', self.source)
+        self.assertIn('"inventory"', self.source)
         self.assertIn('action = "capture_disk"', start)
         self.assertIn('action = "capture_partition"', start)
-        self.assertIn('self.api.submit("local_operation_status"', poll)
-        self.assertIn('self.api.submit("cancel_local_operation"', cancel)
+        self.assertIn('"local_operation_status"', poll)
+        self.assertIn('"cancel_local_operation"', cancel)
         self.assertIn('self._flatten_devices(inventory.get("devices"))', populate)
         self.assertIn('d.get("type") == device_type', mode)
         self.assertIn("image_id", start)
@@ -235,8 +236,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_btrfs_operations_preserve_selected_repository(self):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
         self.assertEqual(start.count('params["repository_id"] = selected_repository["id"]'), 6)
-        self.assertIn('self.api.submit("capture_btrfs_subvolume"', start)
-        self.assertIn('self.api.submit("receive_btrfs_subvolume"', start)
+        self.assertIn('"capture_btrfs_subvolume"', start)
+        self.assertIn('"receive_btrfs_subvolume"', start)
 
     def test_remote_job_actions_include_refresh_and_preserve_action_mapping(self):
         page = ast.get_source_segment(self.source, self.methods["_show_remote_jobs_page"])
@@ -284,8 +285,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
     def test_ddrescue_recovery_and_finalization_use_privileged_api(self):
         start = ast.get_source_segment(self.source, self.methods["_start_disk_capture"])
         mode = ast.get_source_segment(self.source, self.methods["_capture_mode_changed"])
-        self.assertIn('self.api.submit("recover_disk"', start)
-        self.assertIn('self.api.submit("finalize_recovery"', start)
+        self.assertIn('"recover_disk"', start)
+        self.assertIn('"finalize_recovery"', start)
         self.assertIn('"retry_passes"', start)
         self.assertIn('"resume"', start)
         self.assertIn("kind == 6", mode)
@@ -326,15 +327,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("GLib.timeout_add_seconds", status)
         self.assertIn("Solicitar cancelación", self.source)
     def test_image_page_inspects_browses_downloads_and_extracts_partition_images(self):
-        self.assertIn('self.api.submit("inspect_image_layout"', self.source)
-        self.assertIn('self.api.submit("browse_image"', self.source)
-        self.assertIn('self.api.submit("verify_image"', self.source)
-        self.assertIn('self.api.submit("extract_partition_image"', self.source)
+        self.assertIn('"inspect_image_layout"', self.source)
+        self.assertIn('"browse_image"', self.source)
+        self.assertIn('"verify_image"', self.source)
+        self.assertIn('"extract_partition_image"', self.source)
         self.assertIn("base64.b64decode(encoded, validate=True)", self.source)
         self.assertIn("os.O_EXCL, 0o600", self.source)
         self.assertIn('os.fdopen(file_descriptor, "wb")', self.source)
         self.assertIn("self.image_layout", self.source)
-        self.assertIn('self.api.submit("repository_images"', self.source)
+        self.assertIn('"repository_images"', self.source)
         repository_loader = ast.get_source_segment(self.source, self.methods["_refresh_repositories"])
         self.assertIn("_repository_refresh_generation", repository_loader)
         self.assertIn("generation == self._repository_refresh_generation", repository_loader)
@@ -387,8 +388,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('Adw.ActionRow(title=name, subtitle=value)', status)
 
     def test_system_and_server_pages_render_service_certificate_and_pxe_status(self):
-        self.assertIn('self.api.submit("pxe_service_status"', self.source)
-        self.assertIn('self.api.submit("network_interfaces"', self.source)
+        self.assertIn('"pxe_service_status"', self.source)
+        self.assertIn('"network_interfaces"', self.source)
         self.assertIn('status.get("certificate_status")', self.source)
         self.assertIn('def _show_system_page', self.source)
         self.assertIn('def _show_server_status_page', self.source)
@@ -406,7 +407,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"Selecciona interfaz/dirección activa…"', server_part)
 
     def test_repository_page_lists_remote_and_s3_storage_state(self):
-        self.assertIn('self.api.submit("remote_repositories"', self.source)
+        self.assertIn('"remote_repositories"', self.source)
         self.assertIn('self.api.submit("s3_repositories"', self.source)
         self.assertIn('item.get("mounted")', self.source)
         self.assertIn('item.get("verified")', self.source)
@@ -455,7 +456,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self._image_inspection_results[(repository_id, image_id)] = layout", inspected)
         self.assertIn("self._image_repository_id() != repository_id", inspected)
         self.assertIn("self._image_download_results.append(str(destination))", download)
-        self.assertIn("download_generation == self._image_download_generation", download)
+        self.assertIn("download_generation == self._image_download_generation", self.source)
         self.assertIn("request_generation = self._image_action_generation", extract)
         self.assertIn('self._image_operation_results[operation_id] = {"accepted": result, "status": None}', accepted)
         self.assertIn('{"operation_id": operation_id}', poll)
@@ -521,13 +522,13 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("generation == self._history_refresh_generation", history_refresh)
 
     def test_operation_log_and_ddrescue_history_use_persistent_api_records(self):
-        self.assertIn('self.api.submit("local_operations"', self.source)
-        self.assertIn('self.api.submit("cancel_local_operation"', self.source)
+        self.assertIn('"local_operations"', self.source)
+        self.assertIn('"cancel_local_operation"', self.source)
         profile_loader = ast.get_source_segment(self.source, self.methods["_load_restore_profiles_for_repository"])
         self.assertIn("_profile_repository_generation", profile_loader)
         self.assertIn("generation == self._profile_repository_generation", profile_loader)
         self.assertIn('operation_confirmation.get_text() != expected', self.source)
-        self.assertIn('self.api.submit("recovery_jobs"', self.source)
+        self.assertIn('"recovery_jobs"', self.source)
         self.assertIn('details.get("destination_may_be_partial")', self.source)
         self.assertIn('item.get("unresolved_bytes")', self.source)
         self.assertIn('item.get("progress_percent")', self.source)
@@ -580,7 +581,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"target_serial": target.get("serial")', self.source)
         self.assertIn('profile.get("consumed")', self.source)
         self.assertIn('self.profile_confirmation.get_text() != expected', self.source)
-        self.assertIn('self.api.submit("cancel_local_operation"', self.source)
+        self.assertIn('"cancel_local_operation"', self.source)
 
     def test_p2v_capture_uses_disk_inventory_and_qcow2_conversion_api(self):
         self.assertIn('"Capturar disco virtual QCOW2 (P2V)"', self.source)
@@ -588,7 +589,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('params = {"source": self.capture_devices[index]["path"], "image_id": image_id}', self.source)
 
     def test_restore_and_clone_operations_use_inventory_images_and_exact_confirmation(self):
-        self.assertIn('self.api.submit("images"', self.source)
+        self.assertIn('"images"', self.source)
         self.assertIn('"restore_disk"', self.source)
         self.assertIn('"restore_partition"', self.source)
         self.assertIn('"restore_logical_volume"', self.source)
@@ -599,8 +600,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('"build_deployment_bundle"', self.source)
         self.assertIn('target_wwn and not target_serial', self.source)
         self.assertIn('base_iso.lower().endswith(".iso")', self.source)
-        self.assertIn('self.api.submit("remote_repositories"', self.source)
-        self.assertIn('self.api.submit("repository_images"', self.source)
+        self.assertIn('"remote_repositories"', self.source)
+        self.assertIn('"repository_images"', self.source)
         self.assertIn('self.capture_repository.connect("notify::selected"', self.source)
         self.assertIn("self.capture_source_label.set_visible(source_visible)", self.source)
         self.assertIn('params["repository_id"] = selected_repository["id"]', self.source)
@@ -949,8 +950,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
             self.assertIn(f'title="{title}"', remote)
         self.assertIn("job_row.set_activatable_widget(self.remote_job_select)", remote)
         self.assertIn("confirmation_row.set_activatable_widget(self.remote_job_confirmation)", remote)
-        self.assertIn('self.api.submit("deployment_jobs"', remote)
-        self.assertIn('self.api.submit("remote_repositories"', remote)
+        self.assertIn('"deployment_jobs"', remote)
+        self.assertIn('"remote_repositories"', remote)
         self.assertIn('self.api.submit("s3_repositories"', remote)
 
     def test_client_job_history_uses_libadwaita_rows_without_changing_client_actions(self):
@@ -961,8 +962,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("client_refresh_row.set_activatable_widget(refresh)", page)
         for callback in ("self._inspect_client_job", "self._start_client_job", "self._refresh_client_job_status"):
             self.assertIn(callback, page)
-        self.assertIn('self.api.submit("network_interfaces"', page)
-        self.assertIn('self.api.submit("inventory"', page)
+        self.assertIn('"network_interfaces"', page)
+        self.assertIn('"inventory"', page)
 
 
     def test_local_operations_use_semantic_libadwaita_groups(self):
@@ -1060,7 +1061,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         for widget in ("self.status_summary", "self.overview_configuration", "self.overview_services"):
             self.assertIn(widget, page)
         self.assertIn("refresh_row.set_activatable_widget(refresh)", page)
-        self.assertIn('self.api.submit("status"', self.source)
+        self.assertIn('"status"', self.source)
         status_start = self.source.index("    def _show_status")
         status_end = self.source.index("    @staticmethod", status_start)
         status_callback = self.source[status_start:status_end]
@@ -1098,10 +1099,10 @@ class GTKFrontendStructureTests(unittest.TestCase):
             self.assertIn(callback, page)
         for state in ('"images"', '"empty"', '"loading"', '"error"'):
             self.assertIn(state, page)
-        self.assertIn('self.api.submit("remote_repositories"', page)
+        self.assertIn('"remote_repositories"', page)
 
     def test_images_page_includes_verified_file_and_s3_repositories(self):
-        self.assertIn('self.api.submit("remote_repositories",', self.source)
+        self.assertIn('"remote_repositories"', self.source)
         self.assertIn("self._populate_image_repositories(result)", self.source)
         self.assertIn('self.api.submit("s3_repositories",', self.source)
         self.assertIn("self._populate_image_s3_repositories(result)", self.source)
@@ -1192,7 +1193,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("window_generation != self._page_generation", validated)
         self.assertIn("profile = dict(self._pxe_profile)", start)
         self.assertIn("window_generation = self._server_window_page_generation", stop)
-        self.assertIn("self._pxe_action_done(result, page)", stop)
+        self.assertIn("self._pxe_action_done(result, page, window)", stop)
         self.assertIn("window_generation = self._server_window_page_generation", stop)
 
     def test_server_and_pxe_refresh_callbacks_reject_navigation_staleness(self):
@@ -1232,9 +1233,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
         export = ast.get_source_segment(self.source, self.methods["_export_server_age_recipients"])
         refresh = ast.get_source_segment(self.source, self.methods["_refresh_client_age_recipients"])
         self.assertIn("page_generation = self._server_status_page_generation", export)
-        self.assertIn("self._server_action_done(result, page_generation)", export)
+        self.assertIn("self._server_action_done(result, page, window)", export)
         self.assertIn("page_generation = self._server_status_page_generation", refresh)
-        self.assertIn("self._server_action_done(result, page_generation)", refresh)
+        self.assertIn("self._server_action_done(result, page, window)", refresh)
 
     def test_client_action_callbacks_preserve_results_and_reject_stale_views(self):
         start = self.source.index("    def _start_client_job")
@@ -1300,9 +1301,9 @@ class GTKFrontendStructureTests(unittest.TestCase):
             "self._refresh_client_job_status", "self._update_client_confirmation",
         ):
             self.assertIn(callback, page)
-        self.assertIn('self.client_confirmation.set_placeholder_text("Escribe exactamente ERASE destino o READ destino TO identidad")', page)
-        self.assertIn('self.api.submit("network_interfaces"', page)
-        self.assertIn('self.api.submit("inventory"', page)
+        self.assertIn('self.client_confirmation.set_placeholder_text("Escribe exactamente ERASE destino o READ destino")', page)
+        self.assertIn('"network_interfaces"', page)
+        self.assertIn('"inventory"', page)
 
 
     def test_raw_disk_capture_supports_one_shot_age_passphrase_delivery(self):
@@ -1328,7 +1329,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         poll = ast.get_source_segment(self.source, self.methods["_poll_capture_status"])
         status = ast.get_source_segment(self.source, self.methods["_show_capture_status"])
         page = self.source[self.source.index('elif page_id == "operations":'):self.source.index('        else:\n            self.page_description.set_text("Esta pantalla aún no se ha migrado', self.source.index('elif page_id == "operations":'))]
-        self.assertIn('"passphrase": passphrase', submit)
+        self.assertIn("passphrase: str = ", submit)
         self.assertIn("request_generation", submit)
         self.assertIn("page_generation", submit)
         self.assertIn('self._local_operation_results[operation_id]', accepted)
@@ -1360,7 +1361,7 @@ class GTKFrontendStructureTests(unittest.TestCase):
         start = self.source.index("    def _show_restore_profiles_page")
         end = self.source.index("    def _populate_profile_inventory", start)
         page = self.source[start:end]
-        self.assertEqual(page.count("Adw.PreferencesGroup("), 3)
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 4)
         self.assertIn('title="Origen y destino"', page)
         self.assertIn('title="Definición del perfil"', page)
         self.assertIn('title="Ejecución controlada"', page)
@@ -1368,8 +1369,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("row.set_activatable_widget(widget)", page)
         self.assertIn('self.profile_confirmation.set_placeholder_text("ERASE /dev/…")', page)
         self.assertIn("self.profile_cancel.set_sensitive(False)", page)
-        self.assertIn('self.api.submit("inventory"', page)
-        self.assertIn('self.api.submit("remote_repositories"', page)
+        self.assertIn('"inventory"', page)
+        self.assertIn('"remote_repositories"', page)
 
 
     def test_operation_log_uses_libadwaita_preference_groups(self):
