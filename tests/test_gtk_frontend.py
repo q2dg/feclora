@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -63,10 +66,29 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', self.source)
 
-    def test_wayland_environment_is_set_before_gtk_import(self):
+    def test_wayland_environment_is_set_and_required_before_gtk_import(self):
         gtk_import = self.source.index("import gi")
-        self.assertLess(self.source.index('os.environ["GDK_BACKEND"] = "wayland"'), gtk_import)
-        self.assertLess(self.source.index('os.environ.pop("DISPLAY", None)'), gtk_import)
+        backend = self.source.index('os.environ["GDK_BACKEND"] = "wayland"')
+        display_cleanup = self.source.index('os.environ.pop("DISPLAY", None)')
+        display_guard = self.source.index('if not os.environ.get("WAYLAND_DISPLAY"):')
+        self.assertLess(backend, gtk_import)
+        self.assertLess(display_cleanup, gtk_import)
+        self.assertLess(display_guard, gtk_import)
+        self.assertIn("raise RuntimeError(", self.source[display_guard:gtk_import])
+
+    def test_import_fails_without_wayland_display_before_loading_gi(self):
+        environment = os.environ.copy()
+        environment.pop("WAYLAND_DISPLAY", None)
+        environment["DISPLAY"] = ":99"
+        source_root = str(Path("src").resolve())
+        environment["PYTHONPATH"] = source_root + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", "import feclora.gui_gtk"],
+            cwd=Path.cwd(), env=environment, capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("WAYLAND_DISPLAY is unset", result.stderr)
+        self.assertNotIn("No module named 'gi'", result.stderr)
 
     def test_validator_checks_all_contracts_before_reporting_success(self):
         validator = Path("build/validate.sh").read_text(encoding="utf-8")
