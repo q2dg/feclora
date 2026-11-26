@@ -110,12 +110,7 @@ else:
             check=False,
         )
 
-    def test_accepts_wayland_only_runtime_rpms(self):
-        result = self._run()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Wayland kiosk RPM audit passed", result.stdout)
-
-    def test_accepts_optional_x11_backends_and_client_libraries(self):
+    def test_accepts_official_fedora_runtime_rpms_with_optional_x11_support(self):
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Wayland kiosk RPM audit passed", result.stdout)
@@ -125,7 +120,7 @@ else:
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Xwayland server executable", result.stderr)
+        self.assertIn("Xorg/XWayland server executable", result.stderr)
 
     def test_rejects_xorg_server_executable(self):
         self.records["weston.rpm"]["files"].append("/usr/bin/Xorg")
@@ -151,6 +146,14 @@ else:
         self._write_database()
         extra = self.rpm_paths[4]
         result = self._run([*self.rpm_paths[:4], extra])
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_accepts_newer_fedora45_gtk_update_without_rebuild(self):
+        self.records["gtk4.rpm"]["version"] = "4.24.2"
+        self.records["gtk4.rpm"]["release"] = "1.fc45"
+        self.records["gtk4.rpm"]["source"] = "gtk4-4.24.2-1.fc45.src.rpm"
+        self._write_database()
+        result = self._run()
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_non_fedora45_source_release(self):
