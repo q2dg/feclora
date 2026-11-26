@@ -9,7 +9,7 @@ correctness and storage safety take priority over feature count.
 - Read the relevant operator documentation and the current
   [roadmap](docs/ROADMAP.md) and [feature matrix](docs/FEATURE-MATRIX.md).
 - Check the relevant architecture and protocol documentation before changing persisted formats, trust boundaries or wire behavior.
-- Keep the keyboard-first Textual interface as the primary operator interface.
+- Keep the keyboard-first GTK interface as the primary operator interface.
   Privileged operations belong behind the allowlisted API helper; UI code must
   not execute privileged commands or construct arbitrary shell commands.
 - Preserve compatibility deliberately. If a persisted journal, manifest,
@@ -32,7 +32,7 @@ correctness and storage safety take priority over feature count.
   and other transports accurately.
 - Prefer small, independently testable modules. Avoid unrelated refactors and
   preserve historical ADRs.
-- Update the Textual UI, API validation, automated tests, operator docs,
+- Update the GTK UI, API validation, automated tests, operator docs,
   feature matrix, and roadmap together when a feature crosses those layers.
 
 ## Validation
@@ -45,12 +45,10 @@ make validate
 
 This includes static project and documentation checks, Python compilation and
 the hardware-independent `unittest` suite. Use `make test` only to rerun the
-unit tests on their own. UI tests require the pinned Textual dependency from
-`requirements-test.txt`; install it in a virtual environment as described in
-[the build guide](docs/BUILD.md).
+unit tests on their own. UI tests require the GTK is provided by Fedora system packages in the Live image; the hardware-independent tests use the standard library and controlled test doubles.
 
 Changes to shell scripts must pass Bash syntax validation and ShellCheck.
-Changes to the TUI must pass its interaction tests. CI must pass on the exact
+Changes to the GTK must pass its interaction tests. CI must pass on the exact
 commit being proposed.
 
 ## Storage and deployment safety
@@ -70,7 +68,7 @@ commit being proposed.
 
 Document new operator-visible behavior, prerequisites, warnings, recovery
 procedures, and limitations. Mark a roadmap item complete only when its
-implementation, Textual integration where applicable, and automated
+implementation, GTK integration where applicable, and automated
 non-destructive validation are complete. Keep hardware acceptance explicitly
 separate.
 
