@@ -19,7 +19,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertNotIn('enable feclora-tui.service', kickstart)
         self.assertIn('etc/systemd/system/feclora-gtk.service', kickstart)
         self.assertIn('usr/libexec/feclora/feclora-gtk-ready', kickstart)
-        self.assertNotIn('feclora-tui.service\"', kickstart)
+        self.assertNotIn('install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service"', kickstart)
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk.service").exists())
 
     def test_official_fedora_gtk_weston_stack_is_selected(self):
