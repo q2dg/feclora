@@ -12,9 +12,9 @@ class KioskBootConfigurationTests(unittest.TestCase):
         return (ROOT / relative).read_text(encoding="utf-8")
 
     def test_gtk_weston_is_production_and_textual_is_not_enabled(self):
-        service = self.read("src/feclora/data/feclora-tui.service")
+        service = self.read("src/feclora/data/feclora-gtk.service")
         kickstart = self.read("kickstart/feclora-live.ks")
-        self.assertIn("ExecStart=/usr/bin/python3 -m feclora.tui", service)
+        self.assertIn("ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk", service)
         self.assertIn('enable feclora-gtk.service feclora-root-terminal.service', kickstart)
         self.assertNotIn('enable feclora-tui.service', kickstart)
         self.assertIn('etc/systemd/system/feclora-gtk.service', kickstart)
