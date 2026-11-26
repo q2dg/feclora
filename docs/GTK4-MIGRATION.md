@@ -6,12 +6,14 @@ The production boot route remains Textual on tty1. The earlier experimental
 Cage boot configuration has been withdrawn: Cage is not the requested
 compositor. The GTK kiosk service is staged but not enabled. The replacement
 target is Weston DRM/KMS with `kiosk-shell`, launching the GTK welcome screen
-fullscreen for language and keyboard selection. GTK source covers all 14
-navigation pages, but several still have read-only or incomplete controls;
-page presence is not feature parity. Textual will remain the production
-interface during the audit, not as a permanent fallback. Once behavioral
-parity, Fedora runtime package integration, VM testing and BIOS/UEFI
-acceptance are proven, the final cutover will remove Textual completely.
+fullscreen for language and keyboard selection. GTK source now contains
+routes and views for all 14 navigation pages and the full 18-operation local
+operation selector. The GTK structural suite checks that every catalogue page
+has an explicit route, and separately checks the privileged API action surface.
+This is source-level coverage, not proof of runtime behavioral parity:
+the GTK/Wayland session, operator workflows and BIOS/UEFI boot acceptance still
+require execution in the target image. Textual remains the production interface
+until those acceptance gates pass; it is not a permanent fallback.
 The shared catalogue contains all 25 languages.
 
 A source-level API audit found that every one of the 49 literal
