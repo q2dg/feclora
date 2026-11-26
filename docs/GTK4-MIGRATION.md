@@ -206,10 +206,13 @@ Do not work around seat permissions by running Weston as root or by making
 
 A candidate unit now defines the intended Weston DRM/KMS + kiosk-shell
 session on tty1 and launches `feclora.gui_gtk` as the unprivileged
-`feclora` user. It requests a PAM login session so logind/libseat can grant
-the active VT and DRM access; that exact `PAMName=login` arrangement,
-XDG_RUNTIME_DIR creation, seat activation and input/DRM handoff still require
-VM verification. The unit and its GTK-specific first-render helper are now staged in the image,
+`feclora` user. It requests a PAM login session, explicitly selects libseat's
+logind backend, and removes inherited `DISPLAY`/`XAUTHORITY` so the
+compositor cannot accidentally inherit an X11 session. The exact
+`PAMName=login` arrangement, PAM-created `XDG_RUNTIME_DIR`, seat activation
+and input/DRM handoff still require VM verification. The `feclora` account
+remains locked with `/sbin/nologin`; the service executes Weston directly
+rather than opening an interactive shell. The unit and its GTK-specific first-render helper are now staged in the image,
 but Kickstart deliberately does not enable the unit or change the current boot
 route. The VM smoke protocol
 now distinguishes a GTK window-render event from the legacy Textual event.
