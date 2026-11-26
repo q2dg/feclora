@@ -52,6 +52,19 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("self.navigation_rows[page_id] = row", method)
         self.assertNotIn("Gtk.Button(label=self.tr(PAGE_MESSAGE_KEYS[page_id]))", method)
 
+    def test_every_catalog_navigation_page_has_a_gtk_route(self):
+        catalog = ast.parse(Path("src/feclora/ui_catalog.py").read_text(encoding="utf-8"))
+        pages_node = next(
+            node for node in catalog.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "PAGES" for target in node.targets)
+        )
+        pages = ast.literal_eval(pages_node.value)
+        select = ast.get_source_segment(self.source, self.methods["_select_page"])
+        for page_id, _label in pages:
+            with self.subTest(page_id=page_id):
+                self.assertIn(f'page_id == "{page_id}"', select)
+
     def test_navigation_marks_the_current_page_in_sidebar(self):
         show = ast.get_source_segment(self.source, self.methods["_show_navigation"])
         select = ast.get_source_segment(self.source, self.methods["_select_page"])
