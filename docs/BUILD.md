@@ -63,9 +63,10 @@ and runs `livemedia-creator` with QEMU virtualization. The resulting
 absence of Plymouth from the shipped boot initramfs. The Live image currently boots the unprivileged Textual interface on tty1
 after visible kernel/systemd messages. GTK4 is being migrated as the replacement
 frontend. The target compositor is Weston DRM/KMS with `kiosk-shell`; Cage is
-not used. Weston, GTK4 and libadwaita will only enter the image as Fedora-matched
-X11-disabled builds after package inspection and behavioral parity. Textual
-remains the production UI until the final Weston/GTK cutover.
+not used. The Kickstart now installs Fedora's official Weston, GTK4, libadwaita
+and PyGObject RPMs. The separate XWayland server package is not installed.
+The GTK systemd unit remains staged but disabled; Textual remains the production
+UI until GTK behavioral parity and graphical boot acceptance are complete.
 
 SELinux permissive mode remains the diagnostic default and adds `enforcing=0`
 to the ISO boot arguments. Use `FECLORA_SELINUX_PERMISSIVE=0` to build an
@@ -118,7 +119,8 @@ Only use disposable virtual disks for destructive-workflow acceptance.
 Never attach a host system disk to a test VM.
 
 The GTK/Weston boot route has not been enabled. Keep Textual as the production
-interface until behavioral parity, Fedora 45-matched X11-disabled Weston/GTK4
-and libadwaita packages, VM testing and BIOS/UEFI acceptance all pass. The
+interface until behavioral parity, VM testing and BIOS/UEFI acceptance all pass.
+The image already contains Fedora's official Weston/GTK4/libadwaita runtime
+packages; the XWayland server package is intentionally excluded. The
 final cutover replaces Textual and removes its code, package, service, tests
 and obsolete boot checks; it will not remain as a fallback.
