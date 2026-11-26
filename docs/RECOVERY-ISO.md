@@ -79,11 +79,11 @@ On the Feclora Live environment or other supported host that runs the builder:
 Keep the base ISO, image artifacts and output on filesystems with sufficient
 space. Do not use a physical disk or block device as the output path.
 
-## Textual procedure
+## GTK procedure
 
 In a deployed Feclora Live version with the recovery workflow installed:
 
-1. Open Textual and select **Build a self-contained recovery ISO**.
+1. Open GTK and select **Build a self-contained recovery ISO**.
 2. Enter the absolute path to the trusted Feclora Live base `.iso` file. The
    path must be readable by the Feclora service.
 3. Select the repository containing the image set. It must be a writable local
@@ -149,7 +149,7 @@ The production Feclora engine creates its own private temporary directory,
 validates the manifest and each artifact before invoking xorriso, replays the
 base boot catalog, checks the assembled ISO, fsyncs it and publishes it
 without overwriting an existing output. The illustrative command above is not
-a replacement for those validations or the Textual authorization path.
+a replacement for those validations or the GTK authorization path.
 
 ## Inspect the assembled ISO
 
