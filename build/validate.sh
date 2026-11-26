@@ -392,8 +392,10 @@ require_text 'Gtk\.DropDown\.new_from_strings\(\[label for label, _value in CLIE
 require_text 'compression_values = tuple\(value for _label, value in CLIENT_JOB_COMPRESSION\)' src/feclora/gui_gtk.py "GTK Client codec values must use the shared API-compatible list."
 require_text 'compression not in \{"none", "gzip", "xz"\}' src/feclora/api.py "Client compression choices must match the privileged API allowlist."
 require_text 'job\["operation"\] in \{"restore", "clone"\}' src/feclora/api.py "Client restore and clone must both require destructive target confirmation."
-require_text 'self\.client_encrypt\.set_sensitive\(job\.get\("operation"\) == "save"\)' src/feclora/gui_gtk.py "Client age encryption must only be available for save jobs."
-require_text 'self\.client_igmp\.set_sensitive\(job\.get\("transport"\) == "multicast" and job\.get\("operation"\) == "restore"\)' src/feclora/gui_gtk.py "Client IGMP confirmation must only be available for multicast restore jobs."
+require_text 'encryption_allowed = job\.get\("operation"\) == "save"' src/feclora/gui_gtk.py "Client age encryption must only be available for save jobs."
+require_text 'self\.client_encrypt\.set_sensitive\(encryption_allowed\)' src/feclora/gui_gtk.py "GTK must apply the Client age-encryption policy to the control."
+require_text 'igmp_allowed = job\.get\("transport"\) == "multicast" and job\.get\("operation"\) == "restore"' src/feclora/gui_gtk.py "Client IGMP confirmation must only be available for multicast restore jobs."
+require_text 'self\.client_igmp\.set_sensitive\(igmp_allowed\)' src/feclora/gui_gtk.py "GTK must apply the Client IGMP policy to the control."
 
 require_text 'add_group\\("Repositorios SSHFS, NFS y SMB/CIFS"' src/feclora/gui_gtk.py "GTK repository definitions must use a semantic libadwaita preferences group."
 require_text 'add_group\\("Repositorios S3"' src/feclora/gui_gtk.py "GTK S3 definitions must use a semantic libadwaita preferences group."
