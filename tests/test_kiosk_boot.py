@@ -30,6 +30,18 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertFalse((ROOT / "src/feclora/data/feclora-gtk.service").exists())
         self.assertFalse((ROOT / "src/feclora/data/feclora-gtk-ready").exists())
 
+    def test_fedora45_kmscon_cannot_own_application_or_maintenance_vts(self):
+        kickstart = self.read("kickstart/feclora-live.ks")
+        tui = self.read("src/feclora/data/feclora-tui.service")
+        terminal = self.read("src/feclora/data/feclora-root-terminal.service")
+        self.assertIn(
+            'mask kmsconvt@tty1.service kmsconvt@tty2.service kmsconvt@tty3.service kmsconvt@tty4.service kmsconvt@tty5.service kmsconvt@tty6.service',
+            kickstart,
+        )
+        self.assertIn("Conflicts=getty@tty1.service kmsconvt@tty1.service", tui)
+        self.assertIn("Conflicts=getty@tty2.service kmsconvt@tty2.service", terminal)
+        self.assertIn("After=systemd-logind.service kmsconvt@tty2.service", terminal)
+
     def test_gtk_source_is_native_wayland_and_fullscreen_but_not_boot_enabled(self):
         frontend = self.read("src/feclora/gui_gtk.py")
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', frontend)
