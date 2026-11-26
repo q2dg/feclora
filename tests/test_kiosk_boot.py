@@ -38,6 +38,20 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertTrue((ROOT / "src/feclora/data/feclora-gtk-ready").is_file())
 
 
+    def test_legacy_textual_runtime_artifacts_are_removed(self):
+        for relative in (
+            "src/feclora/tui.py",
+            "src/feclora/tui_api.py",
+            "src/feclora/data/feclora-tui.service",
+            "src/feclora/data/feclora-tui-ready",
+            "tests/test_tui.py",
+            "tests/test_tui_api.py",
+            "requirements-test.txt",
+            "docs/GTK4-MIGRATION.md",
+        ):
+            with self.subTest(path=relative):
+                self.assertFalse((ROOT / relative).exists())
+
     def test_gtk_production_uses_weston_wayland_and_waits_for_render(self):
         service = self.read("src/feclora/data/feclora-gtk.service")
         ready = self.read("src/feclora/data/feclora-gtk-ready")
