@@ -16,8 +16,10 @@ and [the build and acceptance runbook](docs/BUILD.md).
   manifest-backed images.
 - Restore verified images to compatible disks or existing partitions, with
   explicit destructive confirmation.
-- Clone local disks and partitions, or deploy to remote Clients using unicast
-  and UDPcast multicast workflows.
+- Clone local disks and partitions, or deploy images to remote Clients using
+  unicast or UDPcast multicast restore. Physical-disk multicast cloning is
+  documented separately and remains blocked pending persistent service/API
+  integration and end-to-end acceptance.
 - Use local, SSHFS, NFS, SMB/CIFS and S3-compatible image repositories.
 - Boot the same Live environment through PXE; optional unattended restore uses
   validated answer files and has a narrower scope than interactive PXE.
