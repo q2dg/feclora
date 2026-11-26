@@ -75,6 +75,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn("After=systemd-logind.service kmsconvt@tty2.service", terminal)
         self.assertIn("[Install]", terminal)
         self.assertIn("WantedBy=multi-user.target", terminal)
+        self.assertNotIn("ExecStartPre=+/usr/bin/chvt 2", terminal)
         self.assertIn("enable feclora-root-terminal.service", kickstart)
 
     def test_gtk_source_is_native_wayland_fullscreen_and_boot_enabled(self):
