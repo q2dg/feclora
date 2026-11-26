@@ -1,16 +1,14 @@
 # Feclora
 
 Feclora is a Fedora-based Live appliance for disk and partition imaging,
-local and remote cloning, recovery and network deployment. The current production interface remains Textual on tty1 while the GTK4/
-PyGObject/libadwaita migration is audited for complete behavioral parity.
-The target graphical stack is native Wayland using Weston DRM/KMS with
-Weston's kiosk shell; Cage is not part of the design. Textual will be removed
-only after all workflows, destructive-operation safeguards, tests and
-BIOS/UEFI acceptance have been demonstrated against GTK. The Wayland-only runtime uses Fedora's official Weston, GTK4 and libadwaita
-packages, with the Xorg and XWayland server packages excluded and GTK forced
-onto its native Wayland backend. Optional unused X11 client modules in the
-distribution RPMs are not launched. See
-[the GTK4 migration record](docs/GTK4-MIGRATION.md) for the acceptance gate.
+local and remote cloning, recovery and network deployment. Its production
+operator interface is GTK4/libadwaita running natively on Wayland through
+Weston DRM/KMS and Weston's kiosk shell on tty1; Cage is not used. The Live
+image uses Fedora's official Weston, GTK4 and libadwaita packages, excludes
+the Xorg and XWayland server packages, and forces GTK onto its native Wayland
+backend. Optional unused X11 client modules in distribution RPMs are not
+launched. See [the Fedora compatibility baseline](docs/FEDORA-45-COMPATIBILITY.md)
+and [the build and acceptance runbook](docs/BUILD.md).
 
 ## What it does
 
@@ -67,7 +65,7 @@ automated tests and build instructions.
 
 ## Built on
 
-Fedora, Python, GTK4, PyGObject, Textual, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
+Fedora, Python, GTK4, PyGObject, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
 dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and QEMU/KVM.
 
 ## License
