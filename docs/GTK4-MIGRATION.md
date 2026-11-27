@@ -37,7 +37,7 @@ can be inspected and tested.
 
 The required source baselines and Meson options are:
 
-\`\`\`text
+```text
 Cairo 1.18.6:
   -Dxlib=disabled -Dxcb=disabled -Dxlib-xcb=disabled
 
@@ -50,7 +50,7 @@ GTK 4.24.1:
 
 libadwaita 1.10.0:
   Rebuild against the custom GTK4 and Cairo RPMs.
-\`\`\`
+```
 
 ### Why Cairo must also be rebuilt
 
@@ -81,13 +81,13 @@ Fedora 45 host.
 Before incorporation, inspect every actual binary RPM, including the custom
 Cairo runtime/development packages, with:
 
-\`\`\`bash
-build/verify-wayland-rpms.sh \\
-  weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm \\
-  cairo.rpm cairo-gobject.rpm \\
-  build-deps/gtk4-devel.rpm \\
+```bash
+build/verify-wayland-rpms.sh \
+  weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm \
+  cairo.rpm cairo-gobject.rpm \
+  build-deps/gtk4-devel.rpm \
   build-deps/cairo-devel.rpm build-deps/cairo-gobject-devel.rpm
-\`\`\`
+```
 
 The verifier rejects:
 - xwayland.so, XWayland/Xorg executables, x11-backend.so and
@@ -110,11 +110,11 @@ capabilities. Static fixtures are not substitutes for actual RPM inspection.
 On a Fedora 45 x86_64 build host, install the host tools with make deps,
 then add the build user to the mock group and start a new login session:
 
-\`\`\`bash
+```bash
 sudo usermod -aG mock "$USER"
 # Log out and back in, then:
 make wayland-rpms
-\`\`\`
+```
 
 The build pipeline checks out these exact Fedora 45 dist-git release tags,
 rather than a moving branch head:
