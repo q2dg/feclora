@@ -16,7 +16,7 @@ Status meanings:
 - **Automated**: covered by hardware-independent tests or CI checks.
 - **Operator validation**: maintainer-run checks requiring ISO boot, physical media, network equipment, laboratory machines or live external services. These are separate from software CI, but they are required release-acceptance gates and must be recorded by the repository owner.
 
-| Area | Capability | Implementation | GTK | Verification |
+| Area | Capability | Implementation | GTK candidate | Verification |
 |---|---|---|---|---|
 | Boot | x86_64 BIOS | Build configuration present | N/A | Operator validation |
 | Boot | x86_64 UEFI | Build configuration present | N/A | Operator validation |
