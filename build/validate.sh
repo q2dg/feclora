@@ -26,7 +26,8 @@ for file in \
   tests/test_tui.py tests/test_tui_api.py tests/test_gtk_api.py \
   tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_api.py \
   tests/test_ui_catalog.py tests/test_wayland_rpm_guard.py \
-  tests/test_wayland_spec_patch.py tests/test_wayland_rpm_builder.py; do
+  tests/test_wayland_spec_patch.py tests/test_wayland_rpm_builder.py \
+  docs/GTK4-MIGRATION.md; do
   [[ -s "$file" ]] || fail "Required file is missing or empty: $file"
 done
 
@@ -36,6 +37,8 @@ if grep -Eq '(^|[[:space:]])(weston|weston-libs|gtk4|libadwaita)([[:space:]]|$)'
 fi
 grep -Fxq 'python3-textual' packages/base.txt || fail "Textual must remain installed until GTK acceptance is complete."
 grep -Fxq 'python3-textual' kickstart/feclora-live.ks || fail "Kickstart must retain Textual as the production UI."
+grep -Fxq 'python3-gobject' packages/base.txt || fail "Keep Fedora's system python3-gobject package; do not use pip for PyGObject."
+grep -Fxq 'python3-gobject' kickstart/feclora-live.ks || fail "Kickstart must retain Fedora's system python3-gobject package."
 
 bash -n build/*.sh
 bash build/validate-text-boot.sh
