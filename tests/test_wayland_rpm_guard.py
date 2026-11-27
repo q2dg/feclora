@@ -247,6 +247,13 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("reserved 99.fc45.feclora rebuild release", result.stderr)
 
+    def test_rejects_stock_epoch_graphics_rpm(self):
+        self.records["gtk4.rpm"]["epoch"] = "0"
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Feclora graphics RPM epoch 1", result.stderr)
+
     def test_rejects_wrong_upstream_version(self):
         self.records["gtk4.rpm"]["version"] = "4.24.2"
         self._write_database()
