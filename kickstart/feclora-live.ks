@@ -193,6 +193,7 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-loca
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service" "$TARGET_ROOT/etc/systemd/system/feclora-tui.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service" "$TARGET_ROOT/etc/systemd/system/feclora-gtk.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-wayland.pam" "$TARGET_ROOT/etc/pam.d/feclora-wayland"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-gtk-ready"
 chroot "$TARGET_ROOT" /usr/sbin/restorecon -F /etc/systemd/system/feclora-tui.service /usr/libexec/feclora/feclora-tui-ready /etc/systemd/system/feclora-gtk.service /usr/libexec/feclora/feclora-gtk-ready
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-root-terminal.service" "$TARGET_ROOT/etc/systemd/system/feclora-root-terminal.service"
