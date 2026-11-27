@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply the minimal Fedora 45 Meson switches for Feclora's no-X11 builds."""
+"""Apply the Fedora 45 Meson switches required for Feclora's strict no-X11 builds."""
 from __future__ import annotations
 
 import argparse
@@ -51,19 +51,17 @@ def patch_spec_text(package: str, source: str) -> str:
         ]
         if not meson_indexes:
             raise ValueError("spec %build section has no %meson invocation to patch")
-        for index in reversed(meson_indexes):
-            line = lines[index]
-            if line.rstrip().endswith("\\\\"):
-                injected = [f"  {flag} \\\\" for flag in flags]
-                injected[-1] = injected[-1].removesuffix(" \\\\")
-                lines[index + 1:index + 1] = injected
-            else:
-                lines[index] = line.rstrip() + " " + " ".join(flags)
+        for index in meson_indexes:
+            line = lines[index].rstrip()
+            if line.endswith("\\\\"):
+                line = line[:-1].rstrip()
+            lines[index] = line + " " + " ".join(flags) + (" \\\\" if line.endswith("\\\\") else "")
 
-        patched_build = "\\n".join(lines[build_start:build_end + len(flags) * len(meson_indexes) + 1])
+        result = "\\n".join(lines) + "\\n"
         for flag in flags:
-            if flag not in patched_build:
+            if flag not in result:
                 raise ValueError(f"failed to inject required Meson option: {flag}")
+        return result
 
     return "\\n".join(lines) + "\\n"
 
