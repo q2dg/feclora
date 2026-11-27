@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot the Feclora ISO in BIOS and UEFI QEMU guests and verify GTK kiosk startup."""
+"""Boot the Feclora ISO in BIOS and UEFI QEMU guests and verify Textual UI startup."""
 from __future__ import annotations
 
 import argparse
@@ -152,13 +152,13 @@ def _run_guest(
                             if not event.startswith("FECLORA_BOOT_SMOKE "):
                                 continue
                             last_event = event
-                            if event == "FECLORA_BOOT_SMOKE gtk-rendered":
+                            if event == "FECLORA_BOOT_SMOKE rendered":
                                 print(
-                                    f"{firmware}: GTK rendered its initial window on tty1."
+                                    f"{firmware}: Textual rendered its initial screen on tty1."
                                 )
                                 return
                     raise TimeoutError(
-                        f"{firmware} guest did not report its initial GTK window render within {timeout}s.\n"
+                        f"{firmware} guest did not report its initial Textual screen render within {timeout}s.\n"
                         f"Last guest status: {last_event}\n{_tail(log)}"
                     )
             finally:
