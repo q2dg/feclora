@@ -369,5 +369,20 @@ else:
         self.assertIn("Supply Weston, GTK4, libadwaita, Cairo", result.stderr)
 
 
+    def test_rejects_xext_and_xrender_pkgconfig_requirements(self):
+        self.records["cairo-devel.rpm"]["requires"].extend(["pkgconfig(xext)", "pkgconfig(xrender)"])
+        self._write_database()
+        result = self._run(self.rpm_paths)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 requirement", result.stderr)
+
+    def test_rejects_xext_pkgconfig_file(self):
+        self.records["cairo-devel.rpm"]["files"].append("/usr/lib64/pkgconfig/xext.pc")
+        self._write_database()
+        result = self._run(self.rpm_paths)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("forbidden X11 backend", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
