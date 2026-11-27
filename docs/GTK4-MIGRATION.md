@@ -4,27 +4,27 @@
 
 GTK4/PyGObject/libadwaita is a staged candidate. **Textual remains the
 production interface on tty1**; the Live image must not enable
-`feclora-gtk.service` or remove the Textual runtime until every acceptance
+**feclora-gtk.service** or remove the Textual runtime until every acceptance
 gate below is met. tty2 remains the independent root maintenance and recovery
 terminal.
 
-The GTK source currently contains the 14 navigation sections and a literal
-inventory matching the 49 direct privileged API action names found in the
-legacy Textual source. That is only an API-name coverage check. It does not
-establish semantic parity: parameter shapes, default values, form validation,
+The GTK source contains the 14 navigation sections and a literal inventory
+matching the 49 direct privileged API action names in the legacy Textual
+source. That is an API-name coverage check only. It does not establish
+semantic parity: parameter shapes, default values, form validation,
 confirmation wording, destructive-scope checks, progress interpretation,
 cancellation races, retry behavior, error recovery and persisted state must
-also be compared.
+also be compared. The audit remains open for every section and workflow.
 
 ## Required graphics architecture
 
-- Weston 15.0.1 using DRM/KMS and `kiosk-shell`.
+- Weston 15.0.1 using DRM/KMS and **kiosk-shell**.
 - GTK 4.24.1 with PyGObject and libadwaita 1.10.0.
-- GDK must use `GDK_BACKEND=wayland` only.
-- The frontend must remove `DISPLAY` and fail before importing GTK when
-  `WAYLAND_DISPLAY` is missing.
-- Weston must start with `--no-config -B drm --shell=kiosk-shell.so` and
-  must not receive `--xwayland`.
+- GDK must use **GDK_BACKEND=wayland** only.
+- The frontend must remove **DISPLAY** and fail before importing GTK when
+  **WAYLAND_DISPLAY** is missing.
+- Weston must start with **--no-config -B drm --shell=kiosk-shell.so** and
+  must not receive **--xwayland**.
 - No XWayland, Xorg, Openbox, Weston X11 backend, GDK X11 backend, X11
   libraries, X11 headers or X11 development metadata may be installed,
   included, started or exposed.
@@ -35,70 +35,116 @@ can be inspected and tested.
 
 ## Fedora 45 source rebuilds
 
-Stock Fedora 45 `weston-libs` and `gtk4` RPMs are not accepted. The recorded
-source baselines are Weston 15.0.1, GTK 4.24.1 and libadwaita 1.10.0.
+The required source baselines and Meson options are:
 
-Required Meson options:
+\`\`\`text
+Cairo 1.18.6:
+  -Dxlib=disabled -Dxcb=disabled -Dxlib-xcb=disabled
 
-```text
-Weston:   -Dxwayland=false -Dbackend-x11=false
-          -Dbackend-drm=true -Dshell-kiosk=true
+Weston 15.0.1:
+  -Dxwayland=false -Dbackend-x11=false
+  -Dbackend-drm=true -Dshell-kiosk=true
 
-GTK4:     -Dx11-backend=false -Dwayland-backend=true
-```
+GTK 4.24.1:
+  -Dx11-backend=false -Dwayland-backend=true
 
-Rebuild libadwaita against the custom GTK4 RPM. Keep `python3-gobject` as a
-Fedora system package; do not install PyGObject through pip.
+libadwaita 1.10.0:
+  Rebuild against the custom GTK4 and Cairo RPMs.
+\`\`\`
 
-Before incorporation, inspect every actual binary RPM with:
+### Why Cairo must also be rebuilt
 
-```bash
-build/verify-wayland-rpms.sh \
-  weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm
-```
+Keeping the stock Fedora python3-gobject package is required, but its
+dependency graph matters: Fedora's python3-gobject requires libcairo,
+libcairo-gobject and python3-cairo. The stock Fedora 45 Cairo 1.18.6
+runtime RPM in turn requires libX11, libXext and libXrender. The stock
+cairo-devel package also advertises Xlib/XCB pkg-config capabilities and
+ships Xlib/XCB headers. Therefore rebuilding only Weston and GTK4 would still
+pull X11 libraries into a completed image through the retained system
+PyGObject package.
 
-The verifier rejects `xwayland.so`, the Xwayland/Xorg executables,
-`x11-backend.so`, Weston X11/XWayland headers, `GdkX11-4.0.typelib` and GIR,
-GDK-X11 libraries, X11/XCB/GLX headers and pkg-config files, X11 libraries and
-dependencies (including `libxkbcommon-x11`), and Openbox packages/binaries.
-Use its installed-root mode on the completed target root before release.
-Static fixtures are not substitutes for actual RPM inspection.
+The build pipeline now rebuilds Fedora 45 Cairo 1.18.6 first, with Xlib and
+XCB surfaces disabled. Its Cairo spec patch removes X11-specific dependency
+declarations and Xlib/XCB headers/pkg-config file entries from the generated
+RPM metadata. The resulting cairo and cairo-gobject runtime RPMs must be
+installed alongside the unchanged Fedora python3-gobject and python3-cairo
+packages. The Cairo development RPMs are build-only artifacts and are
+separated under out/wayland-rpms/build-deps/; they must not be added to the
+Live image.
+
+This is a prerequisite, not evidence of success: the Fedora Cairo spec
+rewrite and the resulting RPMs still need to be built and inspected on a
+Fedora 45 host.
+
+### RPM inspection gate
+
+Before incorporation, inspect every actual binary RPM, including the custom
+Cairo runtime/development packages, with:
+
+\`\`\`bash
+build/verify-wayland-rpms.sh \\
+  weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm \\
+  cairo.rpm cairo-gobject.rpm \\
+  build-deps/gtk4-devel.rpm \\
+  build-deps/cairo-devel.rpm build-deps/cairo-gobject-devel.rpm
+\`\`\`
+
+The verifier rejects:
+- xwayland.so, XWayland/Xorg executables, x11-backend.so and
+  backend-x11.h;
+- GdkX11-4.0.typelib, GIR, GDK-X11 libraries and headers;
+- Cairo Xlib/XCB headers, libraries and pkg-config metadata;
+- X11/XCB/GLX headers, pkg-config files, shared libraries and RPM
+  requirements;
+- RPM Provides, Recommends, Suggests, Supplements or Enhances that advertise
+  X11 capabilities;
+- Openbox packages and binaries.
+
+Use its --installed-root mode on the completed target root before release.
+That mode also requires the retained python3-gobject and python3-cairo
+packages and audits every installed RPM's files, requirements and advertised
+capabilities. Static fixtures are not substitutes for actual RPM inspection.
 
 ## Building the Fedora 45 RPM candidates
 
-On a Fedora 45 x86_64 build host, install the host tools with `make deps`,
-then add the build user to the `mock` group and start a new login session:
+On a Fedora 45 x86_64 build host, install the host tools with make deps,
+then add the build user to the mock group and start a new login session:
 
-```bash
+\`\`\`bash
 sudo usermod -aG mock "$USER"
 # Log out and back in, then:
 make wayland-rpms
-```
+\`\`\`
 
 The build pipeline checks out these exact Fedora 45 dist-git release tags,
-rather than the moving `f45` branch head:
+rather than a moving branch head:
 
-- `weston-15.0.1-3.fc45`
-- `gtk4-4.24.1-1.fc45`
-- `libadwaita-1.10.0-2.fc45`
+- cairo-1.18.6-1.fc45
+- weston-15.0.1-3.fc45
+- gtk4-4.24.1-1.fc45
+- libadwaita-1.10.0-2.fc45
 
-The GTK 4.24.1 source is intentionally pinned: Fedora 45 package metadata
-currently lists 4.24.2-1.fc45 as stable and 4.24.1-1.fc45 as testing. The
-requested 4.24.1 baseline must not silently drift to 4.24.2. The builder
-records each dist-git tag and resolved commit in its source manifest.
+The GTK 4.24.1 source is intentionally pinned: Fedora 45 package metadata has
+also listed 4.24.2 builds, but the requested 4.24.1 baseline must not silently
+drift. The builder records each dist-git tag and resolved commit in its source
+manifest.
 
-The pipeline verifies exact source versions, patches the required Meson
-switches, assigns the reserved Feclora RPM epoch `1`, and sets the custom
-release `99.fc45.feclora1`. Epoch 1 prevents any stock Fedora epoch-0 build,
-including a future higher upstream version, from superseding these packages.
-Release 99 orders the custom rebuild above same-version Fedora builds. Future
-Feclora graphics updates must retain epoch 1 and be rebuilt/audited through
-this pipeline. The pipeline creates SRPMs and builds them in the
-`fedora-45-x86_64` Mock root. It installs the custom GTK4 runtime/development
-RPMs into the persistent Mock root before rebuilding libadwaita. It then runs
-the strict RPM verifier against the actual Weston, GTK4, GTK4-devel and
-libadwaita binary RPMs. On success it writes the binary RPMs and Fedora source
-manifest to `out/wayland-rpms/`.
+The pipeline verifies exact source versions, patches the Meson switches,
+assigns the reserved Feclora RPM epoch 1, and sets the custom release
+99.fc45.feclora1. Epoch 1 prevents any stock Fedora epoch-0 build, including
+a future higher upstream version, from superseding these packages. Release 99
+orders the custom rebuild above same-version Fedora builds.
+
+The build order is:
+1. Build Cairo 1.18.6 and locate its runtime and development subpackages.
+2. Install the custom Cairo runtime/development RPMs into the persistent
+   Fedora 45 Mock root.
+3. Build Weston 15.0.1 with DRM/kiosk enabled and XWayland/X11 disabled.
+4. Build GTK 4.24.1 with Wayland enabled and GDK X11 disabled.
+5. Install the custom GTK4 runtime/development RPMs into that same Mock root.
+6. Rebuild libadwaita 1.10.0 against the custom GTK4/Cairo stack.
+7. Inspect the actual binary RPMs before copying runtime RPMs and build-only
+   development RPMs into separate output locations.
 
 The pipeline does not modify Kickstart or install the RPMs into the Live
 image. Review the source commit manifest, build logs and RPM metadata before
@@ -134,10 +180,10 @@ AST/string checks and action-name comparisons are insufficient.
 
 Before enabling GTK:
 
-- Run Weston as the unprivileged `feclora` user, not root.
-- Establish a real PAM/logind session and verify `XDG_RUNTIME_DIR`,
-  `WAYLAND_DISPLAY`, libseat logind seat acquisition and DRM device access.
-- Ensure no inherited `DISPLAY` or `XAUTHORITY`; do not provide X11 sockets.
+- Run Weston as the unprivileged feclora user, not root.
+- Establish a real PAM/logind session and verify XDG_RUNTIME_DIR,
+  WAYLAND_DISPLAY, libseat logind seat acquisition and DRM device access.
+- Ensure no inherited DISPLAY or XAUTHORITY; do not provide X11 sockets.
 - Confirm Weston owns tty1 and DRM, kiosk-shell keeps the application
   fullscreen, and a compositor/application crash has a deterministic recovery
   path.
@@ -147,9 +193,10 @@ Before enabling GTK:
 
 ## Release gates
 
+- [ ] Fedora 45 Cairo 1.18.6 custom RPMs built and inspected.
 - [ ] Fedora 45 Weston 15.0.1 custom RPMs built and inspected.
 - [ ] Fedora 45 GTK 4.24.1 custom RPMs built and inspected.
-- [ ] libadwaita 1.10.0 rebuilt against custom GTK and inspected.
+- [ ] libadwaita 1.10.0 rebuilt against custom GTK/Cairo and inspected.
 - [ ] Complete target RPM database and payload pass the strict X11 audit.
 - [ ] Semantic parity audit completed for all 14 sections and workflows.
 - [ ] Behavioral GTK tests cover forms, parameters, confirmation, progress,
