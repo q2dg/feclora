@@ -1,37 +1,67 @@
 # Fedora 45 compatibility baseline
 
-Feclora targets Fedora Linux 45 x86_64 for both the ISO build host and Live
-runtime. Update packages through Fedora 45 repositories; do not substitute
-Rawhide or an arbitrary upstream release for the system toolchain.
+Feclora targets Fedora Linux 45 x86_64 for the ISO build host and Live
+runtime. Build against Fedora 45 source packages; do not substitute Rawhide,
+a later Fedora branch or arbitrary upstream snapshots.
 
-## Live interface
+## Production interface
 
-The appliance boots GTK4/libadwaita through `feclora-gtk.service` on tty1.
-Weston 15 uses DRM/KMS with `kiosk-shell`; Cage is not used. The appliance
-uses Fedora's official Weston, GTK4 and libadwaita RPMs. Those packages may
-contain optional X11 client backends and libraries, but Feclora does not
-install the separate Xorg or XWayland server packages, does not pass
-`--xwayland` to Weston, clears inherited X11 display variables and forces
-GTK's Wayland backend.
+The current Live image uses Textual on tty1. The root maintenance shell stays
+on tty2. GTK4/PyGObject/libadwaita with Weston DRM/KMS and kiosk-shell is a
+candidate migration only and is not enabled in the Live boot path.
 
-The frontend calls the root-owned allowlisted helper at
-`/usr/libexec/feclora/feclora-api`. The `feclora` account is unprivileged
-and password-locked. tty2 is reserved for the local maintenance root shell;
-physical access to the appliance must therefore be controlled.
+## Strict Wayland-only target
 
-## Build enforcement and acceptance
+The target must not install, include, start or expose XWayland, Xorg, Openbox,
+the Weston X11 backend, the GDK X11 backend or X11 libraries. The GTK process
+must set `GDK_BACKEND=wayland`, remove `DISPLAY`, and fail before importing
+GTK if `WAYLAND_DISPLAY` is absent. Weston must run with `--no-config`,
+`-B drm` and `--shell=kiosk-shell.so`, without `--xwayland`.
 
-- `packages/base.txt` and the Kickstart `%packages` block must remain in sync.
-- `build/validate.sh` verifies the GTK boot service, privileged helper
-  boundary, official Fedora graphical runtime packages and absence of Xorg/
-  XWayland server packages.
-- The GTK service selects `LIBSEAT_BACKEND=logind`, unsets inherited X11
-  display variables and obtains its user runtime directory through its PAM
-  session.
-- GitHub Actions runs the hardware-independent unit tests and static checks.
-- `docs/BUILD.md` describes the ISO build and BIOS/UEFI smoke-test procedure.
+Stock Fedora 45 graphical RPMs are not admissible. The recorded source
+baselines are:
 
-Passing source tests does not establish that the package version in Fedora 45
-renders correctly on every supported hardware configuration. BIOS/UEFI boot,
-tty1 handoff, keyboard navigation, VT switching, display recovery and
-destructive storage workflows remain separate maintainer acceptance tasks.
+| Package | Fedora 45 source baseline | Required Feclora build |
+| --- | --- | --- |
+| Weston / weston-libs | 15.0.1 | `-Dxwayland=false -Dbackend-x11=false`; retain DRM and kiosk-shell |
+| GTK4 | 4.24.1 | `-Dx11-backend=false -Dwayland-backend=true` |
+| libadwaita | 1.10.0 | Rebuild against the custom GTK4 package |
+| PyGObject | Fedora 45 system package | Keep `python3-gobject`; do not pip-install bindings |
+
+The stock Weston runtime libraries contain XWayland and X11 backend modules
+and link to X11 client libraries. The stock GTK4 package exposes the GDK X11
+backend and X11 library dependencies. Therefore, excluding only the X server
+packages or setting a Wayland environment variable is insufficient for this
+appliance's no-X11 policy.
+
+Before any custom RPM is added to Kickstart, run
+`build/verify-wayland-rpms.sh` against the actual binary RPMs. It rejects
+`xwayland.so`, `x11-backend.so`, `GdkX11-4.0.typelib`, X11 headers and
+pkg-config metadata, X11 shared libraries, X11 package names and X11 runtime
+or build dependencies. The installed-root mode audits the complete RPM
+database and payload. Fedora 45 source-RPM provenance and the exact source
+versions are mandatory.
+
+## Build and acceptance gates
+
+1. Fetch the Fedora 45 dist-git source branches for Weston, GTK4 and
+   libadwaita.
+2. Rebuild Weston 15.0.1 with XWayland and its X11 backend disabled, retaining
+   DRM and kiosk-shell.
+3. Rebuild GTK 4.24.1 with its X11 backend disabled and Wayland enabled.
+4. Rebuild libadwaita 1.10.0 against that GTK4 build; retain Fedora's
+   `python3-gobject` system package.
+5. Inspect every generated RPM's file list and dependency metadata with the
+   strict verifier before adding any of them to the Live image.
+6. Complete semantic comparison of GTK forms and workflows against Textual:
+   parameters, validation, destructive confirmation, progress, cancellation,
+   errors, retries and recovery.
+7. Validate the Weston systemd/logind/libseat session, DRM ownership, VT
+   transitions and tty2 recovery.
+8. Run automated tests, build the ISO, boot BIOS and UEFI guests, and complete
+   physical hardware acceptance before changing the production boot route.
+
+A source-level test, static RPM fixture or GTK window does not prove that the
+custom packages build or that the complete appliance works. No graphical RPM
+is considered admitted until the actual Fedora 45 build artifacts pass the
+strict audit.
