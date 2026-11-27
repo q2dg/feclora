@@ -9,12 +9,16 @@ ConditionPathExists=/dev/tty0
 Type=simple
 User=feclora
 Group=feclora
-PAMName=login
+PAMName=feclora-wayland
 Environment=HOME=/home/feclora
 Environment=PYTHONPATH=/usr/share/feclora/python
 Environment=GDK_BACKEND=wayland
 Environment=LIBSEAT_BACKEND=logind
-UnsetEnvironment=DISPLAY XAUTHORITY
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_SESSION_CLASS=user
+Environment=XDG_SEAT=seat0
+Environment=XDG_VTNR=1
+UnsetEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY
 RuntimeDirectory=feclora-gtk
 RuntimeDirectoryMode=0700
 TTYPath=/dev/tty1
