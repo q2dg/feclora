@@ -27,20 +27,20 @@ EXPECTED = {
 }
 
 CAIRO_X11_DEPENDENCY_RE = re.compile(
-    r"(?i)(?:\\blibX11(?:-devel)?\\b|\\blibXext(?:-devel)?\\b|"
-    r"\\blibXrender(?:-devel)?\\b|\\blibxcb(?:-devel)?\\b|"
-    r"pkgconfig\\((?:x11|xcb|cairo-xlib(?:-xrender)?|cairo-xcb(?:-shm)?)\\)|"
-    r"\\bcairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\\.pc\\b)"
+    r"(?i)(?:\blibX11(?:-devel)?\b|\blibXext(?:-devel)?\b|"
+    r"\blibXrender(?:-devel)?\b|\blibxcb(?:-devel)?\b|"
+    r"pkgconfig\((?:x11|xcb|cairo-xlib(?:-xrender)?|cairo-xcb(?:-shm)?)\)|"
+    r"\bcairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\.pc\b)"
 )
 CAIRO_X11_FILE_RE = re.compile(
-    r"(?i)cairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\\.(?:h|pc)\\b"
+    r"(?i)cairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\.(?:h|pc)\b"
 )
 RPM_DEPENDENCY_TAG_RE = re.compile(
-    r"^\\s*(?:BuildRequires|Requires|Recommends|Suggests|Supplements|Enhances|Provides):"
+    r"^\s*(?:BuildRequires|Requires|Recommends|Suggests|Supplements|Enhances|Provides):"
 )
 RPM_SECTION_RE = re.compile(
     r"^%(?:prep|build|install|check|clean|files|package|description|"
-    r"pre|post|preun|postun|trigger|filetrigger|changelog)(?:\\s|$)"
+    r"pre|post|preun|postun|trigger|filetrigger|changelog)(?:\s|$)"
 )
 
 
@@ -49,7 +49,7 @@ def _strip_cairo_x11_entries(lines: list[str]) -> list[str]:
     filtered: list[str] = []
     in_files_section = False
     for line in lines:
-        if re.match(r"^%files(?:\\s|$)", line):
+        if re.match(r"^%files(?:\s|$)", line):
             in_files_section = True
         elif RPM_SECTION_RE.match(line):
             in_files_section = False
@@ -64,7 +64,7 @@ def _strip_cairo_x11_entries(lines: list[str]) -> list[str]:
     # payload declaration survives the targeted rewrite.
     in_files_section = False
     for line in filtered:
-        if re.match(r"^%files(?:\\s|$)", line):
+        if re.match(r"^%files(?:\s|$)", line):
             in_files_section = True
         elif RPM_SECTION_RE.match(line):
             in_files_section = False
@@ -80,8 +80,8 @@ def patch_spec_text(package: str, source: str) -> str:
         raise ValueError(f"unsupported Fedora package: {package}")
     expected_version, flags = EXPECTED[package]
     lines = source.splitlines()
-    name_indexes = [i for i, line in enumerate(lines) if re.match(r"^Name:\\s*", line)]
-    epoch_indexes = [i for i, line in enumerate(lines) if re.match(r"^Epoch:\\s*", line)]
+    name_indexes = [i for i, line in enumerate(lines) if re.match(r"^Name:\s*", line)]
+    epoch_indexes = [i for i, line in enumerate(lines) if re.match(r"^Epoch:\s*", line)]
     if len(name_indexes) != 1 or len(epoch_indexes) > 1:
         raise ValueError("spec must contain exactly one Name: field and at most one Epoch: field")
     spec_name = lines[name_indexes[0]].split(":", 1)[1].strip()
@@ -92,8 +92,8 @@ def patch_spec_text(package: str, source: str) -> str:
     else:
         lines.insert(name_indexes[0] + 1, "Epoch:          1")
 
-    version_indexes = [i for i, line in enumerate(lines) if re.match(r"^Version:\\s*", line)]
-    release_indexes = [i for i, line in enumerate(lines) if re.match(r"^Release:\\s*", line)]
+    version_indexes = [i for i, line in enumerate(lines) if re.match(r"^Version:\s*", line)]
+    release_indexes = [i for i, line in enumerate(lines) if re.match(r"^Release:\s*", line)]
     if len(version_indexes) != 1 or len(release_indexes) != 1:
         raise ValueError("spec must contain exactly one Version: and Release: field")
     version = lines[version_indexes[0]].split(":", 1)[1].strip()
@@ -107,30 +107,26 @@ def patch_spec_text(package: str, source: str) -> str:
             raise ValueError("spec has no %build section")
         build_end = next(
             (i for i in range(build_start + 1, len(lines))
-             if re.match(r"^%(install|check|files|package|description)(?:\\s|$)", lines[i])),
+             if re.match(r"^%(install|check|files|package|description)(?:\s|$)", lines[i])),
             len(lines),
         )
         meson_indexes = [
             i for i in range(build_start + 1, build_end)
-            if re.search(r"(?<![A-Za-z0-9_])%meson(?:\\s|$)", lines[i])
+            if re.search(r"(?<![A-Za-z0-9_])%meson(?:\s|$)", lines[i])
         ]
         if not meson_indexes:
             raise ValueError("spec %build section has no %meson invocation to patch")
         for index in meson_indexes:
             line = lines[index].rstrip()
-            continued = line.endswith("\\\\")
+            continued = line.endswith("\\")
             if continued:
                 line = line[:-1].rstrip()
-            lines[index] = line + " " + " ".join(flags) + (" \\\\" if continued else "")
-
-        result_lines = lines
-    else:
-        result_lines = lines
+            lines[index] = line + " " + " ".join(flags) + (" \\" if continued else "")
 
     if package == "cairo":
-        result_lines = _strip_cairo_x11_entries(result_lines)
+        lines = _strip_cairo_x11_entries(lines)
 
-    result = "\\n".join(result_lines) + "\\n"
+    result = "\n".join(lines) + "\n"
     for flag in flags:
         if flag not in result:
             raise ValueError(f"failed to inject required Meson option: {flag}")
