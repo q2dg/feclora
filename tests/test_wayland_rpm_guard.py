@@ -33,7 +33,7 @@ class WaylandRPMGuardTests(unittest.TestCase):
                 "release": "99.fc45.feclora1",
                 "source": "weston-15.0.1-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/lib64/libweston-15/drm-backend.so"],
-                "requires": ["libwayland-server.so.0", "libdrm.so.2", "libinput.so.10"],
+                "requires": ["libwayland-server.so.0", "libdrm.so.2", "libinput.so.10", "libseat.so.1"],
                 "provides": ["libweston-15"],
             },
             "gtk4.rpm": {
@@ -334,6 +334,17 @@ else:
         result = self._run(self.rpm_paths)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Forbidden X11 package", result.stderr)
+
+    def test_rejects_weston_without_libseat_launcher_dependency(self):
+        self.records["weston-libs.rpm"]["requires"] = [
+            item for item in self.records["weston-libs.rpm"]["requires"]
+            if not item.startswith("libseat")
+        ]
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("libseat launcher support is missing", result.stderr)
+
 
     def test_rejects_non_fedora45_source_release(self):
         self.records["weston-libs.rpm"]["release"] = "1.el10.feclora1"
