@@ -1,4 +1,4 @@
-# Explicit Feclora runtime packages for the Fedora 45 Live appliance (x86_64).
+# Explicit Feclora runtime packages for the Fedora 45 Live appliance (x86_64). Textual remains production until GTK/Weston acceptance.
 # The Kickstart also selects @core; this file documents the additional runtime set.
 # Keep this list aligned with kickstart/feclora-live.ks.
 kernel
@@ -6,10 +6,7 @@ tar
 sudo
 python3
 python3-boto3
-weston
-weston-libs
-gtk4
-libadwaita
+python3-textual
 python3-gobject
 kbd
 psmisc
