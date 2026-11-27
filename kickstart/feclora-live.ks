@@ -73,7 +73,7 @@ grub2-pc-modules
 shim-x64
 syslinux
 
-# Exclude all X servers; the appliance runs native Wayland clients only.
+# Do not install X servers; the staged GTK candidate will use native Wayland only.
 -xorg-x11-server-Xorg
 -xorg-x11-server-Xwayland
 
@@ -189,8 +189,7 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-depl
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-client@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
-# Install the native GTK4/Weston kiosk as the production tty1 interface.
-# Keep the Textual production route while staging the GTK candidate without enabling it.
+# Stage the GTK4/Weston candidate unit without changing the Textual production boot route.
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service" "$TARGET_ROOT/etc/systemd/system/feclora-tui.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service" "$TARGET_ROOT/etc/systemd/system/feclora-gtk.service"
