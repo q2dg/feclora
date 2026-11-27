@@ -34,7 +34,7 @@ def patch_spec_text(package: str, source: str) -> str:
     version = lines[version_indexes[0]].split(":", 1)[1].strip()
     if version != expected_version:
         raise ValueError(f"{package} Fedora 45 source version must be {expected_version}, found {version}")
-    lines[release_indexes[0]] = "Release:        1%{?dist}.feclora1"
+    lines[release_indexes[0]] = "Release:        99%{?dist}.feclora1"
 
     if flags:
         build_start = next((i for i, line in enumerate(lines) if line.strip() == "%build"), None)
