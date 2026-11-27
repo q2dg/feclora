@@ -13,6 +13,7 @@ fail() {
 for file in \
   build/build-iso.sh build/preflight.sh build/install-host-deps.sh \
   build/check_docs.py build/validate-text-boot.sh build/validate-gtk-candidate.sh \
+  build/build-wayland-rpms.sh build/patch-fedora-wayland-spec.py \\
   build/verify-iso-text-boot.sh build/verify-wayland-rpms.sh \
   kickstart/feclora-live.ks packages/base.txt packages/build-host.txt \
   requirements-test.txt requirements-gui.txt \
@@ -24,7 +25,8 @@ for file in \
   src/feclora/data/feclora-local-operation-recovery.service \
   tests/test_tui.py tests/test_tui_api.py tests/test_gtk_api.py \
   tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_api.py \
-  tests/test_ui_catalog.py tests/test_wayland_rpm_guard.py; do
+  tests/test_ui_catalog.py tests/test_wayland_rpm_guard.py \
+  tests/test_wayland_spec_patch.py; do
   [[ -s "$file" ]] || fail "Required file is missing or empty: $file"
 done
 
@@ -35,6 +37,7 @@ fi
 grep -Fxq 'python3-textual' packages/base.txt || fail "Textual must remain installed until GTK acceptance is complete."
 grep -Fxq 'python3-textual' kickstart/feclora-live.ks || fail "Kickstart must retain Textual as the production UI."
 
+bash -n build/*.sh
 bash build/validate-text-boot.sh
 bash build/validate-gtk-candidate.sh
 python3 build/check_docs.py
