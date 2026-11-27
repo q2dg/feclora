@@ -14,6 +14,44 @@ SPEC.loader.exec_module(PATCHER)
 
 
 class FedoraWaylandSpecPatcherTests(unittest.TestCase):
+    def test_cairo_disables_xlib_xcb_and_removes_x11_metadata(self):
+        source = """Name: cairo
+Version: 1.18.6
+Release: %autorelease
+BuildRequires: pkgconfig(x11)
+BuildRequires: pkgconfig(xcb)
+Requires: libX11-devel
+Requires: pkgconfig(cairo-xlib)
+%description
+Cairo
+%build
+%meson -Dtests=disabled
+%install
+%meson_install
+%files devel
+%{_includedir}/cairo/cairo.h
+%{_includedir}/cairo/cairo-xlib.h
+%{_includedir}/cairo/cairo-xcb.h
+%{_libdir}/pkgconfig/cairo.pc
+%{_libdir}/pkgconfig/cairo-xlib.pc
+%{_libdir}/pkgconfig/cairo-xcb.pc
+%files
+%{_libdir}/libcairo.so.2
+"""
+        patched = PATCHER.patch_spec_text("cairo", source)
+        build = patched.split("%install", 1)[0]
+        for flag in ("-Dxlib=disabled", "-Dxcb=disabled", "-Dxlib-xcb=disabled"):
+            self.assertIn(flag, build)
+        self.assertIn("%{_includedir}/cairo/cairo.h", patched)
+        self.assertIn("%{_libdir}/pkgconfig/cairo.pc", patched)
+        for forbidden in (
+            "pkgconfig(x11)", "pkgconfig(xcb)", "libX11-devel",
+            "pkgconfig(cairo-xlib)", "cairo-xlib.h", "cairo-xcb.h",
+            "cairo-xlib.pc", "cairo-xcb.pc",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, patched)
+
     def test_weston_disables_x11_and_keeps_drm_kiosk(self):
         source = """Name: weston
 Version: 15.0.1
