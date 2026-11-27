@@ -92,6 +92,7 @@ rpm_metadata() {
 }
 
 declare -A seen=()
+libseat_launcher_seen=0
 for rpm_file in "${rpm_files[@]}"; do
   [[ -s "$rpm_file" ]] || fail "RPM file is missing or empty: $rpm_file"
   package_name="$(rpm -qp --qf '%{NAME}\n' "$rpm_file")" || fail "Cannot read RPM metadata: $rpm_file"
@@ -119,7 +120,14 @@ for rpm_file in "${rpm_files[@]}"; do
   files="$(rpm -qpl "$rpm_file")" || fail "Cannot list payload files: $rpm_file"
   package_metadata="$(rpm_metadata "$rpm_file")"
   check_payload "$package_name ($rpm_file)" "$files" "$package_metadata"
+  if [[ "$package_name" == weston-libs ]] &&
+    grep -Eiq '(^|[[:space:]])libseat\.so([.[:space:]]|$)' <<<"$package_metadata"; then
+    libseat_launcher_seen=1
+  fi
 done
+
+[[ "$libseat_launcher_seen" == 1 ]] ||
+  fail "Weston libseat launcher support is missing: weston-libs does not require libseat."
 
 for required in weston weston-libs gtk4 libadwaita cairo cairo-gobject; do
   [[ -n "${seen[$required]+x}" ]] || fail "Required RPM package is missing: $required"
