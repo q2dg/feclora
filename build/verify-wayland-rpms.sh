@@ -80,7 +80,7 @@ for rpm_file in "${rpm_files[@]}"; do
   metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" || fail "Cannot read Fedora source metadata: $rpm_file"
   IFS='|' read -r version release source_rpm <<<"$metadata"
   case "$package_name" in
-    weston|weston-libs) expected_version="15.0.1" ;;
+    weston|weston-libs|weston-devel) expected_version="15.0.1" ;;
     gtk4|gtk4-devel) expected_version="4.24.1" ;;
     libadwaita|libadwaita-devel) expected_version="1.10.0" ;;
   esac
