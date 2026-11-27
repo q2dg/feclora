@@ -1,0 +1,122 @@
+# GTK4 / Wayland migration record
+
+## Current status
+
+GTK4/PyGObject/libadwaita is a staged candidate. **Textual remains the
+production interface on tty1**; the Live image must not enable
+`feclora-gtk.service` or remove the Textual runtime until every acceptance
+gate below is met. tty2 remains the independent root maintenance and recovery
+terminal.
+
+The GTK source currently contains the 14 navigation sections and a literal
+inventory matching the 49 direct privileged API action names found in the
+legacy Textual source. That is only an API-name coverage check. It does not
+establish semantic parity: parameter shapes, default values, form validation,
+confirmation wording, destructive-scope checks, progress interpretation,
+cancellation races, retry behavior, error recovery and persisted state must
+also be compared.
+
+## Required graphics architecture
+
+- Weston 15.0.1 using DRM/KMS and `kiosk-shell`.
+- GTK 4.24.1 with PyGObject and libadwaita 1.10.0.
+- GDK must use `GDK_BACKEND=wayland` only.
+- The frontend must remove `DISPLAY` and fail before importing GTK when
+  `WAYLAND_DISPLAY` is missing.
+- Weston must start with `--no-config -B drm --shell=kiosk-shell.so` and
+  must not receive `--xwayland`.
+- No XWayland, Xorg, Openbox, Weston X11 backend, GDK X11 backend, X11
+  libraries, X11 headers or X11 development metadata may be installed,
+  included, started or exposed.
+
+The GTK systemd unit and source enforce the Wayland environment, but they are
+not production-enabled. The candidate unit is staged only so its configuration
+can be inspected and tested.
+
+## Fedora 45 source rebuilds
+
+Stock Fedora 45 `weston-libs` and `gtk4` RPMs are not accepted. The recorded
+source baselines are Weston 15.0.1, GTK 4.24.1 and libadwaita 1.10.0.
+
+Required Meson options:
+
+```text
+Weston:   -Dxwayland=false -Dbackend-x11=false
+          -Dbackend-drm=true -Dshell-kiosk=true
+
+GTK4:     -Dx11-backend=false -Dwayland-backend=true
+```
+
+Rebuild libadwaita against the custom GTK4 RPM. Keep `python3-gobject` as a
+Fedora system package; do not install PyGObject through pip.
+
+Before incorporation, inspect every actual binary RPM with:
+
+```bash
+build/verify-wayland-rpms.sh \
+  weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm
+```
+
+The verifier rejects `xwayland.so`, `x11-backend.so`,
+`GdkX11-4.0.typelib`, X11 libraries, headers, pkg-config metadata, package
+names and RPM dependency requirements. Use its installed-root mode on the
+completed target root before release. Static fixtures are not substitutes for
+actual RPM inspection.
+
+## Semantic parity audit
+
+For each Textual workflow, compare the GTK implementation and tests at the
+form and state-transition level:
+
+1. Input fields, types, required/optional status, defaults and parameter names.
+2. Validation order and messages, including server-side preflight calls.
+3. Destructive confirmation scope, destination identity and irreversible
+   effects; cancellation must not bypass confirmation.
+4. Asynchronous request state, progress units, operation IDs and stale-page
+   callback handling.
+5. Cancellation request/acknowledgement races, repeated clicks and the
+   possibility of partially written destinations.
+6. Terminal states: completed, failed, cancelled, interrupted and unknown;
+   status polling errors must not imply that a job stopped.
+7. Refresh, retry, recovery and persistence after navigation or process loss.
+8. Secret handling: no passphrases or credentials in logs, API events,
+   persisted UI state or exception text.
+
+The audit must cover all 14 sections, not only the 18 named disk operations.
+Every semantic difference must be documented and either corrected or approved
+as an intentional product change. Add behavioral tests for each workflow;
+AST/string checks and action-name comparisons are insufficient.
+
+## Weston session and appliance integration
+
+Before enabling GTK:
+
+- Run Weston as the unprivileged `feclora` user, not root.
+- Establish a real PAM/logind session and verify `XDG_RUNTIME_DIR`,
+  `WAYLAND_DISPLAY`, libseat logind seat acquisition and DRM device access.
+- Ensure no inherited `DISPLAY` or `XAUTHORITY`; do not provide X11 sockets.
+- Confirm Weston owns tty1 and DRM, kiosk-shell keeps the application
+  fullscreen, and a compositor/application crash has a deterministic recovery
+  path.
+- Verify the root maintenance service on tty2 remains independently usable
+  while Weston owns tty1; exiting maintenance returns to tty1.
+- Keep KMSCON and getty from competing for the appliance VTs.
+
+## Release gates
+
+- [ ] Fedora 45 Weston 15.0.1 custom RPMs built and inspected.
+- [ ] Fedora 45 GTK 4.24.1 custom RPMs built and inspected.
+- [ ] libadwaita 1.10.0 rebuilt against custom GTK and inspected.
+- [ ] Complete target RPM database and payload pass the strict X11 audit.
+- [ ] Semantic parity audit completed for all 14 sections and workflows.
+- [ ] Behavioral GTK tests cover forms, parameters, confirmation, progress,
+      cancellation, errors, retries and recovery.
+- [ ] Weston/logind/libseat/DRM/VT session accepted.
+- [ ] Automated project tests and ISO build pass on the exact commit.
+- [ ] BIOS and UEFI VM boot and visible interaction accepted.
+- [ ] Physical hardware, keyboard, display recovery and tty2 maintenance
+      accepted and recorded.
+
+Until every gate is checked with recorded evidence, Textual remains the
+production boot interface. Do not claim a successful ISO build, VM boot,
+BIOS/UEFI acceptance or RPM audit unless that exact operation has been run.
