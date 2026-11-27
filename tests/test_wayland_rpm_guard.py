@@ -22,19 +22,19 @@ class WaylandRPMGuardTests(unittest.TestCase):
         self.records = {
             "weston.rpm": {
                 "name": "weston",
-                "version": "15.0.1", "release": "1.fc45.feclora1", "source": "weston-15.0.1-1.fc45.feclora1.src.rpm",
+                "version": "15.0.1", "release": "99.fc45.feclora1", "source": "weston-15.0.1-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/bin/weston", "/usr/lib64/weston/kiosk-shell.so"],
                 "requires": ["weston-libs", "libwayland-client.so.0"],
             },
             "weston-libs.rpm": {
                 "name": "weston-libs",
-                "version": "15.0.1", "release": "1.fc45.feclora1", "source": "weston-15.0.1-1.fc45.feclora1.src.rpm",
+                "version": "15.0.1", "release": "99.fc45.feclora1", "source": "weston-15.0.1-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/lib64/libweston-15/drm-backend.so"],
                 "requires": ["libwayland-server.so.0", "libdrm.so.2", "libinput.so.10"],
             },
             "gtk4.rpm": {
                 "name": "gtk4",
-                "version": "4.24.1", "release": "1.fc45.feclora1", "source": "gtk4-4.24.1-1.fc45.feclora1.src.rpm",
+                "version": "4.24.1", "release": "99.fc45.feclora1", "source": "gtk4-4.24.1-99.fc45.feclora1.src.rpm",
                 "files": [
                     "/usr/lib64/libgtk-4.so.1",
                     "/usr/lib64/girepository-1.0/GdkWayland-4.0.typelib",
@@ -43,13 +43,13 @@ class WaylandRPMGuardTests(unittest.TestCase):
             },
             "libadwaita.rpm": {
                 "name": "libadwaita",
-                "version": "1.10.0", "release": "1.fc45.feclora1", "source": "libadwaita-1.10.0-1.fc45.feclora1.src.rpm",
+                "version": "1.10.0", "release": "99.fc45.feclora1", "source": "libadwaita-1.10.0-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/lib64/libadwaita-1.so.0"],
                 "requires": ["gtk4 >= 4.24.1"],
             },
             "gtk4-devel.rpm": {
                 "name": "gtk4-devel",
-                "version": "4.24.1", "release": "1.fc45.feclora1", "source": "gtk4-4.24.1-1.fc45.feclora1.src.rpm",
+                "version": "4.24.1", "release": "99.fc45.feclora1", "source": "gtk4-4.24.1-99.fc45.feclora1.src.rpm",
                 "files": [
                     "/usr/include/gtk-4.0/gdk/wayland/gdkwaylanddisplay.h",
                     "/usr/lib64/pkgconfig/gtk4-wayland.pc",
@@ -148,6 +148,62 @@ else:
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("X11 backend", result.stderr)
+
+    def test_rejects_xkbcommon_x11_shared_library_payload(self):
+        self.records["gtk4.rpm"]["files"].append("/usr/lib64/libxkbcommon-x11.so.0")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 backend", result.stderr)
+
+    def test_rejects_x11_headers(self):
+        self.records["weston-libs.rpm"]["files"].append("/usr/include/libweston-15/backend-x11.h")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 backend", result.stderr)
+
+    def test_rejects_xwayland_api_header(self):
+        self.records["weston-libs.rpm"]["files"].append("/usr/include/libweston-15/xwayland-api.h")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 backend", result.stderr)
+
+    def test_rejects_gtk4_x11_pkgconfig_metadata(self):
+        self.records["gtk4-devel.rpm"]["files"].append("/usr/lib64/pkgconfig/gtk4-x11.pc")
+        self._write_database()
+        result = self._run([*self.rpm_paths[:4], self.rpm_paths[4]])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 backend", result.stderr)
+
+    def test_rejects_xkbcommon_x11_runtime_dependency(self):
+        self.records["gtk4.rpm"]["requires"].append("libxkbcommon-x11.so.0()(64bit)")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 runtime or build dependency", result.stderr)
+
+    def test_rejects_xkbcommon_x11_pkgconfig_dependency(self):
+        self.records["gtk4-devel.rpm"]["requires"].append("pkgconfig(xkbcommon-x11)")
+        self._write_database()
+        result = self._run([*self.rpm_paths[:4], self.rpm_paths[4]])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 runtime or build dependency", result.stderr)
+
+    def test_rejects_xwayland_executable(self):
+        self.records["weston.rpm"]["files"].append("/usr/bin/Xwayland")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 backend", result.stderr)
+
+    def test_rejects_openbox_package(self):
+        self.records["gtk4-devel.rpm"]["name"] = "openbox"
+        self._write_database()
+        result = self._run([*self.rpm_paths[:4], self.rpm_paths[4]])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Forbidden X11 package", result.stderr)
 
     def test_rejects_x11_runtime_dependency(self):
         self.records["gtk4.rpm"]["requires"].append("libX11.so.6()(64bit)")
