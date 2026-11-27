@@ -1,15 +1,21 @@
 # Feclora
 
 Feclora is a Fedora-based Live appliance for disk and partition imaging,
-local and remote cloning, recovery and network deployment. Its production
-operator interface is GTK4/libadwaita running natively on Wayland through
-Weston DRM/KMS and Weston's kiosk shell on tty1; Cage is not used. The Live
-image uses Fedora's official Weston, GTK4 and libadwaita packages, excludes
-the Xorg and XWayland server packages, and forces GTK onto its native Wayland
-backend. Optional unused X11 client modules in distribution RPMs are not
-launched. See [the Fedora compatibility baseline](docs/FEDORA-45-COMPATIBILITY.md)
-and [the build and acceptance runbook](docs/BUILD.md).
+local and remote cloning, recovery and network deployment. **Textual remains
+the production operator interface on tty1** while the GTK4/PyGObject/libadwaita
+frontend is audited for complete behavioral parity.
 
+The target graphical stack is strict native Wayland: Weston DRM/KMS with
+kiosk-shell and GTK4/libadwaita using GDK's Wayland backend only. XWayland,
+Xorg, Openbox, Weston X11 backend, GDK X11 backend and X11 libraries are
+excluded by design. Stock Fedora 45 Weston and GTK4 RPMs are not acceptable:
+Feclora must rebuild Weston 15.0.1, GTK 4.24.1 and libadwaita 1.10.0 from
+Fedora 45 sources, inspect every RPM payload and dependency, then complete
+semantic UI, VM and BIOS/UEFI acceptance before changing the production boot
+route. The GTK unit is staged for testing but is not enabled in the Live image.
+See [the GTK4 migration record](docs/GTK4-MIGRATION.md), [the Fedora
+compatibility baseline](docs/FEDORA-45-COMPATIBILITY.md) and
+[the build and acceptance runbook](docs/BUILD.md).
 ## What it does
 
 - Capture whole disks (Feclora RAW or QCOW2) and supported partitions into
@@ -67,7 +73,7 @@ automated tests and build instructions.
 
 ## Built on
 
-Fedora, Python, GTK4, PyGObject, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
+Fedora, Python, Textual, GTK4, PyGObject, Partclone, LVM2, cryptsetup, NetworkManager, UDPcast,
 dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and QEMU/KVM.
 
 ## License
