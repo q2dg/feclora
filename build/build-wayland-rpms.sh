@@ -40,11 +40,11 @@ prepare_fedora_srpm() {
   git clone --depth 1 --branch f45 "https://src.fedoraproject.org/rpms/\${package}.git" "$source_dir"
   (
     cd "$source_dir"
-    fedpkg sources
+    fedpkg sources >&2
   )
   spec_file="$source_dir/$package.spec"
   [[ -s "$spec_file" ]] || fail "Fedora f45 dist-git did not provide $package.spec."
-  python3 "$PATCHER" "$package" "$spec_file"
+  python3 "$PATCHER" "$package" "$spec_file" >&2
 
   mkdir -p "$top/SOURCES" "$top/SPECS" "$top/SRPMS"
   cp "$spec_file" "$top/SPECS/$package.spec"
@@ -54,7 +54,7 @@ prepare_fedora_srpm() {
   rpmbuild -bs \
     --define "_topdir $top" \
     --define "dist .fc45" \
-    "$top/SPECS/$package.spec"
+    "$top/SPECS/$package.spec" >&2
   mapfile -t srpms < <(find "$top/SRPMS" -type f -name '*.src.rpm' -print)
   (("\${#srpms[@]}" == 1)) || fail "Expected exactly one Fedora 45 $package SRPM."
   srpm="\${srpms[0]}"
@@ -101,10 +101,11 @@ weston_rpm="$(find_binary_rpm "$RESULTS/weston" weston)"
 weston_libs_rpm="$(find_binary_rpm "$RESULTS/weston" weston-libs)"
 libadwaita_rpm="$(find_binary_rpm "$RESULTS/libadwaita" libadwaita)"
 bash "$ROOT_DIR/build/verify-wayland-rpms.sh" \
-  "$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$libadwaita_rpm"
+  "$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$libadwaita_rpm" "$gtk4_devel"
 
 mkdir -p "$OUTPUT_DIR"
 cp "$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$gtk4_devel" "$libadwaita_rpm" "$OUTPUT_DIR/"
+cp "$WORK_DIR/source-commits.tsv" "$OUTPUT_DIR/"
 rpm -qp --qf '%{NAME} %{VERSION}-%{RELEASE} source=%{SOURCERPM}\n' "$OUTPUT_DIR"/*.rpm
 printf 'Strictly audited RPMs copied to %s\n' "$OUTPUT_DIR"
 printf 'The Live Kickstart has not been changed to install or enable these RPMs.\n'
