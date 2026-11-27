@@ -88,10 +88,12 @@ requested 4.24.1 baseline must not silently drift to 4.24.2. The builder
 records each dist-git tag and resolved commit in its source manifest.
 
 The pipeline verifies exact source versions, patches the required Meson
-switches, and assigns the reserved custom RPM release
-`99.fc45.feclora1`. The higher release prevents Fedora's same-version stock
-Weston/libadwaita builds from superseding the X11-free rebuild in a later
-package transaction. It creates SRPMs and builds them in the
+switches, assigns the reserved Feclora RPM epoch `1`, and sets the custom
+release `99.fc45.feclora1`. Epoch 1 prevents any stock Fedora epoch-0 build,
+including a future higher upstream version, from superseding these packages.
+Release 99 orders the custom rebuild above same-version Fedora builds. Future
+Feclora graphics updates must retain epoch 1 and be rebuilt/audited through
+this pipeline. The pipeline creates SRPMs and builds them in the
 `fedora-45-x86_64` Mock root. It installs the custom GTK4 runtime/development
 RPMs into the persistent Mock root before rebuilding libadwaita. It then runs
 the strict RPM verifier against the actual Weston, GTK4, GTK4-devel and
