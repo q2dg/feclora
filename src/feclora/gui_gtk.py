@@ -2080,12 +2080,13 @@ class FecloraGTK:
             return
         refs = {
             item.get("credential_file") for _provider, item in getattr(self, "remote_repository_rows", [])
+            if item.get("credential_file")
         } | {
             ref for _provider, item in getattr(self, "remote_repository_rows", [])
-            for ref in item.get("credential_refs", [])
+            for ref in item.get("credential_refs", []) if ref
         } | {
             ref for _provider, item in getattr(self, "s3_repository_rows", [])
-            for ref in item.get("credential_refs", [])
+            for ref in item.get("credential_refs", []) if ref
         }
         if credentials_by_identity[0].get("path") in refs:
             self.repository_action_result.set_text("No se puede eliminar: la credencial está referenciada por un repositorio.")
