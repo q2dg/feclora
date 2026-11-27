@@ -70,7 +70,7 @@ Weston
 """
         patched = PATCHER.patch_spec_text("weston", source)
         build = patched.split("%install", 1)[0]
-        for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true"):
+        for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true", "-Dlauncher-libseat=true", "-Dsystemd=true"):
             self.assertIn(flag, build)
         self.assertIn("Epoch:          1", patched)
         self.assertIn("Release:        99%{?dist}.feclora1", patched)
