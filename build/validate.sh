@@ -26,7 +26,7 @@ for file in \
   tests/test_tui.py tests/test_tui_api.py tests/test_gtk_api.py \
   tests/test_gtk_frontend.py tests/test_kiosk_boot.py tests/test_ui_api.py \
   tests/test_ui_catalog.py tests/test_wayland_rpm_guard.py \
-  tests/test_wayland_spec_patch.py; do
+  tests/test_wayland_spec_patch.py tests/test_wayland_rpm_builder.py; do
   [[ -s "$file" ]] || fail "Required file is missing or empty: $file"
 done
 
