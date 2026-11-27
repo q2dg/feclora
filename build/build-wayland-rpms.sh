@@ -35,7 +35,8 @@ mkdir -p "$RESULTS"
 trap 'rm -rf -- "$WORK_DIR"' EXIT
 
 prepare_fedora_srpm() {
-  local package="$1" source_ref="$2" source_dir="$WORK_DIR/$package" top="$WORK_DIR/rpmbuild-$package"
+  local package="$1" source_ref="$2"
+  local source_dir="$WORK_DIR/$package" top="$WORK_DIR/rpmbuild-$package"
   local spec_file srpm
   [[ "$source_ref" == "${package}-"* ]] || fail "Invalid Fedora dist-git release tag for $package: $source_ref"
   git clone --depth 1 --branch "$source_ref" "https://src.fedoraproject.org/rpms/${package}.git" "$source_dir" >&2
@@ -64,7 +65,8 @@ prepare_fedora_srpm() {
 }
 
 build_mock_package() {
-  local package="$1" srpm="$2" result_dir="$RESULTS/$package"
+  local package="$1" srpm="$2"
+  local result_dir="$RESULTS/$package"
   mkdir -p "$result_dir"
   mock -r "$MOCK_CONFIG" --rebuild --resultdir="$result_dir" "$srpm"
 }
