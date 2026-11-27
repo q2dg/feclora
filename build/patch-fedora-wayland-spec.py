@@ -27,8 +27,8 @@ def patch_spec_text(package: str, source: str) -> str:
         raise ValueError(f"unsupported Fedora package: {package}")
     expected_version, flags = EXPECTED[package]
     lines = source.splitlines()
-    version_indexes = [i for i, line in enumerate(lines) if re.match(r"^Version:\\s*", line)]
-    release_indexes = [i for i, line in enumerate(lines) if re.match(r"^Release:\\s*", line)]
+    version_indexes = [i for i, line in enumerate(lines) if re.match(r"^Version:\s*", line)]
+    release_indexes = [i for i, line in enumerate(lines) if re.match(r"^Release:\s*", line)]
     if len(version_indexes) != 1 or len(release_indexes) != 1:
         raise ValueError("spec must contain exactly one Version: and Release: field")
     version = lines[version_indexes[0]].split(":", 1)[1].strip()
@@ -42,28 +42,29 @@ def patch_spec_text(package: str, source: str) -> str:
             raise ValueError("spec has no %build section")
         build_end = next(
             (i for i in range(build_start + 1, len(lines))
-             if re.match(r"^%(install|check|files|package|description)(?:\\s|$)", lines[i])),
+             if re.match(r"^%(install|check|files|package|description)(?:\s|$)", lines[i])),
             len(lines),
         )
         meson_indexes = [
             i for i in range(build_start + 1, build_end)
-            if re.search(r"(?<![A-Za-z0-9_])%meson(?:\\s|$)", lines[i])
+            if re.search(r"(?<![A-Za-z0-9_])%meson(?:\s|$)", lines[i])
         ]
         if not meson_indexes:
             raise ValueError("spec %build section has no %meson invocation to patch")
         for index in meson_indexes:
             line = lines[index].rstrip()
-            if line.endswith("\\\\"):
+            continued = line.endswith("\\")
+            if continued:
                 line = line[:-1].rstrip()
-            lines[index] = line + " " + " ".join(flags) + (" \\\\" if line.endswith("\\\\") else "")
+            lines[index] = line + " " + " ".join(flags) + (" \\" if continued else "")
 
-        result = "\\n".join(lines) + "\\n"
+        result = "\n".join(lines) + "\n"
         for flag in flags:
             if flag not in result:
                 raise ValueError(f"failed to inject required Meson option: {flag}")
         return result
 
-    return "\\n".join(lines) + "\\n"
+    return "\n".join(lines) + "\n"
 
 
 def main() -> int:
