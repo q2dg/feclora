@@ -63,6 +63,32 @@ names and RPM dependency requirements. Use its installed-root mode on the
 completed target root before release. Static fixtures are not substitutes for
 actual RPM inspection.
 
+## Building the Fedora 45 RPM candidates
+
+On a Fedora 45 x86_64 build host, install the host tools with `make deps`,
+then add the build user to the `mock` group and start a new login session:
+
+```bash
+sudo usermod -aG mock "$USER"
+# Log out and back in, then:
+make wayland-rpms
+```
+
+The build pipeline checks out the `f45` branches from Fedora dist-git for
+Weston, GTK4 and libadwaita, verifies the exact source versions, patches only
+the required Meson switches and custom RPM release marker, creates SRPMs and
+builds them in the `fedora-45-x86_64` Mock root. It installs the custom GTK4
+runtime/development RPMs into the persistent Mock root before rebuilding
+libadwaita. It then runs the strict RPM verifier against the actual Weston,
+GTK4, GTK4-devel and libadwaita binary RPMs. On success it writes the binary
+RPMs and Fedora source commit IDs to `out/wayland-rpms/`.
+
+The pipeline does not modify Kickstart or install the RPMs into the Live
+image. Review the source commit manifest, build logs and RPM metadata before
+considering package admission. If the host cannot reach Fedora dist-git or
+Fedora repositories, the build is blocked; do not substitute stock RPMs or
+unverified upstream builds.
+
 ## Semantic parity audit
 
 For each Textual workflow, compare the GTK implementation and tests at the
