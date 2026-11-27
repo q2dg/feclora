@@ -43,7 +43,7 @@ Cairo 1.18.6:
 
 Weston 15.0.1:
   -Dxwayland=false -Dbackend-x11=false
-  -Dbackend-drm=true -Dshell-kiosk=true
+  -Dbackend-drm=true -Dshell-kiosk=true\n  -Dlauncher-libseat=true -Dsystemd=true
 
 GTK 4.24.1:
   -Dx11-backend=false -Dwayland-backend=true
