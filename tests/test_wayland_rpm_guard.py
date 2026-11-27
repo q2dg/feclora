@@ -21,19 +21,19 @@ class WaylandRPMGuardTests(unittest.TestCase):
         self.db_path = self.root / "rpm-db.json"
         self.records = {
             "weston.rpm": {
-                "name": "weston",
+                "name": "weston", "epoch": "1",
                 "version": "15.0.1", "release": "99.fc45.feclora1", "source": "weston-15.0.1-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/bin/weston", "/usr/lib64/weston/kiosk-shell.so"],
                 "requires": ["weston-libs", "libwayland-client.so.0"],
             },
             "weston-libs.rpm": {
-                "name": "weston-libs",
+                "name": "weston-libs", "epoch": "1",
                 "version": "15.0.1", "release": "99.fc45.feclora1", "source": "weston-15.0.1-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/lib64/libweston-15/drm-backend.so"],
                 "requires": ["libwayland-server.so.0", "libdrm.so.2", "libinput.so.10"],
             },
             "gtk4.rpm": {
-                "name": "gtk4",
+                "name": "gtk4", "epoch": "1",
                 "version": "4.24.1", "release": "99.fc45.feclora1", "source": "gtk4-4.24.1-99.fc45.feclora1.src.rpm",
                 "files": [
                     "/usr/lib64/libgtk-4.so.1",
@@ -42,13 +42,13 @@ class WaylandRPMGuardTests(unittest.TestCase):
                 "requires": ["libwayland-client.so.0", "libxkbcommon.so.0"],
             },
             "libadwaita.rpm": {
-                "name": "libadwaita",
+                "name": "libadwaita", "epoch": "1",
                 "version": "1.10.0", "release": "99.fc45.feclora1", "source": "libadwaita-1.10.0-99.fc45.feclora1.src.rpm",
                 "files": ["/usr/lib64/libadwaita-1.so.0"],
                 "requires": ["gtk4 >= 4.24.1"],
             },
             "gtk4-devel.rpm": {
-                "name": "gtk4-devel",
+                "name": "gtk4-devel", "epoch": "1",
                 "version": "4.24.1", "release": "99.fc45.feclora1", "source": "gtk4-4.24.1-99.fc45.feclora1.src.rpm",
                 "files": [
                     "/usr/include/gtk-4.0/gdk/wayland/gdkwaylanddisplay.h",
@@ -70,7 +70,7 @@ args = sys.argv[1:]
 if args[:2] == ["-qp", "--qf"]:
     record = database[Path(args[-1]).name]
     if "%{SOURCERPM}" in args[2]:
-        print("|".join((record["version"], record["release"], record["source"])))
+        print("|".join((record["epoch"], record["version"], record["release"], record["source"])))
     else:
         print(record["name"])
 elif args[0] == "-qpl":
