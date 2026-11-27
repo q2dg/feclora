@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+CHANNEL=/dev/virtio-ports/org.feclora.boot-smoke
+if [ -c "$CHANNEL" ] && [ -w "$CHANNEL" ]; then
+  READY=/run/feclora-tui/ready
+  attempts=0
+  while [ ! -f "$READY" ]; do
+    if [ "$attempts" -ge 120 ]; then
+      echo "Textual did not render its initial screen." >&2
+      exit 1
+    fi
+    sleep 0.25
+    attempts=$((attempts + 1))
+  done
+  printf 'FECLORA_BOOT_SMOKE rendered\n' > "$CHANNEL"
+fi
