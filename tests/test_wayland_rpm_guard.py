@@ -238,14 +238,14 @@ else:
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("fc45 Feclora rebuild release", result.stderr)
+        self.assertIn("reserved 99.fc45.feclora rebuild release", result.stderr)
 
     def test_rejects_unmarked_fedora_release(self):
         self.records["weston.rpm"]["release"] = "3.fc45"
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("fc45 Feclora rebuild release", result.stderr)
+        self.assertIn("reserved 99.fc45.feclora rebuild release", result.stderr)
 
     def test_rejects_wrong_upstream_version(self):
         self.records["gtk4.rpm"]["version"] = "4.24.2"
