@@ -27,8 +27,8 @@ def patch_spec_text(package: str, source: str) -> str:
         raise ValueError(f"unsupported Fedora package: {package}")
     expected_version, flags = EXPECTED[package]
     lines = source.splitlines()
-    name_indexes = [i for i, line in enumerate(lines) if re.match(r"^Name:\\s*", line)]
-    epoch_indexes = [i for i, line in enumerate(lines) if re.match(r"^Epoch:\\s*", line)]
+    name_indexes = [i for i, line in enumerate(lines) if re.match(r"^Name:\s*", line)]
+    epoch_indexes = [i for i, line in enumerate(lines) if re.match(r"^Epoch:\s*", line)]
     if len(name_indexes) != 1 or len(epoch_indexes) > 1:
         raise ValueError("spec must contain exactly one Name: field and at most one Epoch: field")
     if epoch_indexes:
@@ -36,8 +36,8 @@ def patch_spec_text(package: str, source: str) -> str:
     else:
         lines.insert(name_indexes[0] + 1, "Epoch:          1")
 
-    version_indexes = [i for i, line in enumerate(lines) if re.match(r"^Version:\\s*", line)]
-    release_indexes = [i for i, line in enumerate(lines) if re.match(r"^Release:\\s*", line)]
+    version_indexes = [i for i, line in enumerate(lines) if re.match(r"^Version:\s*", line)]
+    release_indexes = [i for i, line in enumerate(lines) if re.match(r"^Release:\s*", line)]
     if len(version_indexes) != 1 or len(release_indexes) != 1:
         raise ValueError("spec must contain exactly one Version: and Release: field")
     version = lines[version_indexes[0]].split(":", 1)[1].strip()
