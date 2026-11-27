@@ -62,7 +62,7 @@ readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland.*|openbox.*|libX.*|libxcb.*|libx
 check_package_name() {
   local package="$1"
   if [[ "$package" =~ $BAD_PACKAGE_RE ]]; then
-    fail "Forbidden X11/Openbox package is present: $package"
+    fail "Forbidden X11 package or Openbox package is present: $package"
   fi
 }
 
@@ -72,12 +72,12 @@ check_payload() {
   for pattern in "$X11_BACKEND_FILE_RE" "$X11_LIBRARY_FILE_RE" "$X11_HEADER_FILE_RE" "$X11_METADATA_FILE_RE"; do
     if grep -Eiq "$pattern" <<<"$files"; then
       grep -Ei "$pattern" <<<"$files" >&2 || true
-      fail "$origin contains a forbidden X11/Openbox binary, backend, library or development file."
+      fail "$origin contains a forbidden X11 backend, Openbox binary, library or development file."
     fi
   done
   if grep -Eiq "$X11_REQUIRE_RE" <<<"$requirements"; then
     grep -Ei "$X11_REQUIRE_RE" <<<"$requirements" >&2 || true
-    fail "$origin has an X11/Openbox runtime or build dependency."
+    fail "$origin has an X11 runtime or build dependency (including Openbox)."
   fi
 }
 
@@ -132,7 +132,7 @@ if [[ -n "$installed_root" ]]; then
   done
 fi
 
-printf 'Strict X11/Openbox-free Fedora 45 RPM audit passed for Weston 15.0.1, GTK 4.24.1 and libadwaita 1.10.0.\n'
+printf 'Strict X11-free Fedora 45 RPM audit passed; Openbox was also excluded for Weston 15.0.1, GTK 4.24.1 and libadwaita 1.10.0.\n'
 if [[ -n "$installed_root" ]]; then
-  printf 'Installed-root X11/Openbox audit passed: %s (%d RPM packages).\n' "$installed_root" "$installed_count"
+  printf 'Installed-root X11 audit passed (Openbox excluded): %s (%d RPM packages).\n' "$installed_root" "$installed_count"
 fi
