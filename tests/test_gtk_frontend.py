@@ -105,7 +105,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_validator_runs_gtk_boot_docs_and_unit_checks(self):
         validator = Path("build/validate.sh").read_text(encoding="utf-8")
-        self.assertIn("bash build/validate-gtk-boot.sh", validator)
+        self.assertIn("bash build/validate-text-boot.sh", validator)
+        self.assertIn("bash build/validate-gtk-candidate.sh", validator)
         self.assertIn("python3 build/check_docs.py", validator)
         self.assertIn("python3 -m unittest discover", validator)
         self.assertIn("src/feclora/ui_api.py", validator)
