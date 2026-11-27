@@ -47,6 +47,7 @@ Release: %autorelease
         build = patched.split("%install", 1)[0]
         self.assertIn("-Dx11-backend=false", build)
         self.assertIn("-Dwayland-backend=true", build)
+        self.assertIn("Epoch:          1", patched)
 
     def test_libadwaita_uses_exact_fedora45_version_and_custom_release(self):
         source = """Name: libadwaita
@@ -58,6 +59,7 @@ Release: %autorelease
 %meson_install
 """
         patched = PATCHER.patch_spec_text("libadwaita", source)
+        self.assertIn("Epoch:          1", patched)
         self.assertIn("Release:        99%{?dist}.feclora1", patched)
         self.assertIn("%meson", patched)
 
