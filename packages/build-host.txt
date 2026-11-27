@@ -5,3 +5,10 @@ qemu-kvm
 edk2-ovmf
 xorriso
 dracut
+
+# Fedora 45 source RPM rebuilds and isolated x86_64 package builds
+fedpkg
+mock
+rpm-build
+rpmdevtools
+git
