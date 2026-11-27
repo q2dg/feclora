@@ -18,6 +18,8 @@ EXPECTED = {
         "-Dbackend-x11=false",
         "-Dbackend-drm=true",
         "-Dshell-kiosk=true",
+        "-Dlauncher-libseat=true",
+        "-Dsystemd=true",
     )),
     "gtk4": ("4.24.1", (
         "-Dx11-backend=false",
