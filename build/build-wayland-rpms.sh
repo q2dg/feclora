@@ -72,7 +72,8 @@ build_mock_package() {
 }
 
 build_mock_package_preserving_root() {
-  local package="$1" srpm="$2" result_dir="$RESULTS/$package"
+  local package="$1" srpm="$2"
+  local result_dir="$RESULTS/$package"
   mkdir -p "$result_dir"
   mock -r "$MOCK_CONFIG" --rebuild --no-clean --resultdir="$result_dir" "$srpm"
 }
