@@ -64,7 +64,7 @@ Release: %autorelease
         self.assertIn("%meson", patched)
 
     def test_overwrites_existing_epoch_with_feclora_epoch(self):
-        source = "Name: gtk4\\nEpoch: 0\\nVersion: 4.24.1\\nRelease: 1%{?dist}\\n%build\\n%meson\\n"
+        source = "Name: gtk4\nEpoch: 0\nVersion: 4.24.1\nRelease: 1%{?dist}\n%build\n%meson\n"
         patched = PATCHER.patch_spec_text("gtk4", source)
         self.assertEqual(patched.count("Epoch:"), 1)
         self.assertIn("Epoch:          1", patched)
