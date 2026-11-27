@@ -1,0 +1,42 @@
+[Unit]
+Description=Feclora Textual appliance interface on tty1
+After=systemd-logind.service systemd-user-sessions.service feclora-local-operation-recovery.service kmsconvt@tty1.service
+Requires=feclora-local-operation-recovery.service
+Conflicts=getty@tty1.service kmsconvt@tty1.service
+ConditionPathExists=/dev/tty0
+
+[Service]
+Type=simple
+User=feclora
+Group=feclora
+Environment=HOME=/home/feclora
+Environment=PYTHONPATH=/usr/share/feclora/python
+Environment=TERM=linux
+RuntimeDirectory=feclora-tui
+RuntimeDirectoryMode=0700
+TTYPath=/dev/tty1
+StandardInput=tty-fail
+StandardOutput=tty
+StandardError=tty
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=no
+UtmpIdentifier=tty1
+UtmpMode=user
+ExecStartPre=+/usr/bin/chvt 1
+ExecStartPre=+/usr/bin/echo Starting Feclora Textual interface
+ExecStart=/usr/bin/python3 -m feclora.tui
+ExecStartPost=+/usr/libexec/feclora/feclora-tui-ready
+Restart=always
+RestartSec=2
+UMask=0077
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target
