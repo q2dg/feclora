@@ -13,7 +13,7 @@ fail() {
 for file in \
   build/build-iso.sh build/preflight.sh build/install-host-deps.sh \
   build/check_docs.py build/validate-text-boot.sh build/validate-gtk-candidate.sh \
-  build/build-wayland-rpms.sh build/patch-fedora-wayland-spec.py \\
+  build/build-wayland-rpms.sh build/patch-fedora-wayland-spec.py \
   build/verify-iso-text-boot.sh build/verify-wayland-rpms.sh \
   kickstart/feclora-live.ks packages/base.txt packages/build-host.txt \
   requirements-test.txt requirements-gui.txt \
