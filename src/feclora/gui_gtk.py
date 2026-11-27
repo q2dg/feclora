@@ -1874,6 +1874,8 @@ class FecloraGTK:
             return
         self.repository_action_result.set_text("Acción completada: " + str(response))
         self.repository_confirmation.set_text("")
+        if hasattr(self, "credential_confirmation"):
+            self.credential_confirmation.set_text("")
         self.remote_id.set_editable(True)
         self.s3_id.set_editable(True)
         self._refresh_repositories(None)
@@ -2069,7 +2071,26 @@ class FecloraGTK:
         if self.credential_confirmation.get_text().strip() != f"REMOVE {identifier}":
             self.repository_action_result.set_text(f"Para eliminar escribe exactamente: REMOVE {identifier}")
             return
-        self.repository_action_result.set_text("Eliminando credencial; el backend comprobará que no esté referenciada…")
+        credentials_by_identity = [
+            item for item in credentials
+            if item.get("id") == identifier and item.get("kind") == kind
+        ]
+        if not credentials_by_identity:
+            self.repository_action_result.set_text("La credencial ya no está disponible.")
+            return
+        refs = {
+            item.get("credential_file") for _provider, item in getattr(self, "remote_repository_rows", [])
+        } | {
+            ref for _provider, item in getattr(self, "remote_repository_rows", [])
+            for ref in item.get("credential_refs", [])
+        } | {
+            ref for _provider, item in getattr(self, "s3_repository_rows", [])
+            for ref in item.get("credential_refs", [])
+        }
+        if credentials_by_identity[0].get("path") in refs:
+            self.repository_action_result.set_text("No se puede eliminar: la credencial está referenciada por un repositorio.")
+            return
+        self.repository_action_result.set_text("Eliminando credencial; el backend volverá a comprobar sus referencias…")
         self._submit_repository_action("remove_systemd_credential", {"id": identifier, "kind": kind})
 
     def _render_repositories(self) -> None:
