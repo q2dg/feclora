@@ -1,9 +1,9 @@
-"""GTK4 frontend for Feclora's native Wayland kiosk.
+"""GTK4 candidate frontend for Feclora's native Wayland kiosk.
 
-This frontend is under behavioral parity review. The intended production
-compositor is Weston DRM/KMS with kiosk-shell; no Cage-based launch path is
-supported. GTK4 is the production tty1 interface; physical BIOS/UEFI and GTK/Weston
-acceptance remain maintainer-run release gates.
+This frontend is under behavioral parity review. Textual remains the production
+tty1 interface until GTK/Weston behavioral, package, session and boot acceptance
+gates pass. The candidate compositor is Weston DRM/KMS with kiosk-shell; no
+X11 compatibility path or Cage-based launch path is supported.
 """
 from __future__ import annotations
 
