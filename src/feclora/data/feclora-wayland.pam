@@ -1,0 +1,6 @@
+#%PAM-1.0
+# Dedicated non-interactive PAM session for the unprivileged Weston kiosk.
+# Authentication is not exposed to users; systemd starts this fixed service.
+auth       required     pam_permit.so
+account    required     pam_permit.so
+session    required     pam_systemd.so type=wayland
