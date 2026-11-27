@@ -91,13 +91,14 @@ for rpm_file in "${rpm_files[@]}"; do
     *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
   esac
 
-  metadata="$(rpm -qp --qf '%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" || fail "Cannot read RPM metadata: $rpm_file"
-  IFS='|' read -r version release source_rpm <<<"$metadata"
+  metadata="$(rpm -qp --qf '%{EPOCH}|%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" || fail "Cannot read RPM metadata: $rpm_file"
+  IFS='|' read -r epoch version release source_rpm <<<"$metadata"
   case "$package_name" in
     weston|weston-libs|weston-devel) expected_version="15.0.1" ;;
     gtk4|gtk4-devel) expected_version="4.24.1" ;;
     libadwaita|libadwaita-devel) expected_version="1.10.0" ;;
   esac
+  [[ "$epoch" == 1 ]] || fail "$package_name must use Feclora graphics RPM epoch 1 (found $epoch)."
   [[ "$version" == "$expected_version" ]] || fail "$package_name must use Fedora 45 source version $expected_version (found $version)."
   [[ "$release" == 99.fc45.feclora* ]] || fail "$package_name must carry the reserved 99.fc45.feclora rebuild release (found $release)."
   [[ "$source_rpm" == *fc45*.src.rpm ]] || fail "$package_name must retain Fedora 45 source-RPM provenance (found $source_rpm)."
