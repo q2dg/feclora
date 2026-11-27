@@ -57,11 +57,12 @@ build/verify-wayland-rpms.sh \
   weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm
 ```
 
-The verifier rejects `xwayland.so`, `x11-backend.so`,
-`GdkX11-4.0.typelib`, X11 libraries, headers, pkg-config metadata, package
-names and RPM dependency requirements. Use its installed-root mode on the
-completed target root before release. Static fixtures are not substitutes for
-actual RPM inspection.
+The verifier rejects `xwayland.so`, the Xwayland/Xorg executables,
+`x11-backend.so`, Weston X11/XWayland headers, `GdkX11-4.0.typelib` and GIR,
+GDK-X11 libraries, X11/XCB/GLX headers and pkg-config files, X11 libraries and
+dependencies (including `libxkbcommon-x11`), and Openbox packages/binaries.
+Use its installed-root mode on the completed target root before release.
+Static fixtures are not substitutes for actual RPM inspection.
 
 ## Building the Fedora 45 RPM candidates
 
@@ -74,14 +75,28 @@ sudo usermod -aG mock "$USER"
 make wayland-rpms
 ```
 
-The build pipeline checks out the `f45` branches from Fedora dist-git for
-Weston, GTK4 and libadwaita, verifies the exact source versions, patches only
-the required Meson switches and custom RPM release marker, creates SRPMs and
-builds them in the `fedora-45-x86_64` Mock root. It installs the custom GTK4
-runtime/development RPMs into the persistent Mock root before rebuilding
-libadwaita. It then runs the strict RPM verifier against the actual Weston,
-GTK4, GTK4-devel and libadwaita binary RPMs. On success it writes the binary
-RPMs and Fedora source commit IDs to `out/wayland-rpms/`.
+The build pipeline checks out these exact Fedora 45 dist-git release tags,
+rather than the moving `f45` branch head:
+
+- `weston-15.0.1-3.fc45`
+- `gtk4-4.24.1-1.fc45`
+- `libadwaita-1.10.0-2.fc45`
+
+The GTK 4.24.1 source is intentionally pinned: Fedora 45 package metadata
+currently lists 4.24.2-1.fc45 as stable and 4.24.1-1.fc45 as testing. The
+requested 4.24.1 baseline must not silently drift to 4.24.2. The builder
+records each dist-git tag and resolved commit in its source manifest.
+
+The pipeline verifies exact source versions, patches the required Meson
+switches, and assigns the reserved custom RPM release
+`99.fc45.feclora1`. The higher release prevents Fedora's same-version stock
+Weston/libadwaita builds from superseding the X11-free rebuild in a later
+package transaction. It creates SRPMs and builds them in the
+`fedora-45-x86_64` Mock root. It installs the custom GTK4 runtime/development
+RPMs into the persistent Mock root before rebuilding libadwaita. It then runs
+the strict RPM verifier against the actual Weston, GTK4, GTK4-devel and
+libadwaita binary RPMs. On success it writes the binary RPMs and Fedora source
+manifest to `out/wayland-rpms/`.
 
 The pipeline does not modify Kickstart or install the RPMs into the Live
 image. Review the source commit manifest, build logs and RPM metadata before
