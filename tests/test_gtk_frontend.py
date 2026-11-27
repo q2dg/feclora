@@ -1554,5 +1554,15 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertIn("window=window_generation", stop)
 
 
+    def test_credential_removal_checks_repository_references_and_clears_confirmation(self):
+        remove = ast.get_source_segment(self.source, self.methods["_remove_repository_credential"])
+        self.assertIn("credentials_by_identity", remove)
+        self.assertIn("credential_refs", remove)
+        self.assertIn('credentials_by_identity[0].get("path") in refs', remove)
+        self.assertIn("No se puede eliminar: la credencial está referenciada", remove)
+        completed = ast.get_source_segment(self.source, self.methods["_repository_action_done"])
+        self.assertIn("self.credential_confirmation.set_text", completed)
+
+
 if __name__ == "__main__":
     unittest.main()
