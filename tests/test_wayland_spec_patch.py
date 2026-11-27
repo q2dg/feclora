@@ -20,6 +20,10 @@ Version: 1.18.6
 Release: %autorelease
 BuildRequires: pkgconfig(x11)
 BuildRequires: pkgconfig(xcb)
+BuildRequires: pkgconfig(xcb-render)
+BuildRequires: pkgconfig(xcb-shm)
+BuildRequires: pkgconfig(xext)
+Requires: pkgconfig(xrender)
 Requires: libX11-devel
 Requires: pkgconfig(cairo-xlib)
 %description
@@ -45,8 +49,8 @@ Cairo
         self.assertIn("%{_includedir}/cairo/cairo.h", patched)
         self.assertIn("%{_libdir}/pkgconfig/cairo.pc", patched)
         for forbidden in (
-            "pkgconfig(x11)", "pkgconfig(xcb)", "libX11-devel",
-            "pkgconfig(cairo-xlib)", "cairo-xlib.h", "cairo-xcb.h",
+            "pkgconfig(x11)", "pkgconfig(xcb)", "pkgconfig(xcb-render)", "pkgconfig(xcb-shm)",
+            "pkgconfig(xext)", "pkgconfig(xrender)", "libX11-devel", "pkgconfig(cairo-xlib)", "cairo-xlib.h", "cairo-xcb.h",
             "cairo-xlib.pc", "cairo-xcb.pc",
         ):
             with self.subTest(forbidden=forbidden):
