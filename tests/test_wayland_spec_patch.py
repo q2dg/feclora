@@ -30,6 +30,7 @@ Weston
         build = patched.split("%install", 1)[0]
         for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true"):
             self.assertIn(flag, build)
+        self.assertIn("Epoch:          1", patched)
         self.assertIn("Release:        99%{?dist}.feclora1", patched)
         self.assertIn("-Dremoting=false", build)
 
@@ -59,6 +60,12 @@ Release: %autorelease
         patched = PATCHER.patch_spec_text("libadwaita", source)
         self.assertIn("Release:        99%{?dist}.feclora1", patched)
         self.assertIn("%meson", patched)
+
+    def test_overwrites_existing_epoch_with_feclora_epoch(self):
+        source = "Name: gtk4\\nEpoch: 0\\nVersion: 4.24.1\\nRelease: 1%{?dist}\\n%build\\n%meson\\n"
+        patched = PATCHER.patch_spec_text("gtk4", source)
+        self.assertEqual(patched.count("Epoch:"), 1)
+        self.assertIn("Epoch:          1", patched)
 
     def test_rejects_unexpected_fedora_source_version(self):
         with self.assertRaisesRegex(ValueError, "must be 4.24.1"):
