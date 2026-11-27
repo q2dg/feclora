@@ -30,7 +30,7 @@ Weston
         build = patched.split("%install", 1)[0]
         for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true"):
             self.assertIn(flag, build)
-        self.assertIn("Release:        1%{?dist}.feclora1", patched)
+        self.assertIn("Release:        99%{?dist}.feclora1", patched)
         self.assertIn("-Dremoting=false", build)
 
     def test_gtk_disables_gdk_x11_and_enables_wayland(self):
@@ -57,7 +57,7 @@ Release: %autorelease
 %meson_install
 """
         patched = PATCHER.patch_spec_text("libadwaita", source)
-        self.assertIn("Release:        1%{?dist}.feclora1", patched)
+        self.assertIn("Release:        99%{?dist}.feclora1", patched)
         self.assertIn("%meson", patched)
 
     def test_rejects_unexpected_fedora_source_version(self):
