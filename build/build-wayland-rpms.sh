@@ -35,10 +35,11 @@ mkdir -p "$RESULTS"
 trap 'rm -rf -- "$WORK_DIR"' EXIT
 
 prepare_fedora_srpm() {
-  local package="$1" source_dir="$WORK_DIR/$package" top="$WORK_DIR/rpmbuild-$package"
+  local package="$1" source_ref="$2" source_dir="$WORK_DIR/$package" top="$WORK_DIR/rpmbuild-$package"
   local spec_file srpm
-  git clone --depth 1 --branch f45 "https://src.fedoraproject.org/rpms/${package}.git" "$source_dir" >&2
-  printf '%s\t%s\n' "$package" "$(git -C "$source_dir" rev-parse HEAD)" >> "$WORK_DIR/source-commits.tsv"
+  [[ "$source_ref" == "${package}-"* ]] || fail "Invalid Fedora dist-git release tag for $package: $source_ref"
+  git clone --depth 1 --branch "$source_ref" "https://src.fedoraproject.org/rpms/${package}.git" "$source_dir" >&2
+  printf '%s\t%s\t%s\n' "$package" "$source_ref" "$(git -C "$source_dir" rev-parse HEAD)" >> "$WORK_DIR/source-commits.tsv"
   (
     cd "$source_dir"
     fedpkg sources >&2
@@ -79,18 +80,18 @@ find_binary_rpm() {
 }
 
 printf '[1/5] Fetching and patching Fedora 45 Weston source...\n'
-weston_srpm="$(prepare_fedora_srpm weston)"
+weston_srpm="$(prepare_fedora_srpm weston weston-15.0.1-3.fc45)"
 printf '[2/5] Building Weston 15.0.1 in Mock...\n'
 build_mock_package weston "$weston_srpm"
 
 printf '[3/5] Fetching and building GTK 4.24.1...\n'
-gtk4_srpm="$(prepare_fedora_srpm gtk4)"
+gtk4_srpm="$(prepare_fedora_srpm gtk4 gtk4-4.24.1-1.fc45)"
 build_mock_package gtk4 "$gtk4_srpm"
 gtk4_runtime="$(find_binary_rpm "$RESULTS/gtk4" gtk4)"
 gtk4_devel="$(find_binary_rpm "$RESULTS/gtk4" gtk4-devel)"
 
 printf '[4/5] Rebuilding libadwaita 1.10.0 against the custom GTK4 RPMs...\n'
-libadwaita_srpm="$(prepare_fedora_srpm libadwaita)"
+libadwaita_srpm="$(prepare_fedora_srpm libadwaita libadwaita-1.10.0-2.fc45)"
 mock -r "$MOCK_CONFIG" --init
 mock -r "$MOCK_CONFIG" --install "$gtk4_runtime" "$gtk4_devel"
 mkdir -p "$RESULTS/libadwaita"
