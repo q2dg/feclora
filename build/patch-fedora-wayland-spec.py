@@ -29,7 +29,7 @@ EXPECTED = {
 CAIRO_X11_DEPENDENCY_RE = re.compile(
     r"(?i)(?:\blibX11(?:-devel)?\b|\blibXext(?:-devel)?\b|"
     r"\blibXrender(?:-devel)?\b|\blibxcb(?:-devel)?\b|"
-    r"pkgconfig\((?:x11|xcb|cairo-xlib(?:-xrender)?|cairo-xcb(?:-shm)?)\)|"
+    r"pkgconfig\((?:x11|xext|xrender|xcb(?:-[a-z0-9-]+)?|cairo-xlib(?:-xrender)?|cairo-xcb(?:-shm)?)\)|"
     r"\bcairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\.pc\b)"
 )
 CAIRO_X11_FILE_RE = re.compile(
