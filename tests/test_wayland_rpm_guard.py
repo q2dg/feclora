@@ -339,6 +339,15 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("X11 requirement", result.stderr)
 
+    def test_rejects_mesa_x11_xcb_and_shared_memory_dependencies(self):
+        self.records["weston-libs.rpm"]["requires"].extend([
+            "libX11-xcb.so.1()(64bit)", "libxshmfence.so.1()(64bit)",
+        ])
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 requirement", result.stderr)
+
     def test_rejects_x11_pkgconfig_dependency(self):
         self.records["gtk4-devel.rpm"]["requires"].append("pkgconfig(x11)")
         self._write_database()
