@@ -38,8 +38,8 @@ can be inspected and tested.
 Fedora 45's stock Weston runtime depends on `mesa-dri-drivers`; that package
 advertises `libX11-xcb`, `libxcb` and `libxshmfence` dependencies. The stock
 Mesa EGL package also depends on X11 client libraries. Those packages cannot
-enter a strict X11-free image. The candidate therefore disables Weston's GL
-renderer at build time (`-Drenderer-gl=false`) and selects Pixman explicitly
+enter a strict X11-free image. The candidate therefore disables Weston's GL and Vulkan
+renderers at build time (`-Drenderer-gl=false -Drenderer-vulkan=false`) and selects Pixman explicitly
 with `--renderer=pixman`; DRM/KMS and kiosk-shell remain enabled. The GTK build
 disables its Vulkan renderer and the app selects the Cairo GSK renderer. This
 is a deliberate software-compositing trade-off: UI rendering consumes CPU and
@@ -58,7 +58,8 @@ Cairo 1.18.6:
 
 Weston 15.0.1:
   -Dxwayland=false -Dbackend-x11=false
-  -Dbackend-drm=true -Dshell-kiosk=true -Dsystemd=true -Drenderer-gl=false
+  -Dbackend-drm=true -Dshell-kiosk=true -Dsystemd=true
+  -Drenderer-gl=false -Drenderer-vulkan=false
 
 GTK 4.24.1:
   -Dx11-backend=false -Dwayland-backend=true -Dvulkan=disabled
