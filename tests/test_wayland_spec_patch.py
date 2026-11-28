@@ -93,6 +93,65 @@ Release: %autorelease
         self.assertIn("-Dvulkan=disabled", build)
         self.assertIn("Epoch:          1", patched)
 
+    def test_weston_strips_x11_dependencies_and_payload(self):
+        source = """Name: weston
+Version: 15.0.1
+Release: %autorelease
+BuildRequires: pkgconfig(wayland-client) pkgconfig(x11) libX11-devel
+BuildRequires: xorg-x11-server-Xwayland
+%description
+Weston
+%build
+%meson
+%install
+%meson_install
+%files libs
+%{_libdir}/libweston-15/drm-backend.so
+%{_libdir}/libweston-15/x11-backend.so
+%{_libdir}/libweston-15/xwayland.so
+%files devel
+%{_includedir}/libweston-15/libweston/backend-x11.h
+%{_includedir}/libweston-15/libweston/xwayland-api.h
+"""
+        patched = PATCHER.patch_spec_text("weston", source)
+        self.assertIn("pkgconfig(wayland-client)", patched)
+        for forbidden in (
+            "pkgconfig(x11)", "libX11-devel", "xorg-x11-server-Xwayland",
+            "x11-backend.so", "xwayland.so", "backend-x11.h", "xwayland-api.h",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, patched)
+
+    def test_gtk_strips_x11_dependencies_typelibs_headers_and_pc_files(self):
+        source = """Name: gtk4
+Version: 4.24.1
+Release: %autorelease
+BuildRequires: pkgconfig(wayland-client) pkgconfig(x11) libXcursor-devel
+Requires: pkgconfig(x11)
+%description
+GTK
+%build
+%meson
+%install
+%meson_install
+%files devel
+%{_includedir}/gtk-4.0/gdk/wayland/gdkwaylanddisplay.h
+%{_includedir}/gtk-4.0/gdk/x11/gdkx11display.h
+%{_libdir}/girepository-1.0/GdkX11-4.0.typelib
+%{_libdir}/pkgconfig/gtk4-wayland.pc
+%{_libdir}/pkgconfig/gtk4-x11.pc
+"""
+        patched = PATCHER.patch_spec_text("gtk4", source)
+        self.assertIn("pkgconfig(wayland-client)", patched)
+        self.assertIn("gdkwaylanddisplay.h", patched)
+        self.assertIn("gtk4-wayland.pc", patched)
+        for forbidden in (
+            "pkgconfig(x11)", "libXcursor-devel", "gdk/x11", "gdkx11display.h",
+            "GdkX11-4.0.typelib", "gtk4-x11.pc",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, patched)
+
     def test_libadwaita_uses_exact_fedora45_version_and_custom_release(self):
         source = """Name: libadwaita
 Version: 1.10.0
