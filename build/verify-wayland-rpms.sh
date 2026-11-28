@@ -58,7 +58,7 @@ readonly X11_LIBRARY_FILE_RE='(^|/)(libX[^/]*\.so(\.[^/]*)?|libxcb[^/]*\.so(\.[^
 readonly X11_HEADER_FILE_RE='(^|/)(X11|xcb|gdk/x11)/|(^|/)(backend-x11\.h|xwayland-api\.h|gdkx11[^/]*\.h|cairo-(xlib(-xrender)?|xcb(-shm)?)\.h|xkbcommon-x11\.h|glx[^/]*\.h)$'
 readonly X11_METADATA_FILE_RE='(^|/)(X11|xcb|gdk/x11)/|(^|/)[^/]*(x11|xcb|xext|xrender|glx)[^/]*\.pc$|(^|/)cairo-(xlib(-xrender)?|xcb(-shm)?)\.pc$'
 readonly X11_REQUIRE_RE='(^|[[:space:]])(libX[^[:space:]]*|libxcb[^[:space:]]*|libxkbcommon-x11[^[:space:]]*|libGLX[^[:space:]]*|libgdk-x11[^[:space:]]*|libxkbfile[^[:space:]]*|libxshmfence[^[:space:]]*|libfontenc[^[:space:]]*|libICE[^[:space:]]*|libSM[^[:space:]]*|libcairo-(xlib|xcb)[^[:space:]]*|xorg-x11-[^[:space:]]*|xwayland[^[:space:]]*|openbox[^[:space:]]*|xcb-util[^[:space:]]*|pkgconfig\((x11|x11-xcb|xext|xrender|xcb(-[^)]*)?|gdk-x11|gtk4-x11|xkbcommon-x11|glx|cairo-xlib(-xrender)?|cairo-xcb(-shm)?|weston-x11)\))([[:space:]]|$)'
-readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland.*|openbox.*|.*-x11.*|.*-xcb.*|.*-xwayland.*|.*-openbox.*|libX.*|libxcb.*|libxkbcommon-x11.*|libGLX.*|libgdk-x11.*|libxkbfile.*|libxshmfence.*|libfontenc.*|libICE.*|libSM.*|xcb-util.*)$'
+readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland.*|openbox.*|.*-x11.*|.*-xcb.*|.*-xwayland.*|cairo-xlib.*|cairo-xcb.*|.*-openbox.*|libX.*|libxcb.*|libxkbcommon-x11.*|libGLX.*|libgdk-x11.*|libxkbfile.*|libxshmfence.*|libfontenc.*|libICE.*|libSM.*|xcb-util.*)$'
 
 check_package_name() {
   local package="$1"
@@ -144,6 +144,26 @@ if [[ -n "$installed_root" ]]; then
   ((installed_count > 0)) || fail "No installed RPM database found under $installed_root."
   for required in weston weston-libs gtk4 libadwaita cairo cairo-gobject python3-gobject python3-cairo; do
     grep -Fxq "$required" <<<"$installed_listing" || fail "Required Wayland runtime package is not installed under $installed_root: $required"
+  done
+  check_installed_custom() {
+    local package="$1" expected_version="$2" expected_source="$3" metadata epoch version release source
+    metadata="$(rpm --root "$installed_root" -q --qf '%{EPOCH}|%{VERSION}|%{RELEASE}|%{SOURCERPM}\\n' "$package")" ||
+      fail "Cannot query installed custom package provenance: $package"
+    IFS='|' read -r epoch version release source <<<"$metadata"
+    [[ "$epoch" == 1 && "$version" == "$expected_version" && "$release" == "99.fc45.feclora1" && "$source" == "$expected_source" ]] ||
+      fail "Installed $package is not the audited Fedora 45 Feclora rebuild (found $metadata)."
+  }
+  check_installed_custom weston 15.0.1 weston-15.0.1-99.fc45.feclora1.src.rpm
+  check_installed_custom weston-libs 15.0.1 weston-15.0.1-99.fc45.feclora1.src.rpm
+  check_installed_custom gtk4 4.24.1 gtk4-4.24.1-99.fc45.feclora1.src.rpm
+  check_installed_custom libadwaita 1.10.0 libadwaita-1.10.0-99.fc45.feclora1.src.rpm
+  check_installed_custom cairo 1.18.6 cairo-1.18.6-99.fc45.feclora1.src.rpm
+  check_installed_custom cairo-gobject 1.18.6 cairo-1.18.6-99.fc45.feclora1.src.rpm
+  for required in python3-gobject python3-cairo; do
+    python_release="$(rpm --root "$installed_root" -q --qf '%{RELEASE}\\n' "$required")" ||
+      fail "Cannot query Fedora system Python binding package: $required"
+    [[ "$python_release" == *".fc45"* ]] ||
+      fail "$required must come from Fedora 45 system repositories (found release $python_release)."
   done
   for package_name in "${installed_packages[@]}"; do
     check_package_name "$package_name"
