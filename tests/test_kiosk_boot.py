@@ -66,6 +66,22 @@ class KioskBootConfigurationTests(unittest.TestCase):
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', source)
         self.assertNotIn('enable feclora-gtk.service', kickstart)
 
+    def test_gtk_wayland_service_creates_a_logind_pam_session(self):
+        service = self.read("src/feclora/data/feclora-gtk.service")
+        pam = self.read("src/feclora/data/feclora-wayland.pam")
+        kickstart = self.read("kickstart/feclora-live.ks")
+        self.assertIn("PAMName=feclora-wayland", service)
+        self.assertIn("Environment=LIBSEAT_BACKEND=logind", service)
+        self.assertIn("Environment=XDG_SESSION_TYPE=wayland", service)
+        self.assertIn("Environment=XDG_SEAT=seat0", service)
+        self.assertIn("Environment=XDG_VTNR=1", service)
+        self.assertIn("TTYPath=/dev/tty1", service)
+        self.assertIn("session    required     pam_systemd.so type=wayland", pam)
+        self.assertIn(
+            'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-wayland.pam" "$TARGET_ROOT/etc/pam.d/feclora-wayland"',
+            kickstart,
+        )
+
     def test_tty2_remains_independent_root_maintenance(self):
         terminal = self.read("src/feclora/data/feclora-root-terminal.service")
         kickstart = self.read("kickstart/feclora-live.ks")
