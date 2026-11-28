@@ -147,7 +147,7 @@ if [[ -n "$installed_root" ]]; then
   done
   check_installed_custom() {
     local package="$1" expected_version="$2" expected_source="$3" metadata epoch version release source
-    metadata="$(rpm --root "$installed_root" -q --qf '%{EPOCH}|%{VERSION}|%{RELEASE}|%{SOURCERPM}\\n' "$package")" ||
+    metadata="$(rpm --root "$installed_root" -q --qf '%{EPOCH}|%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$package")" ||
       fail "Cannot query installed custom package provenance: $package"
     IFS='|' read -r epoch version release source <<<"$metadata"
     [[ "$epoch" == 1 && "$version" == "$expected_version" && "$release" == "99.fc45.feclora1" && "$source" == "$expected_source" ]] ||
@@ -160,7 +160,7 @@ if [[ -n "$installed_root" ]]; then
   check_installed_custom cairo 1.18.6 cairo-1.18.6-99.fc45.feclora1.src.rpm
   check_installed_custom cairo-gobject 1.18.6 cairo-1.18.6-99.fc45.feclora1.src.rpm
   for required in python3-gobject python3-cairo; do
-    python_release="$(rpm --root "$installed_root" -q --qf '%{RELEASE}\\n' "$required")" ||
+    python_release="$(rpm --root "$installed_root" -q --qf '%{RELEASE}\n' "$required")" ||
       fail "Cannot query Fedora system Python binding package: $required"
     [[ "$python_release" == *".fc45"* ]] ||
       fail "$required must come from Fedora 45 system repositories (found release $python_release)."
