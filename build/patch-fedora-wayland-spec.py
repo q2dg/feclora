@@ -79,6 +79,47 @@ def _strip_cairo_x11_entries(lines: list[str]) -> list[str]:
     return filtered
 
 
+def _strip_x11_spec_entries(lines: list[str]) -> list[str]:
+    """Remove X11-only dependencies and payload declarations from split RPMs."""
+    filtered: list[str] = []
+    in_files_section = False
+    for line in lines:
+        if re.match(r"^%files(?:\\s|$)", line):
+            in_files_section = True
+        elif RPM_SECTION_RE.match(line):
+            in_files_section = False
+
+        if in_files_section and X11_SPEC_FILE_RE.search(line):
+            continue
+        if RPM_DEPENDENCY_TAG_RE.match(line) and not line.lstrip().startswith("#"):
+            tag, value = line.split(":", 1)
+            dependencies, marker, comment = value.partition("#")
+            dependencies = X11_SPEC_DEPENDENCY_TOKEN_RE.sub("", dependencies)
+            dependencies = re.sub(r"\\s+", " ", dependencies).strip(" ,")
+            if not dependencies:
+                if marker:
+                    filtered.append("#" + comment)
+                continue
+            cleaned = f"{tag}: {dependencies}"
+            if marker:
+                cleaned += " #" + comment
+            filtered.append(cleaned)
+            continue
+        filtered.append(line)
+
+    in_files_section = False
+    for line in filtered:
+        if re.match(r"^%files(?:\\s|$)", line):
+            in_files_section = True
+        elif RPM_SECTION_RE.match(line):
+            in_files_section = False
+        if RPM_DEPENDENCY_TAG_RE.match(line) and X11_SPEC_DEPENDENCY_TOKEN_RE.search(line.split("#", 1)[0]):
+            raise ValueError(f"spec still advertises an X11 dependency: {line.strip()}")
+        if in_files_section and X11_SPEC_FILE_RE.search(line):
+            raise ValueError(f"spec still packages an X11 file: {line.strip()}")
+    return filtered
+
+
 def patch_spec_text(package: str, source: str) -> str:
     if package not in EXPECTED:
         raise ValueError(f"unsupported Fedora package: {package}")
@@ -129,6 +170,7 @@ def patch_spec_text(package: str, source: str) -> str:
 
     if package == "cairo":
         lines = _strip_cairo_x11_entries(lines)
+    lines = _strip_x11_spec_entries(lines)
 
     result = "\n".join(lines) + "\n"
     for flag in flags:
