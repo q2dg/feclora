@@ -23,8 +23,8 @@ baselines are:
 
 | Package | Fedora 45 source baseline | Required Feclora build |
 | --- | --- | --- |
-| Weston / weston-libs | 15.0.1 | `-Dxwayland=false -Dbackend-x11=false`; retain DRM and kiosk-shell |
-| GTK4 | 4.24.1 | `-Dx11-backend=false -Dwayland-backend=true` |
+| Weston / weston-libs | 15.0.1 | `-Dxwayland=false -Dbackend-x11=false -Drenderer-gl=false`; retain DRM and kiosk-shell, run `--renderer=pixman` |
+| GTK4 | 4.24.1 | `-Dx11-backend=false -Dwayland-backend=true -Dvulkan=disabled`; run with `GSK_RENDERER=cairo` |
 | libadwaita | 1.10.0 | Rebuild against the custom GTK4 package |
 | PyGObject | Fedora 45 system package | Keep `python3-gobject` and `python3-cairo` in the staged candidate manifest; do not pip-install bindings |
 
@@ -38,6 +38,15 @@ and link to X11 client libraries. The stock GTK4 package exposes the GDK X11
 backend and X11 library dependencies. Therefore, excluding only the X server
 packages or setting a Wayland environment variable is insufficient for this
 appliance's no-X11 policy.
+
+The stock Weston package also depends on `mesa-dri-drivers`; Fedora 45's Mesa
+DRI package advertises `libX11-xcb`, `libxcb` and `libxshmfence`, while the Mesa
+EGL package advertises `libX11`, `libX11-xcb` and `libxcb`. The candidate
+therefore disables Weston's GL renderer and explicitly uses Pixman, retaining
+the DRM/KMS backend and GBM dependency. GTK's Vulkan renderer is disabled and
+GSK is pinned to Cairo. This trades GPU compositing for CPU rendering and must
+be performance-tested on target hardware. The final installed-root audit is
+required to prove the resolved Fedora 45 dependency closure is X11-free.
 
 Before any custom RPM is added to Kickstart, run
 `build/verify-wayland-rpms.sh` against the actual binary RPMs. It rejects
