@@ -50,11 +50,12 @@ class KioskBootConfigurationTests(unittest.TestCase):
         source = self.read("src/feclora/gui_gtk.py")
         kickstart = self.read("kickstart/feclora-live.ks")
         self.assertIn("Environment=GDK_BACKEND=wayland", service)
-        self.assertIn("UnsetEnvironment=DISPLAY XAUTHORITY", service)
+        self.assertIn("UnsetEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY", service)
         self.assertIn("--no-config -B drm --shell=kiosk-shell.so", service)
         self.assertNotIn("--xwayland", service)
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', source)
         self.assertIn('os.environ.pop("DISPLAY", None)', source)
+        self.assertIn('os.environ.pop("XAUTHORITY", None)', source)
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', source)
         self.assertNotIn('enable feclora-gtk.service', kickstart)
 

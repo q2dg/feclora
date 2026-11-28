@@ -14,7 +14,7 @@ for file in "$KS" "$BASE" "$UNIT" "$GUI" "$ROOT_DIR/build/verify-wayland-rpms.sh
 done
 
 grep -Fxq 'Environment=GDK_BACKEND=wayland' "$UNIT" || fail "GTK must force the native Wayland backend."
-grep -Fxq 'UnsetEnvironment=DISPLAY XAUTHORITY' "$UNIT" || fail "GTK service must clear X11 display variables."
+grep -Fxq 'UnsetEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY' "$UNIT" || fail "GTK service must clear inherited X11 and stale Wayland display variables before Weston starts."
 grep -Fq 'ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk' "$UNIT" || fail "Candidate must use Weston DRM/KMS kiosk-shell and --no-config."
 if grep -q -- '--xwayland' "$UNIT"; then fail "Weston must not offer XWayland."; fi
 grep -Fq 'os.environ["GDK_BACKEND"] = "wayland"' "$GUI" || fail "GTK must force GDK Wayland."

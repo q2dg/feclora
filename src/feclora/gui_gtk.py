@@ -17,6 +17,7 @@ from typing import Any
 # Fail closed: GDK must use the native Wayland backend only.
 os.environ["GDK_BACKEND"] = "wayland"
 os.environ.pop("DISPLAY", None)
+os.environ.pop("XAUTHORITY", None)
 if not os.environ.get("WAYLAND_DISPLAY"):
     raise RuntimeError(
         "Feclora GTK requires a native Wayland compositor: WAYLAND_DISPLAY is unset."
