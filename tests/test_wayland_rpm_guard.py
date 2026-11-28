@@ -104,6 +104,14 @@ class WaylandRPMGuardTests(unittest.TestCase):
                 "requires": ["cairo-gobject = 1:1.18.6-99.fc45.feclora1"],
                 "provides": ["pkgconfig(cairo-gobject)"],
             },
+            "weston-devel.rpm": {
+                "name": "weston-devel", "epoch": "1", "version": "15.0.1",
+                "release": "99.fc45.feclora1",
+                "source": "weston-15.0.1-99.fc45.feclora1.src.rpm",
+                "files": ["/usr/include/libweston-15/libweston.h", "/usr/lib64/pkgconfig/libweston-15.pc"],
+                "requires": ["weston-libs = 1:15.0.1-99.fc45.feclora1"],
+                "provides": ["pkgconfig(libweston-15)"],
+            },
         }
         fake_rpm = self.fake_bin / "rpm"
         fake_rpm.write_text(
@@ -164,6 +172,10 @@ else:
         self.assertIn("Strict X11-free Fedora 45", result.stdout)
 
     def test_accepts_optional_x11_free_development_rpms(self):
+        result = self._run(self.rpm_paths)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_accepts_weston_development_subpackage_when_it_is_x11_free(self):
         result = self._run(self.rpm_paths)
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -365,6 +377,20 @@ else:
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("reserved 99.fc45.feclora rebuild release", result.stderr)
+
+    def test_rejects_unexpected_source_rpm_provenance(self):
+        self.records["gtk4.rpm"]["source"] = "gtk4-4.24.1-1.fc45.src.rpm"
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unexpected Fedora 45 Feclora source RPM provenance", result.stderr)
+
+    def test_rejects_binary_package_from_mismatched_source_family(self):
+        self.records["gtk4.rpm"]["source"] = "weston-15.0.1-99.fc45.feclora1.src.rpm"
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not belong to the weston source RPM family", result.stderr)
 
     def test_rejects_stock_epoch_graphics_rpm(self):
         self.records["gtk4.rpm"]["epoch"] = "0"

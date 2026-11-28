@@ -58,7 +58,7 @@ readonly X11_LIBRARY_FILE_RE='(^|/)(libX[^/]*\.so(\.[^/]*)?|libxcb[^/]*\.so(\.[^
 readonly X11_HEADER_FILE_RE='(^|/)(X11|xcb|gdk/x11)/|(^|/)(backend-x11\.h|xwayland-api\.h|gdkx11[^/]*\.h|cairo-(xlib(-xrender)?|xcb(-shm)?)\.h|xkbcommon-x11\.h|glx[^/]*\.h)$'
 readonly X11_METADATA_FILE_RE='(^|/)(X11|xcb|gdk/x11)/|(^|/)[^/]*(x11|xcb|xext|xrender|glx)[^/]*\.pc$|(^|/)cairo-(xlib(-xrender)?|xcb(-shm)?)\.pc$'
 readonly X11_REQUIRE_RE='(^|[[:space:]])(libX[^[:space:]]*|libxcb[^[:space:]]*|libxkbcommon-x11[^[:space:]]*|libGLX[^[:space:]]*|libgdk-x11[^[:space:]]*|libxkbfile[^[:space:]]*|libxshmfence[^[:space:]]*|libfontenc[^[:space:]]*|libICE[^[:space:]]*|libSM[^[:space:]]*|libcairo-(xlib|xcb)[^[:space:]]*|xorg-x11-[^[:space:]]*|xwayland[^[:space:]]*|openbox[^[:space:]]*|xcb-util[^[:space:]]*|pkgconfig\((x11|x11-xcb|xext|xrender|xcb(-[^)]*)?|gdk-x11|gtk4-x11|xkbcommon-x11|glx|cairo-xlib(-xrender)?|cairo-xcb(-shm)?|weston-x11)\))([[:space:]]|$)'
-readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland.*|openbox.*|libX.*|libxcb.*|libxkbcommon-x11.*|libGLX.*|libgdk-x11.*|libxkbfile.*|libxshmfence.*|libfontenc.*|libICE.*|libSM.*|xcb-util.*)$'
+readonly BAD_PACKAGE_RE='^(xorg-x11-.*|xwayland.*|openbox.*|.*-x11.*|.*-xcb.*|.*-xwayland.*|.*-openbox.*|libX.*|libxcb.*|libxkbcommon-x11.*|libGLX.*|libgdk-x11.*|libxkbfile.*|libxshmfence.*|libfontenc.*|libICE.*|libSM.*|xcb-util.*)$'
 
 check_package_name() {
   local package="$1"
@@ -97,23 +97,24 @@ for rpm_file in "${rpm_files[@]}"; do
   [[ -s "$rpm_file" ]] || fail "RPM file is missing or empty: $rpm_file"
   package_name="$(rpm -qp --qf '%{NAME}\n' "$rpm_file")" || fail "Cannot read RPM metadata: $rpm_file"
   check_package_name "$package_name"
-  case "$package_name" in
-    cairo|cairo-gobject|cairo-devel|cairo-gobject-devel|weston|weston-libs|gtk4|libadwaita|weston-devel|gtk4-devel|libadwaita-devel) ;;
-    *) fail "Unexpected RPM package '$package_name' in $rpm_file." ;;
-  esac
-
   metadata="$(rpm -qp --qf '%{EPOCH}|%{VERSION}|%{RELEASE}|%{SOURCERPM}\n' "$rpm_file")" || fail "Cannot read RPM metadata: $rpm_file"
   IFS='|' read -r epoch version release source_rpm <<<"$metadata"
-  case "$package_name" in
-    cairo|cairo-gobject|cairo-devel|cairo-gobject-devel) expected_version="1.18.6" ;;
-    weston|weston-libs|weston-devel) expected_version="15.0.1" ;;
-    gtk4|gtk4-devel) expected_version="4.24.1" ;;
-    libadwaita|libadwaita-devel) expected_version="1.10.0" ;;
+  case "$source_rpm" in
+    cairo-1.18.6-99.fc45.feclora1.src.rpm)
+      expected_version="1.18.6"; source_prefix="cairo" ;;
+    weston-15.0.1-99.fc45.feclora1.src.rpm)
+      expected_version="15.0.1"; source_prefix="weston" ;;
+    gtk4-4.24.1-99.fc45.feclora1.src.rpm)
+      expected_version="4.24.1"; source_prefix="gtk4" ;;
+    libadwaita-1.10.0-99.fc45.feclora1.src.rpm)
+      expected_version="1.10.0"; source_prefix="libadwaita" ;;
+    *) fail "$package_name has unexpected Fedora 45 Feclora source RPM provenance: $source_rpm." ;;
   esac
+  [[ "$package_name" == "$source_prefix" || "$package_name" == "$source_prefix"-* ]] ||
+    fail "$package_name does not belong to the $source_prefix source RPM family."
   [[ "$epoch" == 1 ]] || fail "$package_name must use Feclora graphics RPM epoch 1 (found $epoch)."
   [[ "$version" == "$expected_version" ]] || fail "$package_name must use Fedora 45 source version $expected_version (found $version)."
-  [[ "$release" == 99.fc45.feclora* ]] || fail "$package_name must carry the reserved 99.fc45.feclora rebuild release (found $release)."
-  [[ "$source_rpm" == *fc45*.src.rpm ]] || fail "$package_name must retain Fedora 45 source-RPM provenance (found $source_rpm)."
+  [[ "$release" == 99.fc45.feclora1 ]] || fail "$package_name must carry the exact Feclora rebuild release 99.fc45.feclora1 (found $release)."
   [[ -z "${seen[$package_name]+x}" ]] || fail "Duplicate RPM package: $package_name"
   seen[$package_name]=1
 

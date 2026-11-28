@@ -46,6 +46,13 @@ class WaylandRPMBuilderTests(unittest.TestCase):
         self.assertIn('"$OUTPUT_DIR/build-deps/"', source)
         self.assertIn("do not add these to the Live image", source)
 
+    def test_audits_all_generated_binary_rpms_before_copying_runtime_subset(self):
+        source = BUILDER.read_text(encoding="utf-8")
+        self.assertIn("find \"$RESULTS\" -mindepth 2 -maxdepth 2 -type f -name '*.rpm' ! -name '*.src.rpm'", source)
+        self.assertIn('bash "$ROOT_DIR/build/verify-wayland-rpms.sh" "${audit_rpms[@]}"', source)
+        self.assertIn('runtime_rpm_paths["$rpm_file"]=1', source)
+        self.assertIn("*-debuginfo|*-debugsource", source)
+
 
 if __name__ == "__main__":
     unittest.main()

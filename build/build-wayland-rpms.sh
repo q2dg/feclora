@@ -117,21 +117,34 @@ libadwaita_srpm="$(prepare_fedora_srpm libadwaita libadwaita-1.10.0-2.fc45)"
 build_mock_package_preserving_root libadwaita "$libadwaita_srpm"
 libadwaita_rpm="$(find_binary_rpm "$RESULTS/libadwaita" libadwaita)"
 
-printf '[6/6] Auditing the actual binary RPM payloads, dependencies and capabilities...\n'
+printf '[6/6] Auditing every generated non-source binary RPM payload, dependency and capability...\n'
 weston_rpm="$(find_binary_rpm "$RESULTS/weston" weston)"
 weston_libs_rpm="$(find_binary_rpm "$RESULTS/weston" weston-libs)"
-cairo_rpms=("$cairo_runtime" "$cairo_gobject")
-build_dependency_rpms=("$cairo_devel" "$cairo_gobject_devel" "$gtk4_devel")
-bash "$ROOT_DIR/build/verify-wayland-rpms.sh" \
-  "$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$libadwaita_rpm" \
-  "${cairo_rpms[@]}" "${build_dependency_rpms[@]}"
+runtime_rpms=("$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$libadwaita_rpm" "$cairo_runtime" "$cairo_gobject")
+mapfile -t audit_rpms < <(
+  find "$RESULTS" -mindepth 2 -maxdepth 2 -type f -name '*.rpm' ! -name '*.src.rpm' -print | sort
+)
+(("${#audit_rpms[@]}" >= 6)) || fail "No complete set of generated binary RPMs was found."
+bash "$ROOT_DIR/build/verify-wayland-rpms.sh" "${audit_rpms[@]}"
 
 mkdir -p "$OUTPUT_DIR/build-deps"
-cp "$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$libadwaita_rpm" "${cairo_rpms[@]}" "$OUTPUT_DIR/"
-cp "${build_dependency_rpms[@]}" "$OUTPUT_DIR/build-deps/"
+cp "${runtime_rpms[@]}" "$OUTPUT_DIR/"
+declare -A runtime_rpm_paths=()
+for rpm_file in "${runtime_rpms[@]}"; do
+  runtime_rpm_paths["$rpm_file"]=1
+done
+for rpm_file in "${audit_rpms[@]}"; do
+  [[ -n "${runtime_rpm_paths[$rpm_file]+x}" ]] && continue
+  package_name="$(rpm -qp --qf '%{NAME}' "$rpm_file")"
+  case "$package_name" in
+    *-debuginfo|*-debugsource) continue ;;
+  esac
+  cp "$rpm_file" "$OUTPUT_DIR/build-deps/"
+done
 cp "$WORK_DIR/source-commits.tsv" "$OUTPUT_DIR/"
 rpm -qp --qf '%{NAME} %{EPOCH}:%{VERSION}-%{RELEASE} source=%{SOURCERPM}\n' \
   "$OUTPUT_DIR"/*.rpm "$OUTPUT_DIR"/build-deps/*.rpm
 printf 'Strictly audited runtime RPMs copied to %s\n' "$OUTPUT_DIR"
-printf 'Build-only development RPMs copied to %s/build-deps (do not add these to the Live image).\n' "$OUTPUT_DIR"
+printf 'Non-runtime, non-debug RPM subpackages copied to %s/build-deps (do not add these to the Live image).\n' "$OUTPUT_DIR"
+printf 'All generated binary RPMs, including debug subpackages, were audited; debug packages were not copied.\n'
 printf 'The Live Kickstart has not been changed to install or enable these RPMs.\n'

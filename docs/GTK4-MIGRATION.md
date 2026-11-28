@@ -78,8 +78,8 @@ Fedora 45 host.
 
 ### RPM inspection gate
 
-Before incorporation, inspect every actual binary RPM, including the custom
-Cairo runtime/development packages, with:
+Before incorporation, inspect every generated non-source binary RPM from all
+four Fedora builds (runtime, development and debug subpackages) with:
 
 ```bash
 build/verify-wayland-rpms.sh \
@@ -129,8 +129,9 @@ also listed 4.24.2 builds, but the requested 4.24.1 baseline must not silently
 drift. The builder records each dist-git tag and resolved commit in its source
 manifest.
 
-The pipeline verifies exact source versions, patches the Meson switches,
-assigns the reserved Feclora RPM epoch 1, and sets the custom release
+The pipeline verifies exact source RPM provenance for every generated binary
+subpackage, patches the Meson switches, assigns the reserved Feclora RPM epoch
+1, and sets the custom release
 99.fc45.feclora1. Epoch 1 prevents any stock Fedora epoch-0 build, including
 a future higher upstream version, from superseding these packages. Release 99
 orders the custom rebuild above same-version Fedora builds.
