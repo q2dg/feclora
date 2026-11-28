@@ -152,6 +152,27 @@ GTK
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, patched)
 
+    def test_strips_x11_dependencies_inside_conditional_spec_macros(self):
+        source = """Name: gtk4
+Version: 4.24.1
+Release: %autorelease
+BuildRequires: %{?with_x11:pkgconfig(x11)} pkgconfig(wayland-client)
+BuildRequires: %{?with_x11:libX11-devel}
+%description
+GTK
+%build
+%meson
+%install
+%meson_install
+%files
+%{_libdir}/libgtk-4.so.1
+"""
+        patched = PATCHER.patch_spec_text("gtk4", source)
+        self.assertIn("pkgconfig(wayland-client)", patched)
+        self.assertNotIn("pkgconfig(x11)", patched)
+        self.assertNotIn("libX11-devel", patched)
+        self.assertNotIn("%{?with_x11:}", patched)
+
     def test_libadwaita_uses_exact_fedora45_version_and_custom_release(self):
         source = """Name: libadwaita
 Version: 1.10.0
