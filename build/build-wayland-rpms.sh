@@ -98,7 +98,7 @@ find_binary_rpm() {
   printf '%s\n' "${matches[0]}"
 }
 
-printf '[1/6] Fetching and building Fedora 45 Cairo 1.18.6 without Xlib/XCB...\n'
+printf '[1/7] Fetching and building Fedora 45 Cairo 1.18.6 without Xlib/XCB...\n'
 cairo_srpm="$(prepare_fedora_srpm cairo cairo-1.18.6-1.fc45)"
 build_mock_package cairo "$cairo_srpm"
 cairo_runtime="$(find_binary_rpm "$RESULTS/cairo" cairo)"
@@ -106,28 +106,28 @@ cairo_devel="$(find_binary_rpm "$RESULTS/cairo" cairo-devel)"
 cairo_gobject="$(find_binary_rpm "$RESULTS/cairo" cairo-gobject)"
 cairo_gobject_devel="$(find_binary_rpm "$RESULTS/cairo" cairo-gobject-devel)"
 
-printf '[2/6] Initializing Mock with the X11-free Cairo runtime/development stack...\n'
+printf '[2/7] Initializing Mock with the X11-free Cairo runtime/development stack...\n'
 mock -r "$MOCK_CONFIG" --init
 mock -r "$MOCK_CONFIG" --install \
   "$cairo_runtime" "$cairo_devel" "$cairo_gobject" "$cairo_gobject_devel"
 
-printf '[3/6] Fetching and building Fedora 45 Weston 15.0.1 without XWayland/X11...\n'
+printf '[3/7] Fetching and building Fedora 45 Weston 15.0.1 without XWayland/X11...\n'
 weston_srpm="$(prepare_fedora_srpm weston weston-15.0.1-3.fc45)"
 build_mock_package_preserving_root weston "$weston_srpm"
 
-printf '[4/6] Building Fedora 45 GTK 4.24.1 with native Wayland only...\n'
+printf '[4/7] Building Fedora 45 GTK 4.24.1 with native Wayland only...\n'
 gtk4_srpm="$(prepare_fedora_srpm gtk4 gtk4-4.24.1-1.fc45)"
 build_mock_package_preserving_root gtk4 "$gtk4_srpm"
 gtk4_runtime="$(find_binary_rpm "$RESULTS/gtk4" gtk4)"
 gtk4_devel="$(find_binary_rpm "$RESULTS/gtk4" gtk4-devel)"
 mock -r "$MOCK_CONFIG" --install "$gtk4_runtime" "$gtk4_devel"
 
-printf '[5/6] Rebuilding Fedora 45 libadwaita 1.10.0 against custom GTK4/Cairo...\n'
+printf '[5/7] Rebuilding Fedora 45 libadwaita 1.10.0 against custom GTK4/Cairo...\n'
 libadwaita_srpm="$(prepare_fedora_srpm libadwaita libadwaita-1.10.0-2.fc45)"
 build_mock_package_preserving_root libadwaita "$libadwaita_srpm"
 libadwaita_rpm="$(find_binary_rpm "$RESULTS/libadwaita" libadwaita)"
 
-printf '[6/6] Auditing every generated non-source binary RPM payload, dependency and capability...\n'
+printf '[6/7] Auditing every generated non-source binary RPM payload, dependency and capability...\n'
 weston_rpm="$(find_binary_rpm "$RESULTS/weston" weston)"
 weston_libs_rpm="$(find_binary_rpm "$RESULTS/weston" weston-libs)"
 runtime_rpms=("$weston_rpm" "$weston_libs_rpm" "$gtk4_runtime" "$libadwaita_rpm" "$cairo_runtime" "$cairo_gobject")
@@ -137,7 +137,7 @@ mapfile -t audit_rpms < <(
 (("${#audit_rpms[@]}" >= 6)) || fail "No complete set of generated binary RPMs was found."
 bash "$ROOT_DIR/build/verify-wayland-rpms.sh" "${audit_rpms[@]}"
 
-printf '[runtime audit] Resolving the complete Fedora 45 candidate dependency closure...\n'
+printf '[7/7] Runtime dependency-closure audit: Resolving the complete Fedora 45 candidate dependency closure...\n'
 RUNTIME_MOCK_CONFIG="$WORK_DIR/fedora-45-runtime.cfg"
 RUNTIME_AUDIT_EXT="feclora-runtime-audit-${BASHPID}"
 cp "/etc/mock/${MOCK_CONFIG}.cfg" "$RUNTIME_MOCK_CONFIG"
