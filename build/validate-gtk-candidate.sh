@@ -20,8 +20,8 @@ if grep -q -- '--xwayland' "$UNIT"; then fail "Weston must not offer XWayland.";
 grep -Fq 'os.environ["GDK_BACKEND"] = "wayland"' "$GUI" || fail "GTK must force GDK Wayland."
 grep -Fq 'os.environ.pop("DISPLAY", None)' "$GUI" || fail "GTK must remove DISPLAY."
 grep -Fq 'if not os.environ.get("WAYLAND_DISPLAY")' "$GUI" || fail "GTK must fail closed without WAYLAND_DISPLAY."
-if # shellcheck disable=SC2016 -- match literal source text, not an expansion
-grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
+# shellcheck disable=SC2016 -- match literal source text, not an expansion
+if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
   fail "The GTK candidate is not eligible for production activation yet."
 fi
 # shellcheck disable=SC2016 -- match literal source text, not an expansion

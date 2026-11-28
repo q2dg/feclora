@@ -29,8 +29,8 @@ grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/fe
 grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"' "$KS" || fail "Kickstart must install the Textual readiness helper."
 # shellcheck disable=SC2016 -- match literal source text, not an expansion
 grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service feclora-root-terminal.service' "$KS" || fail "Textual and tty2 maintenance must be enabled."
-if # shellcheck disable=SC2016 -- match literal source text, not an expansion
-grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
+# shellcheck disable=SC2016 -- match literal source text, not an expansion
+if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
   fail "GTK must not become production before package, parity and BIOS/UEFI acceptance."
 fi
 
