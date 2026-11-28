@@ -20,6 +20,7 @@ EXPECTED = {
         "-Dshell-kiosk=true",
         "-Dsystemd=true",
         "-Drenderer-gl=false",
+        "-Drenderer-vulkan=false",
     )),
     "gtk4": ("4.24.1", (
         "-Dx11-backend=false",
