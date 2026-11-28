@@ -152,10 +152,14 @@ The build order is:
    development RPMs into separate output locations.
 
 The pipeline does not modify Kickstart or install the RPMs into the Live
-image. Review the source commit manifest, build logs and RPM metadata before
-considering package admission. If the host cannot reach Fedora dist-git or
-Fedora repositories, the build is blocked; do not substitute stock RPMs or
-unverified upstream builds.
+image. A successful run retains the patched Fedora source RPMs under
+`sources/`, per-package Mock logs under `build-logs/`, the source commit
+manifest and `build-environment.txt`. On failure, the temporary build
+workspace is deliberately retained and its path is printed so the failure
+logs and partial artifacts can be inspected. Review these records and all RPM
+metadata before considering package admission. If the host cannot reach Fedora
+dist-git or Fedora repositories, the build is blocked; do not substitute
+stock RPMs or unverified upstream builds.
 
 ## Semantic parity audit
 

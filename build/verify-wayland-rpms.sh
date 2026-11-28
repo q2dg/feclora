@@ -8,10 +8,10 @@ Usage:
   build/verify-wayland-rpms.sh [--installed-root ROOT] \
     weston.rpm weston-libs.rpm gtk4.rpm libadwaita.rpm cairo.rpm cairo-gobject.rpm [additional-rpms...]
 
-Strictly audits Fedora 45 Feclora Wayland-only rebuilds. Rejects XWayland,
-Xorg, Openbox, Weston/GDK X11 backends, Cairo Xlib/XCB surfaces, X11 typelibs,
-headers, pkg-config metadata, libraries, packages, RPM requirements and
-advertised capabilities. Optional development RPMs receive the same audit.
+Strictly audits every generated Fedora 45 Feclora binary subpackage from the
+four pinned source RPM families. Rejects XWayland, Xorg, Openbox, Weston/GDK
+X11 backends, Cairo Xlib/XCB surfaces, X11 typelibs, headers, pkg-config
+metadata, libraries, packages, RPM requirements and advertised capabilities.
 --installed-root audits every installed RPM in a completed target root.
 EOF
 }

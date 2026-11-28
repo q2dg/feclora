@@ -32,7 +32,17 @@ mkdir -p "$WORK_PARENT"
 WORK_DIR="$(mktemp -d "$WORK_PARENT/.feclora-wayland-rpms.XXXXXX")"
 RESULTS="$WORK_DIR/results"
 mkdir -p "$RESULTS"
-trap 'rm -rf -- "$WORK_DIR"' EXIT
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if [[ "$status" -eq 0 ]]; then
+    rm -rf -- "$WORK_DIR" || status=$?
+  else
+    printf 'RPM build failed; preserving workspace and Mock logs at %s\n' "$WORK_DIR" >&2
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
 
 prepare_fedora_srpm() {
   local package="$1" source_ref="$2"
@@ -127,8 +137,17 @@ mapfile -t audit_rpms < <(
 (("${#audit_rpms[@]}" >= 6)) || fail "No complete set of generated binary RPMs was found."
 bash "$ROOT_DIR/build/verify-wayland-rpms.sh" "${audit_rpms[@]}"
 
-mkdir -p "$OUTPUT_DIR/build-deps"
+mkdir -p "$OUTPUT_DIR/build-deps" "$OUTPUT_DIR/build-logs" "$OUTPUT_DIR/sources"
 cp "${runtime_rpms[@]}" "$OUTPUT_DIR/"
+for package in cairo weston gtk4 libadwaita; do
+  package_result_dir="$RESULTS/$package"
+  package_log_dir="$OUTPUT_DIR/build-logs/$package"
+  mkdir -p "$package_log_dir"
+  mapfile -t package_logs < <(find "$package_result_dir" -maxdepth 1 -type f -name '*.log' -print | sort)
+  (("${#package_logs[@]}" > 0)) || fail "Mock did not preserve build logs for $package."
+  cp "${package_logs[@]}" "$package_log_dir/"
+done
+cp "$cairo_srpm" "$weston_srpm" "$gtk4_srpm" "$libadwaita_srpm" "$OUTPUT_DIR/sources/"
 declare -A runtime_rpm_paths=()
 for rpm_file in "${runtime_rpms[@]}"; do
   runtime_rpm_paths["$rpm_file"]=1
@@ -142,6 +161,14 @@ for rpm_file in "${audit_rpms[@]}"; do
   cp "$rpm_file" "$OUTPUT_DIR/build-deps/"
 done
 cp "$WORK_DIR/source-commits.tsv" "$OUTPUT_DIR/"
+{
+  printf 'Fedora host: %s\n' "${PRETTY_NAME:-unknown}"
+  printf 'Mock config: %s\n' "$MOCK_CONFIG"
+  printf 'Build timestamp (UTC): %s\n' "$(date -u +%FT%TZ)"
+  mock --version
+  rpm --version
+  rpmbuild --version
+} > "$OUTPUT_DIR/build-environment.txt"
 rpm -qp --qf '%{NAME} %{EPOCH}:%{VERSION}-%{RELEASE} source=%{SOURCERPM}\n' \
   "$OUTPUT_DIR"/*.rpm "$OUTPUT_DIR"/build-deps/*.rpm
 printf 'Strictly audited runtime RPMs copied to %s\n' "$OUTPUT_DIR"
