@@ -13,7 +13,7 @@ SMOKE_TEST = ROOT / "tests" / "vm" / "run-boot-smoke.py"
 
 
 class QemuBootSmokeTests(unittest.TestCase):
-    def test_runs_bios_and_uefi_and_accepts_rendered_gtk_kiosk_event(self):
+    def test_runs_bios_and_uefi_and_accepts_rendered_textual_event(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fake_qemu = root / "fake-qemu"
@@ -29,7 +29,7 @@ server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 server.bind(path)
 server.listen(1)
 connection, _ = server.accept()
-connection.sendall(b"FECLORA_BOOT_SMOKE gtk-rendered\\n")
+connection.sendall(b"FECLORA_BOOT_SMOKE rendered\\n")
 time.sleep(30)
 """,
                 encoding="utf-8",

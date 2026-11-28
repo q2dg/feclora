@@ -71,13 +71,13 @@ check_payload() {
   local origin="$1" files="$2" metadata="$3"
   local pattern
   for pattern in "$X11_BACKEND_FILE_RE" "$X11_LIBRARY_FILE_RE" "$X11_HEADER_FILE_RE" "$X11_METADATA_FILE_RE"; do
-    if grep -Eiq "$pattern" <<<"$files"; then
-      grep -Ei "$pattern" <<<"$files" >&2 || true
+    if grep -Eq "$pattern" <<<"$files"; then
+      grep -E "$pattern" <<<"$files" >&2 || true
       fail "$origin contains a forbidden X11 backend, Openbox binary, library or development file."
     fi
   done
-  if grep -Eiq "$X11_REQUIRE_RE" <<<"$metadata"; then
-    grep -Ei "$X11_REQUIRE_RE" <<<"$metadata" >&2 || true
+  if grep -Eq "$X11_REQUIRE_RE" <<<"$metadata"; then
+    grep -E "$X11_REQUIRE_RE" <<<"$metadata" >&2 || true
     fail "$origin has an X11 requirement or advertises an X11 capability."
   fi
 }

@@ -167,6 +167,12 @@ else:
         result = self._run(self.rpm_paths)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_accepts_wayland_libxkbcommon_runtime_dependency(self):
+        self.records["gtk4.rpm"]["requires"].append("libxkbcommon.so.0")
+        self._write_database()
+        result = self._run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_rejects_xwayland_module(self):
         self.records["weston-libs.rpm"]["files"].append("/usr/lib64/libweston-15/xwayland.so")
         self._write_database()
