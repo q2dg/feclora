@@ -137,6 +137,26 @@ mapfile -t audit_rpms < <(
 (("${#audit_rpms[@]}" >= 6)) || fail "No complete set of generated binary RPMs was found."
 bash "$ROOT_DIR/build/verify-wayland-rpms.sh" "${audit_rpms[@]}"
 
+printf '[runtime audit] Resolving the complete Fedora 45 candidate dependency closure...\\n'
+RUNTIME_MOCK_CONFIG="$WORK_DIR/fedora-45-runtime.cfg"
+RUNTIME_AUDIT_EXT="feclora-runtime-audit-${BASHPID}"
+cp "/etc/mock/${MOCK_CONFIG}.cfg" "$RUNTIME_MOCK_CONFIG"
+cat >> "$RUNTIME_MOCK_CONFIG" <<'EOF'
+# The closure root must not inherit the RPM build toolchain. Resolve only the
+# candidate runtime transaction plus Fedora 45 dependencies.
+config_opts['chroot_setup_cmd'] = 'install bash coreutils rpm dnf5'
+EOF
+mock -r "$RUNTIME_MOCK_CONFIG" --uniqueext "$RUNTIME_AUDIT_EXT" --init
+mock -r "$RUNTIME_MOCK_CONFIG" --uniqueext "$RUNTIME_AUDIT_EXT" --install \
+  "${runtime_rpms[@]}" python3-gobject python3-cairo \
+  2>&1 | tee "$WORK_DIR/runtime-install.log"
+runtime_root="$(mock -r "$RUNTIME_MOCK_CONFIG" --uniqueext "$RUNTIME_AUDIT_EXT" --print-root-path)"
+[[ -d "$runtime_root" ]] || fail "Mock did not create the isolated runtime audit root: $runtime_root"
+bash "$ROOT_DIR/build/verify-wayland-rpms.sh" --installed-root "$runtime_root" "${audit_rpms[@]}" \
+  2>&1 | tee "$WORK_DIR/runtime-audit.log"
+rpm --root "$runtime_root" -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\\n' | sort > "$WORK_DIR/runtime-closure.txt"
+mock -r "$RUNTIME_MOCK_CONFIG" --uniqueext "$RUNTIME_AUDIT_EXT" --scrub=chroot
+
 mkdir -p "$OUTPUT_DIR/build-deps" "$OUTPUT_DIR/build-logs" "$OUTPUT_DIR/sources"
 cp "${runtime_rpms[@]}" "$OUTPUT_DIR/"
 for package in cairo weston gtk4 libadwaita; do
@@ -161,6 +181,9 @@ for rpm_file in "${audit_rpms[@]}"; do
   cp "$rpm_file" "$OUTPUT_DIR/build-deps/"
 done
 cp "$WORK_DIR/source-commits.tsv" "$OUTPUT_DIR/"
+cp "$WORK_DIR/runtime-closure.txt" "$OUTPUT_DIR/"
+mkdir -p "$OUTPUT_DIR/build-logs/runtime-closure"
+cp "$WORK_DIR/runtime-install.log" "$WORK_DIR/runtime-audit.log" "$OUTPUT_DIR/build-logs/runtime-closure/"
 {
   printf 'Fedora host: %s\n' "${PRETTY_NAME:-unknown}"
   printf 'Mock config: %s\n' "$MOCK_CONFIG"
