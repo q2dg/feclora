@@ -247,3 +247,13 @@ Before enabling GTK:
 Until every gate is checked with recorded evidence, Textual remains the
 production boot interface. Do not claim a successful ISO build, VM boot,
 BIOS/UEFI acceptance or RPM audit unless that exact operation has been run.
+
+## Audit update — 2026-11-28
+
+The Fedora source-spec patcher now applies a second fail-closed pass to all four pinned source families. It removes X11-only dependency tokens from RPM dependency tags and X11 payload declarations from %files sections while preserving unrelated Wayland requirements on mixed dependency lines. In particular, the Weston and GTK4 specs are checked for XWayland/X11 modules, GDK X11 headers and typelibs, X11 pkg-config files, and X11 library payloads. The generated-RPM verifier also rejects static/archive and libtool X11 libraries (.a/.la) and additional X11 pkg-config requirements such as Xcursor, Xinerama, Xi, XFixes, XComposite, XDamage and XRandR.
+
+The GTK history audit found a safety-relevant presentation gap: the shared remote-job/deployment history renderer, ddrescue history and client history did not consistently expose backend inspection_errors. GTK now displays the affected record identifiers and an explicit warning not to resume or repeat those operations before manual inspection. The client inventory summary is also separate from the client-history status so asynchronous inventory refreshes cannot overwrite the history result.
+
+The kiosk candidate validation now checks that the GTK unit opens the dedicated feclora-wayland PAM session, that pam_systemd registers it as a Wayland session, and that Weston uses the logind libseat backend on tty1. The Kickstart already stages that PAM file and the GTK unit but does not enable the GTK service.
+
+These changes are source and test updates only. No Fedora 45 Mock build was available during this audit: the spec rewrites have not yet been applied to actual downloaded Fedora source trees, no custom RPMs have been generated or inspected, and no target-root closure has been admitted. The GTK/Weston systemd session, full Python test suite, ISO build, VM, BIOS/UEFI and physical hardware checks also remain pending. Textual remains the production interface.
