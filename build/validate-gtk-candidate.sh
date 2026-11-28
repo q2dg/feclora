@@ -24,6 +24,9 @@ if grep -Fxq 'python3-gobject' "$BASE" || grep -Fxq 'python3-gobject' "$KS"; the
 fi
 grep -Fxq 'Environment=GDK_BACKEND=wayland' "$UNIT" || fail "GTK must force the native Wayland backend."
 grep -Fxq 'Environment=GSK_RENDERER=cairo' "$UNIT" || fail "GTK must use the Cairo renderer without GL/Vulkan runtime dependencies."
+grep -Fq '"-Drenderer-gl=false"' "$PATCHER" || fail "Weston GL renderer must be disabled to avoid Mesa X11 dependencies."
+grep -Fq '"-Drenderer-vulkan=false"' "$PATCHER" || fail "Weston Vulkan renderer must be disabled in the software-only kiosk."
+grep -Fq '"-Dvulkan=disabled"' "$PATCHER" || fail "GTK Vulkan support must be disabled."
 grep -Fxq 'UnsetEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY' "$UNIT" || fail "GTK service must clear inherited X11 and stale Wayland display variables before Weston starts."
 grep -Fq 'ExecStart=/usr/bin/weston --no-config -B drm --renderer=pixman --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk' "$UNIT" || fail "Candidate must use Weston DRM/KMS kiosk-shell and --no-config."
 if grep -q -- '--xwayland' "$UNIT"; then fail "Weston must not offer XWayland."; fi
