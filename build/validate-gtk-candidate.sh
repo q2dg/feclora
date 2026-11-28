@@ -7,10 +7,11 @@ BASE="$ROOT_DIR/packages/base.txt"
 CANDIDATE="$ROOT_DIR/packages/wayland-candidate-runtime.txt"
 UNIT="$ROOT_DIR/src/feclora/data/feclora-gtk.service"
 GUI="$ROOT_DIR/src/feclora/gui_gtk.py"
+PATCHER="$ROOT_DIR/build/patch-fedora-wayland-spec.py"
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-for file in "$KS" "$BASE" "$CANDIDATE" "$UNIT" "$GUI" "$ROOT_DIR/build/verify-wayland-rpms.sh"; do
+for file in "$KS" "$BASE" "$CANDIDATE" "$UNIT" "$GUI" "$PATCHER" "$ROOT_DIR/build/verify-wayland-rpms.sh"; do
   [[ -s "$file" ]] || fail "Required GTK candidate file is missing: $file"
 done
 
@@ -31,6 +32,7 @@ grep -Fxq 'UnsetEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY' "$UNIT" || fail 
 grep -Fq 'ExecStart=/usr/bin/weston --no-config -B drm --renderer=pixman --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk' "$UNIT" || fail "Candidate must use Weston DRM/KMS kiosk-shell and --no-config."
 if grep -q -- '--xwayland' "$UNIT"; then fail "Weston must not offer XWayland."; fi
 grep -Fq 'os.environ["GDK_BACKEND"] = "wayland"' "$GUI" || fail "GTK must force GDK Wayland."
+grep -Fq 'os.environ["GSK_RENDERER"] = "cairo"' "$GUI" || fail "GTK must force the Cairo GSK renderer."
 grep -Fq 'os.environ.pop("DISPLAY", None)' "$GUI" || fail "GTK must remove DISPLAY."
 grep -Fq 'if not os.environ.get("WAYLAND_DISPLAY")' "$GUI" || fail "GTK must fail closed without WAYLAND_DISPLAY."
 # shellcheck disable=SC2016
