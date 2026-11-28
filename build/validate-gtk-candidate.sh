@@ -4,15 +4,24 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BASE="$ROOT_DIR/packages/base.txt"
+CANDIDATE="$ROOT_DIR/packages/wayland-candidate-runtime.txt"
 UNIT="$ROOT_DIR/src/feclora/data/feclora-gtk.service"
 GUI="$ROOT_DIR/src/feclora/gui_gtk.py"
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-for file in "$KS" "$BASE" "$UNIT" "$GUI" "$ROOT_DIR/build/verify-wayland-rpms.sh"; do
+for file in "$KS" "$BASE" "$CANDIDATE" "$UNIT" "$GUI" "$ROOT_DIR/build/verify-wayland-rpms.sh"; do
   [[ -s "$file" ]] || fail "Required GTK candidate file is missing: $file"
 done
 
+grep -Fxq 'python3-gobject' "$CANDIDATE" || fail "GTK candidate must use Fedora's system PyGObject package."
+grep -Fxq 'python3-cairo' "$CANDIDATE" || fail "GTK candidate must use Fedora's system Cairo bindings."
+for package in cairo cairo-gobject weston weston-libs gtk4 libadwaita; do
+  grep -Fxq "$package" "$CANDIDATE" || fail "GTK candidate manifest is missing custom RPM package $package."
+done
+if grep -Fxq 'python3-gobject' "$BASE" || grep -Fxq 'python3-gobject' "$KS"; then
+  fail "PyGObject must remain staged until the custom X11-free Cairo RPMs are built and verified."
+fi
 grep -Fxq 'Environment=GDK_BACKEND=wayland' "$UNIT" || fail "GTK must force the native Wayland backend."
 grep -Fxq 'UnsetEnvironment=DISPLAY XAUTHORITY WAYLAND_DISPLAY' "$UNIT" || fail "GTK service must clear inherited X11 and stale Wayland display variables before Weston starts."
 grep -Fq 'ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk' "$UNIT" || fail "Candidate must use Weston DRM/KMS kiosk-shell and --no-config."

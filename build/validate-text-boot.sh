@@ -17,7 +17,9 @@ done
 
 for file in "$KS" "$BASE"; do
   grep -Fxq 'python3-textual' "$file" || fail "$file must include python3-textual."
-  grep -Fxq 'python3-gobject' "$file" || fail "$file must retain Fedora's python3-gobject system package."
+  if grep -Fxq 'python3-gobject' "$file" || grep -Fxq 'python3-cairo' "$file"; then
+    fail "$file must not pull stock Cairo/X11 dependencies into the Textual image before custom Cairo RPMs are admitted."
+  fi
   if grep -Eq '^(weston|weston-libs|gtk4|libadwaita|openbox|cage|xorg-x11-server-Xorg|xorg-x11-server-Xwayland)$' "$file"; then
     fail "$file includes an unverified graphical runtime package."
   fi

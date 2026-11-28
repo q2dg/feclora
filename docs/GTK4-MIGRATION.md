@@ -54,14 +54,16 @@ libadwaita 1.10.0:
 
 ### Why Cairo must also be rebuilt
 
-Keeping the stock Fedora python3-gobject package is required, but its
-dependency graph matters: Fedora's python3-gobject requires libcairo,
+The candidate must retain Fedora's system python3-gobject and
+python3-cairo packages rather than installing PyGObject through pip. Their
+dependency graph matters: python3-gobject requires libcairo,
 libcairo-gobject and python3-cairo. The stock Fedora 45 Cairo 1.18.6
-runtime RPM in turn requires libX11, libXext and libXrender. The stock
-cairo-devel package also advertises Xlib/XCB pkg-config capabilities and
-ships Xlib/XCB headers. Therefore rebuilding only Weston and GTK4 would still
-pull X11 libraries into a completed image through the retained system
-PyGObject package.
+runtime RPM in turn requires libX11, libXext and libXrender. Therefore the
+PyGObject packages are staged in packages/wayland-candidate-runtime.txt and
+deliberately excluded from the current Textual Live image until the custom
+X11-free Cairo and Cairo-GObject RPMs have been built and verified. Rebuilding
+only Weston and GTK4 would otherwise pull X11 libraries into the appliance
+through the retained system PyGObject package.
 
 The build pipeline now rebuilds Fedora 45 Cairo 1.18.6 first, with Xlib and
 XCB surfaces disabled. Its Cairo spec patch removes X11-specific dependency

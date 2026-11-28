@@ -1,0 +1,12 @@
+# CANDIDATE ONLY — documentation/validation manifest, not consumed by the current Kickstart.
+# These names refer to Feclora's rebuilt X11-free RPMs, never stock Fedora graphics RPMs.
+cairo
+cairo-gobject
+weston
+weston-libs
+gtk4
+libadwaita
+
+# Keep PyGObject and its Cairo bindings as Fedora system packages, not pip packages.
+python3-gobject
+python3-cairo

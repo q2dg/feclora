@@ -15,7 +15,7 @@ for file in \
   build/check_docs.py build/validate-text-boot.sh build/validate-gtk-candidate.sh \
   build/build-wayland-rpms.sh build/patch-fedora-wayland-spec.py \
   build/verify-iso-text-boot.sh build/verify-wayland-rpms.sh \
-  kickstart/feclora-live.ks packages/base.txt packages/build-host.txt \
+  kickstart/feclora-live.ks packages/base.txt packages/build-host.txt packages/wayland-candidate-runtime.txt \
   requirements-test.txt requirements-gui.txt \
   src/feclora/tui.py src/feclora/tui_api.py src/feclora/gui_gtk.py \
   src/feclora/gtk_api.py src/feclora/ui_api.py src/feclora/api.py \
@@ -37,8 +37,11 @@ if grep -Eq '(^|[[:space:]])(weston|weston-libs|gtk4|libadwaita)([[:space:]]|$)'
 fi
 grep -Fxq 'python3-textual' packages/base.txt || fail "Textual must remain installed until GTK acceptance is complete."
 grep -Fxq 'python3-textual' kickstart/feclora-live.ks || fail "Kickstart must retain Textual as the production UI."
-grep -Fxq 'python3-gobject' packages/base.txt || fail "Keep Fedora's system python3-gobject package; do not use pip for PyGObject."
-grep -Fxq 'python3-gobject' kickstart/feclora-live.ks || fail "Kickstart must retain Fedora's system python3-gobject package."
+grep -Fxq 'python3-gobject' packages/wayland-candidate-runtime.txt || fail "The staged GTK runtime must retain Fedora's system python3-gobject package."
+grep -Fxq 'python3-cairo' packages/wayland-candidate-runtime.txt || fail "The staged GTK runtime must retain Fedora's system python3-cairo package."
+if grep -Fxq 'python3-gobject' packages/base.txt || grep -Fxq 'python3-gobject' kickstart/feclora-live.ks; then
+  fail "Do not install PyGObject into the Textual image until the custom X11-free Cairo RPMs are available."
+fi
 
 bash -n build/*.sh
 bash build/validate-text-boot.sh

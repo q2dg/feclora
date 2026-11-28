@@ -57,7 +57,7 @@ class WaylandRPMBuilderTests(unittest.TestCase):
         source = BUILDER.read_text(encoding="utf-8")
         self.assertIn("trap cleanup EXIT", source)
         self.assertIn("preserving workspace and Mock logs", source)
-        self.assertIn('mkdir -p "$OUTPUT_DIR/build-logs" "$OUTPUT_DIR/sources"', source)
+        self.assertIn('mkdir -p "$OUTPUT_DIR/build-deps" "$OUTPUT_DIR/build-logs" "$OUTPUT_DIR/sources"', source)
         self.assertIn('cp "$cairo_srpm" "$weston_srpm" "$gtk4_srpm" "$libadwaita_srpm" "$OUTPUT_DIR/sources/"', source)
         self.assertIn('> "$OUTPUT_DIR/build-environment.txt"', source)
 

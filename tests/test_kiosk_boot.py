@@ -29,8 +29,13 @@ class KioskBootConfigurationTests(unittest.TestCase):
         for package in ("weston", "weston-libs", "gtk4", "libadwaita"):
             self.assertNotIn(f"\n{package}\n", kickstart)
             self.assertNotIn(f"\n{package}\n", base)
-        self.assertIn("\npython3-gobject\n", kickstart)
-        self.assertIn("\npython3-gobject\n", base)
+        candidate = self.read("packages/wayland-candidate-runtime.txt")
+        self.assertNotIn("\npython3-gobject\n", kickstart)
+        self.assertNotIn("\npython3-gobject\n", base)
+        self.assertIn("\npython3-gobject\n", candidate)
+        self.assertIn("\npython3-cairo\n", candidate)
+        for package in ("cairo", "cairo-gobject", "weston", "weston-libs", "gtk4", "libadwaita"):
+            self.assertIn(f"\n{package}\n", candidate)
         self.assertIn("-xorg-x11-server-Xwayland", kickstart)
         self.assertIn("-xorg-x11-server-Xorg", kickstart)
         for forbidden in ("openbox", "cage", "xorg-x11-server-Xwayland", "xorg-x11-server-Xorg"):

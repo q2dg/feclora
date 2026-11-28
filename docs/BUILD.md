@@ -76,7 +76,10 @@ The Kickstart must not install stock Fedora `weston`, `weston-libs`,
 dependencies and are prohibited by the strict appliance policy until rebuilt
 from Fedora 45 sources and admitted by
 `build/verify-wayland-rpms.sh`. `python3-gobject` remains a Fedora system
-package; no GTK bindings are installed through pip.
+package; no GTK bindings are installed through pip. The system PyGObject
+and python3-cairo packages are staged in packages/wayland-candidate-runtime.txt
+and are not installed into the Textual image until custom X11-free Cairo RPMs
+are built and audited.
 
 SELinux permissive mode remains the diagnostic default and adds
 `enforcing=0` to the ISO boot arguments. Use

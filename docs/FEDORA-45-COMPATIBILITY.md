@@ -26,7 +26,12 @@ baselines are:
 | Weston / weston-libs | 15.0.1 | `-Dxwayland=false -Dbackend-x11=false`; retain DRM and kiosk-shell |
 | GTK4 | 4.24.1 | `-Dx11-backend=false -Dwayland-backend=true` |
 | libadwaita | 1.10.0 | Rebuild against the custom GTK4 package |
-| PyGObject | Fedora 45 system package | Keep `python3-gobject`; do not pip-install bindings |
+| PyGObject | Fedora 45 system package | Keep `python3-gobject` and `python3-cairo` in the staged candidate manifest; do not pip-install bindings |
+
+The current Textual Live image does not install python3-gobject or
+python3-cairo. They are staged for the GTK candidate only, alongside the
+custom Cairo RPMs, because the stock Cairo dependency chain would otherwise
+introduce X11 libraries before the strict Wayland-only stack is ready.
 
 The stock Weston runtime libraries contain XWayland and X11 backend modules
 and link to X11 client libraries. The stock GTK4 package exposes the GDK X11

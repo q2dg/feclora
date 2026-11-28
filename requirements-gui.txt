@@ -1,3 +1,6 @@
-# GTK4, PyGObject and libadwaita are supplied by Fedora RPMs.
-# Runtime packages: python3-gobject, gtk4, libadwaita.
-# No pip-installed GUI toolkit is required. Keep this file for GUI build metadata.
+# Candidate-only GTK4/PyGObject/libadwaita runtime metadata.
+# Use Fedora's python3-gobject and python3-cairo system RPMs, not pip.
+# They are staged in packages/wayland-candidate-runtime.txt and must not enter
+# the current Textual image until custom X11-free Cairo RPMs pass verification.
+# GTK4, libadwaita, Weston, Cairo and Cairo-GObject must come only from the
+# custom Fedora 45 rebuilds produced by make wayland-rpms.
