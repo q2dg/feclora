@@ -70,7 +70,7 @@ Weston
 """
         patched = PATCHER.patch_spec_text("weston", source)
         build = patched.split("%install", 1)[0]
-        for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true", "-Dsystemd=true"):
+        for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true", "-Dsystemd=true", "-Drenderer-gl=false"):
             self.assertIn(flag, build)
         self.assertIn("Epoch:          1", patched)
         self.assertIn("Release:        99%{?dist}.feclora1", patched)
@@ -90,6 +90,7 @@ Release: %autorelease
         build = patched.split("%install", 1)[0]
         self.assertIn("-Dx11-backend=false", build)
         self.assertIn("-Dwayland-backend=true", build)
+        self.assertIn("-Dvulkan=disabled", build)
         self.assertIn("Epoch:          1", patched)
 
     def test_libadwaita_uses_exact_fedora45_version_and_custom_release(self):
