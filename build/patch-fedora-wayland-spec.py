@@ -48,6 +48,32 @@ RPM_SECTION_RE = re.compile(
 )
 
 
+X11_SPEC_DEPENDENCY_TOKEN_RE = re.compile(
+    r"(?<!\\S)(?:"
+    r"pkgconfig\\((?:x11(?:-[a-z0-9-]+)?|xext|xrender|xinerama|xcursor|xi|"
+    r"xfixes|xcomposite|xdamage|xrandr|xkbcommon-x11|xkbfile|xcb(?:-[a-z0-9-]+)?|"
+    r"gdk-x11|gtk4-x11|weston-x11|cairo-xlib(?:-xrender)?|cairo-xcb(?:-shm)?)\\)"
+    r"|libX[A-Za-z0-9.+_-]*|libxcb[A-Za-z0-9.+_-]*|libxkbcommon-x11[A-Za-z0-9.+_-]*"
+    r"|libGLX[A-Za-z0-9.+_-]*|libICE[A-Za-z0-9.+_-]*|libSM[A-Za-z0-9.+_-]*"
+    r"|libgdk-x11[A-Za-z0-9.+_-]*|libxkbfile[A-Za-z0-9.+_-]*|libxshmfence[A-Za-z0-9.+_-]*"
+    r"|libfontenc[A-Za-z0-9.+_-]*|libcairo-(?:xlib|xcb)[A-Za-z0-9.+_-]*"
+    r"|xorg-x11-[A-Za-z0-9.+_-]*|xwayland[A-Za-z0-9.+_-]*|openbox[A-Za-z0-9.+_-]*"
+    r"|xcb-util[A-Za-z0-9.+_-]*"
+    r")(?:\\s*(?:>=|<=|=|>|<)\\s*[A-Za-z0-9.%{}:+_-]+)?(?=$|[\\s,])"
+)
+X11_SPEC_FILE_RE = re.compile(
+    r"(^|/)(?:xwayland(?:\\.so)?|weston-xwayland|Xwayland|Xorg|x11-backend\\.so|"
+    r"backend-x11\\.h|xwayland-api\\.h|GdkX11-4\\.0\\.(?:typelib|gir)|"
+    r"gtk4-x11\\.pc|gdkx11[^/]*\\.(?:h|gir|typelib)|openbox|openbox-session|"
+    r"libX[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|libxcb[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|"
+    r"libxkbcommon-x11[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|libGLX[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|"
+    r"libICE[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|libSM[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|"
+    r"libgdk-x11[^/]*\\.(?:so(?:\\.[^/]*)?|a|la)|"
+    r"cairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\\.(?:h|pc|so(?:\\.[^/]*)?|a|la))$|"
+    r"(^|/)(?:X11|xcb|gdk/x11)(?:/|$)"
+)
+
+
 def _strip_cairo_x11_entries(lines: list[str]) -> list[str]:
     """Remove Xlib/XCB package metadata and files from Cairo's split RPMs."""
     filtered: list[str] = []
