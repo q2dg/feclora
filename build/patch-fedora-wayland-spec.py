@@ -40,7 +40,7 @@ CAIRO_X11_FILE_RE = re.compile(
     r"(?i)cairo-(?:xlib(?:-xrender)?|xcb(?:-shm)?)\.(?:h|pc)\b"
 )
 RPM_DEPENDENCY_TAG_RE = re.compile(
-    r"^\s*(?:BuildRequires|Requires|Recommends|Suggests|Supplements|Enhances|Provides):"
+    r"^\s*(?:BuildRequires|BuildConflicts|Requires(?:\([^)]*\))?|Recommends|Suggests|Supplements|Enhances|Provides):"
 )
 RPM_SECTION_RE = re.compile(
     r"^%(?:prep|build|install|check|clean|files|package|description|"
@@ -49,7 +49,7 @@ RPM_SECTION_RE = re.compile(
 
 
 X11_SPEC_DEPENDENCY_TOKEN_RE = re.compile(
-    r"(?<!\S)(?:"
+    r"(?<![A-Za-z0-9_])(?:"
     r"pkgconfig\((?:x11(?:-[a-z0-9-]+)?|xext|xrender|xinerama|xcursor|xi|"
     r"xfixes|xcomposite|xdamage|xrandr|xkbcommon-x11|xkbfile|xcb(?:-[a-z0-9-]+)?|"
     r"gdk-x11|gtk4-x11|weston-x11|cairo-xlib(?:-xrender)?|cairo-xcb(?:-shm)?)\)"
@@ -59,7 +59,7 @@ X11_SPEC_DEPENDENCY_TOKEN_RE = re.compile(
     r"|libfontenc[A-Za-z0-9.+_-]*|libcairo-(?:xlib|xcb)[A-Za-z0-9.+_-]*"
     r"|xorg-x11-[A-Za-z0-9.+_-]*|xwayland[A-Za-z0-9.+_-]*|openbox[A-Za-z0-9.+_-]*"
     r"|xcb-util[A-Za-z0-9.+_-]*"
-    r")(?:\s*(?:>=|<=|=|>|<)\s*[A-Za-z0-9.%{}:+_-]+)?(?=$|[\s,])"
+    r")(?:\s*(?:>=|<=|=|>|<)\s*[A-Za-z0-9.%{}:+_-]+)?(?![A-Za-z0-9_])"
 )
 X11_SPEC_FILE_RE = re.compile(
     r"(^|/)(?:xwayland(?:\.so)?|weston-xwayland|Xwayland|Xorg|x11-backend\.so|"
@@ -121,6 +121,7 @@ def _strip_x11_spec_entries(lines: list[str]) -> list[str]:
             tag, value = line.split(":", 1)
             dependencies, marker, comment = value.partition("#")
             dependencies = X11_SPEC_DEPENDENCY_TOKEN_RE.sub("", dependencies)
+            dependencies = re.sub(r"%\{[!?][A-Za-z0-9_]+:\s*\}", "", dependencies)
             dependencies = re.sub(r"\s+", " ", dependencies).strip(" ,")
             if not dependencies:
                 if marker:
