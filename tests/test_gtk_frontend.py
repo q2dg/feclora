@@ -110,6 +110,8 @@ class GTKFrontendStructureTests(unittest.TestCase):
         validator = Path("build/validate.sh").read_text(encoding="utf-8")
         self.assertIn("bash build/validate-text-boot.sh", validator)
         self.assertIn("bash build/validate-gtk-candidate.sh", validator)
+        self.assertIn('PATCHER="$ROOT_DIR/build/patch-fedora-wayland-spec.py"', Path("build/validate-gtk-candidate.sh").read_text(encoding="utf-8"))
+        self.assertIn('os.environ["GSK_RENDERER"] = "cairo"', self.source)
         self.assertIn("python3 build/check_docs.py", validator)
         self.assertIn("python3 -m unittest discover", validator)
         self.assertIn("src/feclora/ui_api.py", validator)
