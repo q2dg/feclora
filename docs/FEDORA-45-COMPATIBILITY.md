@@ -14,9 +14,10 @@ candidate migration only and is not enabled in the Live boot path.
 
 The target must not install, include, start or expose XWayland, Xorg, Openbox,
 the Weston X11 backend, the GDK X11 backend or X11 libraries. The GTK process
-must set `GDK_BACKEND=wayland`, remove `DISPLAY`, and fail before importing
-GTK if `WAYLAND_DISPLAY` is absent. Weston must run with `--no-config`,
-`-B drm` and `--shell=kiosk-shell.so`, without `--xwayland`.
+must set `GDK_BACKEND=wayland`, remove `DISPLAY`, set `GSK_RENDERER=cairo`,
+and fail before importing GTK if `WAYLAND_DISPLAY` is absent. Weston must run
+with `--no-config -B drm --renderer=pixman --shell=kiosk-shell.so`, without
+`--xwayland`.
 
 Stock Fedora 45 graphical RPMs are not admissible. The recorded source
 baselines are:
@@ -27,6 +28,10 @@ baselines are:
 | GTK4 | 4.24.1 | `-Dx11-backend=false -Dwayland-backend=true -Dvulkan=disabled`; run with `GSK_RENDERER=cairo` |
 | libadwaita | 1.10.0 | Rebuild against the custom GTK4 package |
 | PyGObject | Fedora 45 system package | Keep `python3-gobject` and `python3-cairo` in the staged candidate manifest; do not pip-install bindings |
+
+Fedora's package overview currently lists GTK 4.24.2-1.fc45 as stable and
+4.24.1-1.fc45 as updates-testing (checked 2026-11-28). The 4.24.1 pin is
+intentional because it is the requested baseline; do not silently replace it.
 
 The current Textual Live image does not install python3-gobject or
 python3-cairo. They are staged for the GTK candidate only, alongside the
