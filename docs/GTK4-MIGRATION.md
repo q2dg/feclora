@@ -142,10 +142,11 @@ rather than a moving branch head:
 - gtk4-4.24.1-1.fc45
 - libadwaita-1.10.0-2.fc45
 
-The GTK 4.24.1 source is intentionally pinned: Fedora 45 package metadata has
-also listed 4.24.2 builds, but the requested 4.24.1 baseline must not silently
-drift. The builder records each dist-git tag and resolved commit in its source
-manifest.
+The GTK 4.24.1 source is intentionally pinned. As of 2026-11-28, Fedora's
+package overview lists 4.24.2-1.fc45 as stable and 4.24.1-1.fc45 as
+updates-testing. The requested 4.24.1 baseline must not silently drift to the
+newer stable build; the builder records the exact dist-git tag and resolved
+commit in its source manifest.
 
 The pipeline verifies exact source RPM provenance for every generated binary
 subpackage, patches the Meson switches, assigns the reserved Feclora RPM epoch
@@ -166,8 +167,17 @@ The build order is:
 4. Build GTK 4.24.1 with Wayland enabled and GDK X11 disabled.
 5. Install the custom GTK4 runtime/development RPMs into that same Mock root.
 6. Rebuild libadwaita 1.10.0 against the custom GTK4/Cairo stack.
-7. Inspect the actual binary RPMs before copying runtime RPMs and build-only
-   development RPMs into separate output locations.
+7. Inspect every generated binary RPM, then create a separate minimal Fedora 45
+   Mock runtime root with the six custom runtime RPMs plus Fedora's
+   python3-gobject/python3-cairo packages. Resolve its complete dependency
+   closure and run the installed-root verifier before copying artifacts.
+8. Save the resolved package closure and audit logs alongside the RPMs.
+
+The isolated Mock closure is a candidate-stack check, not a substitute for the
+final LiveOS audit: Fedora's @core transaction and all Kickstart packages can
+add further dependencies. After building an image, run
+`build/verify-wayland-rpms.sh --installed-root <mounted-live-root> <six-custom-rpms...>`
+against the complete installed root before any release decision.
 
 The pipeline does not modify Kickstart or install the RPMs into the Live
 image. A successful run retains the patched Fedora source RPMs under
