@@ -369,14 +369,14 @@ else:
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("reserved 99.fc45.feclora rebuild release", result.stderr)
+        self.assertIn("exact Feclora rebuild release 99.fc45.feclora1", result.stderr)
 
     def test_rejects_unmarked_fedora_release(self):
         self.records["weston.rpm"]["release"] = "3.fc45"
         self._write_database()
         result = self._run()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("reserved 99.fc45.feclora rebuild release", result.stderr)
+        self.assertIn("exact Feclora rebuild release 99.fc45.feclora1", result.stderr)
 
     def test_rejects_unexpected_source_rpm_provenance(self):
         self.records["gtk4.rpm"]["source"] = "gtk4-4.24.1-1.fc45.src.rpm"
