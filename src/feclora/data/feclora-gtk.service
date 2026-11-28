@@ -13,6 +13,7 @@ PAMName=feclora-wayland
 Environment=HOME=/home/feclora
 Environment=PYTHONPATH=/usr/share/feclora/python
 Environment=GDK_BACKEND=wayland
+Environment=GSK_RENDERER=cairo
 Environment=LIBSEAT_BACKEND=logind
 Environment=XDG_SESSION_TYPE=wayland
 Environment=XDG_SESSION_CLASS=user
@@ -32,7 +33,7 @@ UtmpIdentifier=tty1
 UtmpMode=user
 ExecStartPre=+/usr/bin/chvt 1
 ExecStartPre=+/usr/bin/echo Starting Feclora GTK4 Wayland kiosk
-ExecStart=/usr/bin/weston --no-config -B drm --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk
+ExecStart=/usr/bin/weston --no-config -B drm --renderer=pixman --shell=kiosk-shell.so --idle-time=0 -- /usr/bin/python3 -m feclora.gui_gtk
 ExecStartPost=+/usr/libexec/feclora/feclora-gtk-ready
 Restart=always
 RestartSec=2
