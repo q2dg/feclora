@@ -137,7 +137,7 @@ mapfile -t audit_rpms < <(
 (("${#audit_rpms[@]}" >= 6)) || fail "No complete set of generated binary RPMs was found."
 bash "$ROOT_DIR/build/verify-wayland-rpms.sh" "${audit_rpms[@]}"
 
-printf '[runtime audit] Resolving the complete Fedora 45 candidate dependency closure...\\n'
+printf '[runtime audit] Resolving the complete Fedora 45 candidate dependency closure...\n'
 RUNTIME_MOCK_CONFIG="$WORK_DIR/fedora-45-runtime.cfg"
 RUNTIME_AUDIT_EXT="feclora-runtime-audit-${BASHPID}"
 cp "/etc/mock/${MOCK_CONFIG}.cfg" "$RUNTIME_MOCK_CONFIG"
@@ -154,7 +154,7 @@ runtime_root="$(mock -r "$RUNTIME_MOCK_CONFIG" --uniqueext "$RUNTIME_AUDIT_EXT" 
 [[ -d "$runtime_root" ]] || fail "Mock did not create the isolated runtime audit root: $runtime_root"
 bash "$ROOT_DIR/build/verify-wayland-rpms.sh" --installed-root "$runtime_root" "${audit_rpms[@]}" \
   2>&1 | tee "$WORK_DIR/runtime-audit.log"
-rpm --root "$runtime_root" -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\\n' | sort > "$WORK_DIR/runtime-closure.txt"
+rpm --root "$runtime_root" -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "$WORK_DIR/runtime-closure.txt"
 mock -r "$RUNTIME_MOCK_CONFIG" --uniqueext "$RUNTIME_AUDIT_EXT" --scrub=chroot
 
 mkdir -p "$OUTPUT_DIR/build-deps" "$OUTPUT_DIR/build-logs" "$OUTPUT_DIR/sources"
