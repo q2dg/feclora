@@ -107,10 +107,11 @@ class GTKFrontendStructureTests(unittest.TestCase):
         self.assertNotIn("No module named 'gi'", result.stderr)
 
     def test_validator_runs_gtk_boot_docs_and_unit_checks(self):
-        validator = Path("build/validate.sh").read_text(encoding="utf-8")
+        validator = (ROOT / "build/validate.sh").read_text(encoding="utf-8")
         self.assertIn("bash build/validate-text-boot.sh", validator)
         self.assertIn("bash build/validate-gtk-candidate.sh", validator)
-        self.assertIn('PATCHER="$ROOT_DIR/build/patch-fedora-wayland-spec.py"', Path("build/validate-gtk-candidate.sh").read_text(encoding="utf-8"))
+        candidate_validator = (ROOT / "build/validate-gtk-candidate.sh").read_text(encoding="utf-8")
+        self.assertIn('PATCHER="$ROOT_DIR/build/patch-fedora-wayland-spec.py"', candidate_validator)
         self.assertIn('os.environ["GSK_RENDERER"] = "cairo"', self.source)
         self.assertIn("python3 build/check_docs.py", validator)
         self.assertIn("python3 -m unittest discover", validator)
