@@ -38,6 +38,7 @@ class KioskBootConfigurationTests(unittest.TestCase):
             self.assertIn(f"\n{package}\n", candidate)
         self.assertIn("-xorg-x11-server-Xwayland", kickstart)
         self.assertIn("-xorg-x11-server-Xorg", kickstart)
+        self.assertIn("-openbox", kickstart)
         for forbidden in ("openbox", "cage", "xorg-x11-server-Xwayland", "xorg-x11-server-Xorg"):
             self.assertNotIn(f"\n{forbidden}\n", base)
 
