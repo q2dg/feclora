@@ -30,6 +30,7 @@ grep -Fq '"-Dxwayland=false"' "$PATCHER" || fail "Weston XWayland support must b
 grep -Fq '"-Dbackend-x11=false"' "$PATCHER" || fail "Weston X11 backend must be disabled at build time."
 grep -Fq '"-Dbackend-drm=true"' "$PATCHER" || fail "Weston DRM/KMS backend must remain enabled."
 grep -Fq '"-Dshell-kiosk=true"' "$PATCHER" || fail "Weston kiosk-shell must remain enabled."
+grep -Fq '"-Dsystemd=true"' "$PATCHER" || fail "Weston systemd/logind integration must remain enabled."
 grep -Fq '"-Dx11-backend=false"' "$PATCHER" || fail "GTK GDK X11 backend must be disabled."
 grep -Fq '"-Dwayland-backend=true"' "$PATCHER" || fail "GTK GDK Wayland backend must remain enabled."
 grep -Fq '"-Dxlib=disabled"' "$PATCHER" || fail "Cairo Xlib surfaces must be disabled."
