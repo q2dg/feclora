@@ -23,8 +23,8 @@ also be compared. The audit remains open for every section and workflow.
 - GDK must use **GDK_BACKEND=wayland** only.
 - The frontend must remove **DISPLAY** and fail before importing GTK when
   **WAYLAND_DISPLAY** is missing.
-- Weston must start with **--no-config -B drm --shell=kiosk-shell.so** and
-  must not receive **--xwayland**.
+- Weston must start with **--no-config -B drm --renderer=pixman --shell=kiosk-shell.so** and
+  must not receive **--xwayland**. The GTK process must use **GSK_RENDERER=cairo**.
 - No XWayland, Xorg, Openbox, Weston X11 backend, GDK X11 backend, X11
   libraries, X11 headers or X11 development metadata may be installed,
   included, started or exposed.
@@ -32,6 +32,21 @@ also be compared. The audit remains open for every section and workflow.
 The GTK systemd unit and source enforce the Wayland environment, but they are
 not production-enabled. The candidate unit is staged only so its configuration
 can be inspected and tested.
+
+### Software-renderer constraint
+
+Fedora 45's stock Weston runtime depends on `mesa-dri-drivers`; that package
+advertises `libX11-xcb`, `libxcb` and `libxshmfence` dependencies. The stock
+Mesa EGL package also depends on X11 client libraries. Those packages cannot
+enter a strict X11-free image. The candidate therefore disables Weston's GL
+renderer at build time (`-Drenderer-gl=false`) and selects Pixman explicitly
+with `--renderer=pixman`; DRM/KMS and kiosk-shell remain enabled. The GTK build
+disables its Vulkan renderer and the app selects the Cairo GSK renderer. This
+is a deliberate software-compositing trade-off: UI rendering consumes CPU and
+must be measured on the target hardware. The runtime dependency-closure audit
+must prove that no Mesa DRI/EGL package with X11 dependencies is pulled in.
+
+Fedora package metadata: [Weston 15.0.1-3.fc45](https://packages.fedoraproject.org/pkgs/weston/weston/fedora-45.html), [Mesa DRI drivers](https://packages.fedoraproject.org/pkgs/mesa/mesa-dri-drivers/fedora-45.html), [Mesa EGL](https://packages.fedoraproject.org/pkgs/mesa/mesa-libEGL/fedora-45.html).
 
 ## Fedora 45 source rebuilds
 
@@ -43,10 +58,10 @@ Cairo 1.18.6:
 
 Weston 15.0.1:
   -Dxwayland=false -Dbackend-x11=false
-  -Dbackend-drm=true -Dshell-kiosk=true -Dsystemd=true
+  -Dbackend-drm=true -Dshell-kiosk=true -Dsystemd=true -Drenderer-gl=false
 
 GTK 4.24.1:
-  -Dx11-backend=false -Dwayland-backend=true
+  -Dx11-backend=false -Dwayland-backend=true -Dvulkan=disabled
 
 libadwaita 1.10.0:
   Rebuild against the custom GTK4 and Cairo RPMs.
