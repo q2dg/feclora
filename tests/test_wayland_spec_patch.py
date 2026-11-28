@@ -70,11 +70,12 @@ Weston
 """
         patched = PATCHER.patch_spec_text("weston", source)
         build = patched.split("%install", 1)[0]
-        for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true", "-Dlauncher-libseat=true", "-Dsystemd=true"):
+        for flag in ("-Dxwayland=false", "-Dbackend-x11=false", "-Dbackend-drm=true", "-Dshell-kiosk=true", "-Dsystemd=true"):
             self.assertIn(flag, build)
         self.assertIn("Epoch:          1", patched)
         self.assertIn("Release:        99%{?dist}.feclora1", patched)
         self.assertIn("-Dremoting=false", build)
+        self.assertNotIn("-Dlauncher-libseat", build)
 
     def test_gtk_disables_gdk_x11_and_enables_wayland(self):
         source = """Name: gtk4

@@ -43,8 +43,7 @@ Cairo 1.18.6:
 
 Weston 15.0.1:
   -Dxwayland=false -Dbackend-x11=false
-  -Dbackend-drm=true -Dshell-kiosk=true
-  -Dlauncher-libseat=true -Dsystemd=true
+  -Dbackend-drm=true -Dshell-kiosk=true -Dsystemd=true
 
 GTK 4.24.1:
   -Dx11-backend=false -Dwayland-backend=true
@@ -135,6 +134,10 @@ assigns the reserved Feclora RPM epoch 1, and sets the custom release
 99.fc45.feclora1. Epoch 1 prevents any stock Fedora epoch-0 build, including
 a future higher upstream version, from superseding these packages. Release 99
 orders the custom rebuild above same-version Fedora builds.
+
+Weston 15.0.1 has no `launcher-libseat` Meson option. Its DRM backend
+unconditionally resolves the `libseat` dependency; the generated `weston-libs`
+RPM must therefore require `libseat.so.1`, which the RPM verifier checks.
 
 The build order is:
 1. Build Cairo 1.18.6 and locate its runtime and development subpackages.
