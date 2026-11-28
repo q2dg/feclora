@@ -185,6 +185,27 @@ else:
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_requires_weston_kiosk_shell_payload(self):
+        self.records["weston.rpm"]["files"] = ["/usr/bin/weston"]
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("kiosk-shell module", result.stderr)
+
+    def test_requires_weston_drm_backend_payload(self):
+        self.records["weston-libs.rpm"]["files"] = ["/usr/lib64/libweston-15/libweston-15.so.0"]
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("DRM/KMS backend module", result.stderr)
+
+    def test_requires_native_gdk_wayland_typelib(self):
+        self.records["gtk4.rpm"]["files"] = ["/usr/lib64/libgtk-4.so.1"]
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("GDK native Wayland introspection typelib", result.stderr)
+
     def test_rejects_xwayland_module(self):
         self.records["weston-libs.rpm"]["files"].append("/usr/lib64/libweston-15/xwayland.so")
         self._write_database()
