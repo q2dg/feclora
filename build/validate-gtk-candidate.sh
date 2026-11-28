@@ -6,12 +6,13 @@ KS="$ROOT_DIR/kickstart/feclora-live.ks"
 BASE="$ROOT_DIR/packages/base.txt"
 CANDIDATE="$ROOT_DIR/packages/wayland-candidate-runtime.txt"
 UNIT="$ROOT_DIR/src/feclora/data/feclora-gtk.service"
+PAM="$ROOT_DIR/src/feclora/data/feclora-wayland.pam"
 GUI="$ROOT_DIR/src/feclora/gui_gtk.py"
 PATCHER="$ROOT_DIR/build/patch-fedora-wayland-spec.py"
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-for file in "$KS" "$BASE" "$CANDIDATE" "$UNIT" "$GUI" "$PATCHER" "$ROOT_DIR/build/verify-wayland-rpms.sh"; do
+for file in "$KS" "$BASE" "$CANDIDATE" "$UNIT" "$PAM" "$GUI" "$PATCHER" "$ROOT_DIR/build/verify-wayland-rpms.sh"; do
   [[ -s "$file" ]] || fail "Required GTK candidate file is missing: $file"
 done
 
@@ -25,6 +26,11 @@ if grep -Fxq 'python3-gobject' "$BASE" || grep -Fxq 'python3-gobject' "$KS"; the
 fi
 grep -Fxq 'Environment=GDK_BACKEND=wayland' "$UNIT" || fail "GTK must force the native Wayland backend."
 grep -Fxq 'Environment=GSK_RENDERER=cairo' "$UNIT" || fail "GTK must use the Cairo renderer without GL/Vulkan runtime dependencies."
+grep -Fxq 'Environment=LIBSEAT_BACKEND=logind' "$UNIT" || fail "Weston must acquire the DRM seat through logind/libseat."
+grep -Fxq 'PAMName=feclora-wayland' "$UNIT" || fail "Weston must open a dedicated logind PAM session."
+grep -Fxq 'session    required     pam_systemd.so type=wayland' "$PAM" || fail "The kiosk PAM session must register a Wayland session with systemd-logind."
+grep -Fxq 'TTYPath=/dev/tty1' "$UNIT" || fail "Weston must own tty1."
+grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-wayland.pam" "$TARGET_ROOT/etc/pam.d/feclora-wayland"' "$KS" || fail "The dedicated Wayland PAM service must be installed into the target root."
 grep -Fq '"-Drenderer-gl=false"' "$PATCHER" || fail "Weston GL renderer must be disabled to avoid Mesa X11 dependencies."
 grep -Fq '"-Dxwayland=false"' "$PATCHER" || fail "Weston XWayland support must be disabled at build time."
 grep -Fq '"-Dbackend-x11=false"' "$PATCHER" || fail "Weston X11 backend must be disabled at build time."
@@ -44,6 +50,9 @@ if grep -q -- '--xwayland' "$UNIT"; then fail "Weston must not offer XWayland.";
 grep -Fq 'os.environ["GDK_BACKEND"] = "wayland"' "$GUI" || fail "GTK must force GDK Wayland."
 grep -Fq 'os.environ["GSK_RENDERER"] = "cairo"' "$GUI" || fail "GTK must force the Cairo GSK renderer."
 grep -Fq 'os.environ.pop("DISPLAY", None)' "$GUI" || fail "GTK must remove DISPLAY."
+grep -Fq 'os.environ.pop("XAUTHORITY", None)' "$GUI" || fail "GTK must remove XAUTHORITY."
+grep -Fq 'X11_SPEC_DEPENDENCY_TOKEN_RE' "$PATCHER" || fail "Fedora source specs must be stripped of X11-only RPM dependencies."
+grep -Fq 'X11_SPEC_FILE_RE' "$PATCHER" || fail "Fedora source specs must be stripped of X11-only packaged files."
 grep -Fq 'if not os.environ.get("WAYLAND_DISPLAY")' "$GUI" || fail "GTK must fail closed without WAYLAND_DISPLAY."
 # shellcheck disable=SC2016
 if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
