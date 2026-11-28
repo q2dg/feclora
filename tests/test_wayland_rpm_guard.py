@@ -427,6 +427,18 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Supply Weston, GTK4, libadwaita, Cairo", result.stderr)
 
+    def test_installed_root_requires_exact_custom_build_provenance(self):
+        source = VERIFIER.read_text(encoding="utf-8")
+        for package, version in (
+            ("weston", "15.0.1"),
+            ("gtk4", "4.24.1"),
+            ("libadwaita", "1.10.0"),
+            ("cairo", "1.18.6"),
+        ):
+            with self.subTest(package=package):
+                self.assertIn(f"check_installed_custom {package} {version}", source)
+        self.assertIn('[[ "$python_release" == *".fc45"* ]]', source)
+
 
     def test_rejects_xext_and_xrender_pkgconfig_requirements(self):
         self.records["cairo-devel.rpm"]["requires"].extend(["pkgconfig(xext)", "pkgconfig(xrender)"])
