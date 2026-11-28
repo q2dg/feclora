@@ -20,9 +20,11 @@ if grep -q -- '--xwayland' "$UNIT"; then fail "Weston must not offer XWayland.";
 grep -Fq 'os.environ["GDK_BACKEND"] = "wayland"' "$GUI" || fail "GTK must force GDK Wayland."
 grep -Fq 'os.environ.pop("DISPLAY", None)' "$GUI" || fail "GTK must remove DISPLAY."
 grep -Fq 'if not os.environ.get("WAYLAND_DISPLAY")' "$GUI" || fail "GTK must fail closed without WAYLAND_DISPLAY."
-if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
+if # shellcheck disable=SC2016 -- match literal source text, not an expansion
+grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
   fail "The GTK candidate is not eligible for production activation yet."
 fi
+# shellcheck disable=SC2016 -- match literal source text, not an expansion
 grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-gtk.service"' "$KS" || fail "GTK candidate unit must remain staged for testing."
 
 printf 'GTK candidate is Wayland-only by configuration and is not enabled in production.\n'
