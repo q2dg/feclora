@@ -34,6 +34,12 @@ class WaylandRPMBuilderTests(unittest.TestCase):
         self.assertLess(install, weston)
         self.assertLess(weston, gtk)
 
+    def test_preserving_builds_disable_both_prebuild_and_postbuild_cleanup(self):
+        source = BUILDER.read_text(encoding="utf-8")
+        function = source[source.index("build_mock_package_preserving_root()"):source.index("find_binary_rpm()")]
+        self.assertIn("--no-clean", function)
+        self.assertIn("--no-cleanup-after", function)
+
     def test_custom_gtk_is_installed_before_libadwaita_rebuild(self):
         source = BUILDER.read_text(encoding="utf-8")
         install = source.index('mock -r "$MOCK_CONFIG" --install "$gtk4_runtime" "$gtk4_devel"')
