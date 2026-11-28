@@ -1511,12 +1511,37 @@ class GTKFrontendStructureTests(unittest.TestCase):
         start = self.source.index("    def _show_recovery_jobs_page")
         end = self.source.index("    def _refresh_recovery_jobs", start)
         page = self.source[start:end]
-        self.assertEqual(page.count("Adw.PreferencesGroup("), 2)
+        self.assertEqual(page.count("Adw.PreferencesGroup("), 3)
         self.assertIn('title="Estado de recuperación"', page)
         self.assertIn('title="Trabajos ddrescue"', page)
+        self.assertIn('title="Errores de inspección"', page)
         self.assertIn('title="Sin trabajos de recuperación"', page)
         self.assertIn("row.set_activatable_widget(refresh)", page)
         self.assertIn("self._refresh_recovery_jobs(None)", page)
+
+    def test_history_recovery_and_client_views_surface_inspection_errors(self):
+        identifiers = ast.get_source_segment(self.source, self.methods["_inspection_error_identifiers"])
+        warning = ast.get_source_segment(self.source, self.methods["_set_inspection_warning"])
+        history = ast.get_source_segment(self.source, self.methods["_show_history_rows"])
+        recovery = ast.get_source_segment(self.source, self.methods["_show_recovery_jobs"])
+        client = ast.get_source_segment(self.source, self.methods["_show_client_job_rows"])
+        self.assertIn('response.get("inspection_errors")', identifiers)
+        self.assertIn("No reanudes ni repitas", warning)
+        self.assertIn("self.history_inspection_group.set_visible(bool(inspection_errors))", history)
+        self.assertIn("self.recovery_jobs_inspection_group.set_visible(bool(inspection_errors))", recovery)
+        self.assertIn("self.client_history_inspection_row.set_visible(bool(inspection_errors))", client)
+
+    def test_client_inventory_summary_does_not_overwrite_job_history_status(self):
+        page = self.source[
+            self.source.index("    def _show_client_jobs_page"):
+            self.source.index("    def _refresh_client_job_history")
+        ]
+        inventory = ast.get_source_segment(self.source, self.methods["_update_client_inventory_summary"])
+        history = ast.get_source_segment(self.source, self.methods["_show_client_job_rows"])
+        self.assertIn("self.client_inventory_summary", page)
+        self.assertIn("self.client_inventory_summary.set_text", inventory)
+        self.assertNotIn("self.history_summary.set_text", inventory)
+        self.assertIn("self.history_summary.set_text", history)
 
     def test_raw_disk_capture_preserves_exclusive_age_encryption_modes(self):
         page = self.source[self.source.index('elif page_id == "operations":'):self.source.index('        else:\n            self.page_description.set_text("Esta pantalla aún no se ha migrado', self.source.index('elif page_id == "operations":'))]
