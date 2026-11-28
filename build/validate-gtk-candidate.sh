@@ -18,6 +18,9 @@ done
 
 grep -Fxq 'python3-gobject' "$CANDIDATE" || fail "GTK candidate must use Fedora's system PyGObject package."
 grep -Fxq 'python3-cairo' "$CANDIDATE" || fail "GTK candidate must use Fedora's system Cairo bindings."
+for forbidden in -xorg-x11-server-Xorg -xorg-x11-server-Xwayland -openbox; do
+  grep -Fxq "$forbidden" "$KS" || fail "Kickstart must explicitly exclude $forbidden."
+done
 for package in cairo cairo-gobject weston weston-libs gtk4 libadwaita; do
   grep -Fxq "$package" "$CANDIDATE" || fail "GTK candidate manifest is missing custom RPM package $package."
 done
