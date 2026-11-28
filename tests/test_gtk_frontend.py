@@ -76,15 +76,18 @@ class GTKFrontendStructureTests(unittest.TestCase):
 
     def test_frontend_fails_closed_to_native_wayland(self):
         self.assertIn('os.environ["GDK_BACKEND"] = "wayland"', self.source)
+        self.assertIn('os.environ["GSK_RENDERER"] = "cairo"', self.source)
         self.assertIn('os.environ.pop("DISPLAY", None)', self.source)
         self.assertIn('if not os.environ.get("WAYLAND_DISPLAY")', self.source)
 
     def test_wayland_environment_is_set_and_required_before_gtk_import(self):
         gtk_import = self.source.index("import gi")
         backend = self.source.index('os.environ["GDK_BACKEND"] = "wayland"')
+        renderer = self.source.index('os.environ["GSK_RENDERER"] = "cairo"')
         display_cleanup = self.source.index('os.environ.pop("DISPLAY", None)')
         display_guard = self.source.index('if not os.environ.get("WAYLAND_DISPLAY"):')
         self.assertLess(backend, gtk_import)
+        self.assertLess(renderer, gtk_import)
         self.assertLess(display_cleanup, gtk_import)
         self.assertLess(display_guard, gtk_import)
         self.assertIn("raise RuntimeError(", self.source[display_guard:gtk_import])
