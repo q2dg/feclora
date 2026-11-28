@@ -19,10 +19,12 @@ EXPECTED = {
         "-Dbackend-drm=true",
         "-Dshell-kiosk=true",
         "-Dsystemd=true",
+        "-Drenderer-gl=false",
     )),
     "gtk4": ("4.24.1", (
         "-Dx11-backend=false",
         "-Dwayland-backend=true",
+        "-Dvulkan=disabled",
     )),
     "libadwaita": ("1.10.0", ()),
 }
