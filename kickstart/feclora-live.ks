@@ -75,6 +75,7 @@ syslinux
 # Do not install X servers; the staged GTK candidate will use native Wayland only.
 -xorg-x11-server-Xorg
 -xorg-x11-server-Xwayland
+-openbox
 
 # Exclude splash packages that may otherwise be selected by @core.
 -plymouth
