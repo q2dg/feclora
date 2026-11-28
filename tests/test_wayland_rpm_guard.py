@@ -440,6 +440,29 @@ else:
         self.assertIn('[[ "$python_release" == *".fc45"* ]]', source)
 
 
+    def test_rejects_xcursor_and_xinerama_pkgconfig_dependencies(self):
+        self.records["gtk4-devel.rpm"]["requires"].extend([
+            "pkgconfig(xcursor)", "pkgconfig(xinerama)",
+        ])
+        self._write_database()
+        result = self._run(self.rpm_paths)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("X11 requirement", result.stderr)
+
+    def test_rejects_x11_static_library_payload(self):
+        self.records["gtk4-devel.rpm"]["files"].append("/usr/lib64/libXcursor.a")
+        self._write_database()
+        result = self._run(self.rpm_paths)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("forbidden X11 backend", result.stderr)
+
+    def test_rejects_xcb_static_library_payload(self):
+        self.records["weston-libs.rpm"]["files"].append("/usr/lib64/libxcb-util.a")
+        self._write_database()
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("forbidden X11 backend", result.stderr)
+
     def test_rejects_xext_and_xrender_pkgconfig_requirements(self):
         self.records["cairo-devel.rpm"]["requires"].extend(["pkgconfig(xext)", "pkgconfig(xrender)"])
         self._write_database()
