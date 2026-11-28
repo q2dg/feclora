@@ -608,6 +608,32 @@ class FecloraGTK:
         else:
             self.page_description.set_text("Esta pantalla aún no se ha migrado. Sus operaciones permanecen disponibles en la interfaz de producción.")
 
+    @staticmethod
+    def _inspection_error_identifiers(response: dict[str, Any]) -> list[str]:
+        errors = response.get("inspection_errors") or []
+        if not isinstance(errors, list):
+            return []
+        identifiers = []
+        for item in errors:
+            if isinstance(item, dict):
+                identifier = item.get("operation_id") or item.get("job_id") or item.get("path")
+                identifiers.append(str(identifier or "Registro desconocido"))
+            else:
+                identifiers.append("Registro desconocido")
+        return identifiers
+
+    @staticmethod
+    def _set_inspection_warning(label: Gtk.Label, identifiers: list[str]) -> None:
+        if identifiers:
+            label.set_text(
+                "ATENCIÓN: " + str(len(identifiers)) + " registro(s) requieren inspección manual: "
+                + ", ".join(identifiers[:10])
+                + (f" y {len(identifiers) - 10} más" if len(identifiers) > 10 else "")
+                + ". No reanudes ni repitas las operaciones afectadas hasta completar la inspección."
+            )
+        else:
+            label.set_text("")
+
     def _history_page(self, title: str, columns: tuple[str, ...], action: str, key: str, renderer: Any) -> None:
         self._history_page_generation = self._page_generation
         self.page_description.set_text(title)
@@ -623,6 +649,18 @@ class FecloraGTK:
         refresh_row.add_suffix(refresh)
         refresh_row.set_activatable_widget(refresh)
         history_group.add(refresh_row)
+        self.history_inspection_group = Adw.PreferencesGroup(
+            title="Errores de inspección",
+            description="Los registros afectados no deben reanudarse ni repetirse hasta una inspección manual.",
+        )
+        self.history_inspection_summary = Gtk.Label(label="", xalign=0)
+        self.history_inspection_summary.set_wrap(True)
+        self.history_inspection_summary.set_selectable(True)
+        inspection_row = Adw.ActionRow(title="Registros afectados")
+        inspection_row.add_suffix(self.history_inspection_summary)
+        self.history_inspection_group.add(inspection_row)
+        self.history_inspection_group.set_visible(False)
+        self.page_body.append(self.history_inspection_group)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.history_grid = Gtk.Grid(column_spacing=14, row_spacing=8)
@@ -659,7 +697,13 @@ class FecloraGTK:
                 label.set_selectable(True)
                 label.set_wrap(True)
                 grid.attach(label, column, row, 1, 1)
-        self.history_summary.set_text(f"Registros: {len(rows)}")
+        inspection_errors = self._inspection_error_identifiers(response)
+        self._set_inspection_warning(self.history_inspection_summary, inspection_errors)
+        self.history_inspection_group.set_visible(bool(inspection_errors))
+        self.history_summary.set_text(
+            f"Registros legibles: {len(rows)} · errores de inspección: {len(inspection_errors)}"
+            if inspection_errors else f"Registros: {len(rows)}"
+        )
 
     def _history_failed(self, error: Exception) -> None:
         self.history_summary.set_text("No se pudieron consultar los registros: " + str(error))
@@ -2541,6 +2585,13 @@ class FecloraGTK:
         client_summary_row = Adw.ActionRow(title="Estado")
         client_summary_row.add_suffix(self.history_summary)
         client_history_group.add(client_summary_row)
+        self.client_history_inspection_summary = Gtk.Label(label="", xalign=0)
+        self.client_history_inspection_summary.set_wrap(True)
+        self.client_history_inspection_summary.set_selectable(True)
+        self.client_history_inspection_row = Adw.ActionRow(title="Errores de inspección")
+        self.client_history_inspection_row.add_suffix(self.client_history_inspection_summary)
+        self.client_history_inspection_row.set_visible(False)
+        client_history_group.add(self.client_history_inspection_row)
         refresh = Gtk.Button(label="Actualizar historial de clientes")
         refresh.connect("clicked", self._refresh_client_job_history)
         client_refresh_row = Adw.ActionRow(title="Actualizar")
@@ -2586,6 +2637,11 @@ class FecloraGTK:
 
         target_group = Adw.PreferencesGroup(title="Destino local")
         self.page_body.append(target_group)
+        self.client_inventory_summary = Gtk.Label(label="Consultando inventario local…", xalign=0)
+        self.client_inventory_summary.set_wrap(True)
+        inventory_summary_row = Adw.ActionRow(title="Inventario elegible")
+        inventory_summary_row.add_suffix(self.client_inventory_summary)
+        target_group.add(inventory_summary_row)
         self.client_target = Gtk.DropDown.new_from_strings(["Inspecciona primero el trabajo remoto…"])
         self.client_target.connect("notify::selected", self._update_client_confirmation)
         target_row = Adw.ActionRow(title="Dispositivo o volumen de destino")
@@ -2752,8 +2808,8 @@ class FecloraGTK:
         self._update_client_inventory_summary()
 
     def _update_client_inventory_summary(self) -> None:
-        if hasattr(self, "history_summary"):
-            self.history_summary.set_text(
+        if hasattr(self, "client_inventory_summary"):
+            self.client_inventory_summary.set_text(
                 f"Dispositivos locales: {len(getattr(self, '_client_inventory_devices', []))} · "
                 f"volúmenes LVM elegibles: {len(getattr(self, '_client_logical_volumes', []))} · "
                 f"interfaces activas: {len(getattr(self, '_client_network_interfaces', []))}"
@@ -2994,7 +3050,13 @@ class FecloraGTK:
                     label.set_selectable(True)
                     grid.attach(label, column, count + 1, 1, 1)
                 count += 1
-        self.history_summary.set_text(f"Clientes registrados: {count}")
+        inspection_errors = self._inspection_error_identifiers(response)
+        self._set_inspection_warning(self.client_history_inspection_summary, inspection_errors)
+        self.client_history_inspection_row.set_visible(bool(inspection_errors))
+        self.history_summary.set_text(
+            f"Clientes registrados: {count} · errores de inspección: {len(inspection_errors)}"
+            if inspection_errors else f"Clientes registrados: {count}"
+        )
 
     def _show_operation_log_page(self) -> None:
         self._operation_log_page_generation = self._page_generation
@@ -3263,6 +3325,18 @@ class FecloraGTK:
             description="Progreso, bytes pendientes y resultados parciales de recuperación",
         )
         self.page_body.append(history_group)
+        self.recovery_jobs_inspection_group = Adw.PreferencesGroup(
+            title="Errores de inspección",
+            description="No reanudes ni repitas los trabajos afectados hasta una inspección manual.",
+        )
+        self.recovery_jobs_inspection_summary = Gtk.Label(label="", xalign=0)
+        self.recovery_jobs_inspection_summary.set_wrap(True)
+        self.recovery_jobs_inspection_summary.set_selectable(True)
+        inspection_row = Adw.ActionRow(title="Registros afectados")
+        inspection_row.add_suffix(self.recovery_jobs_inspection_summary)
+        self.recovery_jobs_inspection_group.add(inspection_row)
+        self.recovery_jobs_inspection_group.set_visible(False)
+        self.page_body.append(self.recovery_jobs_inspection_group)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         self.recovery_jobs_stack = Gtk.Stack()
@@ -3316,7 +3390,14 @@ class FecloraGTK:
         self.recovery_jobs_empty.set_title("Sin trabajos de recuperación")
         self.recovery_jobs_empty.set_description("Los trabajos ddrescue persistentes aparecerán aquí.")
         self.recovery_jobs_stack.set_visible_child_name("jobs" if jobs else "empty")
-        self.recovery_jobs_summary.set_text(f"Trabajos de recuperación: {len(jobs)} · los trabajos interrumpidos conservan su mapfile para reanudación")
+        inspection_errors = self._inspection_error_identifiers(response)
+        self._set_inspection_warning(self.recovery_jobs_inspection_summary, inspection_errors)
+        self.recovery_jobs_inspection_group.set_visible(bool(inspection_errors))
+        self.recovery_jobs_summary.set_text(
+            f"Trabajos de recuperación: {len(jobs)} · errores de inspección: {len(inspection_errors)}"
+            if inspection_errors else
+            f"Trabajos de recuperación: {len(jobs)} · los trabajos interrumpidos conservan su mapfile para reanudación"
+        )
 
     def _recovery_jobs_failed(self, error: Exception) -> None:
         self.recovery_jobs_stack.set_visible_child_name("empty")
