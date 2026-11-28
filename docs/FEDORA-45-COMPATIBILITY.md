@@ -23,7 +23,7 @@ baselines are:
 
 | Package | Fedora 45 source baseline | Required Feclora build |
 | --- | --- | --- |
-| Weston / weston-libs | 15.0.1 | `-Dxwayland=false -Dbackend-x11=false -Drenderer-gl=false`; retain DRM and kiosk-shell, run `--renderer=pixman` |
+| Weston / weston-libs | 15.0.1 | `-Dxwayland=false -Dbackend-x11=false -Drenderer-gl=false -Drenderer-vulkan=false`; retain DRM and kiosk-shell, run `--renderer=pixman` |
 | GTK4 | 4.24.1 | `-Dx11-backend=false -Dwayland-backend=true -Dvulkan=disabled`; run with `GSK_RENDERER=cairo` |
 | libadwaita | 1.10.0 | Rebuild against the custom GTK4 package |
 | PyGObject | Fedora 45 system package | Keep `python3-gobject` and `python3-cairo` in the staged candidate manifest; do not pip-install bindings |
