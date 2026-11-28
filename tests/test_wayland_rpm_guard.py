@@ -353,6 +353,13 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Forbidden X11 package", result.stderr)
 
+    def test_rejects_cairo_xlib_subpackage(self):
+        self.records["cairo-devel.rpm"]["name"] = "cairo-xlib"
+        self._write_database()
+        result = self._run(self.rpm_paths)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Forbidden X11 package", result.stderr)
+
     def test_rejects_weston_without_libseat_launcher_dependency(self):
         self.records["weston-libs.rpm"]["requires"] = [
             item for item in self.records["weston-libs.rpm"]["requires"]
