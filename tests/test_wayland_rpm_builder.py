@@ -46,6 +46,17 @@ class WaylandRPMBuilderTests(unittest.TestCase):
         self.assertIn('"$OUTPUT_DIR/build-deps/"', source)
         self.assertIn("do not add these to the Live image", source)
 
+    def test_runtime_closure_is_resolved_and_audited_before_output_copy(self):
+        source = BUILDER.read_text(encoding="utf-8")
+        self.assertIn("RUNTIME_MOCK_CONFIG=", source)
+        self.assertIn("config_opts['chroot_setup_cmd'] = 'install bash coreutils rpm dnf5'", source)
+        self.assertIn('"\${runtime_rpms[@]}" python3-gobject python3-cairo', source)
+        self.assertIn('--installed-root "$runtime_root"', source)
+        self.assertIn('rpm --root "$runtime_root" -qa', source)
+        self.assertIn('"$WORK_DIR/runtime-closure.txt" "$OUTPUT_DIR/"', source)
+        self.assertLess(source.index('--installed-root "$runtime_root"'),
+                        source.index('mkdir -p "$OUTPUT_DIR/build-deps"'))
+
     def test_audits_all_generated_binary_rpms_before_copying_runtime_subset(self):
         source = BUILDER.read_text(encoding="utf-8")
         self.assertIn("find \"$RESULTS\" -mindepth 2 -maxdepth 2 -type f -name '*.rpm' ! -name '*.src.rpm'", source)
