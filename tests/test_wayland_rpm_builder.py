@@ -50,7 +50,7 @@ class WaylandRPMBuilderTests(unittest.TestCase):
         source = BUILDER.read_text(encoding="utf-8")
         self.assertIn("RUNTIME_MOCK_CONFIG=", source)
         self.assertIn("config_opts['chroot_setup_cmd'] = 'install bash coreutils rpm dnf5'", source)
-        self.assertIn('"\${runtime_rpms[@]}" python3-gobject python3-cairo', source)
+        self.assertIn('"${runtime_rpms[@]}" python3-gobject python3-cairo', source)
         self.assertIn('--installed-root "$runtime_root"', source)
         self.assertIn('rpm --root "$runtime_root" -qa', source)
         self.assertIn('"$WORK_DIR/runtime-closure.txt" "$OUTPUT_DIR/"', source)
