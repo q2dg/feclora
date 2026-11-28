@@ -23,13 +23,13 @@ for file in "$KS" "$BASE"; do
   fi
 done
 
-# shellcheck disable=SC2016 -- match literal source text, not an expansion
+# shellcheck disable=SC2016
 grep -Fq 'install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui.service" "$TARGET_ROOT/etc/systemd/system/feclora-tui.service"' "$KS" || fail "Kickstart must install the Textual tty1 unit."
-# shellcheck disable=SC2016 -- match literal source text, not an expansion
+# shellcheck disable=SC2016
 grep -Fq 'install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-tui-ready" "$TARGET_ROOT/usr/libexec/feclora/feclora-tui-ready"' "$KS" || fail "Kickstart must install the Textual readiness helper."
-# shellcheck disable=SC2016 -- match literal source text, not an expansion
+# shellcheck disable=SC2016
 grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-tui.service feclora-root-terminal.service' "$KS" || fail "Textual and tty2 maintenance must be enabled."
-# shellcheck disable=SC2016 -- match literal source text, not an expansion
+# shellcheck disable=SC2016
 if grep -Fq 'systemctl --root="$TARGET_ROOT" enable feclora-gtk.service' "$KS"; then
   fail "GTK must not become production before package, parity and BIOS/UEFI acceptance."
 fi
@@ -44,7 +44,7 @@ grep -Fxq 'Conflicts=getty@tty2.service kmsconvt@tty2.service' "$TERMINAL" || fa
 
 grep -Fq 'mask kmsconvt@tty1.service kmsconvt@tty2.service kmsconvt@tty3.service kmsconvt@tty4.service kmsconvt@tty5.service kmsconvt@tty6.service' "$KS" || fail "KMSCON must not own appliance VTs."
 grep -Fq 'mask getty@tty1.service getty@tty2.service' "$KS" || fail "Getty must not compete for tty1 or tty2."
-# shellcheck disable=SC2016 -- match literal source text, not an expansion
+# shellcheck disable=SC2016
 grep -Fq 'systemctl --root="$TARGET_ROOT" set-default multi-user.target' "$KS" || fail "The appliance must use the minimal multi-user target."
 grep -Fq 'console=tty0 rd.systemd.show_status=1 systemd.show_status=1' "$BUILD" || fail "Kernel and systemd boot messages must remain visible."
 
